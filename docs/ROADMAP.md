@@ -63,13 +63,19 @@ Phase 2B still does not create findings, review queue records, maps, reports, ra
 
 ## Phase 3: Workspace Context and Source Status Model
 
-Status: next major implementation phase.
+Status: initial baseline complete.
 
 - Create a persistent project context artifact derived from project inputs, geometry summaries, assumptions, report profile, source inventory, and reviewer instructions.
 - Define the source status set for required report categories.
 - Compare needed sources against locally provided, downloadable, downloaded, gated, stubbed, missing, optional, and needs-review sources.
 - Generate placeholders and uncertainty flags for missing/gated data instead of failing the workflow.
 - Keep buffer/corridor assumptions configurable and visible.
+
+Current baseline:
+
+- `review-assist generate-context <project_dir>`
+- `review-assist resolve-sources <project_dir>`
+- JSON artifacts under project `context/` and `source_status/` directories.
 
 ## Phase 4: Review Queue Domain Model
 

@@ -1,0 +1,51 @@
+{
+  "profile_version": "0.1",
+  "project_type_defaults": {
+    "alternatives_review": "environmental_constraints_basic",
+    "location_review": "location_screening_basic"
+  },
+  "profiles": [
+    {
+      "profile_id": "environmental_constraints_basic",
+      "name": "Environmental Constraints Basic",
+      "description": "Baseline environmental/contextual constraints profile for alternatives review packages.",
+      "required_categories": [
+        "wetlands_waterbodies",
+        "hydrography_crossings",
+        "land_cover_disturbance",
+        "soils",
+        "species_habitat",
+        "cultural_historic",
+        "regulated_facilities",
+        "community_socioeconomic",
+        "transportation_utilities",
+        "parcels_property",
+        "imagery_basemaps"
+      ],
+      "optional_categories": [
+        "flood_hazard"
+      ]
+    },
+    {
+      "profile_id": "location_screening_basic",
+      "name": "Location Screening Basic",
+      "description": "Baseline screening profile for point-heavy or site/location review workspaces.",
+      "required_categories": [
+        "wetlands_waterbodies",
+        "hydrography_crossings",
+        "regulated_facilities",
+        "transportation_utilities"
+      ],
+      "optional_categories": [
+        "land_cover_disturbance",
+        "soils",
+        "species_habitat",
+        "cultural_historic",
+        "community_socioeconomic",
+        "parcels_property",
+        "imagery_basemaps",
+        "flood_hazard"
+      ]
+    }
+  ]
+}

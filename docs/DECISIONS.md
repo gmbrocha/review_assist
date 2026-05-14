@@ -96,6 +96,14 @@ The future desktop workflow should expose a `Populate for Review` action that lo
 
 Export packages should compile accepted or explicitly included reviewed items. Rejected items remain in the review record but are not exported. Items needing verification or unable to verify may export only with explicit reviewer inclusion and caveat language.
 
+### 2026-05-14: Workflow artifacts use JSON for the current baseline
+
+Project context and source status set artifacts are stored as project-local JSON files. This keeps the workflow state inspectable while the review queue and desktop GUI requirements are still being clarified.
+
+### 2026-05-14: Existing CLI commands remain backward-compatible
+
+The workflow model is added through new commands rather than renaming existing inspection and analysis commands. Current commands remain stable while `generate-context` and `resolve-sources` introduce workflow-native artifacts.
+
 ## Future Decision Template
 
 ### YYYY-MM-DD: Decision title

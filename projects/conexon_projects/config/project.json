@@ -3,6 +3,7 @@
   "name": "Conexon Broadband Installation Spots",
   "description": "Broadband installation spot example project for KMZ/KML ingestion and local source-context checks.",
   "project_type": "location_review",
+  "report_profile": "location_screening_basic",
   "inputs": [
     {
       "path": "inputs/conexon_projects_color_coded.kmz",

@@ -42,6 +42,7 @@ class ProjectManifest:
     inputs: list[ProjectInput]
     assumptions: dict[str, Any] = field(default_factory=dict)
     special_reviewer_instructions: str = ""
+    report_profile: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ProjectManifest":
@@ -71,6 +72,7 @@ class ProjectManifest:
             inputs=[ProjectInput.from_dict(item) for item in raw_inputs],
             assumptions=dict(raw_assumptions),
             special_reviewer_instructions=str(data.get("special_reviewer_instructions", "")),
+            report_profile=_optional_string(data.get("report_profile"), "report_profile"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -82,6 +84,7 @@ class ProjectManifest:
             "inputs": [vars(item) for item in self.inputs],
             "assumptions": self.assumptions,
             "special_reviewer_instructions": self.special_reviewer_instructions,
+            "report_profile": self.report_profile,
         }
 
 
@@ -103,3 +106,11 @@ def save_project_manifest(project_dir: Path, manifest: ProjectManifest) -> Path:
     manifest_file.parent.mkdir(parents=True, exist_ok=True)
     manifest_file.write_text(json.dumps(manifest.to_dict(), indent=2) + "\n", encoding="utf-8")
     return manifest_file
+
+
+def _optional_string(value: Any, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ProjectManifestError(f"Project manifest '{field_name}' must be a non-empty string when present.")
+    return value

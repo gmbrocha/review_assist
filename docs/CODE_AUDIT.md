@@ -41,6 +41,7 @@ This document records the latest implementation audit for the current prototype 
 
 - Local source layers are supported; live public downloads are not implemented.
 - Spatial analysis produces relationship records only. It does not produce findings, review queue records, maps, reports, recommendations, or final conclusions.
+- Project context and source status services produce workflow state only. They do not create findings or review queue records yet.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.

@@ -1,0 +1,232 @@
+from __future__ import annotations
+
+import json
+import zipfile
+from pathlib import Path
+
+import geopandas as gpd
+import pytest
+from shapely.geometry import Point
+
+from review_assist.cli import main
+from review_assist.project_context import ProjectContextError, generate_project_context
+from review_assist.projects import load_project_manifest
+from review_assist.report_profiles import ReportProfileError, load_report_profile_config, resolve_report_profile
+from review_assist.source_status import _category_status, resolve_source_status_set
+
+
+def kml_document(body: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    {body}
+  </Document>
+</kml>
+""".encode("utf-8")
+
+
+def kmz_bytes(kml: bytes) -> bytes:
+    import io
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("doc.kml", kml)
+    return buffer.getvalue()
+
+
+def write_project(tmp_path: Path, *, project_type: str = "alternatives_review", report_profile: str | None = None) -> Path:
+    project_dir = tmp_path / "project"
+    (project_dir / "config").mkdir(parents=True)
+    (project_dir / "inputs").mkdir()
+    kml = kml_document(
+        """
+        <Placemark><LineString><coordinates>-90.0000,32.0000,0 -89.9900,32.0000,0</coordinates></LineString></Placemark>
+        """
+    )
+    (project_dir / "inputs" / "routes.kmz").write_bytes(kmz_bytes(kml))
+    manifest = {
+        "project_id": "test_project",
+        "name": "Test Project",
+        "description": "Synthetic project",
+        "project_type": project_type,
+        "inputs": [
+            {
+                "path": "inputs/routes.kmz",
+                "role": "alternatives",
+                "description": "Synthetic route input",
+            }
+        ],
+        "assumptions": {
+            "default_buffer_feet": 100,
+            "input_crs": "EPSG:4326",
+        },
+        "special_reviewer_instructions": "Synthetic reviewer instruction.",
+    }
+    if report_profile is not None:
+        manifest["report_profile"] = report_profile
+    (project_dir / "config" / "project.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return project_dir
+
+
+def write_registry(project_dir: Path, source_id: str, source_path: str | None, *, enabled: bool = True) -> None:
+    (project_dir / "config" / "sources.json").write_text(
+        json.dumps(
+            {
+                "project_id": "test_project",
+                "sources": [
+                    {
+                        "source_id": source_id,
+                        "enabled": enabled,
+                        "access_method": "local_file",
+                        "path": source_path,
+                        "role": "context",
+                        "buffer_feet": None,
+                        "notes": "",
+                        "status": "test",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def write_layer(path: Path) -> Path:
+    gdf = gpd.GeoDataFrame([{"name": "Source Feature"}], geometry=[Point(-89.995, 32.0)], crs="EPSG:4326")
+    path.write_text(gdf.to_json(drop_id=True), encoding="utf-8")
+    return path
+
+
+def test_generate_project_context_writes_workflow_artifact(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    context = generate_project_context(project_dir)
+
+    context_path = project_dir / "context" / "project_context.json"
+    assert context_path.exists()
+    assert context["project_id"] == "test_project"
+    assert context["report_profile"]["profile_id"] == "environmental_constraints_basic"
+    assert context["project_extent_wgs84"]["west"] == pytest.approx(-90.0)
+    assert context["detected_inputs"][0]["geometry_type_counts"] == {"LineString": 1}
+    assert context["input_roles"] == ["alternatives"]
+    assert context["assumptions"]["default_buffer_feet"] == 100
+    assert context["validation_issues"][0]["code"] == "blank_placemark_name"
+
+
+def test_generate_project_context_errors_for_missing_manifest(tmp_path: Path) -> None:
+    with pytest.raises(ProjectContextError, match="Missing project manifest"):
+        generate_project_context(tmp_path / "missing")
+
+
+def test_report_profiles_load_and_resolve_defaults(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path, project_type="location_review")
+    config = load_report_profile_config()
+    profile = resolve_report_profile(load_project_manifest(project_dir), config)
+
+    assert "environmental_constraints_basic" in config.profiles
+    assert profile.profile_id == "location_screening_basic"
+
+
+def test_report_profile_config_rejects_invalid_profiles(tmp_path: Path) -> None:
+    profile_path = tmp_path / "report_profiles.json"
+    profile_path.write_text('{"profiles": {}}', encoding="utf-8")
+
+    with pytest.raises(ReportProfileError, match="requires a non-empty list"):
+        load_report_profile_config(profile_path)
+
+
+def test_report_profile_resolution_errors_for_unknown_project_type(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path, project_type="unknown_review")
+
+    with pytest.raises(ReportProfileError, match="No report profile configured"):
+        resolve_report_profile(load_project_manifest(project_dir))
+
+
+def test_source_status_marks_local_registered_source_provided(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    layer_path = write_layer(project_dir / "wetlands.geojson")
+    write_registry(project_dir, "usfws_nwi_wetlands", "wetlands.geojson")
+
+    status_set = resolve_source_status_set(project_dir)
+
+    wetlands = next(item for item in status_set["statuses"] if item["category"] == "wetlands_waterbodies")
+    assert wetlands["status"] == "provided_locally"
+    assert str(layer_path) in wetlands["local_paths"]
+
+
+def test_source_status_marks_public_candidate_downloadable(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    status_set = resolve_source_status_set(project_dir)
+
+    wetlands = next(item for item in status_set["statuses"] if item["category"] == "wetlands_waterbodies")
+    assert wetlands["status"] == "downloadable"
+    assert "source_not_downloaded" in wetlands["uncertainty_flags"]
+
+
+def test_source_status_marks_restricted_manual_category_gated(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    status_set = resolve_source_status_set(project_dir)
+
+    cultural = next(item for item in status_set["statuses"] if item["category"] == "cultural_historic")
+    assert cultural["status"] == "gated"
+    assert "restricted_source_required" in cultural["uncertainty_flags"]
+
+
+def test_source_status_marks_missing_required_category_nonfatal() -> None:
+    result = _category_status(
+        project_dir=Path("."),
+        category="not_in_catalog",
+        requirement="required",
+        catalog_sources=[],
+        project_sources={},
+    )
+
+    assert result["status"] == "missing"
+    assert "source_unavailable" in result["uncertainty_flags"]
+
+
+def test_source_status_marks_optional_category_nonblocking(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    status_set = resolve_source_status_set(project_dir)
+
+    flood = next(item for item in status_set["statuses"] if item["category"] == "flood_hazard")
+    assert flood["status"] == "optional"
+    assert flood["requirement"] == "optional"
+
+
+def test_source_status_marks_missing_local_source_needs_review(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_registry(project_dir, "usfws_nwi_wetlands", "missing.geojson")
+
+    status_set = resolve_source_status_set(project_dir)
+
+    wetlands = next(item for item in status_set["statuses"] if item["category"] == "wetlands_waterbodies")
+    assert wetlands["status"] == "needs_review"
+    assert "local_source_missing" in wetlands["uncertainty_flags"]
+
+
+def test_cli_workflow_artifact_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project_dir = write_project(tmp_path)
+
+    assert main(["generate-context", str(project_dir)]) == 0
+    assert main(["resolve-sources", str(project_dir)]) == 0
+
+    captured = capsys.readouterr()
+    assert "Generated context" in captured.out
+    assert "Resolved sources" in captured.out
+    assert (project_dir / "context" / "project_context.json").exists()
+    assert (project_dir / "source_status" / "source_status_set.json").exists()
+
+
+def test_cli_workflow_artifact_command_json_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project_dir = write_project(tmp_path)
+
+    assert main(["generate-context", str(project_dir), "--json"]) == 0
+
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["project_id"] == "test_project"

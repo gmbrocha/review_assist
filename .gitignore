@@ -25,6 +25,8 @@ env/
 outputs/*
 !outputs/.gitkeep
 projects/*/intermediate/
+projects/*/context/
+projects/*/source_status/
 projects/*/maps/
 projects/*/tables/
 projects/*/drafts/

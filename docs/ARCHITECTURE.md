@@ -33,7 +33,7 @@ Conceptual state objects:
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, source catalog entries, project source registries, normalized GeoJSON intermediates, and spatial relationship records. Project context artifacts, source status sets, review queue persistence, and export manifests remain future work.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, normalized GeoJSON intermediates, and spatial relationship records. Review queue persistence and export manifests remain future work.
 
 ## Project Workspace Layer
 
@@ -60,7 +60,7 @@ Project folders may contain:
 - `exports/`
 - `review/`
 
-Some folders are current, while others remain future placeholders. `inputs/`, `config/`, and generated `intermediate/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `context/`, `source_status/`, `review_queue/`, `findings/`, `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, and generated `source_status/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `review_queue/`, `findings/`, `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
 
 Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`. Phase 2B writes clipped source GeoJSON files and `spatial_relationships.json` under `intermediate/`.
 
@@ -94,7 +94,7 @@ Purpose:
 - Store detected alternatives, project extent, assumptions, likely report profile, provided categories, missing categories, user instructions, and special reviewer notes.
 - Allow reviewer correction when automated detection is wrong or incomplete.
 
-This service is not implemented yet. Current project manifests and geometry summaries are early inputs to it.
+Current implementation writes `projects/<project_id>/context/project_context.json` through the `generate-context` CLI command. Current project manifests and geometry summaries are inputs to it.
 
 ## Geometry Normalization Service
 
@@ -161,7 +161,7 @@ Suggested statuses are defined in `docs/WORKFLOW_MODEL.md`:
 - `optional`
 - `needs_review`
 
-This service is not implemented yet. Current project source registries are an early foundation.
+Current implementation writes `projects/<project_id>/source_status/source_status_set.json` through the `resolve-sources` CLI command. Current project source registries are an early foundation.
 
 ## Spatial Analysis Service
 

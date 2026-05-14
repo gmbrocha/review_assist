@@ -239,7 +239,7 @@ Conceptual modules:
 - Report drafting service.
 - Export/compilation service.
 
-The current CLI services are early building blocks. They should evolve toward this workflow rather than becoming the final product shape.
+The current CLI services are early building blocks. `generate-context` and `resolve-sources` now produce the first workflow-native JSON artifacts. They should evolve toward this workflow rather than becoming the final product shape.
 
 ## Non-Negotiable Boundaries
 

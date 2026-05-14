@@ -3,6 +3,7 @@
   "name": "Trail Alternatives Review",
   "description": "Initial trail alternatives example project for KMZ/KML ingestion and local source-context checks.",
   "project_type": "alternatives_review",
+  "report_profile": "environmental_constraints_basic",
   "inputs": [
     {
       "path": "inputs/trail_route_alternatives.kmz",

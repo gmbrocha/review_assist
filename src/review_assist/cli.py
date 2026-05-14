@@ -8,12 +8,14 @@ import sys
 from pathlib import Path
 
 from .inspection import ProjectInspectionError, inspect_project
+from .project_context import ProjectContextError, generate_project_context
 from .source_catalog import (
     SourceCatalogError,
     load_project_source_registry,
     load_source_catalog,
     register_local_source,
 )
+from .source_status import SourceStatusError, resolve_source_status_set
 from .spatial_analysis import SpatialAnalysisError, analyze_project
 
 
@@ -37,6 +39,14 @@ def build_parser() -> argparse.ArgumentParser:
     analyze_parser = subparsers.add_parser("analyze-project", help="Run local source-layer spatial checks for a project.")
     analyze_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     analyze_parser.add_argument("--json", action="store_true", help="Print full JSON analysis result to stdout.")
+
+    context_parser = subparsers.add_parser("generate-context", help="Generate persistent project context for a workspace.")
+    context_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    context_parser.add_argument("--json", action="store_true", help="Print full JSON context artifact to stdout.")
+
+    sources_parser = subparsers.add_parser("resolve-sources", help="Resolve project source category statuses for a workspace.")
+    sources_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    sources_parser.add_argument("--json", action="store_true", help="Print full JSON source status set to stdout.")
     return parser
 
 
@@ -143,6 +153,46 @@ def analyze_project_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
+def generate_context_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        context = generate_project_context(project_dir)
+    except ProjectContextError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(context, indent=2))
+        return 0
+
+    print(f"Generated context: {context['project_id']} ({context['project_name']})")
+    print(f"Report profile: {context['report_profile']['profile_id']}")
+    print(f"Inputs: {len(context['detected_inputs'])}")
+    print(f"Validation issues: {len(context['validation_issues'])}")
+    print(f"Output: {context['context_path']}")
+    return 0
+
+
+def resolve_sources_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = resolve_source_status_set(project_dir)
+    except SourceStatusError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    counts: dict[str, int] = {}
+    for item in result["statuses"]:
+        counts[item["status"]] = counts.get(item["status"], 0) + 1
+    print(f"Resolved sources: {result['project_id']} ({result['project_name']})")
+    print(f"Report profile: {result['report_profile']['profile_id']}")
+    print(f"Statuses: {counts}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -154,6 +204,10 @@ def main(argv: list[str] | None = None) -> int:
         return import_source_command(args.project_dir, args.source_id, args.path)
     if args.command == "analyze-project":
         return analyze_project_command(args.project_dir, args.json)
+    if args.command == "generate-context":
+        return generate_context_command(args.project_dir, args.json)
+    if args.command == "resolve-sources":
+        return resolve_sources_command(args.project_dir, args.json)
     parser.error(f"Unknown command: {args.command}")
     return 2
 

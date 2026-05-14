@@ -77,6 +77,8 @@ Current local configuration files:
 
 - Global catalog: `config/source_catalog.json`
 - Project source registries: `projects/<project_id>/config/sources.json`
+- Report profile source requirements: `config/report_profiles.json`
+- Generated source status sets: `projects/<project_id>/source_status/source_status_set.json`
 
 ## Source Tiers
 

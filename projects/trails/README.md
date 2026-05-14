@@ -18,3 +18,5 @@ Project configuration:
 This project is expected to compare five proposed trail alternatives and build descriptive environmental/contextual profiles for each alternative.
 
 Future project-specific source layers, notes, intermediate files, and report draft materials can be organized here. Large local source layers should live under `layers/`, which is ignored by Git.
+
+Generated workflow artifacts are written under ignored `context/` and `source_status/` directories.

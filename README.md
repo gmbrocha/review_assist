@@ -64,7 +64,14 @@ List the source catalog, register a local source layer, and run local spatial ch
 .\.venv\Scripts\review-assist.exe analyze-project projects/trails
 ```
 
-The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Project intermediate outputs and local project layers are generated/project-specific artifacts and are ignored by Git.
+Generate workflow-native project context and source status artifacts:
+
+```powershell
+.\.venv\Scripts\review-assist.exe generate-context projects/trails
+.\.venv\Scripts\review-assist.exe resolve-sources projects/trails
+```
+
+The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/` and `source_status/` directories. Project intermediate outputs, workflow artifacts, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Canonical Workflow
 

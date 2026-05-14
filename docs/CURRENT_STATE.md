@@ -4,7 +4,7 @@
 
 Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks.
 
-The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, and Phase 2 source catalog/spatial check services. No production workflow has been implemented.
+The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check services, and initial workflow-native project context/source status services. No production workflow has been implemented.
 
 The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page. The canonical workflow is now workspace driven: open/create workspace, add inputs, generate project context, resolve source status, populate for review, review every generated item, and export accepted content.
 
@@ -55,8 +55,6 @@ The review queue is the required control point before export. Findings, paragrap
 - Basemap or imagery acquisition workflows.
 - Report assembly pipelines.
 - Finding generation.
-- Project context artifact generation.
-- Source status set generation.
 - Review queue persistence.
 - Public source downloads or live source querying.
 - Desktop GUI.
@@ -98,6 +96,16 @@ Current CLI commands:
 - `review-assist list-sources [project_dir]`
 - `review-assist import-source <project_dir> <source_id> <path>`
 - `review-assist analyze-project <project_dir>`
+- `review-assist generate-context <project_dir>`
+- `review-assist resolve-sources <project_dir>`
+
+## Workflow Artifact Defaults
+
+- Report profile config: JSON at `config/report_profiles.json`.
+- Project context output: JSON at `projects/<project_id>/context/project_context.json`.
+- Source status output: JSON at `projects/<project_id>/source_status/source_status_set.json`.
+- Generated context and source status artifacts are ignored by Git.
+- The current implementation resolves source status, but it does not yet create review queue items from source status or spatial relationships.
 
 Current audit status:
 
