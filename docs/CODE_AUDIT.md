@@ -15,6 +15,7 @@ This document records the latest implementation audit for the current prototype 
 - Phase 4 review queue generation/update services.
 - Phase 5 populate-for-review orchestration.
 - Phase 6A deterministic draft finding generation.
+- Phase 6B source inventory/provenance and comparison table generation.
 - CLI commands for project inspection, source listing, local source registration, project analysis, review queue operations, and populate-for-review.
 - Tests and active documentation.
 
@@ -38,16 +39,23 @@ This document records the latest implementation audit for the current prototype 
 - Added draft finding review queue items with deterministic item IDs so existing reviewer status and notes survive regeneration.
 - Added `generate-findings` CLI coverage and wired finding generation into `populate-for-review`.
 - Tightened no-mapped finding generation to tolerate malformed relationship-count values in JSON artifacts.
+- Added optional project source registry metadata for citation, attribution, licensing/terms, source URL, date fields, and reviewer notes.
+- Added source inventory generation that merges catalog, project registry, source status, local file metadata, and validation issues.
+- Added comparison table generation for source status, spatial relationships, and draft finding summaries.
+- Added source inventory and comparison table review queue items with deterministic IDs and preview metadata.
+- Wired source inventory and comparison tables into `populate-for-review`.
 - Added tests for the validation and orchestration cases above.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, deterministic draft finding generation, review queue behavior, and populate-for-review orchestration.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, review queue behavior, and populate-for-review orchestration.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist analyze-project projects/trails`
   - `review-assist analyze-project projects/conexon_projects`
+  - `review-assist generate-source-inventory projects/trails`
   - `review-assist generate-findings projects/trails`
+  - `review-assist generate-tables projects/trails`
   - `review-assist populate-for-review projects/trails`
   - `review-assist populate-for-review projects/conexon_projects`
   - `review-assist list-review-queue projects/trails`
@@ -58,7 +66,8 @@ This document records the latest implementation audit for the current prototype 
 - Local source layers are supported; live public downloads are not implemented.
 - Spatial analysis produces relationship records only. Deterministic draft finding generation is a separate service.
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or report sections.
-- The review queue stores draft finding, source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet produce maps, tables, narrative, or export packages.
+- Source inventory and comparison table artifacts are descriptive workflow state. They are not final citations, final report tables, or export packages until reviewed.
+- The review queue stores source inventory, draft finding, comparison table, source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet produce rendered maps, narrative, or export packages.
 - `populate-for-review` orchestrates current services only. It does not download sources, call LLMs, render maps, draft prose, or compile exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.

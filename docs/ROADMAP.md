@@ -96,7 +96,7 @@ Current baseline:
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
 - JSON artifact at `projects/<project_id>/review_queue/review_queue.json`.
 
-The baseline converts current source status records, deterministic draft findings when present, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet generate report prose, maps, tables, exports, GUI review screens, or LLM-assisted narrative.
+The baseline converts current source inventory records, deterministic draft findings, comparison tables, source status records, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet generate report prose, rendered maps, exports, GUI review screens, or LLM-assisted narrative.
 
 ## Phase 5: Populate for Review
 
@@ -113,10 +113,10 @@ Current baseline:
 
 - `review-assist populate-for-review <project_dir>`
 - JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Runs project context generation, source status resolution, tolerant local spatial analysis, deterministic draft finding generation, and review queue generation.
+- Runs project context generation, source status resolution, source inventory generation, tolerant local spatial analysis, deterministic draft finding generation, comparison table generation, and review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict.
 
-This baseline does not yet generate maps, tables, report prose, exports, GUI review screens, source downloads, or LLM-assisted narrative.
+This baseline does not yet render maps, generate report prose, compile exports, implement GUI review screens, download sources, or use LLM-assisted narrative.
 
 ## Phase 6A: Deterministic Finding Templates
 
@@ -135,19 +135,37 @@ Current baseline:
 - JSON artifact at `projects/<project_id>/findings/draft_findings.json`.
 - `populate-for-review` runs finding generation before review queue generation and records the artifact path in the run manifest.
 
-This baseline does not rank, score, recommend, produce final conclusions, generate maps/tables, draft report prose, call LLMs, or compile exports.
+This baseline does not rank, score, recommend, produce final conclusions, render maps, generate final report tables, draft report prose, call LLMs, or compile exports.
 
-## Phase 6B: Map/Figure, Table, and Imagery Generation
+## Phase 6B: Source Provenance and Comparison Tables
+
+Status: initial baseline complete.
+
+- Generate a source inventory artifact with catalog, registry, source status, local file metadata, optional project-supplied source metadata, and validation issues.
+- Support optional per-source registry metadata for citations, attribution, source URL, access date, publication/metadata dates, license/terms, and reviewer notes.
+- Generate descriptive comparison table artifacts for source status, spatial relationships, and draft findings.
+- Feed source inventory records and comparison tables into the review queue with deterministic item IDs.
+
+Current baseline:
+
+- `review-assist generate-source-inventory <project_dir>`
+- `review-assist generate-tables <project_dir>`
+- JSON source inventory at `projects/<project_id>/source_inventory/source_inventory.json`.
+- JSON comparison tables at `projects/<project_id>/tables/comparison_tables.json`.
+- `populate-for-review` records both artifact paths and sends generated records/tables into the review queue.
+
+This baseline does not download sources, render map images, draft report prose, compile exports, rank alternatives, or recommend preferred options.
+
+## Phase 6C: Map/Figure and Imagery Generation
 
 Status: next likely implementation area.
 
 - Generate overall project maps.
 - Generate resource-specific maps.
 - Generate panel maps where useful.
-- Generate comparison tables by resource and alternative.
 - Preserve legends, source notes, draft labels, and map provenance.
 - Prepare basemap/imagery review overlays where source terms allow.
-- Store map, figure, table, and imagery observations as review queue items.
+- Store map, figure, and imagery observations as review queue items.
 
 ## Phase 7: Export Compilation
 

@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-No live external-source downloads or restricted integrations are implemented yet. Phase 2A adds a local source catalog and project source registries so reviewer-supplied or manually downloaded layers can be registered and checked. All sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+No live external-source downloads or restricted integrations are implemented yet. The current baseline includes a local source catalog, project source registries, source status sets, and source inventory/provenance artifacts so reviewer-supplied or manually downloaded layers can be registered, inspected, and checked. All sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -79,6 +79,8 @@ Current local configuration files:
 - Project source registries: `projects/<project_id>/config/sources.json`
 - Report profile source requirements: `config/report_profiles.json`
 - Generated source status sets: `projects/<project_id>/source_status/source_status_set.json`
+- Generated source inventories: `projects/<project_id>/source_inventory/source_inventory.json`
+- Generated comparison tables: `projects/<project_id>/tables/comparison_tables.json`
 
 ## Source Tiers
 
@@ -743,29 +745,37 @@ Nothing should skip the review queue.
 
 ## Source Registry Fields
 
-Future source registry entries should include:
+Current source registry entries include:
 
 - `source_id`
-- `name`
-- `publisher`
-- `category`
-- `tier`
 - `access_method`
-- `url`
-- `local_path`
-- `requires_credentials`
-- `public_or_restricted`
+- `enabled`
+- `path`
+- `role`
+- `buffer_feet`
+- `notes`
+- `status`
+- optional `metadata`
+
+The optional `metadata` object currently supports:
+
+- `citation`
 - `license_or_terms`
 - `attribution`
-- `coverage`
-- `geometry_type`
-- `crs`
 - `published_date`
 - `metadata_date`
 - `access_date`
-- `refresh_frequency`
-- `known_limitations`
+- `source_url`
 - `review_notes`
+
+Source inventory generation merges those project-supplied metadata fields with the global catalog, source status, and local file inspection. Missing metadata should remain blank rather than being invented.
+
+Future source registry or inventory records may also need:
+
+- `coverage`
+- `refresh_frequency`
+- `requires_credentials`
+- authoritative source update cadence.
 
 ## Source Validation Questions
 

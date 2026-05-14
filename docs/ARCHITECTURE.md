@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, deterministic draft finding generation, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or report workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or report workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -28,13 +28,15 @@ Conceptual state objects:
 - Project context artifact.
 - Source catalog.
 - Source status set.
+- Source inventory/provenance records.
 - Normalized project geometry.
 - Spatial relationship records.
 - Draft finding records.
+- Comparison table records.
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, normalized GeoJSON intermediates, spatial relationship records, deterministic draft finding records, review queue persistence, and populate run manifests. Export manifests remain future work.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, source inventory records, normalized GeoJSON intermediates, spatial relationship records, deterministic draft finding records, comparison table records, review queue persistence, and populate run manifests. Export manifests remain future work.
 
 ## Project Workspace Layer
 
@@ -61,7 +63,7 @@ Project folders may contain:
 - `exports/`
 - `review/`
 
-Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, generated `findings/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
 
 `populate_for_review/` is also currently used for orchestration run manifests. It is generated workflow state and ignored by Git.
 
@@ -166,6 +168,21 @@ Suggested statuses are defined in `docs/WORKFLOW_MODEL.md`:
 
 Current implementation writes `projects/<project_id>/source_status/source_status_set.json` through the `resolve-sources` CLI command. Current project source registries are an early foundation.
 
+## Source Inventory Service
+
+Purpose:
+
+- Merge source catalog, project registry, source status, project-provided metadata, and local file metadata into an inspectable source inventory.
+- Preserve citation, attribution, licensing/terms, URL, access date, publication/metadata date, reviewer notes, and missing metadata gaps.
+- Inspect local geospatial source files for CRS, bounds, feature count, geometry types, and validation issues.
+
+Current implementation:
+
+- Writes `projects/<project_id>/source_inventory/source_inventory.json`.
+- CLI command: `review-assist generate-source-inventory <project_dir>`.
+- Project source registry entries support an optional `metadata` object for citation/provenance fields.
+- Missing or unreadable local source files create validation issues instead of invented provenance.
+
 ## Spatial Analysis Service
 
 Purpose:
@@ -221,6 +238,21 @@ Current implementation:
 - Finding IDs are deterministic so review queue regeneration can preserve reviewer status and notes.
 
 Findings are emitted as review queue items, not direct report content.
+
+## Comparison Table Service
+
+Purpose:
+
+- Convert source status, spatial relationship, and draft finding artifacts into descriptive table artifacts.
+- Prepare structured table data for future maps, report exports, and GUI previews without producing final report content.
+- Avoid ranking, scoring, or preferred-alternative language.
+
+Current implementation:
+
+- Writes `projects/<project_id>/tables/comparison_tables.json`.
+- CLI command: `review-assist generate-tables <project_dir>`.
+- Generates source status, spatial relationship, and draft finding summary tables.
+- Tables become review queue items with preview metadata before export.
 
 ## Imagery/Context Service
 
@@ -307,19 +339,19 @@ Review statuses are defined in `docs/REVIEW_POLICY.md`.
 Current implementation:
 
 - Writes `projects/<project_id>/review_queue/review_queue.json`.
-- Converts deterministic draft findings, source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
+- Converts source inventory records, deterministic draft findings, comparison tables, source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
 - Supports CLI listing and status/note/export-eligibility updates.
-- Does not yet provide GUI review screens, report drafting, map/table review items, or export compilation.
+- Does not yet provide GUI review screens, report drafting, map review items, or export compilation.
 
 ## Populate For Review Service
 
 Purpose:
 
 - Provide the service-level backend for the future desktop `Populate for Review` action.
-- Run current workflow steps in order: project context, source status, tolerant spatial analysis, deterministic draft finding generation, and review queue generation.
+- Run current workflow steps in order: project context, source status, source inventory, tolerant spatial analysis, deterministic draft finding generation, comparison table generation, and review queue generation.
 - Write a run manifest with step statuses, artifact paths, warning records, review queue item count, and critical error text when a run fails.
 
-Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, source status, spatial relationship, draft findings, and review queue artifact paths. It does not download public sources, create maps/tables, generate report prose, call LLMs, compile exports, or make recommendations.
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, source status, source inventory, spatial relationship, draft findings, comparison table, and review queue artifact paths. It does not download public sources, render maps, generate report prose, call LLMs, compile exports, or make recommendations.
 
 ## LLM Boundary
 

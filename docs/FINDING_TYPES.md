@@ -91,7 +91,7 @@ The implemented generator currently creates findings from:
 - Deterministic spatial relationship records for supported source categories.
 - Analyzed local sources with zero mapped relationships.
 
-The implementation does not yet generate imagery observations, report paragraphs, comparison tables, maps, LLM-assisted synthesis, or final report sections.
+The implementation does not yet generate imagery observations, report paragraphs, rendered maps, LLM-assisted synthesis, or final report sections. Comparison tables are generated as separate descriptive workflow artifacts.
 
 ## Spatial Relationship Types
 

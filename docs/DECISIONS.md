@@ -110,15 +110,19 @@ Each behavior-changing implementation phase should add or update tests for the s
 
 ### 2026-05-14: Review queue persistence uses JSON for the current baseline
 
-The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI and export workflow are still deferred. The baseline converts deterministic draft findings when present, source status records, spatial relationships, no-mapped checks, and validation issues into reviewable items, but it does not generate final findings or reports.
+The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI and export workflow are still deferred. The baseline converts source inventory records, deterministic draft findings when present, comparison tables, source status records, spatial relationships, no-mapped checks, and validation issues into reviewable items, but it does not generate final findings or reports.
 
 ### 2026-05-14: Populate for Review starts as orchestration, not generation
 
-The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It runs context generation, source status resolution, tolerant local spatial analysis, deterministic draft finding generation, and review queue generation. It deliberately does not download public sources, generate maps/tables, draft report prose, call LLMs, compile exports, or create recommendations.
+The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It runs context generation, source status resolution, source inventory generation, tolerant local spatial analysis, deterministic draft finding generation, comparison table generation, and review queue generation. It deliberately does not download public sources, render maps, draft report prose, call LLMs, compile exports, or create recommendations.
 
 ### 2026-05-14: Deterministic draft findings come before maps, reports, GUI, and LLM work
 
 Phase 6A converts source status records and spatial relationship records into cautious, template-driven draft finding records at `projects/<project_id>/findings/draft_findings.json`. Findings use deterministic IDs so review queue regeneration can preserve reviewer status and notes. These findings are review queue inputs, not final conclusions or report text.
+
+### 2026-05-14: Source provenance and comparison tables are backend artifacts before maps/exports
+
+Phase 6B adds source inventory/provenance records at `projects/<project_id>/source_inventory/source_inventory.json` and descriptive comparison tables at `projects/<project_id>/tables/comparison_tables.json`. These artifacts feed the review queue and future map/export workflows, but they do not download sources, render final report tables, rank alternatives, or compile report packages.
 
 ## Future Decision Template
 

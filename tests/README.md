@@ -1,6 +1,6 @@
 # Tests Directory
 
-This directory contains tests for ingestion, inspection, source registry, project context/source status artifacts, local spatial analysis services, deterministic finding generation, review queue behavior, and populate-for-review orchestration.
+This directory contains tests for ingestion, inspection, source registry, project context/source status artifacts, source inventory/provenance artifacts, local spatial analysis services, deterministic finding generation, comparison table generation, review queue behavior, and populate-for-review orchestration.
 
 Current focus:
 
@@ -12,8 +12,10 @@ Current focus:
 - Report profile loading.
 - Project context generation.
 - Source status set resolution.
+- Source inventory/provenance generation and source registry metadata validation.
 - Synthetic local source-layer spatial checks.
 - Finding template validation, deterministic draft finding generation, and finding-to-review-queue integration.
+- Comparison table generation and table-to-review-queue integration.
 - Review queue generation, item status updates, reviewer notes, export eligibility, and CLI commands.
 - Populate-for-review run manifests, tolerant missing-source handling, and CLI commands.
 

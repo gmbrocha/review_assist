@@ -11,7 +11,9 @@ from typing import Any
 
 from .findings import FINDINGS_PATH, FindingGenerationError, load_draft_findings
 from .project_context import ProjectContextError, generate_project_context, load_project_context
+from .source_inventory import SOURCE_INVENTORY_PATH, SourceInventoryError, load_source_inventory
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
+from .tables import TABLES_PATH, TableGenerationError, load_comparison_tables
 
 
 REVIEW_QUEUE_PATH = Path("review_queue/review_queue.json")
@@ -56,8 +58,10 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
     now = _utc_now()
     context = _load_or_generate_context(project_dir)
     source_status = _load_or_generate_source_status(project_dir)
+    source_inventory = _load_optional_source_inventory(project_dir)
     spatial = _load_optional_spatial_relationships(project_dir)
     draft_findings = _load_optional_draft_findings(project_dir)
+    comparison_tables = _load_optional_comparison_tables(project_dir)
     existing = _load_existing_queue(project_dir)
 
     items = _build_review_items(
@@ -65,8 +69,10 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
         now=now,
         context=context,
         source_status=source_status,
+        source_inventory=source_inventory,
         spatial=spatial,
         draft_findings=draft_findings,
+        comparison_tables=comparison_tables,
     )
     if existing is not None:
         existing_items = {item["id"]: item for item in existing["items"]}
@@ -83,8 +89,10 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
         "upstream_artifacts": {
             "project_context_path": context.get("context_path"),
             "source_status_path": source_status.get("output_path"),
+            "source_inventory_path": source_inventory.get("output_path") if source_inventory else None,
             "spatial_relationships_path": spatial.get("output_path") if spatial else None,
             "draft_findings_path": draft_findings.get("output_path") if draft_findings else None,
+            "comparison_tables_path": comparison_tables.get("output_path") if comparison_tables else None,
         },
         "item_count": len(items),
         "items": items,
@@ -204,6 +212,16 @@ def _load_optional_spatial_relationships(project_dir: Path) -> dict[str, Any] | 
     return data
 
 
+def _load_optional_source_inventory(project_dir: Path) -> dict[str, Any] | None:
+    inventory_path = project_dir / SOURCE_INVENTORY_PATH
+    if not inventory_path.exists():
+        return None
+    try:
+        return load_source_inventory(project_dir)
+    except SourceInventoryError as exc:
+        raise ReviewQueueError(str(exc)) from exc
+
+
 def _load_optional_draft_findings(project_dir: Path) -> dict[str, Any] | None:
     findings_path = project_dir / FINDINGS_PATH
     if not findings_path.exists():
@@ -211,6 +229,16 @@ def _load_optional_draft_findings(project_dir: Path) -> dict[str, Any] | None:
     try:
         return load_draft_findings(project_dir)
     except FindingGenerationError as exc:
+        raise ReviewQueueError(str(exc)) from exc
+
+
+def _load_optional_comparison_tables(project_dir: Path) -> dict[str, Any] | None:
+    tables_path = project_dir / TABLES_PATH
+    if not tables_path.exists():
+        return None
+    try:
+        return load_comparison_tables(project_dir)
+    except TableGenerationError as exc:
         raise ReviewQueueError(str(exc)) from exc
 
 
@@ -227,14 +255,26 @@ def _build_review_items(
     now: str,
     context: dict[str, Any],
     source_status: dict[str, Any],
+    source_inventory: dict[str, Any] | None,
     spatial: dict[str, Any] | None,
     draft_findings: dict[str, Any] | None,
+    comparison_tables: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    if source_inventory is not None:
+        for record in source_inventory.get("records", []):
+            if isinstance(record, dict):
+                items.append(_source_inventory_item(project_id, now, source_inventory, record))
+
     if draft_findings is not None:
         for finding in draft_findings.get("findings", []):
             if isinstance(finding, dict):
                 items.append(_draft_finding_item(project_id, now, draft_findings, finding))
+
+    if comparison_tables is not None:
+        for table in comparison_tables.get("tables", []):
+            if isinstance(table, dict):
+                items.append(_comparison_table_item(project_id, now, comparison_tables, table))
 
     for status_record in source_status.get("statuses", []):
         if not isinstance(status_record, dict):
@@ -269,6 +309,50 @@ def _build_review_items(
                 items.append(_validation_issue_item(project_id, now, "spatial_analysis", issue_index, spatial.get("output_path"), issue))
 
     return items
+
+
+def _source_inventory_item(
+    project_id: str,
+    now: str,
+    source_inventory: dict[str, Any],
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    source_id = str(record.get("source_id", "unknown_source"))
+    source_status = record.get("source_status", {}) if isinstance(record.get("source_status"), dict) else {}
+    category_status = str(source_status.get("category_status", "needs_review"))
+    validation_issues = record.get("validation_issues", [])
+    status = "needs_review" if validation_issues or category_status in MISSING_DATA_STATUSES else "draft"
+    if category_status in {"gated", "stubbed"}:
+        status = "needs_verification"
+    source_name = str(record.get("name") or source_id)
+    publisher = str(record.get("publisher") or "")
+    return _review_item(
+        item_id=f"source-inventory-{_slug(source_id)}",
+        project_id=project_id,
+        item_type="source_inventory_note",
+        title=f"Source inventory: {source_name}",
+        generated_content=(
+            f"Source '{source_name}' is cataloged under '{record.get('category', '')}' with status "
+            f"'{category_status}'. Publisher: {publisher or 'not specified'}."
+        ),
+        status=status,
+        export_section="source_inventory",
+        assumptions={
+            "category_status": category_status,
+            "project_registry": record.get("project_registry", {}),
+            "local_metadata": record.get("local_metadata", {}),
+            "metadata": record.get("metadata", {}),
+        },
+        provenance={
+            "artifact": "source_inventory",
+            "artifact_path": source_inventory.get("output_path"),
+            "source_id": source_id,
+            "source_inventory_record": record,
+        },
+        source_refs=[source_id],
+        uncertainty_flags=_string_list(record.get("uncertainty_flags", [])),
+        now=now,
+    )
 
 
 def _draft_finding_item(
@@ -308,6 +392,46 @@ def _draft_finding_item(
         extra={
             "finding_id": finding_id,
             "related_record_ids": _string_list(finding.get("related_record_ids", [])),
+        },
+    )
+
+
+def _comparison_table_item(
+    project_id: str,
+    now: str,
+    comparison_tables: dict[str, Any],
+    table: dict[str, Any],
+) -> dict[str, Any]:
+    table_id = str(table.get("table_id", "table"))
+    row_count = int(table.get("row_count", 0))
+    title = str(table.get("title") or table_id)
+    return _review_item(
+        item_id=f"comparison-table-{_slug(table_id)}",
+        project_id=project_id,
+        item_type="comparison_table",
+        title=title,
+        generated_content=(
+            f"Generated descriptive comparison table '{title}' with {row_count} rows. "
+            "This table does not rank alternatives or identify a preferred option."
+        ),
+        status=str(table.get("review_status", "draft")),
+        export_section="tables",
+        assumptions={"description": table.get("description", "")},
+        provenance={
+            "artifact": "comparison_tables",
+            "artifact_path": comparison_tables.get("output_path"),
+            "table_id": table_id,
+            "table_type": table.get("type"),
+            "table_provenance": table.get("provenance", {}),
+        },
+        source_refs=_string_list(table.get("source_refs", [])),
+        uncertainty_flags=_string_list(table.get("uncertainty_flags", [])),
+        now=now,
+        extra={
+            "table_id": table_id,
+            "columns": _string_list(table.get("columns", [])),
+            "row_count": row_count,
+            "rows_preview": table.get("rows", [])[:5] if isinstance(table.get("rows", []), list) else [],
         },
     )
 

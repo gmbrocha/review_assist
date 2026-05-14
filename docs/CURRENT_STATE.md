@@ -2,9 +2,9 @@
 
 ## Phase
 
-Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks. Phase 3 project context/source status artifacts, the first Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, and a Phase 6A deterministic finding generation baseline are implemented.
+Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks. Phase 3 project context/source status artifacts, the first Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, and a Phase 6B source provenance/comparison table baseline are implemented.
 
-The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check services, workflow-native project context/source status services, deterministic draft finding generation, JSON review queue services, and populate-for-review orchestration. No production workflow has been implemented.
+The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check services, workflow-native project context/source status services, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, JSON review queue services, and populate-for-review orchestration. No production workflow has been implemented.
 
 The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page. The canonical workflow is now workspace driven: open/create workspace, add inputs, generate project context, resolve source status, populate for review, review every generated item, and export accepted content.
 
@@ -57,7 +57,7 @@ The review queue is the required control point before export. Findings, paragrap
 - Public source downloads or live source querying.
 - Desktop GUI.
 - LLM-assisted narrative synthesis.
-- Map/table generation.
+- Map rendering.
 - ML or computer vision detection.
 - Scoring, ranking, or preferred alternative selection.
 - Report generation.
@@ -97,7 +97,9 @@ Current CLI commands:
 - `review-assist analyze-project <project_dir>`
 - `review-assist generate-context <project_dir>`
 - `review-assist resolve-sources <project_dir>`
+- `review-assist generate-source-inventory <project_dir>`
 - `review-assist generate-findings <project_dir>`
+- `review-assist generate-tables <project_dir>`
 - `review-assist generate-review-queue <project_dir>`
 - `review-assist list-review-queue <project_dir>`
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
@@ -109,13 +111,16 @@ Current CLI commands:
 - Finding template config: JSON at `config/finding_templates.json`.
 - Project context output: JSON at `projects/<project_id>/context/project_context.json`.
 - Source status output: JSON at `projects/<project_id>/source_status/source_status_set.json`.
+- Source inventory output: JSON at `projects/<project_id>/source_inventory/source_inventory.json`.
 - Draft findings output: JSON at `projects/<project_id>/findings/draft_findings.json`.
+- Comparison tables output: JSON at `projects/<project_id>/tables/comparison_tables.json`.
 - Review queue output: JSON at `projects/<project_id>/review_queue/review_queue.json`.
 - Populate run manifest: JSON at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Generated context, source status, draft findings, review queue, and populate artifacts are ignored by Git.
+- Generated context, source status, source inventory, draft findings, comparison tables, review queue, and populate artifacts are ignored by Git.
 - The current implementation creates deterministic draft findings from source status records, spatial relationships, and no-mapped-relationship checks.
-- The current implementation creates review queue items from deterministic draft findings, source status records, spatial relationships, no-mapped-relationship checks, and validation issues.
-- `populate-for-review` runs context generation, source status resolution, tolerant local spatial analysis, deterministic draft finding generation, and review queue generation into one inspectable run manifest.
+- The current implementation creates descriptive comparison tables from source status, spatial relationship, and draft finding artifacts.
+- The current implementation creates review queue items from source inventory records, deterministic draft findings, comparison tables, source status records, spatial relationships, no-mapped-relationship checks, and validation issues.
+- `populate-for-review` runs context generation, source status resolution, source inventory generation, tolerant local spatial analysis, deterministic draft finding generation, comparison table generation, and review queue generation into one inspectable run manifest.
 
 Current audit status:
 

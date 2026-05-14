@@ -17,6 +17,7 @@ from .review_queue import (
     summarize_review_queue,
     update_review_item,
 )
+from .source_inventory import SourceInventoryError, generate_source_inventory
 from .source_catalog import (
     SourceCatalogError,
     load_project_source_registry,
@@ -25,6 +26,7 @@ from .source_catalog import (
 )
 from .source_status import SourceStatusError, resolve_source_status_set
 from .spatial_analysis import SpatialAnalysisError, analyze_project
+from .tables import TableGenerationError, generate_comparison_tables
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,9 +58,17 @@ def build_parser() -> argparse.ArgumentParser:
     sources_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     sources_parser.add_argument("--json", action="store_true", help="Print full JSON source status set to stdout.")
 
+    inventory_parser = subparsers.add_parser("generate-source-inventory", help="Generate source inventory and provenance records.")
+    inventory_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    inventory_parser.add_argument("--json", action="store_true", help="Print full JSON source inventory artifact to stdout.")
+
     findings_parser = subparsers.add_parser("generate-findings", help="Generate deterministic draft finding records.")
     findings_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     findings_parser.add_argument("--json", action="store_true", help="Print full JSON draft findings artifact to stdout.")
+
+    tables_parser = subparsers.add_parser("generate-tables", help="Generate comparison table artifacts.")
+    tables_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    tables_parser.add_argument("--json", action="store_true", help="Print full JSON comparison tables artifact to stdout.")
 
     queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
     queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -246,6 +256,24 @@ def generate_review_queue_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
+def generate_source_inventory_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = generate_source_inventory(project_dir)
+    except SourceInventoryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated source inventory: {result['project_id']} ({result['project_name']})")
+    print(f"Records: {result['record_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def generate_findings_command(project_dir: Path, print_json: bool) -> int:
     try:
         result = generate_draft_findings(project_dir)
@@ -259,6 +287,23 @@ def generate_findings_command(project_dir: Path, print_json: bool) -> int:
 
     print(f"Generated draft findings: {result['project_id']} ({result['project_name']})")
     print(f"Findings: {result['finding_count']}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def generate_tables_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = generate_comparison_tables(project_dir)
+    except TableGenerationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated comparison tables: {result['project_id']} ({result['project_name']})")
+    print(f"Tables: {result['table_count']}")
     print(f"Output: {result['output_path']}")
     return 0
 
@@ -344,8 +389,12 @@ def main(argv: list[str] | None = None) -> int:
         return generate_context_command(args.project_dir, args.json)
     if args.command == "resolve-sources":
         return resolve_sources_command(args.project_dir, args.json)
+    if args.command == "generate-source-inventory":
+        return generate_source_inventory_command(args.project_dir, args.json)
     if args.command == "generate-findings":
         return generate_findings_command(args.project_dir, args.json)
+    if args.command == "generate-tables":
+        return generate_tables_command(args.project_dir, args.json)
     if args.command == "generate-review-queue":
         return generate_review_queue_command(args.project_dir, args.json)
     if args.command == "list-review-queue":

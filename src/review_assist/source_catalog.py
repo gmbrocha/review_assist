@@ -12,6 +12,16 @@ from .projects import ProjectManifestError, load_project_manifest
 
 CATALOG_PATH = Path("config/source_catalog.json")
 PROJECT_SOURCES_PATH = Path("config/sources.json")
+ALLOWED_SOURCE_METADATA_KEYS = {
+    "citation",
+    "license_or_terms",
+    "attribution",
+    "published_date",
+    "metadata_date",
+    "access_date",
+    "source_url",
+    "review_notes",
+}
 
 
 class SourceCatalogError(RuntimeError):
@@ -113,6 +123,7 @@ class ProjectSource:
     buffer_feet: float | None = None
     notes: str = ""
     status: str = "candidate"
+    metadata: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ProjectSource":
@@ -140,6 +151,25 @@ class ProjectSource:
             if buffer_feet < 0:
                 raise SourceCatalogError(f"Project source '{source_id}' buffer_feet must be zero or greater.")
 
+        metadata = data.get("metadata", {})
+        if metadata is None:
+            metadata = {}
+        if not isinstance(metadata, dict):
+            raise SourceCatalogError(f"Project source '{source_id}' metadata must be an object when present.")
+        unsupported_metadata = sorted(str(key) for key in metadata if key not in ALLOWED_SOURCE_METADATA_KEYS)
+        if unsupported_metadata:
+            raise SourceCatalogError(
+                f"Project source '{source_id}' metadata has unsupported keys: {', '.join(unsupported_metadata)}."
+            )
+        clean_metadata: dict[str, str] = {}
+        for key, value in metadata.items():
+            if value is None:
+                clean_metadata[str(key)] = ""
+            elif isinstance(value, str):
+                clean_metadata[str(key)] = value
+            else:
+                raise SourceCatalogError(f"Project source '{source_id}' metadata value '{key}' must be a string or null.")
+
         return cls(
             source_id=source_id,
             enabled=enabled,
@@ -149,6 +179,7 @@ class ProjectSource:
             buffer_feet=buffer_feet,
             notes=str(data.get("notes", "")),
             status=str(data.get("status", "candidate")),
+            metadata=clean_metadata,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -161,6 +192,7 @@ class ProjectSource:
             "buffer_feet": self.buffer_feet,
             "notes": self.notes,
             "status": self.status,
+            "metadata": self.metadata,
         }
 
 
@@ -265,6 +297,7 @@ def register_local_source(project_dir: Path, source_id: str, source_path: Path, 
         buffer_feet=old_source.buffer_feet if old_source else None,
         notes=old_source.notes if old_source else "Registered local source layer.",
         status="local_registered",
+        metadata=old_source.metadata if old_source else {},
     )
 
     sources: list[ProjectSource] = []

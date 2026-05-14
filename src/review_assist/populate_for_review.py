@@ -10,8 +10,10 @@ from typing import Any
 from .findings import FindingGenerationError, generate_draft_findings
 from .project_context import ProjectContextError, generate_project_context
 from .review_queue import ReviewQueueError, generate_review_queue
+from .source_inventory import SourceInventoryError, generate_source_inventory
 from .source_status import SourceStatusError, resolve_source_status_set
 from .spatial_analysis import SpatialAnalysisError, analyze_project
+from .tables import TableGenerationError, generate_comparison_tables
 
 
 POPULATE_FOR_REVIEW_PATH = Path("populate_for_review/populate_for_review_run.json")
@@ -29,8 +31,10 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
     critical_error: str | None = None
     context: dict[str, Any] | None = None
     source_status: dict[str, Any] | None = None
+    source_inventory: dict[str, Any] | None = None
     spatial: dict[str, Any] | None = None
     draft_findings: dict[str, Any] | None = None
+    comparison_tables: dict[str, Any] | None = None
     review_queue: dict[str, Any] | None = None
 
     try:
@@ -40,6 +44,10 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
         source_status = resolve_source_status_set(project_dir)
         steps.append(_step("source_status", "completed", artifact_path=source_status.get("output_path")))
         warnings.extend(_issue_warnings("source_status", source_status.get("validation_issues", [])))
+
+        source_inventory = generate_source_inventory(project_dir)
+        steps.append(_step("source_inventory", "completed", artifact_path=source_inventory.get("output_path")))
+        warnings.extend(_issue_warnings("source_inventory", source_inventory.get("validation_issues", [])))
 
         spatial = analyze_project(project_dir, tolerate_source_errors=True)
         steps.append(_step("spatial_analysis", "completed", artifact_path=spatial.get("output_path")))
@@ -52,15 +60,33 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
         steps.append(_step("draft_findings", "completed", artifact_path=draft_findings.get("output_path")))
         warnings.extend(_issue_warnings("draft_findings", draft_findings.get("validation_issues", [])))
 
+        comparison_tables = generate_comparison_tables(project_dir)
+        steps.append(_step("comparison_tables", "completed", artifact_path=comparison_tables.get("output_path")))
+        warnings.extend(_issue_warnings("comparison_tables", comparison_tables.get("validation_issues", [])))
+
         review_queue = generate_review_queue(project_dir)
         steps.append(_step("review_queue", "completed", artifact_path=review_queue.get("output_path")))
-    except (ProjectContextError, SourceStatusError, SpatialAnalysisError, FindingGenerationError, ReviewQueueError) as exc:
+    except (
+        ProjectContextError,
+        SourceStatusError,
+        SourceInventoryError,
+        SpatialAnalysisError,
+        FindingGenerationError,
+        TableGenerationError,
+        ReviewQueueError,
+    ) as exc:
         critical_error = str(exc)
-        steps.append(_step(_failed_step_name(context, source_status, spatial, draft_findings, review_queue), "failed", message=critical_error))
+        steps.append(
+            _step(
+                _failed_step_name(context, source_status, source_inventory, spatial, draft_findings, comparison_tables, review_queue),
+                "failed",
+                message=critical_error,
+            )
+        )
 
     manifest = {
-        "project_id": _first_value("project_id", context, source_status, spatial, review_queue),
-        "project_name": _first_value("project_name", context, source_status, spatial, review_queue),
+        "project_id": _first_value("project_id", context, source_status, source_inventory, spatial, draft_findings, comparison_tables, review_queue),
+        "project_name": _first_value("project_name", context, source_status, source_inventory, spatial, draft_findings, comparison_tables, review_queue),
         "project_dir": str(project_dir),
         "started_at": started_at,
         "completed_at": _utc_now(),
@@ -69,8 +95,10 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
         "artifact_paths": {
             "project_context": context.get("context_path") if context else None,
             "source_status": source_status.get("output_path") if source_status else None,
+            "source_inventory": source_inventory.get("output_path") if source_inventory else None,
             "spatial_relationships": spatial.get("output_path") if spatial else None,
             "draft_findings": draft_findings.get("output_path") if draft_findings else None,
+            "comparison_tables": comparison_tables.get("output_path") if comparison_tables else None,
             "review_queue": review_queue.get("output_path") if review_queue else None,
         },
         "review_queue_item_count": review_queue.get("item_count") if review_queue else 0,
@@ -114,18 +142,24 @@ def _issue_warnings(stage: str, issues: Any, *, source_id: Any = None) -> list[d
 def _failed_step_name(
     context: dict[str, Any] | None,
     source_status: dict[str, Any] | None,
+    source_inventory: dict[str, Any] | None,
     spatial: dict[str, Any] | None,
     draft_findings: dict[str, Any] | None,
+    comparison_tables: dict[str, Any] | None,
     review_queue: dict[str, Any] | None,
 ) -> str:
     if context is None:
         return "project_context"
     if source_status is None:
         return "source_status"
+    if source_inventory is None:
+        return "source_inventory"
     if spatial is None:
         return "spatial_analysis"
     if draft_findings is None:
         return "draft_findings"
+    if comparison_tables is None:
+        return "comparison_tables"
     if review_queue is None:
         return "review_queue"
     return "populate_for_review"
