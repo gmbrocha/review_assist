@@ -76,6 +76,26 @@ The first useful automated checks prioritize wetlands/waterbodies, hydrography/c
 
 Phase 2B produces reviewable spatial relationship records with source and method metadata. It does not generate findings, recommendations, report text, review queue decisions, or final conclusions.
 
+### 2026-05-14: The canonical workflow is workspace driven
+
+The product workflow is now defined as workspace creation/opening, user-added inputs, project context generation, needed source resolution, populate for review, review queue, and accepted-content export. `docs/WORKFLOW_MODEL.md` is the canonical truth model for this workflow.
+
+### 2026-05-14: Project context is a persistent artifact
+
+Detected project extent, alternatives, assumptions, likely report profile, provided source categories, missing categories, user instructions, and reviewer notes should be maintained as editable workspace state rather than transient pipeline output.
+
+### 2026-05-14: Source status is first-class workflow state
+
+Needed data categories should resolve to explicit statuses such as provided locally, downloadable, downloaded, gated, stubbed, missing, optional, or needs review. Missing/gated data should create placeholders, uncertainty flags, and review requirements rather than failing the workflow by default.
+
+### 2026-05-14: Populate for Review is the main generation action
+
+The future desktop workflow should expose a `Populate for Review` action that loads/acquires sources, clips data, runs deterministic checks, prepares imagery/basemaps, and generates findings, maps, tables, narrative drafts, caveats, and provenance notes as review queue items.
+
+### 2026-05-14: Exports compile reviewed content only
+
+Export packages should compile accepted or explicitly included reviewed items. Rejected items remain in the review record but are not exported. Items needing verification or unable to verify may export only with explicit reviewer inclusion and caveat language.
+
 ## Future Decision Template
 
 ### YYYY-MM-DD: Decision title

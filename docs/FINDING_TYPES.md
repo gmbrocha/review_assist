@@ -2,7 +2,7 @@
 
 This document defines likely future finding types and implication patterns.
 
-Findings are structured, reviewable records. They are not final conclusions until reviewed by a human professional.
+Findings are structured review queue items or inputs to review queue items. They are not final conclusions until reviewed by a human professional.
 
 ## Finding Purpose
 
@@ -16,6 +16,8 @@ A finding should connect:
 - A reviewer status.
 
 The system should transform a spatial relationship into a contextual implication without selecting a preferred alternative.
+
+Findings should not bypass the review queue or flow directly into export.
 
 Example:
 
@@ -246,6 +248,8 @@ Useful draft finding types:
 - Unable to verify with available data.
 
 These should be explicit so report sections are not blank and reviewers can see what was checked.
+
+Missing-data and no-conflict records should still become review queue items so the reviewer can accept, edit, reject, or mark them for verification.
 
 ## Prohibited Finding Behavior
 

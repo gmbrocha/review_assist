@@ -4,7 +4,7 @@ This document defines the project approach to source traceability, uncertainty, 
 
 ## Core Rule
 
-Every generated finding should eventually be traceable to:
+Every generated review item should eventually be traceable to:
 
 - Source.
 - Method.
@@ -12,7 +12,7 @@ Every generated finding should eventually be traceable to:
 - Review status.
 - Uncertainty flags.
 
-Generated findings and reports are pre-review drafts until a human reviewer accepts, edits, rejects, or marks them unable to verify.
+Generated findings, maps, tables, narrative, caveats, source notes, and reports are pre-review drafts until a human reviewer accepts, edits, rejects, marks them for verification, or marks them unable to verify.
 
 ## Source Reliability Tiers
 
@@ -153,6 +153,23 @@ Suggested flags:
 - `agency_coordination_required`
 - `unable_to_verify`
 
+## Source Status and Uncertainty
+
+The workflow should distinguish source status from finding uncertainty.
+
+Suggested source statuses:
+
+- `provided_locally`
+- `downloadable`
+- `downloaded`
+- `gated`
+- `stubbed`
+- `missing`
+- `optional`
+- `needs_review`
+
+Missing, gated, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default.
+
 ## Confidence Language
 
 Use cautious language for draft outputs.
@@ -217,4 +234,4 @@ Example:
 - A finding can be `edited` and still require agency coordination.
 - A finding can be `unable_to_verify` because a restricted source was unavailable.
 
-Review statuses are defined in `docs/REVIEW_POLICY.md`.
+Review statuses are defined in `docs/REVIEW_POLICY.md`. Source status categories are defined in `docs/WORKFLOW_MODEL.md`.

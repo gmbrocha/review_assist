@@ -2,7 +2,7 @@
 
 This document captures the first-version direction for the desktop GUI application.
 
-The first version should remain focused: a local desktop app that turns a project input package into a generated draft review queue, lets a human reviewer accept/edit/reject items, and compiles accepted content into an export package.
+The first version should remain focused: a local desktop app that creates/opens a workspace, accepts a project input package, resolves needed source status, generates a draft review queue, lets a human reviewer accept/edit/reject items, and compiles accepted content into an export package.
 
 ## Product Shape
 
@@ -48,6 +48,8 @@ Each reviewable item needs:
 
 ```text
 input package
+  -> project context + source status set
+  -> populate for review
   -> generate draft review queue
   -> human accepts / edits / rejects / marks needs verification
   -> compile accepted content into export package
@@ -73,6 +75,7 @@ First-version fields:
 - Resource/layer folder.
 - Assumptions/config.
 - Special reviewer instructions.
+- Source status summary.
 
 Likely future project folder structure:
 
@@ -113,6 +116,16 @@ Pipeline outputs should be structured artifacts, not direct final-report content
 
 Every pipeline output should be converted into one or more review queue items.
 
+The user-facing generation action should be `Populate for Review`.
+
+### Source Status Resolution
+
+Purpose:
+
+- Determine the source categories needed for the selected report profile.
+- Compare needed categories against provided local data, downloadable public data, downloaded data, gated/restricted data, stubs, missing data, optional categories, and items needing review.
+- Create placeholders and caveat items for missing or gated data instead of failing the workflow.
+
 ### Review Queue
 
 Purpose:
@@ -148,6 +161,7 @@ Review statuses:
 - `accepted`
 - `rejected`
 - `edited`
+- `needs_verification`
 - `unable_to_verify`
 
 Export rule:
@@ -358,4 +372,3 @@ Do implement future work around:
 - What status rules should allow caveated unresolved items into export?
 - Which default dark-mode design tokens should be used?
 - How should large source layers and generated maps be stored outside Git?
-

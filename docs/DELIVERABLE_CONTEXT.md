@@ -12,6 +12,8 @@ The report should identify, document, map, and describe environmental, cultural,
 
 The deliverable supports human review and planning. It should not select a preferred alternative or replace later NEPA, permitting, agency consultation, field verification, or design decisions.
 
+In the application workflow, deliverable content should be compiled from accepted or explicitly included reviewed queue items. Generated findings, narrative, tables, figures, caveats, and source notes should not bypass reviewer approval.
+
 ## Expected Package Structure
 
 A full report package may include:
@@ -224,6 +226,7 @@ The system should eventually support:
 - Source provenance and method notes.
 - Reviewer status, edits, and uncertainty flags.
 - Editable report export.
+- Accepted-content-only export compilation.
 
 The system should avoid:
 
@@ -232,4 +235,3 @@ The system should avoid:
 - Hiding uncertainty behind polished prose.
 - Treating example report facts as reusable facts for other projects.
 - Mixing deterministic GIS checks with AI-generated narrative without traceability.
-

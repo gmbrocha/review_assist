@@ -27,11 +27,29 @@ The system should preserve:
 - Record source name, publisher, access URL/path, access date, published date if available, CRS, geometry type, and usage constraints.
 - Distinguish downloaded local layers from remote services.
 - Distinguish public sources from restricted, authenticated, or reviewer-supplied sources.
+- Track source category status in the workspace source status set.
 - Preserve source uncertainty and stale-data warnings.
 - Prefer deterministic GIS/source checks before AI narrative synthesis.
 - Do not add paid services, credentials, or restricted integrations without explicit approval.
 - Treat imagery-observed features as review items until validated by a human reviewer.
 - Send every source-backed output into the review queue before export.
+
+## Source Status Set
+
+The canonical workflow resolves required report source categories into a `SOURCE_STATUS_SET`.
+
+Suggested statuses:
+
+- `provided_locally`: user supplied a local layer, document, report, or map.
+- `downloadable`: public data appears available but is not downloaded yet.
+- `downloaded`: public data has been acquired for the workspace.
+- `gated`: access requires credentials, qualified access, agency request, or restricted handling.
+- `stubbed`: a placeholder exists so report sections can include a review requirement or caveat.
+- `missing`: expected source material is not available.
+- `optional`: useful context but not required for the selected report profile.
+- `needs_review`: source status or fitness for use requires reviewer confirmation.
+
+Missing, gated, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, and report caveats so the reviewer can decide how to proceed.
 
 ## Phase 2A/2B Source Priority
 

@@ -17,12 +17,13 @@ This repository is an early scaffold for an alternatives review workflow tool. F
 - Preserve source provenance, uncertainty, and review status in future data models.
 - Preserve the "no blank page" direction: future implementation should aim for comprehensive pre-review draft packages, not sparse isolated outputs.
 - Treat the review queue as the core domain model for the desktop app. Every generated artifact should become a reviewable item with status, provenance, assumptions, editable content, and export eligibility.
+- Treat `docs/WORKFLOW_MODEL.md` as the canonical workflow truth model. Align future architecture, code, and docs to the workspace -> source status set -> populate for review -> review queue -> accepted export flow.
 - Keep desktop GUI code thin. Put workflow and GIS/report logic in services underneath the GUI rather than burying it in button callbacks.
 - Keep deterministic GIS/source checks separate from LLM-assisted synthesis.
 
 ## Current Phase
 
-The project is in scaffold and planning phase. Do not build the full application, wire external integrations, add authentication, implement ML/CV workflows, or generate reports unless the user explicitly changes the scope.
+The project has Phase 1 ingestion and an initial Phase 2 source/spatial-check baseline. The canonical workflow is still being refined. Do not build the full desktop application, wire external integrations, add authentication, implement ML/CV workflows, persist a review queue, or generate reports unless the user explicitly changes the scope.
 
 ## Directory Conventions
 
@@ -54,6 +55,7 @@ Relevant docs may include:
 
 - README.md
 - docs/CURRENT_STATE.md
+- docs/WORKFLOW_MODEL.md
 - docs/ARCHITECTURE.md
 - docs/FIRST_VERSION_PLAN.md
 - docs/DATA_SOURCES.md

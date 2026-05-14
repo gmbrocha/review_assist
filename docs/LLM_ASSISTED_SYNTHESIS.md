@@ -6,7 +6,7 @@ No LLM workflow is implemented yet.
 
 ## Purpose
 
-LLMs may help convert structured findings into useful draft language, summaries, and reviewer prompts. They should reduce blank-page work without replacing source-backed analysis or human judgment.
+LLMs may help convert structured findings and source-status context into useful draft language, summaries, caveats, and reviewer prompts. They should reduce blank-page work without replacing source-backed analysis or human judgment.
 
 ## Allowed Future Use Cases
 
@@ -16,6 +16,7 @@ Potential use cases:
 - Findings summarization.
 - Contextual implication drafting.
 - Uncertainty phrasing.
+- Missing/gated source caveat drafting.
 - Report synthesis.
 - Pre-review sanity checks.
 - Structured finding normalization.
@@ -58,6 +59,8 @@ LLM calls should return:
 
 Outputs should be stored separately from underlying findings and marked as draft narrative.
 
+LLM outputs should become review queue items before export.
+
 ## Prompting Principles
 
 Future prompts should:
@@ -80,6 +83,7 @@ LLM-assisted pre-review checks may look for:
 - Statements that imply final determinations.
 - Statements that rank alternatives.
 - Report sections with no finding or no missing-data explanation.
+- Draft content that bypasses the review queue.
 
 ## Open Questions
 

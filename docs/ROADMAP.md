@@ -61,44 +61,57 @@ Status: initial baseline complete.
 
 Phase 2B still does not create findings, review queue records, maps, reports, rankings, recommendations, or final conclusions.
 
-## Phase 3: Finding Model and Review Statuses
+## Phase 3: Workspace Context and Source Status Model
 
 Status: next major implementation phase.
 
-- Define structured finding fields.
-- Add review statuses.
+- Create a persistent project context artifact derived from project inputs, geometry summaries, assumptions, report profile, source inventory, and reviewer instructions.
+- Define the source status set for required report categories.
+- Compare needed sources against locally provided, downloadable, downloaded, gated, stubbed, missing, optional, and needs-review sources.
+- Generate placeholders and uncertainty flags for missing/gated data instead of failing the workflow.
+- Keep buffer/corridor assumptions configurable and visible.
+
+## Phase 4: Review Queue Domain Model
+
+Status: next major domain model phase.
+
+- Define review queue item fields.
+- Add review statuses and reviewer actions.
 - Support reviewer notes and edits.
-- Track uncertainty and unable-to-verify cases.
-- Map spatial relationship types to reviewable contextual implications.
-- Distinguish source-backed findings from imagery-observed review items.
+- Track assumptions, provenance, uncertainty, and export eligibility.
+- Convert spatial relationships, no-conflict checks, source status flags, maps, tables, caveats, and draft narrative into reviewable items.
 
-Phase 3 should treat the review queue as the spine: spatial relationships, no-conflict checks, missing source flags, maps, tables, and draft narrative must become reviewable items before export.
+The review queue is the spine: every generated artifact must become a reviewable item before export.
 
-## Phase 4: Map/Figure and Table Generation
+## Phase 5: Populate for Review
+
+- Create the service-level workflow behind the future `Populate for Review` action.
+- Acquire or load approved sources where possible.
+- Clip/crop sources to project extent.
+- Run deterministic spatial checks.
+- Generate findings, caveats, implication notes, source notes, tables, maps, and draft narrative as review queue items.
+- Keep deterministic GIS/source checks separate from LLM-assisted narrative synthesis.
+
+## Phase 6: Map/Figure, Table, and Imagery Generation
 
 - Generate overall project maps.
 - Generate resource-specific maps.
 - Generate panel maps where useful.
 - Generate comparison tables by resource and alternative.
 - Preserve legends, source notes, draft labels, and map provenance.
+- Prepare basemap/imagery review overlays where source terms allow.
+- Store map, figure, table, and imagery observations as review queue items.
 
-## Phase 5: Report Draft Generation and Assembly
+## Phase 7: Export Compilation
 
+- Compile accepted and explicitly included reviewed items only.
 - Generate editable draft report packages.
-- Include maps, tables, findings, source notes, and review status.
+- Include maps, tables, findings, source notes, review status, assumptions, and caveats.
 - Keep generated reports clearly labeled as pre-review drafts.
 - Compile appendices/reference materials where available.
 - Generate a package manifest for traceability.
 
-## Phase 6: Imagery Observation Workflow
-
-- Support imagery-based review observations.
-- Distinguish observed features from authoritative source-backed facts.
-- Capture reviewer confirmation or rejection.
-- Support cropped imagery and overlay review.
-- Preserve imagery source/date/attribution where available.
-
-## Phase 7: Optional AI-Assisted Narrative Synthesis
+## Phase 8: Optional AI-Assisted Narrative Synthesis
 
 - Explore AI-assisted drafting after deterministic checks and review workflow are defined.
 - Keep narrative synthesis traceable to source findings.

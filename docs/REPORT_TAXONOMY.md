@@ -10,6 +10,8 @@ The system should eventually produce a comprehensive pre-review draft package: f
 
 The goal is no blank page. The reviewer should start from an editable draft and then correct, remove, add, accept, reject, and finalize.
 
+Report taxonomy should inform the workspace source-status resolution step: the selected report profile determines which source categories are required, optional, gated, or stubbed.
+
 ## Package-Level Components
 
 A complete package may include:
@@ -218,6 +220,8 @@ Likely table types:
 
 Tables should be editable and traceable to source findings.
 
+Tables should become review queue items before export.
+
 ## Narrative Pattern
 
 A reusable section pattern:
@@ -230,6 +234,8 @@ A reusable section pattern:
 6. State uncertainty, limitations, and next steps.
 
 Generated language should avoid unsupported certainty and should remain editable.
+
+Generated narrative sections should become review queue items before export.
 
 ## Section Complexity
 

@@ -16,7 +16,7 @@ Expected outputs:
 - Alternative comparison figures.
 - Appendix map sets.
 
-Maps are draft/pre-review artifacts until reviewed.
+Maps are draft/pre-review artifacts until reviewed. Generated map and figure previews should become review queue items before export.
 
 ## Likely Python Workflow
 
@@ -29,7 +29,7 @@ The likely open-source workflow is:
 5. Add basemap or local raster imagery where appropriate.
 6. Add legend, title, scale/context, source notes, draft label, and figure number.
 7. Export PNG/PDF/SVG outputs.
-8. Register figure metadata in the report package manifest.
+8. Register figure metadata as a review queue item and later in the package manifest if accepted.
 
 Potential supporting libraries:
 
@@ -184,6 +184,8 @@ Potential output formats:
 - GeoPackage/GeoJSON for reviewer GIS layers.
 
 Generated figures should be stored outside Git-tracked source code, likely under project-specific outputs or ignored `outputs/` paths.
+
+Only accepted or explicitly included reviewed figures should be compiled into report exports.
 
 ## Open Questions
 

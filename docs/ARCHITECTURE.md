@@ -1,20 +1,39 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, and early spatial relationship checks. No production desktop app or report workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, and early spatial relationship checks. No production desktop app, review queue, or report workflow exists yet.
 
-The system should stay modular enough to support multiple project types while avoiding premature complexity. The likely shape is a set of small services or modules that pass structured project, source, geometry, finding, map, and report artifacts between each other.
+The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
-## High-Level Pipeline
+The system should stay modular enough to support multiple project types while avoiding premature complexity. The likely shape is a thin desktop shell over small services that pass structured workspace, project context, source status, geometry, review item, map, table, narrative, and export artifacts between each other.
 
-1. Ingest project files.
-2. Normalize project footprint and alternative geometries.
-3. Acquire or load source layers.
-4. Run deterministic spatial checks.
-5. Convert spatial relationships into draft findings.
-6. Generate maps, tables, and contextual implications.
-7. Draft narrative from structured findings.
-8. Compile an editable pre-review package.
-9. Support human review, edits, acceptance, rejection, and export.
+## Canonical Workflow Architecture
+
+The application workflow is stateful and workspace-driven:
+
+1. Open or create a workspace.
+2. Add project inputs.
+3. Generate persistent project context.
+4. Resolve needed data categories into a source status set.
+5. Populate for review.
+6. Review every generated item in the review queue.
+7. Compile accepted content into export packages.
+
+The review queue is the primary workflow boundary. Generated findings, draft paragraphs, maps, tables, caveats, source notes, and implication notes should become review queue items before they are eligible for export.
+
+## Core State Objects
+
+Conceptual state objects:
+
+- Workspace/project manifest.
+- Project context artifact.
+- Source catalog.
+- Source status set.
+- Normalized project geometry.
+- Spatial relationship records.
+- Review queue items.
+- Export manifest.
+
+The current code implements early versions of project manifests, source catalog entries, project source registries, normalized GeoJSON intermediates, and spatial relationship records. Project context artifacts, source status sets, review queue persistence, and export manifests remain future work.
 
 ## Project Workspace Layer
 
@@ -32,13 +51,16 @@ Project folders may contain:
 - `inputs/`
 - `layers/`
 - `intermediate/`
+- `context/`
+- `source_status/`
+- `review_queue/`
 - `findings/`
 - `maps/`
 - `drafts/`
 - `exports/`
 - `review/`
 
-Some folders are current, while others remain future placeholders. `inputs/`, `config/`, and generated `intermediate/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `findings/`, `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, and generated `intermediate/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `context/`, `source_status/`, `review_queue/`, `findings/`, `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
 
 Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`. Phase 2B writes clipped source GeoJSON files and `spatial_relationships.json` under `intermediate/`.
 
@@ -63,6 +85,16 @@ Open questions:
 - How should KMZ layers be classified as footprint, alternative, or context?
 - Should users manually label layers after ingestion?
 - Which formats are required for v1 beyond KMZ/KML?
+
+## Project Context Service
+
+Purpose:
+
+- Maintain project-specific context as a persistent artifact.
+- Store detected alternatives, project extent, assumptions, likely report profile, provided categories, missing categories, user instructions, and special reviewer notes.
+- Allow reviewer correction when automated detection is wrong or incomplete.
+
+This service is not implemented yet. Current project manifests and geometry summaries are early inputs to it.
 
 ## Geometry Normalization Service
 
@@ -110,6 +142,27 @@ Open questions:
 - Should source layers be cached per project or globally?
 - How should stale source layers be flagged?
 
+## Source Status Tracking Service
+
+Purpose:
+
+- Compare required source categories for the report profile against local, downloadable, restricted, missing, stubbed, and optional sources.
+- Produce and maintain the `SOURCE_STATUS_SET`.
+- Create placeholders and review requirements for missing/gated data instead of failing the workflow.
+
+Suggested statuses are defined in `docs/WORKFLOW_MODEL.md`:
+
+- `provided_locally`
+- `downloadable`
+- `downloaded`
+- `gated`
+- `stubbed`
+- `missing`
+- `optional`
+- `needs_review`
+
+This service is not implemented yet. Current project source registries are an early foundation.
+
 ## Spatial Analysis Service
 
 Purpose:
@@ -153,6 +206,8 @@ This service should not rank alternatives or choose a preferred alternative.
 
 See `docs/FINDING_TYPES.md` and `docs/UNCERTAINTY_AND_PROVENANCE.md`.
 
+Findings should be emitted as review queue items, not direct report content.
+
 ## Imagery/Context Service
 
 Purpose:
@@ -184,6 +239,8 @@ Likely future stack:
 
 See `docs/MAP_GENERATION.md`.
 
+Generated maps and figure previews should become review queue items before export.
+
 ## Report Drafting Service
 
 Purpose:
@@ -196,11 +253,13 @@ LLM-assisted drafting may be useful here, but the input should be structured fin
 
 See `docs/REPORT_ASSEMBLY.md` and `docs/LLM_ASSISTED_SYNTHESIS.md`.
 
+Generated narrative sections should become review queue items before export.
+
 ## Compilation/Export Service
 
 Purpose:
 
-- Compile findings, maps, tables, narrative, appendices, source notes, and review status into one editable pre-review package.
+- Compile accepted or explicitly included reviewed findings, maps, tables, narrative, appendices, source notes, assumptions, and caveats into one editable package.
 - Track what files were generated and what source evidence supports them.
 
 Possible future outputs:
@@ -225,6 +284,9 @@ Purpose:
 - Let human reviewers accept, reject, edit, annotate, or mark findings as unable to verify.
 - Keep generated draft findings separate from reviewer-approved content.
 - Preserve review history.
+- Control export eligibility.
+
+Review queue item types should include findings, report paragraphs, comparison tables, figures/maps, caveats, source notes, implication notes, missing-data placeholders, and reviewer notes.
 
 Review statuses are defined in `docs/REVIEW_POLICY.md`.
 
@@ -242,8 +304,11 @@ LLM calls must not:
 
 ## Open Architecture Questions
 
-- What project manifest format should define inputs, defaults, sources, and outputs?
+- What project context artifact should sit alongside the current project manifest?
+- Should source status sets be JSON, SQLite records, or part of a larger workspace database?
+- Should review queue items be stored as JSON files, SQLite rows, or another local format?
 - Which geospatial dependency stack should be standardized for Windows development?
 - How should large source layers and generated raster outputs be stored outside Git?
 - What review UI is needed before report export is useful?
+- What exact rules make an item export eligible?
 - How should restricted cultural resource information be represented without exposing sensitive data?

@@ -2,11 +2,13 @@
 
 This project is an internal prototype for assisting with environmental and contextual review of proposed project alternatives.
 
-The tool is intended to generate source-backed pre-review report packages for human professionals. It may eventually ingest a project footprint and multiple proposed alternatives, gather or crop relevant GIS and contextual layers, run repeatable checks, and draft structured findings.
+The tool is intended to generate source-backed pre-review report packages for human professionals. It should operate as a local, workspace-oriented workflow: users add project inputs, the system resolves needed source data and generates a draft review queue, humans accept/edit/reject items, and accepted content is compiled into export packages.
 
 This is not a recommendation engine and not an automated decision-maker. It does not choose a preferred alternative, rank alternatives, or replace professional judgment.
 
 Human review is mandatory before any output is used outside the draft review process. Generated reports and findings are pre-review drafts until a human reviewer validates, edits, accepts, or rejects them.
+
+The review queue is the core workflow object. Every generated artifact should become a reviewable item before export.
 
 ## Current Status
 
@@ -19,6 +21,7 @@ The implementation surface is reusable Python services plus a CLI. No GUI, exter
 Key planning documents live under `docs/`:
 
 - `OVERALL_CONTEXT.md`: product philosophy and anti-drift context.
+- `WORKFLOW_MODEL.md`: canonical workspace, source-status, review-queue, and export workflow.
 - `ARCHITECTURE.md`: conceptual service/module boundaries.
 - `FIRST_VERSION_PLAN.md`: desktop GUI first-version plan centered on the review queue.
 - `DATA_SOURCES.md`: practical source stack, candidate sources, and source-registry planning.
@@ -63,14 +66,15 @@ List the source catalog, register a local source layer, and run local spatial ch
 
 The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Project intermediate outputs and local project layers are generated/project-specific artifacts and are ignored by Git.
 
-## Intended Workflow
+## Canonical Workflow
 
-1. A user provides a project footprint and proposed alternatives, likely as KMZ or KML initially.
-2. The system normalizes geometries.
-3. The system gathers or clips relevant source layers for the project area.
-4. The system creates draft findings for each alternative.
-5. The system generates an editable pre-review report package.
-6. A human reviewer validates and edits all findings before release.
+1. Open or create a local workspace.
+2. Add project inputs such as KMZ/KML alternatives, GIS layers, reports, imagery, PDFs, maps, notes, or study documents.
+3. Generate persistent project context: extent, assumptions, detected alternatives, likely report profile, provided sources, missing categories, and reviewer instructions.
+4. Resolve needed source categories into a source status set: provided locally, downloadable, downloaded, gated, stubbed, missing, optional, or needs review.
+5. Populate for review by acquiring/loading sources, clipping data, generating spatial relationships, findings, tables, maps, narrative drafts, caveats, and provenance notes.
+6. Send every generated artifact into the review queue for human edit/accept/reject/verification.
+7. Compile accepted or explicitly included reviewed content into an editable export package.
 
 ## Core Principles
 

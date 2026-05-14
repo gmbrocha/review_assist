@@ -12,11 +12,13 @@ This file exists to reduce project drift and preserve the original intent, philo
 
 The project is an alternatives review assistant for environmental/contextual planning workflows.
 
-The system helps generate structured, source-backed, pre-review findings packages for human professionals reviewing multiple proposed project alternatives.
+The system helps generate structured, source-backed, pre-review report packages for human professionals reviewing multiple proposed project alternatives.
+
+The canonical workflow model is defined in `docs/WORKFLOW_MODEL.md`. Future planning and implementation should treat that document as the source of truth for the workspace, source-status, review-queue, and export flow.
 
 The tool does not make recommendations or automatically select a preferred alternative.
 
-The current product goal is "no blank page." The system should attempt to generate a comprehensive first-pass package that a reviewer can inspect, correct, remove from, add to, edit, and finalize.
+The current product goal is "no blank page." The system should attempt to generate a comprehensive first-pass package that a reviewer can inspect, correct, remove from, add to, edit, accept, reject, and compile into exports.
 
 The tool assists with:
 - contextual GIS review
@@ -44,28 +46,56 @@ The human reviewer remains responsible for:
 
 The stable workflow pattern is:
 
-1. User provides:
-   - project footprint
-   - study area
-   - proposed alternatives
-   - optional GIS layers/maps/context files
+1. User creates or opens a workspace:
+   - project metadata
+   - project-specific context
+   - source status tracking
+   - generated review items
+   - accepted export artifacts
 
-2. System:
-   - normalizes geometries
+2. User adds inputs:
+   - project footprint or study area
+   - proposed alternatives
+   - optional GIS layers, reports, imagery, maps, PDFs, and notes
+
+3. System generates persistent project context:
+   - detected alternatives
+   - project extent
+   - assumptions
+   - likely report profile
+   - provided source categories
+   - missing source categories
+   - reviewer instructions
+
+4. System resolves the needed data set:
+   - provided locally
+   - downloadable
+   - downloaded
+   - gated
+   - stubbed
+   - missing
+   - optional
+   - needs review
+
+5. User runs Populate for Review:
+   - loads/acquires available source data
    - crops/intersects relevant source layers
    - performs repeatable contextual checks
-   - generates findings
-   - drafts structured report language
-   - drafts map figures and comparison tables
-   - compiles reference appendices when available
-   - produces a pre-review findings package
+   - prepares imagery/basemaps
+   - generates findings, tables, figures, caveats, and draft narrative
+   - creates review queue items for every generated artifact
 
-3. Human reviewer:
+6. Human reviewer:
    - validates findings
    - removes false positives
    - adds missing context
    - edits report language
-   - finalizes deliverables
+   - accepts, rejects, edits, or marks items for verification
+
+7. Export compilation:
+   - compiles accepted or explicitly included reviewed items
+   - includes source/provenance references and assumptions/caveats
+   - produces editable pre-review/export packages
 
 ---
 
@@ -157,10 +187,12 @@ multiple alternatives inside a project footprint requiring contextual review and
 
 The primary workflow unit is:
 
-- one project/study area
+- one persistent workspace/project
+- project-specific context and source status
 - multiple alternatives
 - repeatable contextual review
-- generated pre-review findings package
+- generated review queue
+- accepted-content export package
 
 This structure should remain stable even as project types vary.
 

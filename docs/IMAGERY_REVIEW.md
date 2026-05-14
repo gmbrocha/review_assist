@@ -22,7 +22,7 @@ These observations are useful, but they are not authoritative facts by default.
 
 ## Review Item Rule
 
-Imagery-observed features should be stored as review items until validated by a human reviewer.
+Imagery-observed features should be stored as review queue items until validated by a human reviewer.
 
 Preferred language:
 
@@ -79,7 +79,7 @@ Potential workflow:
 2. Crop imagery to footprint, alternative, buffer, or panel map extents.
 3. Overlay alternatives and source layers.
 4. Let reviewer mark observed features.
-5. Store observations as structured review items.
+5. Store observations as structured review queue items.
 6. Include selected observations in draft report with cautious phrasing.
 
 ## Future CV/ML Assistance
@@ -111,7 +111,7 @@ Imagery review items may appear in:
 - "Needs review" report notes.
 - Data gap/uncertainty sections.
 
-They should not appear as accepted facts until reviewer status supports that treatment.
+They should not appear as accepted facts until reviewer status supports that treatment. They should not export unless accepted or explicitly included with caveat language.
 
 ## Open Questions
 

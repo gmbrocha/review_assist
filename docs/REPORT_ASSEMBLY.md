@@ -21,21 +21,21 @@ The package may include:
 
 The package remains a pre-review draft.
 
-## Findings-to-Report Pipeline
+Report assembly happens after review queue approval. Generated content should not flow directly from analysis or LLM drafting into exports.
 
-Likely pipeline:
+## Review-Queue-to-Report Pipeline
 
-1. Ingest project inputs.
-2. Run deterministic checks.
-3. Generate structured findings.
-4. Attach implication candidates.
-5. Generate comparison tables.
-6. Generate maps/figures.
-7. Draft narrative sections.
-8. Insert source notes and limitations.
-9. Compile appendices/reference material.
-10. Export editable draft package.
-11. Human reviewer edits and finalizes.
+Canonical pipeline:
+
+1. Open/create workspace.
+2. Add project inputs.
+3. Generate project context.
+4. Resolve source status set.
+5. Populate for review.
+6. Create review queue items for findings, tables, figures, narrative, caveats, source notes, and missing-data placeholders.
+7. Human reviewer edits, accepts, rejects, or marks items for verification.
+8. Compile accepted or explicitly included reviewed items.
+9. Export editable draft package.
 
 ## Section Assembly Pattern
 
@@ -51,6 +51,8 @@ Each report section can be assembled from:
 - Reviewer-needed actions.
 
 A section should not be blank simply because data is missing. It can state that source data was unavailable, restricted, not assessed in this pass, or requires reviewer input.
+
+These missing-data statements should be review queue items before they are included in export.
 
 ## Narrative Sources
 
@@ -107,7 +109,7 @@ Attachments may be generated, reviewer-provided, or externally authored. The sys
 
 ## Citation and Provenance Handling
 
-Every table, map, and narrative finding should be traceable to underlying source records and method records.
+Every table, map, and narrative finding should be traceable to underlying source records, method records, and review queue item IDs.
 
 Possible citation strategy:
 
@@ -129,6 +131,8 @@ Potential exports:
 - GeoPackage review layers.
 
 DOCX is likely important because the example deliverable is a Word report, but the first implementation path is not decided.
+
+Exports should compile accepted or explicitly included reviewed content only. Rejected items remain in the review record but should not export.
 
 ## LLM-Assisted Drafting Insertion Points
 

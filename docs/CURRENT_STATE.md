@@ -6,7 +6,7 @@ Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry in
 
 The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, and Phase 2 source catalog/spatial check services. No production workflow has been implemented.
 
-The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page.
+The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page. The canonical workflow is now workspace driven: open/create workspace, add inputs, generate project context, resolve source status, populate for review, review every generated item, and export accepted content.
 
 ## Known Input Expectation
 
@@ -46,6 +46,8 @@ The future goal is an editable pre-review report package that may include:
 
 All outputs are pre-review drafts until reviewed by a human professional.
 
+The review queue is the required control point before export. Findings, paragraphs, maps, tables, caveats, source notes, and missing-data placeholders should all become review queue items.
+
 ## Not Implemented
 
 - Production GIS pipelines or full environmental analysis.
@@ -53,6 +55,8 @@ All outputs are pre-review drafts until reviewed by a human professional.
 - Basemap or imagery acquisition workflows.
 - Report assembly pipelines.
 - Finding generation.
+- Project context artifact generation.
+- Source status set generation.
 - Review queue persistence.
 - Public source downloads or live source querying.
 - Desktop GUI.

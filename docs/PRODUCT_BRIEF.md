@@ -12,6 +12,8 @@ The alternatives review assistant should automate first-pass compilation and rep
 
 The product direction is "no blank page." The system should eventually attempt to generate a comprehensive pre-review draft package, including findings, draft narrative, maps, comparison tables, contextual implications, and appendices/reference material where useful.
 
+The workflow direction is workspace driven: create/open workspace, add project inputs, generate project context, resolve needed source statuses, populate for review, review queue, and accepted-content export.
+
 ## Product Boundary
 
 The tool supports review. It does not make decisions.
@@ -30,6 +32,7 @@ It should:
 - Preserve source provenance.
 - Preserve uncertainty and missing-data flags.
 - Support reviewer edits and review statuses.
+- Route every generated artifact through the review queue before export.
 - Separate deterministic GIS/source checks from AI-assisted narrative synthesis.
 
 ## Alternatives Framing
