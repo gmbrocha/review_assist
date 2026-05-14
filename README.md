@@ -73,6 +73,16 @@ Generate workflow-native project context and source status artifacts:
 
 The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/` and `source_status/` directories. Project intermediate outputs, workflow artifacts, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
+## Testing
+
+Run the current suite with:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Implementation phases should add or update tests with the behavior they introduce. New service logic, CLI commands, validation rules, geospatial workflows, source status behavior, review queue behavior, and export behavior should not be left untested unless that tradeoff is explicitly approved and documented.
+
 ## Canonical Workflow
 
 1. Open or create a local workspace.

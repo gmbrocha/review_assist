@@ -104,6 +104,10 @@ Project context and source status set artifacts are stored as project-local JSON
 
 The workflow model is added through new commands rather than renaming existing inspection and analysis commands. Current commands remain stable while `generate-context` and `resolve-sources` introduce workflow-native artifacts.
 
+### 2026-05-14: Implementation phases require tests as they go
+
+Each behavior-changing implementation phase should add or update tests for the services, CLI commands, validation rules, data artifacts, and workflow behavior it introduces. The expected local test command is `.\.venv\Scripts\python.exe -m pytest`. If tests cannot be run, the task summary should explain why and identify residual risk.
+
 ## Future Decision Template
 
 ### YYYY-MM-DD: Decision title

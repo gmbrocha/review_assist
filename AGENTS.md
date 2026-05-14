@@ -20,6 +20,9 @@ This repository is an early scaffold for an alternatives review workflow tool. F
 - Treat `docs/WORKFLOW_MODEL.md` as the canonical workflow truth model. Align future architecture, code, and docs to the workspace -> source status set -> populate for review -> review queue -> accepted export flow.
 - Keep desktop GUI code thin. Put workflow and GIS/report logic in services underneath the GUI rather than burying it in button callbacks.
 - Keep deterministic GIS/source checks separate from LLM-assisted synthesis.
+- Add or update tests with each implementation phase and each behavior-changing code change.
+- Run the relevant test suite before committing or pushing code changes. If tests cannot be run, state why and record the residual risk.
+- Do not leave newly implemented workflow behavior covered only by manual inspection unless the user explicitly accepts that tradeoff.
 
 ## Current Phase
 
@@ -74,3 +77,15 @@ Relevant docs may include:
 Do not leave documentation stale after code changes.
 
 If no documentation update is needed, explicitly note why in the task summary.
+
+## Testing Discipline
+
+Every implementation phase should include tests for the behavior it introduces. Keep tests close to the service or CLI boundary being changed, and prefer small synthetic geospatial fixtures for deterministic behavior.
+
+Minimum expectations for behavior-changing code:
+
+- Add or update unit tests for new services, data models, validation rules, and error paths.
+- Add or update CLI tests when commands, options, output paths, or exit behavior change.
+- Run `.\.venv\Scripts\python.exe -m pytest` before committing when the local environment is available.
+- Run focused smoke checks against real project workspaces when a change affects `projects/trails` or `projects/conexon_projects` workflows.
+- Document any skipped tests, blocked test runs, or known residual risk in the final task summary.
