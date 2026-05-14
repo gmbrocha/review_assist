@@ -12,9 +12,9 @@ The review queue is the core workflow object. Every generated artifact should be
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, and a Phase 6C vector-only map/figure baseline. The current CLI can inspect project KMZ/KML inputs, list the source catalog, register local source layers, run early local spatial relationship checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map artifacts, populate the review queue, and create/update review queue items.
+The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, and Phase 6D deterministic draft report sections. The current CLI can inspect project KMZ/KML inputs, list the source catalog, register local source layers, run early local spatial relationship checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section artifacts, populate the review queue, and create/update review queue items.
 
-The implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source downloads, AI narrative generation, scoring, report generation, export compilation, basemap/imagery acquisition, or production workflow has been implemented.
+The implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source downloads, AI narrative generation, scoring, final report export, export compilation, basemap/imagery acquisition, or production workflow has been implemented.
 
 ## Planning Docs
 
@@ -72,12 +72,13 @@ Generate workflow-native project context and source status artifacts:
 .\.venv\Scripts\review-assist.exe generate-source-inventory projects/trails
 ```
 
-Generate deterministic draft findings, comparison tables, and vector-only draft maps:
+Generate deterministic draft findings, comparison tables, vector-only draft maps, and deterministic draft report sections:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe generate-findings projects/trails
 .\.venv\Scripts\review-assist.exe generate-tables projects/trails
 .\.venv\Scripts\review-assist.exe generate-maps projects/trails
+.\.venv\Scripts\review-assist.exe generate-report-sections projects/trails
 ```
 
 Generate and update review queue items:
@@ -94,7 +95,7 @@ Run the current orchestration behind the future desktop `Populate for Review` ac
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails
 ```
 
-The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/`, `source_status/`, `source_inventory/`, `findings/`, `tables/`, `maps/`, `review_queue/`, and `populate_for_review/` directories. Project intermediate outputs, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, and local project layers are generated/project-specific artifacts and are ignored by Git.
+The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/`, `source_status/`, `source_inventory/`, `findings/`, `tables/`, `maps/`, `drafts/`, `review_queue/`, and `populate_for_review/` directories. Project intermediate outputs, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Testing
 

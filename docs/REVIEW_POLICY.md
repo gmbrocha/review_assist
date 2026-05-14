@@ -88,7 +88,7 @@ Current commands:
 - `review-assist list-review-queue <project_dir>`
 - `review-assist update-review-item <project_dir> <item_id> --status <status> [--note "..."] [--export-eligible true|false]`
 
-The current generator creates review items from source inventory/provenance records, deterministic draft findings, comparison tables, draft map figures, source status records, missing-data placeholders, deterministic spatial relationships, no-mapped-relationship checks, and validation issues.
+The current generator creates review items from source inventory/provenance records, deterministic draft findings, comparison tables, draft map figures, deterministic draft report sections, source status records, missing-data placeholders, deterministic spatial relationships, no-mapped-relationship checks, and validation issues.
 
 Deterministic draft findings are generated at:
 
@@ -103,7 +103,13 @@ Draft map figures are generated at:
 
 Current map generation is vector-only. It can produce a project overview and source-context figures for analyzed local clipped source layers. These figures are not final report maps and are not exportable unless they pass through review queue status and export-eligibility rules. Map-generation warnings, such as skipped source-context figures, become validation items in the review queue.
 
-The current baseline does not generate report prose, basemap/imagery-backed maps, final report tables, or exports. It does generate descriptive comparison table artifacts and draft PNG map figures, but it does not compile them into an export package.
+Deterministic draft report sections are generated at:
+
+- `projects/<project_id>/drafts/report_sections.json`
+
+Current section generation creates no-blank-page draft sections from structured workflow artifacts. These sections are not final report prose and are not exportable unless they pass through review queue status and export-eligibility rules.
+
+The current baseline does not generate basemap/imagery-backed maps, final report tables, or exports. It does generate descriptive comparison table artifacts, draft PNG map figures, and deterministic draft section artifacts, but it does not compile them into an export package.
 
 ## Policy Notes
 

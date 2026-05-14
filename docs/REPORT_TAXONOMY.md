@@ -237,6 +237,13 @@ Generated language should avoid unsupported certainty and should remain editable
 
 Generated narrative sections should become review queue items before export.
 
+Current baseline:
+
+- Deterministic section templates live at `config/report_section_templates.json`.
+- Draft section artifacts are written to `projects/<project_id>/drafts/report_sections.json`.
+- The implemented baseline creates project overview, methodology/data sources, limitations/missing data, resource sections, comparison summary, maps/figures, and reviewer follow-up sections.
+- Generated sections become `report_section` review queue items before any future export.
+
 ## Section Complexity
 
 The system should attempt to generate a draft for every relevant section even when evidence is thin.

@@ -1,6 +1,6 @@
 # Tests Directory
 
-This directory contains tests for ingestion, inspection, source registry, project context/source status artifacts, source inventory/provenance artifacts, local spatial analysis services, deterministic finding generation, comparison table generation, vector-only map generation, review queue behavior, and populate-for-review orchestration.
+This directory contains tests for ingestion, inspection, source registry, project context/source status artifacts, source inventory/provenance artifacts, local spatial analysis services, deterministic finding generation, comparison table generation, vector-only map generation, deterministic report section generation, review queue behavior, and populate-for-review orchestration.
 
 Current focus:
 
@@ -17,10 +17,11 @@ Current focus:
 - Finding template validation, deterministic draft finding generation, and finding-to-review-queue integration.
 - Comparison table generation and table-to-review-queue integration.
 - Vector-only map manifest/PNG generation and map-to-review-queue integration.
+- Report section template validation, deterministic draft report section generation, and section-to-review-queue integration.
 - Review queue generation, item status updates, reviewer notes, export eligibility, and CLI commands.
 - Populate-for-review run manifests, tolerant missing-source handling, and CLI commands.
 
-Future tests should add coverage for basemap/imagery rendering, report draft safety boundaries, and export compilation as those features are implemented.
+Future tests should add coverage for basemap/imagery rendering, richer report draft safety boundaries, and export compilation as those features are implemented.
 
 ## Test Discipline
 

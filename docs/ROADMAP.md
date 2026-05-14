@@ -85,7 +85,7 @@ Status: initial baseline complete.
 - Add review statuses and reviewer actions.
 - Support reviewer notes and edits.
 - Track assumptions, provenance, uncertainty, and export eligibility.
-- Convert spatial relationships, no-conflict checks, source status flags, maps, tables, caveats, and draft narrative into reviewable items.
+- Convert spatial relationships, no-conflict checks, source status flags, maps, tables, caveats, and draft narrative sections into reviewable items.
 
 The review queue is the spine: every generated artifact must become a reviewable item before export.
 
@@ -96,7 +96,7 @@ Current baseline:
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
 - JSON artifact at `projects/<project_id>/review_queue/review_queue.json`.
 
-The baseline converts current source inventory records, deterministic draft findings, comparison tables, map figures, source status records, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet generate report prose, exports, GUI review screens, or LLM-assisted narrative.
+The baseline converts current source inventory records, deterministic draft findings, comparison tables, map figures, deterministic report sections, source status records, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet compile exports, provide GUI review screens, or use LLM-assisted narrative.
 
 ## Phase 5: Populate for Review
 
@@ -113,10 +113,10 @@ Current baseline:
 
 - `review-assist populate-for-review <project_dir>`
 - JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Runs project context generation, source status resolution, source inventory generation, tolerant local spatial analysis, deterministic draft finding generation, comparison table generation, and review queue generation.
+- Runs project context generation, source status resolution, source inventory generation, tolerant local spatial analysis, deterministic draft finding generation, comparison table generation, map generation, report section generation, and review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict.
 
-This baseline now includes vector-only map generation through Phase 6C, but it does not generate report prose, compile exports, implement GUI review screens, download sources, render basemap/imagery-backed maps, or use LLM-assisted narrative.
+This baseline now includes vector-only map generation through Phase 6C and deterministic report section generation through Phase 6D, but it does not compile exports, implement GUI review screens, download sources, render basemap/imagery-backed maps, or use LLM-assisted narrative.
 
 ## Phase 6A: Deterministic Finding Templates
 
@@ -179,6 +179,26 @@ Current baseline:
 - Review queue generation converts map figures into `map_figure` items with deterministic IDs and preview metadata.
 
 This baseline does not implement basemap tiles, local raster imagery, NAIP/Google/ArcGIS acquisition, panel map sheets, PDF/SVG exports, final cartographic styling, or map package compilation.
+
+## Phase 6D: Deterministic Draft Report Sections
+
+Status: initial baseline complete.
+
+- Generate no-blank-page draft report section artifacts from existing workflow artifacts.
+- Keep deterministic section drafting separate from LLM-assisted synthesis and export compilation.
+- Preserve source refs, related finding/table/figure IDs, assumptions, provenance, uncertainty flags, validation issues, and review status.
+- Feed report sections into the review queue with deterministic IDs so reviewer status and notes survive regeneration.
+
+Current baseline:
+
+- Template config at `config/report_section_templates.json`.
+- `review-assist generate-report-sections <project_dir>`
+- JSON section artifact at `projects/<project_id>/drafts/report_sections.json`.
+- Generates project overview, methodology/data sources, limitations/missing data, resource sections, comparison summary, maps/figures, and reviewer follow-up sections.
+- `populate-for-review` runs report section generation after map generation and before review queue generation.
+- Review queue generation converts report sections into `report_section` items with section metadata and related artifact IDs.
+
+This baseline does not create DOCX/PDF exports, call LLMs, generate final conclusions, rank alternatives, or bypass review queue acceptance.
 
 ## Phase 7: Export Compilation
 

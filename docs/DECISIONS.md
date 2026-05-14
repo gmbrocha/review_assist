@@ -114,7 +114,7 @@ The first review queue implementation stores project-local review state at `proj
 
 ### 2026-05-14: Populate for Review starts as orchestration, not generation
 
-The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps; Phase 6C now adds vector-only map generation to that orchestration. It deliberately does not download public sources, render basemap/imagery-backed maps, draft report prose, call LLMs, compile exports, or create recommendations.
+The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation and Phase 6D adds deterministic report section generation to that orchestration. It deliberately does not download public sources, render basemap/imagery-backed maps, call LLMs, compile exports, or create recommendations.
 
 ### 2026-05-14: Deterministic draft findings come before maps, reports, GUI, and LLM work
 
@@ -127,6 +127,10 @@ Phase 6B adds source inventory/provenance records at `projects/<project_id>/sour
 ### 2026-05-14: Phase 6C map generation starts vector-only
 
 The first map-generation baseline writes `projects/<project_id>/maps/map_manifest.json` and PNG draft figures under `projects/<project_id>/maps/figures/`. It uses GeoPandas and Matplotlib only, creates project-overview and local source-context figures, and feeds `map_figure` items into the review queue. Basemaps, imagery, raster handling, panel sheets, and final map exports remain deferred.
+
+### 2026-05-14: Phase 6D report section drafting starts deterministic
+
+The first report section baseline writes `projects/<project_id>/drafts/report_sections.json` using templates from `config/report_section_templates.json`. It creates no-blank-page draft sections from structured workflow artifacts and feeds `report_section` items into the review queue. LLM synthesis, DOCX/PDF export, final report compilation, ranking, recommendations, and unreviewed report output remain deferred.
 
 ## Future Decision Template
 

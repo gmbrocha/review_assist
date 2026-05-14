@@ -1,0 +1,149 @@
+{
+  "template_version": "2026-05-14",
+  "sections": [
+    {
+      "section_id": "project-overview",
+      "type": "project_overview",
+      "title": "Project Overview",
+      "section_order": 10,
+      "resource_category": "project_overview",
+      "purpose": "Introduce the workspace, project inputs, detected alternatives or locations, and review assumptions."
+    },
+    {
+      "section_id": "methodology-and-data-sources",
+      "type": "methodology",
+      "title": "Methodology and Data Sources",
+      "section_order": 20,
+      "resource_category": "methodology",
+      "purpose": "Describe the desktop screening workflow, source status resolution, and review limitations."
+    },
+    {
+      "section_id": "limitations-and-missing-data",
+      "type": "limitations",
+      "title": "Limitations and Missing Data",
+      "section_order": 30,
+      "resource_category": "assumptions_caveats",
+      "purpose": "Summarize unavailable, restricted, deferred, or uncertain source categories for reviewer attention."
+    },
+    {
+      "section_id": "wetlands-and-waterbodies",
+      "type": "resource_section",
+      "title": "Wetlands and Waterbodies",
+      "section_order": 100,
+      "resource_category": "wetlands_waterbodies",
+      "purpose": "Summarize mapped wetland and waterbody context and associated review implications."
+    },
+    {
+      "section_id": "streams-hydrography-crossings",
+      "type": "resource_section",
+      "title": "Streams, Hydrography, and Crossings",
+      "section_order": 110,
+      "resource_category": "hydrography_crossings",
+      "purpose": "Summarize mapped streams, rivers, ditches, hydrography, and crossing-related implications."
+    },
+    {
+      "section_id": "land-cover-disturbance",
+      "type": "resource_section",
+      "title": "Land Cover and Disturbance",
+      "section_order": 120,
+      "resource_category": "land_cover_disturbance",
+      "purpose": "Summarize land cover, impervious surface, forested area, and disturbed-corridor context."
+    },
+    {
+      "section_id": "soils",
+      "type": "resource_section",
+      "title": "Soils",
+      "section_order": 130,
+      "resource_category": "soils",
+      "purpose": "Summarize hydric soils, prime farmland, and other soil-related screening context."
+    },
+    {
+      "section_id": "species-and-habitat",
+      "type": "resource_section",
+      "title": "Species and Habitat",
+      "section_order": 140,
+      "resource_category": "species_habitat",
+      "purpose": "Summarize listed species, critical habitat, and state heritage review status."
+    },
+    {
+      "section_id": "cultural-and-historic",
+      "type": "resource_section",
+      "title": "Cultural and Historic Resources",
+      "section_order": 150,
+      "resource_category": "cultural_historic",
+      "purpose": "Summarize public cultural/historic context and restricted-resource review status."
+    },
+    {
+      "section_id": "regulated-facilities",
+      "type": "resource_section",
+      "title": "Regulated Facilities",
+      "section_order": 160,
+      "resource_category": "regulated_facilities",
+      "purpose": "Summarize hazardous materials, regulated facility, cleanup, or environmental due diligence context."
+    },
+    {
+      "section_id": "transportation-utilities",
+      "type": "resource_section",
+      "title": "Transportation and Utilities",
+      "section_order": 170,
+      "resource_category": "transportation_utilities",
+      "purpose": "Summarize roadway, utility, corridor, right-of-way, and coordination context."
+    },
+    {
+      "section_id": "community-socioeconomic",
+      "type": "resource_section",
+      "title": "Community and Socioeconomic Context",
+      "section_order": 180,
+      "resource_category": "community_socioeconomic",
+      "purpose": "Summarize community resources, access-sensitive uses, and socioeconomic screening context."
+    },
+    {
+      "section_id": "parcels-property",
+      "type": "resource_section",
+      "title": "Parcels and Property",
+      "section_order": 190,
+      "resource_category": "parcels_property",
+      "purpose": "Summarize parcel, property, ownership, or age-of-structure review context where available."
+    },
+    {
+      "section_id": "imagery-basemaps",
+      "type": "resource_section",
+      "title": "Imagery and Basemaps",
+      "section_order": 200,
+      "resource_category": "imagery_basemaps",
+      "purpose": "Summarize imagery/basemap review status and note that visible conditions require reviewer confirmation."
+    },
+    {
+      "section_id": "flood-hazard",
+      "type": "resource_section",
+      "title": "Flood Hazard",
+      "section_order": 210,
+      "resource_category": "flood_hazard",
+      "purpose": "Summarize floodplain/floodway screening context when relevant and available."
+    },
+    {
+      "section_id": "comparison-summary",
+      "type": "comparison_summary",
+      "title": "Comparison Summary",
+      "section_order": 300,
+      "resource_category": "comparison_summary",
+      "purpose": "Summarize descriptive comparison tables without ranking or identifying a preferred alternative."
+    },
+    {
+      "section_id": "maps-and-figures",
+      "type": "maps_and_figures",
+      "title": "Maps and Figures",
+      "section_order": 310,
+      "resource_category": "maps",
+      "purpose": "Summarize generated draft map figures and their review limitations."
+    },
+    {
+      "section_id": "reviewer-follow-up",
+      "type": "reviewer_follow_up",
+      "title": "Reviewer Follow-Up",
+      "section_order": 400,
+      "resource_category": "review_notes",
+      "purpose": "List validation issues, source gaps, and reviewer actions needed before export or final use."
+    }
+  ]
+}

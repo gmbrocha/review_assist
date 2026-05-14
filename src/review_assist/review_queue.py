@@ -12,6 +12,7 @@ from typing import Any
 from .findings import FINDINGS_PATH, FindingGenerationError, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
+from .report_sections import REPORT_SECTIONS_PATH, ReportSectionGenerationError, load_report_sections
 from .source_inventory import SOURCE_INVENTORY_PATH, SourceInventoryError, load_source_inventory
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 from .tables import TABLES_PATH, TableGenerationError, load_comparison_tables
@@ -64,6 +65,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
     draft_findings = _load_optional_draft_findings(project_dir)
     comparison_tables = _load_optional_comparison_tables(project_dir)
     map_manifest = _load_optional_map_manifest(project_dir)
+    report_sections = _load_optional_report_sections(project_dir)
     existing = _load_existing_queue(project_dir)
 
     items = _build_review_items(
@@ -76,6 +78,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
         draft_findings=draft_findings,
         comparison_tables=comparison_tables,
         map_manifest=map_manifest,
+        report_sections=report_sections,
     )
     if existing is not None:
         existing_items = {item["id"]: item for item in existing["items"]}
@@ -97,6 +100,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
             "draft_findings_path": draft_findings.get("output_path") if draft_findings else None,
             "comparison_tables_path": comparison_tables.get("output_path") if comparison_tables else None,
             "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
+            "report_sections_path": report_sections.get("output_path") if report_sections else None,
         },
         "item_count": len(items),
         "items": items,
@@ -256,6 +260,16 @@ def _load_optional_map_manifest(project_dir: Path) -> dict[str, Any] | None:
         raise ReviewQueueError(str(exc)) from exc
 
 
+def _load_optional_report_sections(project_dir: Path) -> dict[str, Any] | None:
+    sections_path = project_dir / REPORT_SECTIONS_PATH
+    if not sections_path.exists():
+        return None
+    try:
+        return load_report_sections(project_dir)
+    except ReportSectionGenerationError as exc:
+        raise ReviewQueueError(str(exc)) from exc
+
+
 def _load_existing_queue(project_dir: Path) -> dict[str, Any] | None:
     queue_path = project_dir / REVIEW_QUEUE_PATH
     if not queue_path.exists():
@@ -274,6 +288,7 @@ def _build_review_items(
     draft_findings: dict[str, Any] | None,
     comparison_tables: dict[str, Any] | None,
     map_manifest: dict[str, Any] | None,
+    report_sections: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     if source_inventory is not None:
@@ -293,6 +308,14 @@ def _build_review_items(
             items.append(_map_figure_item(project_id, now, map_manifest, figure))
         for issue_index, issue in enumerate(_dict_list(map_manifest.get("validation_issues", [])), start=1):
             items.append(_validation_issue_item(project_id, now, "map_generation", issue_index, map_manifest.get("output_path"), issue))
+
+    if report_sections is not None:
+        for section in _dict_list(report_sections.get("sections", [])):
+            items.append(_report_section_item(project_id, now, report_sections, section))
+        for issue_index, issue in enumerate(_dict_list(report_sections.get("validation_issues", [])), start=1):
+            items.append(
+                _validation_issue_item(project_id, now, "report_sections", issue_index, report_sections.get("output_path"), issue)
+            )
 
     for status_record in _dict_list(source_status.get("statuses", [])):
         items.append(_source_status_item(project_id, now, source_status, status_record))
@@ -489,6 +512,51 @@ def _map_figure_item(
             "image_path": figure.get("image_path"),
             "figure_type": figure.get("type"),
             "shown_layers": figure.get("shown_layers", []),
+        },
+    )
+
+
+def _report_section_item(
+    project_id: str,
+    now: str,
+    report_sections: dict[str, Any],
+    section: dict[str, Any],
+) -> dict[str, Any]:
+    section_id = str(section.get("section_id", "section"))
+    title = str(section.get("title") or section_id)
+    status = str(section.get("review_status", "draft"))
+    if status not in SUPPORTED_STATUSES:
+        status = "needs_review"
+    return _review_item(
+        item_id=f"report-section-{_slug(section_id)}",
+        project_id=project_id,
+        item_type="report_section",
+        title=title,
+        generated_content=str(section.get("generated_content", "")),
+        status=status,
+        export_section="report_sections",
+        assumptions={
+            "section_order": section.get("section_order"),
+            "resource_category": section.get("resource_category"),
+            "section_assumptions": section.get("assumptions", {}),
+        },
+        provenance={
+            "artifact": "report_sections",
+            "artifact_path": report_sections.get("output_path"),
+            "section_id": section_id,
+            "section_type": section.get("type"),
+            "section_provenance": section.get("provenance", {}),
+        },
+        source_refs=_string_list(section.get("source_refs", [])),
+        uncertainty_flags=_string_list(section.get("uncertainty_flags", [])),
+        now=now,
+        extra={
+            "section_id": section_id,
+            "section_order": section.get("section_order"),
+            "resource_category": section.get("resource_category"),
+            "related_finding_ids": _string_list(section.get("related_finding_ids", [])),
+            "related_table_ids": _string_list(section.get("related_table_ids", [])),
+            "related_figure_ids": _string_list(section.get("related_figure_ids", [])),
         },
     )
 
@@ -708,13 +776,32 @@ def _merge_existing_review_state(item: dict[str, Any], existing_items: dict[str,
     existing = existing_items.get(item["id"])
     if existing is None:
         return item
-    item["status"] = existing["status"]
-    item["export_eligible"] = existing["export_eligible"]
-    item["edited_content"] = existing["edited_content"]
-    item["reviewer_notes"] = existing["reviewer_notes"]
     item["created_at"] = existing["created_at"]
+    if _should_preserve_existing_review_state(existing, item):
+        item["status"] = existing["status"]
+        item["export_eligible"] = existing["export_eligible"]
+        item["edited_content"] = existing["edited_content"]
+        item["reviewer_notes"] = existing["reviewer_notes"]
     item["updated_at"] = now
     return item
+
+
+def _should_preserve_existing_review_state(existing: dict[str, Any], regenerated: dict[str, Any]) -> bool:
+    if existing.get("reviewer_notes"):
+        return True
+    if str(existing.get("edited_content", "")).strip():
+        return True
+    if existing.get("export_eligible") is True:
+        return True
+    existing_status = str(existing.get("status", ""))
+    regenerated_status = str(regenerated.get("status", ""))
+    if existing_status in {"accepted", "edited", "rejected", "unable_to_verify"}:
+        return True
+    if existing_status == "needs_verification" and regenerated_status in {"draft", "needs_review"}:
+        return True
+    if existing_status == "needs_review" and regenerated_status == "draft":
+        return True
+    return False
 
 
 def _find_item(queue: dict[str, Any], item_id: str) -> dict[str, Any]:

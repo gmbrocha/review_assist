@@ -10,6 +10,7 @@ from typing import Any
 from .findings import FindingGenerationError, generate_draft_findings
 from .maps import MapGenerationError, generate_maps
 from .project_context import ProjectContextError, generate_project_context
+from .report_sections import ReportSectionGenerationError, generate_report_sections
 from .review_queue import ReviewQueueError, generate_review_queue
 from .source_inventory import SourceInventoryError, generate_source_inventory
 from .source_status import SourceStatusError, resolve_source_status_set
@@ -37,6 +38,7 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
     draft_findings: dict[str, Any] | None = None
     comparison_tables: dict[str, Any] | None = None
     map_manifest: dict[str, Any] | None = None
+    report_sections: dict[str, Any] | None = None
     review_queue: dict[str, Any] | None = None
 
     try:
@@ -70,6 +72,10 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
         steps.append(_step("map_generation", "completed", artifact_path=map_manifest.get("output_path")))
         warnings.extend(_issue_warnings("map_generation", map_manifest.get("validation_issues", [])))
 
+        report_sections = generate_report_sections(project_dir)
+        steps.append(_step("report_sections", "completed", artifact_path=report_sections.get("output_path")))
+        warnings.extend(_issue_warnings("report_sections", report_sections.get("validation_issues", [])))
+
         review_queue = generate_review_queue(project_dir)
         steps.append(_step("review_queue", "completed", artifact_path=review_queue.get("output_path")))
     except (
@@ -80,6 +86,7 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
         FindingGenerationError,
         TableGenerationError,
         MapGenerationError,
+        ReportSectionGenerationError,
         ReviewQueueError,
     ) as exc:
         critical_error = str(exc)
@@ -93,6 +100,7 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
                     draft_findings,
                     comparison_tables,
                     map_manifest,
+                    report_sections,
                     review_queue,
                 ),
                 "failed",
@@ -102,10 +110,28 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
 
     manifest = {
         "project_id": _first_value(
-            "project_id", context, source_status, source_inventory, spatial, draft_findings, comparison_tables, map_manifest, review_queue
+            "project_id",
+            context,
+            source_status,
+            source_inventory,
+            spatial,
+            draft_findings,
+            comparison_tables,
+            map_manifest,
+            report_sections,
+            review_queue,
         ),
         "project_name": _first_value(
-            "project_name", context, source_status, source_inventory, spatial, draft_findings, comparison_tables, map_manifest, review_queue
+            "project_name",
+            context,
+            source_status,
+            source_inventory,
+            spatial,
+            draft_findings,
+            comparison_tables,
+            map_manifest,
+            report_sections,
+            review_queue,
         ),
         "project_dir": str(project_dir),
         "started_at": started_at,
@@ -120,6 +146,7 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
             "draft_findings": draft_findings.get("output_path") if draft_findings else None,
             "comparison_tables": comparison_tables.get("output_path") if comparison_tables else None,
             "map_manifest": map_manifest.get("output_path") if map_manifest else None,
+            "report_sections": report_sections.get("output_path") if report_sections else None,
             "review_queue": review_queue.get("output_path") if review_queue else None,
         },
         "review_queue_item_count": review_queue.get("item_count") if review_queue else 0,
@@ -168,6 +195,7 @@ def _failed_step_name(
     draft_findings: dict[str, Any] | None,
     comparison_tables: dict[str, Any] | None,
     map_manifest: dict[str, Any] | None,
+    report_sections: dict[str, Any] | None,
     review_queue: dict[str, Any] | None,
 ) -> str:
     if context is None:
@@ -184,6 +212,8 @@ def _failed_step_name(
         return "comparison_tables"
     if map_manifest is None:
         return "map_generation"
+    if report_sections is None:
+        return "report_sections"
     if review_queue is None:
         return "review_queue"
     return "populate_for_review"

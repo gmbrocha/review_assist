@@ -17,6 +17,7 @@ This document records the latest implementation audit for the current prototype 
 - Phase 6A deterministic draft finding generation.
 - Phase 6B source inventory/provenance and comparison table generation.
 - Phase 6C vector-only map/figure generation.
+- Phase 6D deterministic draft report section generation.
 - CLI commands for project inspection, source listing, local source registration, project analysis, review queue operations, and populate-for-review.
 - Tests and active documentation.
 
@@ -55,12 +56,19 @@ This document records the latest implementation audit for the current prototype 
 - Kept map-generation warnings aggregated at the manifest level to avoid duplicate populate run warnings.
 - Hardened map rendering so project-overview render failures fail clearly, source-context render failures become nonfatal validation issues, and Matplotlib figures close even when rendering fails.
 - Added review queue validation issue items for map-generation warnings so failed or skipped source-context figures remain reviewable.
+- Added deterministic draft report section generation from project context, source status, source inventory, draft findings, comparison tables, map manifests, and validation issues.
+- Added report section template config validation and report section artifact validation, including required fields, duplicate section IDs, section counts, status validation, and list/object field checks.
+- Added report section review queue items with deterministic IDs and section metadata so reviewer state survives regeneration.
+- Wired report section generation into `populate-for-review` after map generation and before review queue generation.
+- Kept report section top-level validation issues empty unless section generation itself creates a new issue, so upstream validation issues do not become duplicate populate warnings or duplicate validation queue items.
+- Tightened limitations and reviewer follow-up section statuses so unresolved missing/gated/stubbed source categories require review or verification instead of remaining draft.
+- Hardened review queue regeneration so accepted/edited/rejected/noted reviewer state is preserved, while untouched stale generated `draft` statuses can be upgraded by stricter regenerated defaults.
 - Added tests for the validation and orchestration cases above.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, map render-error handling, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `96 passed`.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
+- Current full test run: `107 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist analyze-project projects/trails`
@@ -70,6 +78,8 @@ This document records the latest implementation audit for the current prototype 
   - `review-assist generate-tables projects/trails`
   - `review-assist generate-maps projects/trails`
   - `review-assist generate-maps projects/conexon_projects`
+  - `review-assist generate-report-sections projects/trails`
+  - `review-assist generate-report-sections projects/conexon_projects`
   - `review-assist populate-for-review projects/trails`
   - `review-assist populate-for-review projects/conexon_projects`
   - `review-assist list-review-queue projects/trails`
@@ -79,10 +89,10 @@ This document records the latest implementation audit for the current prototype 
 
 - Local source layers are supported; live public downloads are not implemented.
 - Spatial analysis produces relationship records only. Deterministic draft finding generation is a separate service.
-- Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or report sections.
-- Source inventory, comparison table, and map figure artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, or export packages until reviewed.
-- The review queue stores source inventory, draft finding, comparison table, map figure, source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet produce narrative or export packages.
-- `populate-for-review` orchestrates current services only. It does not download sources, call LLMs, render basemap/imagery-backed maps, draft prose, or compile exports.
+- Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or final report sections.
+- Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, final report prose, or export packages until reviewed.
+- The review queue stores source inventory, draft finding, comparison table, map figure, report section, source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet compile export packages.
+- `populate-for-review` orchestrates current services only. It does not download sources, call LLMs, render basemap/imagery-backed maps, or compile exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.

@@ -2,7 +2,7 @@
 
 This document captures the likely future pipeline for assembling editable pre-review report packages.
 
-No report assembly implementation exists yet.
+A deterministic draft section baseline now exists, but accepted-content export compilation is still future work.
 
 ## Goal
 
@@ -54,6 +54,28 @@ A section should not be blank simply because data is missing. It can state that 
 
 These missing-data statements should be review queue items before they are included in export.
 
+## Current Deterministic Section Baseline
+
+The current CLI can generate draft report section artifacts:
+
+- Command: `review-assist generate-report-sections <project_dir>`
+- Output: `projects/<project_id>/drafts/report_sections.json`
+- Template config: `config/report_section_templates.json`
+
+The generator creates no-blank-page section drafts from existing structured artifacts:
+
+- Project context.
+- Source status.
+- Source inventory.
+- Draft findings.
+- Comparison tables.
+- Map manifest when available.
+- Validation issues.
+
+Current section drafts include project overview, methodology/data sources, limitations/missing data, resource sections, comparison summary, maps/figures, and reviewer follow-up.
+
+These sections are not exports. They become `report_section` review queue items and require human review before any future report compilation.
+
 ## Narrative Sources
 
 Draft narrative should be grounded in:
@@ -65,7 +87,7 @@ Draft narrative should be grounded in:
 - Report taxonomy.
 - Approved limitation language.
 
-Draft narrative should not be generated directly from raw maps alone.
+Draft narrative should not be generated directly from raw maps alone. The current deterministic section baseline may reference map manifest figure IDs and source refs, but maps do not create unsupported source facts.
 
 ## Comparison Matrices
 

@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or report workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or export workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -34,10 +34,11 @@ Conceptual state objects:
 - Draft finding records.
 - Comparison table records.
 - Map/figure records.
+- Draft report section records.
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, source inventory records, normalized GeoJSON intermediates, spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, review queue persistence, and populate run manifests. Export manifests remain future work.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, source inventory records, normalized GeoJSON intermediates, spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, and populate run manifests. Export manifests remain future work.
 
 ## Project Workspace Layer
 
@@ -64,7 +65,7 @@ Project folders may contain:
 - `exports/`
 - `review/`
 
-Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, generated `maps/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `drafts/`, `exports/`, and `review/` remain future workflow areas.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, generated `maps/`, generated `drafts/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `exports/` and `review/` remain future workflow areas.
 
 `populate_for_review/` is also currently used for orchestration run manifests. It is generated workflow state and ignored by Git.
 
@@ -312,6 +313,17 @@ See `docs/REPORT_ASSEMBLY.md` and `docs/LLM_ASSISTED_SYNTHESIS.md`.
 
 Generated narrative sections should become review queue items before export.
 
+Current implementation:
+
+- Template config lives at `config/report_section_templates.json`.
+- The service reads project context, source status, source inventory, deterministic draft findings, comparison tables, optional map manifests, and validation issues.
+- It writes `projects/<project_id>/drafts/report_sections.json`.
+- It creates deterministic no-blank-page draft sections for project overview, methodology/data sources, limitations/missing data, resource categories, comparison summary, maps/figures, and reviewer follow-up.
+- The CLI command is `review-assist generate-report-sections <project_dir>`.
+- Report section IDs are deterministic so review queue regeneration can preserve reviewer status, notes, edits, and export eligibility.
+
+The current report drafting baseline is deterministic only. It does not call LLMs, produce final conclusions, or compile report exports.
+
 ## Compilation/Export Service
 
 Purpose:
@@ -350,7 +362,7 @@ Review statuses are defined in `docs/REVIEW_POLICY.md`.
 Current implementation:
 
 - Writes `projects/<project_id>/review_queue/review_queue.json`.
-- Converts source inventory records, deterministic draft findings, comparison tables, map figures, source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
+- Converts source inventory records, deterministic draft findings, comparison tables, map figures, deterministic report sections, source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
 - Supports CLI listing and status/note/export-eligibility updates.
 - Does not yet provide GUI review screens, report drafting, or export compilation.
 
@@ -359,10 +371,10 @@ Current implementation:
 Purpose:
 
 - Provide the service-level backend for the future desktop `Populate for Review` action.
-- Run current workflow steps in order: project context, source status, source inventory, tolerant spatial analysis, deterministic draft finding generation, comparison table generation, map generation, and review queue generation.
+- Run current workflow steps in order: project context, source status, source inventory, tolerant spatial analysis, deterministic draft finding generation, comparison table generation, map generation, deterministic report section generation, and review queue generation.
 - Write a run manifest with step statuses, artifact paths, warning records, review queue item count, and critical error text when a run fails.
 
-Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, source status, source inventory, spatial relationship, draft findings, comparison table, map manifest, and review queue artifact paths. It does not download public sources, render basemap/imagery-backed maps, generate report prose, call LLMs, compile exports, or make recommendations.
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, source status, source inventory, spatial relationship, draft findings, comparison table, map manifest, report section, and review queue artifact paths. It does not download public sources, render basemap/imagery-backed maps, call LLMs, compile exports, or make recommendations.
 
 ## LLM Boundary
 
@@ -378,11 +390,11 @@ LLM calls must not:
 
 ## Open Architecture Questions
 
-- What project context artifact should sit alongside the current project manifest?
-- Should source status sets be JSON, SQLite records, or part of a larger workspace database?
 - Should review queue items be stored as JSON files, SQLite rows, or another local format?
-- Which geospatial dependency stack should be standardized for Windows development?
+- When should source status, review queue, and draft artifacts move from JSON files to SQLite or another local workspace database?
+- Which deterministic source checks should be prioritized after the current baseline?
 - How should large source layers and generated raster outputs be stored outside Git?
 - What review UI is needed before report export is useful?
 - What exact rules make an item export eligible?
+- What first export format should Phase 7 target: DOCX, Markdown/HTML, or a hybrid package?
 - How should restricted cultural resource information be represented without exposing sensitive data?

@@ -145,12 +145,14 @@ GPT/LLM calls are acceptable here for draft narrative generation, summarization,
 Current baseline:
 
 - `populate-for-review` runs context generation, source status resolution, source inventory generation, tolerant local spatial analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, and review queue generation.
+- It now runs deterministic draft report section generation after map generation and before review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
 - It records `projects/<project_id>/source_inventory/source_inventory.json` and `projects/<project_id>/tables/comparison_tables.json` in the run manifest when those steps succeed.
 - It records `projects/<project_id>/findings/draft_findings.json` in the run manifest when finding generation succeeds.
 - It records `projects/<project_id>/maps/map_manifest.json` in the run manifest when map generation succeeds.
+- It records `projects/<project_id>/drafts/report_sections.json` in the run manifest when report section generation succeeds.
 - Missing or unreadable local source layers become warnings and reviewable validation/source-inventory items rather than blocking review queue generation.
-- It does not yet download sources, render basemap/imagery-backed maps, draft report prose, call LLMs, or compile exports.
+- It does not yet download sources, render basemap/imagery-backed maps, call LLMs, or compile exports.
 
 ## Review Queue
 
@@ -209,10 +211,10 @@ The review queue is the human-in-the-loop control boundary. It is not a side pan
 
 Current baseline:
 
-- `generate-review-queue` creates JSON review queue items from source inventory records, deterministic draft findings, comparison tables, map figures, source status records, missing-data placeholders, spatial relationships, no-mapped-relationship checks, and validation issues.
+- `generate-review-queue` creates JSON review queue items from source inventory records, deterministic draft findings, comparison tables, map figures, deterministic report sections, source status records, missing-data placeholders, spatial relationships, no-mapped-relationship checks, and validation issues.
 - `list-review-queue` summarizes item status/type counts and item eligibility.
 - `update-review-item` supports status changes, reviewer notes, and export eligibility flags.
-- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, report drafting, and export compilation remain future work.
+- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, LLM-assisted report drafting, and export compilation remain future work.
 
 ## Export Compilation
 
@@ -253,8 +255,8 @@ Conceptual modules:
 - Imagery/basemap service.
 - Map/figure generation service.
 - Findings generation service.
-- Review queue service.
 - Report drafting service.
+- Review queue service.
 - Export/compilation service.
 
 The current CLI services are early building blocks. `generate-context` and `resolve-sources` now produce the first workflow-native JSON artifacts. They should evolve toward this workflow rather than becoming the final product shape.
