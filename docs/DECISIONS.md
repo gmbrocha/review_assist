@@ -108,6 +108,10 @@ The workflow model is added through new commands rather than renaming existing i
 
 Each behavior-changing implementation phase should add or update tests for the services, CLI commands, validation rules, data artifacts, and workflow behavior it introduces. The expected local test command is `.\.venv\Scripts\python.exe -m pytest`. If tests cannot be run, the task summary should explain why and identify residual risk.
 
+### 2026-05-14: Review queue persistence uses JSON for the current baseline
+
+The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI and export workflow are still deferred. The baseline converts source status records, spatial relationships, no-mapped checks, and validation issues into reviewable items, but it does not generate final findings or reports.
+
 ## Future Decision Template
 
 ### YYYY-MM-DD: Decision title

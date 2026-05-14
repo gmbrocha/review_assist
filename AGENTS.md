@@ -26,7 +26,7 @@ This repository is an early scaffold for an alternatives review workflow tool. F
 
 ## Current Phase
 
-The project has Phase 1 ingestion and an initial Phase 2 source/spatial-check baseline. The canonical workflow is still being refined. Do not build the full desktop application, wire external integrations, add authentication, implement ML/CV workflows, persist a review queue, or generate reports unless the user explicitly changes the scope.
+The project has Phase 1 ingestion, an initial Phase 2 source/spatial-check baseline, Phase 3 project context/source status artifacts, and a Phase 4 JSON-backed review queue baseline. Do not build the full desktop application, wire external integrations, add authentication, implement ML/CV workflows, generate reports, or compile exports unless the user explicitly changes the scope.
 
 ## Directory Conventions
 

@@ -2,9 +2,9 @@
 
 ## Phase
 
-Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks.
+Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks. Phase 3 project context/source status artifacts and the first Phase 4 JSON-backed review queue baseline are implemented.
 
-The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check services, and initial workflow-native project context/source status services. No production workflow has been implemented.
+The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check services, workflow-native project context/source status services, and JSON review queue services. No production workflow has been implemented.
 
 The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page. The canonical workflow is now workspace driven: open/create workspace, add inputs, generate project context, resolve source status, populate for review, review every generated item, and export accepted content.
 
@@ -55,7 +55,6 @@ The review queue is the required control point before export. Findings, paragrap
 - Basemap or imagery acquisition workflows.
 - Report assembly pipelines.
 - Finding generation.
-- Review queue persistence.
 - Public source downloads or live source querying.
 - Desktop GUI.
 - LLM-assisted narrative synthesis.
@@ -98,18 +97,22 @@ Current CLI commands:
 - `review-assist analyze-project <project_dir>`
 - `review-assist generate-context <project_dir>`
 - `review-assist resolve-sources <project_dir>`
+- `review-assist generate-review-queue <project_dir>`
+- `review-assist list-review-queue <project_dir>`
+- `review-assist update-review-item <project_dir> <item_id> --status <status>`
 
 ## Workflow Artifact Defaults
 
 - Report profile config: JSON at `config/report_profiles.json`.
 - Project context output: JSON at `projects/<project_id>/context/project_context.json`.
 - Source status output: JSON at `projects/<project_id>/source_status/source_status_set.json`.
-- Generated context and source status artifacts are ignored by Git.
-- The current implementation resolves source status, but it does not yet create review queue items from source status or spatial relationships.
+- Review queue output: JSON at `projects/<project_id>/review_queue/review_queue.json`.
+- Generated context, source status, and review queue artifacts are ignored by Git.
+- The current implementation creates review queue items from source status records, spatial relationships, no-mapped-relationship checks, and validation issues.
 
 Current audit status:
 
-- The codebase has passing tests for ingestion, source registry validation, local source registration, and synthetic spatial checks.
+- The codebase has passing tests for ingestion, source registry validation, local source registration, synthetic spatial checks, project context/source status artifacts, and review queue generation/update behavior.
 - The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, and negative buffer values.
 - See `docs/CODE_AUDIT.md` for latest audit notes.
 

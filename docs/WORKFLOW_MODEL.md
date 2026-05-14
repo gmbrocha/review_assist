@@ -197,6 +197,13 @@ Reviewer actions:
 
 The review queue is the human-in-the-loop control boundary. It is not a side panel or optional feature.
 
+Current baseline:
+
+- `generate-review-queue` creates JSON review queue items from source status records, missing-data placeholders, spatial relationships, no-mapped-relationship checks, and validation issues.
+- `list-review-queue` summarizes item status/type counts and item eligibility.
+- `update-review-item` supports status changes, reviewer notes, and export eligibility flags.
+- The baseline is still service/CLI only; GUI review screens, map/table items, report drafting, and export compilation remain future work.
+
 ## Export Compilation
 
 Accepted and reviewer-approved items are queued for export.

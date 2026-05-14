@@ -27,6 +27,7 @@ outputs/*
 projects/*/intermediate/
 projects/*/context/
 projects/*/source_status/
+projects/*/review_queue/
 projects/*/maps/
 projects/*/tables/
 projects/*/drafts/

@@ -79,7 +79,7 @@ Current baseline:
 
 ## Phase 4: Review Queue Domain Model
 
-Status: next major domain model phase.
+Status: initial baseline complete.
 
 - Define review queue item fields.
 - Add review statuses and reviewer actions.
@@ -89,7 +89,18 @@ Status: next major domain model phase.
 
 The review queue is the spine: every generated artifact must become a reviewable item before export.
 
+Current baseline:
+
+- `review-assist generate-review-queue <project_dir>`
+- `review-assist list-review-queue <project_dir>`
+- `review-assist update-review-item <project_dir> <item_id> --status <status>`
+- JSON artifact at `projects/<project_id>/review_queue/review_queue.json`.
+
+The baseline converts current source status records, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet generate report prose, maps, tables, exports, GUI review screens, or LLM-assisted narrative.
+
 ## Phase 5: Populate for Review
+
+Status: next major orchestration phase.
 
 - Create the service-level workflow behind the future `Populate for Review` action.
 - Acquire or load approved sources where possible.

@@ -24,7 +24,7 @@ Every generated artifact should become a review queue item before export:
 
 Nothing generated should be compiled into an export package unless it has been accepted, edited and approved, or explicitly included by a reviewer with caveat language.
 
-## Future Review Item Statuses
+## Review Item Statuses
 
 ### draft
 
@@ -54,22 +54,40 @@ The item identifies a condition, source gap, imagery observation, or implication
 
 A human reviewer could not verify the item with available information. It may export only if explicitly included with caveat language.
 
-## Conceptual Review Item Fields
+## Implemented Baseline Review Item Fields
 
-Future review queue items should support:
+Current JSON-backed review queue items support:
 
 - `id`
+- `project_id`
 - `type`
 - `title`
 - `generated_content`
 - `edited_content`
+- `status`
+- `export_eligible`
+- `export_section`
 - `assumptions`
 - `provenance`
 - `source_refs`
-- `status`
+- `uncertainty_flags`
 - `reviewer_notes`
-- `export_eligible`
-- `export_section`
+- `created_at`
+- `updated_at`
+
+## Current Baseline
+
+The current CLI baseline writes review queue state to:
+
+- `projects/<project_id>/review_queue/review_queue.json`
+
+Current commands:
+
+- `review-assist generate-review-queue <project_dir>`
+- `review-assist list-review-queue <project_dir>`
+- `review-assist update-review-item <project_dir> <item_id> --status <status> [--note "..."] [--export-eligible true|false]`
+
+The current generator creates review items from source status records, missing-data placeholders, deterministic spatial relationships, no-mapped-relationship checks, and validation issues. It does not generate final findings, report prose, maps, tables, or exports.
 
 ## Policy Notes
 

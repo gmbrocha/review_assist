@@ -9,6 +9,12 @@ from pathlib import Path
 
 from .inspection import ProjectInspectionError, inspect_project
 from .project_context import ProjectContextError, generate_project_context
+from .review_queue import (
+    ReviewQueueError,
+    generate_review_queue,
+    summarize_review_queue,
+    update_review_item,
+)
 from .source_catalog import (
     SourceCatalogError,
     load_project_source_registry,
@@ -47,6 +53,26 @@ def build_parser() -> argparse.ArgumentParser:
     sources_parser = subparsers.add_parser("resolve-sources", help="Resolve project source category statuses for a workspace.")
     sources_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     sources_parser.add_argument("--json", action="store_true", help="Print full JSON source status set to stdout.")
+
+    queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
+    queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    queue_parser.add_argument("--json", action="store_true", help="Print full JSON review queue to stdout.")
+
+    list_queue_parser = subparsers.add_parser("list-review-queue", help="List review queue items and counts.")
+    list_queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    list_queue_parser.add_argument("--json", action="store_true", help="Print full JSON review queue summary to stdout.")
+
+    update_item_parser = subparsers.add_parser("update-review-item", help="Update review status and notes for one item.")
+    update_item_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    update_item_parser.add_argument("item_id", help="Review queue item id.")
+    update_item_parser.add_argument("--status", required=True, help="New review status.")
+    update_item_parser.add_argument("--note", help="Reviewer note to append.")
+    update_item_parser.add_argument(
+        "--export-eligible",
+        choices=("true", "false"),
+        help="Whether the item is eligible for export.",
+    )
+    update_item_parser.add_argument("--json", action="store_true", help="Print updated item JSON to stdout.")
     return parser
 
 
@@ -193,6 +219,71 @@ def resolve_sources_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
+def generate_review_queue_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        queue = generate_review_queue(project_dir)
+    except ReviewQueueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(queue, indent=2))
+        return 0
+
+    print(f"Generated review queue: {queue['project_id']} ({queue['project_name']})")
+    print(f"Items: {queue['item_count']}")
+    print(f"Output: {queue['output_path']}")
+    return 0
+
+
+def list_review_queue_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        summary = summarize_review_queue(project_dir)
+    except ReviewQueueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(summary, indent=2))
+        return 0
+
+    print(f"Review queue: {summary['project_id']} ({summary['project_name']})")
+    print(f"Items: {summary['item_count']}")
+    print(f"Statuses: {summary['status_counts']}")
+    print(f"Types: {summary['type_counts']}")
+    for item in summary["items"]:
+        print(f"  {item['id']} - {item['title']} [{item['status']}; export={item['export_eligible']}]")
+    return 0
+
+
+def update_review_item_command(
+    project_dir: Path,
+    item_id: str,
+    status: str,
+    note: str | None,
+    export_eligible: str | None,
+    print_json: bool,
+) -> int:
+    try:
+        item = update_review_item(
+            project_dir,
+            item_id,
+            status=status,
+            note=note,
+            export_eligible=_optional_bool(export_eligible),
+        )
+    except ReviewQueueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(item, indent=2))
+        return 0
+
+    print(f"Updated review item: {item['id']} [{item['status']}; export={item['export_eligible']}]")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -208,8 +299,27 @@ def main(argv: list[str] | None = None) -> int:
         return generate_context_command(args.project_dir, args.json)
     if args.command == "resolve-sources":
         return resolve_sources_command(args.project_dir, args.json)
+    if args.command == "generate-review-queue":
+        return generate_review_queue_command(args.project_dir, args.json)
+    if args.command == "list-review-queue":
+        return list_review_queue_command(args.project_dir, args.json)
+    if args.command == "update-review-item":
+        return update_review_item_command(
+            args.project_dir,
+            args.item_id,
+            args.status,
+            args.note,
+            args.export_eligible,
+            args.json,
+        )
     parser.error(f"Unknown command: {args.command}")
     return 2
+
+
+def _optional_bool(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    return value == "true"
 
 
 if __name__ == "__main__":
