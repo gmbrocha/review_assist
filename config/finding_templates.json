@@ -1,0 +1,122 @@
+{
+  "template_version": "2026-05-14",
+  "templates": [
+    {
+      "finding_type": "wetland_or_waterbody_relationship",
+      "resource_categories": ["wetlands_waterbodies"],
+      "title": "Wetland or waterbody relationship: {feature_label}",
+      "summary": "Desktop screening identified a mapped relationship between the project geometry and {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. The mapped source feature is {source_feature_label}; the project feature is {project_feature_label}. Measurements are screening-level and should be reviewed against the source layer and project assumptions.",
+      "implication": "This may require wetland or waterbody review, permitting coordination, design adjustment, or field verification before conclusions are finalized.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "stream_or_hydrography_crossing",
+      "resource_categories": ["hydrography_crossings"],
+      "title": "Hydrography relationship: {feature_label}",
+      "summary": "Desktop screening identified a mapped stream, river, ditch, or hydrography relationship from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. The mapped source feature is {source_feature_label}; the project feature is {project_feature_label}. Measurements are screening-level and should be checked against current design assumptions.",
+      "implication": "A crossing may require bridge or culvert review, permitting coordination, and field verification. This is not a final determination of jurisdiction or design need.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "land_cover_or_disturbance_context",
+      "resource_categories": ["land_cover_disturbance"],
+      "title": "Land cover or disturbance context: {feature_label}",
+      "summary": "Desktop screening identified mapped land cover or disturbance context near the project geometry from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. This context may help reviewers distinguish existing disturbed areas from less disturbed or forested areas.",
+      "implication": "The reviewer should consider whether the mapped context affects impact description, field review needs, or design coordination. Desktop screening only.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "soil_constraint_context",
+      "resource_categories": ["soils"],
+      "title": "Soils context: {feature_label}",
+      "summary": "Desktop screening identified mapped soils context near the project geometry from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. Soil attributes may include hydric soil, drainage, farmland, or other planning constraints depending on the source layer.",
+      "implication": "Soil context should be reviewed as screening-level information and may require coordination or field verification where it affects design or permitting assumptions.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "regulated_facility_context",
+      "resource_categories": ["regulated_facilities"],
+      "title": "Regulated facility context: {feature_label}",
+      "summary": "Desktop screening identified mapped regulated-facility context from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. The mapped source feature is {source_feature_label}.",
+      "implication": "Environmental due diligence or agency coordination may be needed. This screening item should be reviewed before it is used in report text.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "cultural_or_historic_review_required",
+      "resource_categories": ["cultural_historic"],
+      "title": "Cultural or historic resource review context: {feature_label}",
+      "summary": "Cultural or historic resource information requires reviewer attention for this project context.",
+      "details": "Available public or project-supplied data may be incomplete. Restricted cultural resource sources may not be present in the local workspace.",
+      "implication": "Qualified cultural or historic review may be required before report language is finalized. Restricted or sensitive datasets should be handled through approved workflows.",
+      "evidence_class": "source_status_or_manual_review"
+    },
+    {
+      "finding_type": "utility_or_transportation_coordination",
+      "resource_categories": ["transportation_utilities"],
+      "title": "Transportation or utility coordination context: {feature_label}",
+      "summary": "Desktop screening identified transportation, utility, corridor, or right-of-way context from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. The mapped source feature is {source_feature_label}.",
+      "implication": "Coordination may be needed with the relevant owner, operator, agency, or design lead. This is screening-level context only.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "community_context",
+      "resource_categories": ["community_socioeconomic"],
+      "title": "Community or socioeconomic context: {feature_label}",
+      "summary": "Desktop screening identified mapped community or socioeconomic context from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. The mapped source feature is {source_feature_label}.",
+      "implication": "The reviewer should consider whether community resources, access, public services, or potential disruption require discussion or coordination.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "parcel_or_property_review",
+      "resource_categories": ["parcels_property"],
+      "title": "Parcel or property context: {feature_label}",
+      "summary": "Desktop screening identified parcel or property context from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. The mapped source feature is {source_feature_label}.",
+      "implication": "Property, parcel, ownership, or structure-age context should be reviewed before it is used in report text. Local source freshness may vary.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "imagery_review_context",
+      "resource_categories": ["imagery_basemaps"],
+      "title": "Imagery or basemap review context: {feature_label}",
+      "summary": "Imagery or basemap context should be reviewed for conditions that may not appear in vector source layers.",
+      "details": "Imagery-observed features are review items, not authoritative facts. Source date, image quality, and positional accuracy should be considered.",
+      "implication": "Visible features may require reviewer confirmation, additional source checks, or field verification before report language is finalized.",
+      "evidence_class": "imagery_review_context"
+    },
+    {
+      "finding_type": "flood_hazard_context",
+      "resource_categories": ["flood_hazard"],
+      "title": "Flood hazard context: {feature_label}",
+      "summary": "Desktop screening identified flood hazard or floodplain context from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. The mapped source feature is {source_feature_label}.",
+      "implication": "Floodplain or floodway review may be needed where relevant, but this is a secondary screening category for the first implementation baseline.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
+      "finding_type": "source_unavailable_or_deferred",
+      "resource_categories": ["*"],
+      "title": "Source unavailable or deferred: {resource_category}",
+      "summary": "The {resource_category} source category is not ready for direct use in the current workspace.",
+      "details": "Current source status is {source_status}. The workflow should preserve this as a review item instead of blocking useful pre-review package generation.",
+      "implication": "Reviewer attention is required. The report should preserve uncertainty and avoid final conclusions for this category until source availability is resolved.",
+      "evidence_class": "source_status"
+    },
+    {
+      "finding_type": "no_mapped_conflict_identified",
+      "resource_categories": ["*"],
+      "title": "No mapped relationship identified: {source_name}",
+      "summary": "No mapped spatial relationship was identified for {source_name} within the configured screening buffer.",
+      "details": "This means the analyzed local layer produced no mapped relationships in the current desktop check. It does not prove absence of field conditions or unmapped resources.",
+      "implication": "This item may support report drafting only after reviewer confirmation of source quality, source date, project extent, and screening assumptions.",
+      "evidence_class": "deterministic_spatial_check"
+    }
+  ]
+}

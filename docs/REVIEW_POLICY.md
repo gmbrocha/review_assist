@@ -2,7 +2,7 @@
 
 Generated artifacts are not final until reviewed by a human professional.
 
-The system may eventually draft findings, surface evidence, prepare maps/tables, create source notes, generate caveats, and draft editable report materials. Human reviewers remain responsible for interpretation, correction, acceptance, rejection, verification, inclusion, and release.
+The system may draft findings, surface evidence, prepare source notes, and eventually prepare maps/tables, caveats, and editable report materials. Human reviewers remain responsible for interpretation, correction, acceptance, rejection, verification, inclusion, and release.
 
 Generated sections should not be blank simply because evidence is limited. The system may draft "no mapped conflict identified," "source unavailable," or "manual review required" items, but those are still reviewable draft records.
 
@@ -87,7 +87,15 @@ Current commands:
 - `review-assist list-review-queue <project_dir>`
 - `review-assist update-review-item <project_dir> <item_id> --status <status> [--note "..."] [--export-eligible true|false]`
 
-The current generator creates review items from source status records, missing-data placeholders, deterministic spatial relationships, no-mapped-relationship checks, and validation issues. It does not generate final findings, report prose, maps, tables, or exports.
+The current generator creates review items from deterministic draft findings, source status records, missing-data placeholders, deterministic spatial relationships, no-mapped-relationship checks, and validation issues.
+
+Deterministic draft findings are generated at:
+
+- `projects/<project_id>/findings/draft_findings.json`
+
+Current finding generation is template-driven and cautious. It can produce draft finding cards for source-unavailable/deferred categories, source-backed spatial relationships, and no-mapped-relationship checks. These findings are not final and are not exportable unless they pass through review queue status and export-eligibility rules.
+
+The current baseline does not generate report prose, maps, tables, or exports.
 
 ## Policy Notes
 

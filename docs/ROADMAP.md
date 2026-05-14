@@ -96,7 +96,7 @@ Current baseline:
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
 - JSON artifact at `projects/<project_id>/review_queue/review_queue.json`.
 
-The baseline converts current source status records, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet generate report prose, maps, tables, exports, GUI review screens, or LLM-assisted narrative.
+The baseline converts current source status records, deterministic draft findings when present, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet generate report prose, maps, tables, exports, GUI review screens, or LLM-assisted narrative.
 
 ## Phase 5: Populate for Review
 
@@ -113,14 +113,33 @@ Current baseline:
 
 - `review-assist populate-for-review <project_dir>`
 - JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Runs project context generation, source status resolution, tolerant local spatial analysis, and review queue generation.
+- Runs project context generation, source status resolution, tolerant local spatial analysis, deterministic draft finding generation, and review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict.
 
-This baseline does not yet generate new findings, maps, tables, report prose, exports, GUI review screens, source downloads, or LLM-assisted narrative.
+This baseline does not yet generate maps, tables, report prose, exports, GUI review screens, source downloads, or LLM-assisted narrative.
 
-## Phase 6: Map/Figure, Table, and Imagery Generation
+## Phase 6A: Deterministic Finding Templates
 
-Status: next likely implementation area unless deterministic finding templates are prioritized first.
+Status: initial baseline complete.
+
+- Convert source status records and deterministic spatial relationship records into report-shaped draft finding records.
+- Preserve cautious implication language, evidence class, provenance, assumptions, source ids, uncertainty flags, and review status.
+- Generate missing/gated/stubbed/downloadable source findings instead of blocking the workflow.
+- Generate no-mapped-relationship findings where an analyzed local source produces no relationships.
+- Feed draft findings into the review queue while preserving reviewer state through deterministic IDs.
+
+Current baseline:
+
+- Template config at `config/finding_templates.json`.
+- `review-assist generate-findings <project_dir>`
+- JSON artifact at `projects/<project_id>/findings/draft_findings.json`.
+- `populate-for-review` runs finding generation before review queue generation and records the artifact path in the run manifest.
+
+This baseline does not rank, score, recommend, produce final conclusions, generate maps/tables, draft report prose, call LLMs, or compile exports.
+
+## Phase 6B: Map/Figure, Table, and Imagery Generation
+
+Status: next likely implementation area.
 
 - Generate overall project maps.
 - Generate resource-specific maps.

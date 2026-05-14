@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .findings import FINDINGS_PATH, FindingGenerationError, load_draft_findings
 from .project_context import ProjectContextError, generate_project_context, load_project_context
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 
@@ -56,6 +57,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
     context = _load_or_generate_context(project_dir)
     source_status = _load_or_generate_source_status(project_dir)
     spatial = _load_optional_spatial_relationships(project_dir)
+    draft_findings = _load_optional_draft_findings(project_dir)
     existing = _load_existing_queue(project_dir)
 
     items = _build_review_items(
@@ -64,6 +66,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
         context=context,
         source_status=source_status,
         spatial=spatial,
+        draft_findings=draft_findings,
     )
     if existing is not None:
         existing_items = {item["id"]: item for item in existing["items"]}
@@ -81,6 +84,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
             "project_context_path": context.get("context_path"),
             "source_status_path": source_status.get("output_path"),
             "spatial_relationships_path": spatial.get("output_path") if spatial else None,
+            "draft_findings_path": draft_findings.get("output_path") if draft_findings else None,
         },
         "item_count": len(items),
         "items": items,
@@ -200,6 +204,16 @@ def _load_optional_spatial_relationships(project_dir: Path) -> dict[str, Any] | 
     return data
 
 
+def _load_optional_draft_findings(project_dir: Path) -> dict[str, Any] | None:
+    findings_path = project_dir / FINDINGS_PATH
+    if not findings_path.exists():
+        return None
+    try:
+        return load_draft_findings(project_dir)
+    except FindingGenerationError as exc:
+        raise ReviewQueueError(str(exc)) from exc
+
+
 def _load_existing_queue(project_dir: Path) -> dict[str, Any] | None:
     queue_path = project_dir / REVIEW_QUEUE_PATH
     if not queue_path.exists():
@@ -214,8 +228,14 @@ def _build_review_items(
     context: dict[str, Any],
     source_status: dict[str, Any],
     spatial: dict[str, Any] | None,
+    draft_findings: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    if draft_findings is not None:
+        for finding in draft_findings.get("findings", []):
+            if isinstance(finding, dict):
+                items.append(_draft_finding_item(project_id, now, draft_findings, finding))
+
     for status_record in source_status.get("statuses", []):
         if not isinstance(status_record, dict):
             continue
@@ -249,6 +269,47 @@ def _build_review_items(
                 items.append(_validation_issue_item(project_id, now, "spatial_analysis", issue_index, spatial.get("output_path"), issue))
 
     return items
+
+
+def _draft_finding_item(
+    project_id: str,
+    now: str,
+    draft_findings: dict[str, Any],
+    finding: dict[str, Any],
+) -> dict[str, Any]:
+    finding_id = str(finding.get("finding_id", "finding"))
+    summary = str(finding.get("summary", "")).strip()
+    details = str(finding.get("details", "")).strip()
+    implication = str(finding.get("implication", "")).strip()
+    content_parts = [part for part in (summary, details, f"Implication: {implication}" if implication else "") if part]
+    status = str(finding.get("review_status", "draft"))
+    if status not in SUPPORTED_STATUSES:
+        status = "needs_review"
+    return _review_item(
+        item_id=f"draft-finding-{_slug(finding_id)}",
+        project_id=project_id,
+        item_type="draft_finding",
+        title=str(finding.get("title") or finding_id),
+        generated_content="\n\n".join(content_parts),
+        status=status,
+        export_section=str(finding.get("resource_category", "findings")),
+        assumptions=dict(finding.get("assumptions", {})) if isinstance(finding.get("assumptions"), dict) else {},
+        provenance={
+            "artifact": "draft_findings",
+            "artifact_path": draft_findings.get("output_path"),
+            "finding_id": finding_id,
+            "finding_type": finding.get("type"),
+            "evidence_class": finding.get("evidence_class"),
+            "finding_provenance": finding.get("provenance", {}),
+        },
+        source_refs=_string_list(finding.get("source_ids", [])),
+        uncertainty_flags=_string_list(finding.get("uncertainty_flags", [])),
+        now=now,
+        extra={
+            "finding_id": finding_id,
+            "related_record_ids": _string_list(finding.get("related_record_ids", [])),
+        },
+    )
 
 
 def _source_status_item(

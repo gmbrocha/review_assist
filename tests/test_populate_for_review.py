@@ -110,6 +110,7 @@ def test_populate_for_review_writes_manifest_and_review_queue(tmp_path: Path) ->
     assert result["artifact_paths"]["project_context"].endswith("project_context.json")
     assert result["artifact_paths"]["source_status"].endswith("source_status_set.json")
     assert result["artifact_paths"]["spatial_relationships"].endswith("spatial_relationships.json")
+    assert result["artifact_paths"]["draft_findings"].endswith("draft_findings.json")
     assert result["artifact_paths"]["review_queue"].endswith("review_queue.json")
     assert result["review_queue_item_count"] > 0
 

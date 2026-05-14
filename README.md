@@ -12,9 +12,9 @@ The review queue is the core workflow object. Every generated artifact should be
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, and a Phase 5 populate-for-review orchestration baseline. The current CLI can inspect project KMZ/KML inputs, list the source catalog, register local source layers, run early local spatial relationship checks, generate workflow artifacts, populate the review queue, and create/update review queue items.
+The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, and a Phase 6A deterministic finding generation baseline. The current CLI can inspect project KMZ/KML inputs, list the source catalog, register local source layers, run early local spatial relationship checks, generate workflow artifacts, generate deterministic draft findings, populate the review queue, and create/update review queue items.
 
-The implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source downloads, AI narrative generation, scoring, report generation, export compilation, or production workflow has been implemented.
+The implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source downloads, AI narrative generation, scoring, map/table generation, report generation, export compilation, or production workflow has been implemented.
 
 ## Planning Docs
 
@@ -27,7 +27,7 @@ Key planning documents live under `docs/`:
 - `DATA_SOURCES.md`: practical source stack, candidate sources, and source-registry planning.
 - `CODE_AUDIT.md`: latest implementation audit notes, fixes, and known limits.
 - `REPORT_TAXONOMY.md`: expected report structure.
-- `FINDING_TYPES.md`: future finding and implication types.
+- `FINDING_TYPES.md`: implemented baseline and future finding/implication types.
 - `UNCERTAINTY_AND_PROVENANCE.md`: source traceability and uncertainty policy.
 - `MAP_GENERATION.md`: future map/figure generation direction.
 - `REPORT_ASSEMBLY.md`: future findings-to-report workflow.
@@ -71,6 +71,12 @@ Generate workflow-native project context and source status artifacts:
 .\.venv\Scripts\review-assist.exe resolve-sources projects/trails
 ```
 
+Generate deterministic draft findings:
+
+```powershell
+.\.venv\Scripts\review-assist.exe generate-findings projects/trails
+```
+
 Generate and update review queue items:
 
 ```powershell
@@ -85,7 +91,7 @@ Run the current orchestration behind the future desktop `Populate for Review` ac
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails
 ```
 
-The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/`, `source_status/`, `review_queue/`, and `populate_for_review/` directories. Project intermediate outputs, workflow artifacts, and local project layers are generated/project-specific artifacts and are ignored by Git.
+The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/`, `source_status/`, `findings/`, `review_queue/`, and `populate_for_review/` directories. Project intermediate outputs, workflow artifacts, draft findings, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Testing
 

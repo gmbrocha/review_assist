@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or report workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, deterministic draft finding generation, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or report workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -30,10 +30,11 @@ Conceptual state objects:
 - Source status set.
 - Normalized project geometry.
 - Spatial relationship records.
+- Draft finding records.
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, normalized GeoJSON intermediates, spatial relationship records, review queue persistence, and populate run manifests. Export manifests remain future work.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, normalized GeoJSON intermediates, spatial relationship records, deterministic draft finding records, review queue persistence, and populate run manifests. Export manifests remain future work.
 
 ## Project Workspace Layer
 
@@ -60,7 +61,7 @@ Project folders may contain:
 - `exports/`
 - `review/`
 
-Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `findings/`, `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, generated `findings/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
 
 `populate_for_review/` is also currently used for orchestration run manifests. It is generated workflow state and ignored by Git.
 
@@ -210,7 +211,16 @@ This service should not rank alternatives or choose a preferred alternative.
 
 See `docs/FINDING_TYPES.md` and `docs/UNCERTAINTY_AND_PROVENANCE.md`.
 
-Findings should be emitted as review queue items, not direct report content.
+Current implementation:
+
+- Template config lives at `config/finding_templates.json`.
+- The service reads project context, source status, optional spatial relationships, and finding templates.
+- It writes `projects/<project_id>/findings/draft_findings.json`.
+- It creates deterministic draft finding records for source-unavailable/deferred categories, source-backed spatial relationships, and analyzed local sources with no mapped relationships.
+- The CLI command is `review-assist generate-findings <project_dir>`.
+- Finding IDs are deterministic so review queue regeneration can preserve reviewer status and notes.
+
+Findings are emitted as review queue items, not direct report content.
 
 ## Imagery/Context Service
 
@@ -297,7 +307,7 @@ Review statuses are defined in `docs/REVIEW_POLICY.md`.
 Current implementation:
 
 - Writes `projects/<project_id>/review_queue/review_queue.json`.
-- Converts source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
+- Converts deterministic draft findings, source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
 - Supports CLI listing and status/note/export-eligibility updates.
 - Does not yet provide GUI review screens, report drafting, map/table review items, or export compilation.
 
@@ -306,10 +316,10 @@ Current implementation:
 Purpose:
 
 - Provide the service-level backend for the future desktop `Populate for Review` action.
-- Run current workflow steps in order: project context, source status, tolerant spatial analysis, and review queue generation.
+- Run current workflow steps in order: project context, source status, tolerant spatial analysis, deterministic draft finding generation, and review queue generation.
 - Write a run manifest with step statuses, artifact paths, warning records, review queue item count, and critical error text when a run fails.
 
-Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It does not download public sources, create maps/tables, generate report prose, call LLMs, compile exports, or make recommendations.
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, source status, spatial relationship, draft findings, and review queue artifact paths. It does not download public sources, create maps/tables, generate report prose, call LLMs, compile exports, or make recommendations.
 
 ## LLM Boundary
 

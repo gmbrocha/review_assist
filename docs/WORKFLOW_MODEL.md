@@ -144,8 +144,9 @@ GPT/LLM calls are acceptable here for draft narrative generation, summarization,
 
 Current baseline:
 
-- `populate-for-review` runs context generation, source status resolution, tolerant local spatial analysis, and review queue generation.
+- `populate-for-review` runs context generation, source status resolution, tolerant local spatial analysis, deterministic draft finding generation, and review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
+- It records `projects/<project_id>/findings/draft_findings.json` in the run manifest when finding generation succeeds.
 - Missing or unreadable local source layers become warnings and reviewable validation items rather than blocking review queue generation.
 - It does not yet download sources, generate maps/tables, draft report prose, call LLMs, or compile exports.
 
@@ -206,7 +207,7 @@ The review queue is the human-in-the-loop control boundary. It is not a side pan
 
 Current baseline:
 
-- `generate-review-queue` creates JSON review queue items from source status records, missing-data placeholders, spatial relationships, no-mapped-relationship checks, and validation issues.
+- `generate-review-queue` creates JSON review queue items from deterministic draft findings when present, source status records, missing-data placeholders, spatial relationships, no-mapped-relationship checks, and validation issues.
 - `list-review-queue` summarizes item status/type counts and item eligibility.
 - `update-review-item` supports status changes, reviewer notes, and export eligibility flags.
 - The baseline is still service/CLI only; GUI review screens, map/table items, report drafting, and export compilation remain future work.

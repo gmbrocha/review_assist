@@ -1,6 +1,6 @@
 # Finding Types
 
-This document defines likely future finding types and implication patterns.
+This document defines the implemented deterministic finding baseline and likely future finding/implication patterns.
 
 Findings are structured review queue items or inputs to review queue items. They are not final conclusions until reviewed by a human professional.
 
@@ -36,33 +36,62 @@ Findings should preserve the evidence class:
 - Agency-consultation finding.
 - LLM-assisted draft language tied to structured findings.
 
-## Core Finding Fields
+## Implemented Baseline Finding Fields
 
-Future finding records may include:
+The Phase 6A deterministic finding baseline writes `projects/<project_id>/findings/draft_findings.json`.
+
+Implemented draft finding records include:
 
 - `finding_id`
 - `project_id`
-- `alternative_id`
+- `type`
+  - This is the finding type, such as `wetland_or_waterbody_relationship`.
+  - The older conceptual name `finding_type` is represented by `type` in the current JSON artifact.
+  - Review queue items keep the original `finding_id` in item metadata.
+  - Future schema revisions may add aliases if the GUI needs them.
+  - Do not treat this as final report wording.
 - `resource_category`
-- `finding_type`
-- `spatial_relationship`
-- `implication_type`
+- `title`
 - `summary`
 - `details`
+- `implication`
+- `evidence_class`
 - `source_ids`
-- `method`
-- `geometry_reference`
-- `buffer_distance`
-- `measurement`
-- `measurement_units`
-- `confidence`
+- `related_record_ids`
+- `assumptions`
+- `provenance`
 - `uncertainty_flags`
 - `review_status`
-- `reviewer_notes`
-- `created_at`
-- `updated_at`
 
-This is conceptual and not implemented.
+Draft findings are generated from deterministic templates in `config/finding_templates.json`. They are not final conclusions and must still enter the review queue.
+
+Reviewer notes, edited content, export eligibility, and review history live on review queue items, not inside `draft_findings.json`.
+
+## Implemented Baseline Finding Types
+
+The first deterministic template set covers:
+
+- `wetland_or_waterbody_relationship`
+- `stream_or_hydrography_crossing`
+- `land_cover_or_disturbance_context`
+- `soil_constraint_context`
+- `regulated_facility_context`
+- `cultural_or_historic_review_required`
+- `utility_or_transportation_coordination`
+- `community_context`
+- `parcel_or_property_review`
+- `imagery_review_context`
+- `flood_hazard_context`
+- `source_unavailable_or_deferred`
+- `no_mapped_conflict_identified`
+
+The implemented generator currently creates findings from:
+
+- Source status records with `missing`, `gated`, `stubbed`, `downloadable`, or `needs_review` status.
+- Deterministic spatial relationship records for supported source categories.
+- Analyzed local sources with zero mapped relationships.
+
+The implementation does not yet generate imagery observations, report paragraphs, comparison tables, maps, LLM-assisted synthesis, or final report sections.
 
 ## Spatial Relationship Types
 

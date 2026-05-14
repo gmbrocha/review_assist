@@ -48,9 +48,9 @@ Examples of alternatives include:
 - Access routes.
 - Infrastructure options.
 
-## Future Finding Concepts
+## Finding Concepts
 
-Future draft findings may include:
+Implemented and future draft findings may include:
 
 - Wetland intersection.
 - Wetland adjacency buffer.
@@ -63,7 +63,7 @@ Future draft findings may include:
 - Visible pond or lake in imagery not present in available wetland data.
 - Recent clearing or land disturbance visible in imagery.
 
-These are future concepts only and are not implemented.
+The current deterministic baseline implements a subset through template-driven draft findings. Imagery observations, map/table findings, report prose, and LLM-assisted synthesis remain future work.
 
 ## Current Example Projects
 

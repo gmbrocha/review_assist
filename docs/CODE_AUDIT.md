@@ -14,6 +14,7 @@ This document records the latest implementation audit for the current prototype 
 - Phase 3 project context/source status services.
 - Phase 4 review queue generation/update services.
 - Phase 5 populate-for-review orchestration.
+- Phase 6A deterministic draft finding generation.
 - CLI commands for project inspection, source listing, local source registration, project analysis, review queue operations, and populate-for-review.
 - Tests and active documentation.
 
@@ -32,15 +33,21 @@ This document records the latest implementation audit for the current prototype 
 - Tightened spatial analysis validation so project default buffers must be zero or greater.
 - Added tolerant spatial analysis behavior for populate-for-review while keeping `analyze-project` strict.
 - Added populate run manifests with step status, artifact paths, review queue count, warnings, and critical error text.
+- Added deterministic draft finding generation from source status records, spatial relationships, and analyzed local sources with no mapped relationships.
+- Added finding template config validation and draft finding artifact validation, including required fields, duplicate finding IDs, status validation, and list/object field checks.
+- Added draft finding review queue items with deterministic item IDs so existing reviewer status and notes survive regeneration.
+- Added `generate-findings` CLI coverage and wired finding generation into `populate-for-review`.
+- Tightened no-mapped finding generation to tolerate malformed relationship-count values in JSON artifacts.
 - Added tests for the validation and orchestration cases above.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, review queue behavior, and populate-for-review orchestration.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, deterministic draft finding generation, review queue behavior, and populate-for-review orchestration.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist analyze-project projects/trails`
   - `review-assist analyze-project projects/conexon_projects`
+  - `review-assist generate-findings projects/trails`
   - `review-assist populate-for-review projects/trails`
   - `review-assist populate-for-review projects/conexon_projects`
   - `review-assist list-review-queue projects/trails`
@@ -49,8 +56,9 @@ This document records the latest implementation audit for the current prototype 
 ## Known Limits
 
 - Local source layers are supported; live public downloads are not implemented.
-- Spatial analysis produces relationship records only. It does not produce final findings, maps, reports, recommendations, or final conclusions.
-- The review queue stores source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet produce richer deterministic finding templates, maps, tables, narrative, or export packages.
+- Spatial analysis produces relationship records only. Deterministic draft finding generation is a separate service.
+- Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or report sections.
+- The review queue stores draft finding, source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet produce maps, tables, narrative, or export packages.
 - `populate-for-review` orchestrates current services only. It does not download sources, call LLMs, render maps, draft prose, or compile exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.

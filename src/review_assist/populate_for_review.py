@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .findings import FindingGenerationError, generate_draft_findings
 from .project_context import ProjectContextError, generate_project_context
 from .review_queue import ReviewQueueError, generate_review_queue
 from .source_status import SourceStatusError, resolve_source_status_set
@@ -29,6 +30,7 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
     context: dict[str, Any] | None = None
     source_status: dict[str, Any] | None = None
     spatial: dict[str, Any] | None = None
+    draft_findings: dict[str, Any] | None = None
     review_queue: dict[str, Any] | None = None
 
     try:
@@ -46,11 +48,15 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
             if isinstance(source, dict):
                 warnings.extend(_issue_warnings("spatial_analysis", source.get("validation_issues", []), source_id=source.get("source_id")))
 
+        draft_findings = generate_draft_findings(project_dir)
+        steps.append(_step("draft_findings", "completed", artifact_path=draft_findings.get("output_path")))
+        warnings.extend(_issue_warnings("draft_findings", draft_findings.get("validation_issues", [])))
+
         review_queue = generate_review_queue(project_dir)
         steps.append(_step("review_queue", "completed", artifact_path=review_queue.get("output_path")))
-    except (ProjectContextError, SourceStatusError, SpatialAnalysisError, ReviewQueueError) as exc:
+    except (ProjectContextError, SourceStatusError, SpatialAnalysisError, FindingGenerationError, ReviewQueueError) as exc:
         critical_error = str(exc)
-        steps.append(_step(_failed_step_name(context, source_status, spatial, review_queue), "failed", message=critical_error))
+        steps.append(_step(_failed_step_name(context, source_status, spatial, draft_findings, review_queue), "failed", message=critical_error))
 
     manifest = {
         "project_id": _first_value("project_id", context, source_status, spatial, review_queue),
@@ -64,6 +70,7 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
             "project_context": context.get("context_path") if context else None,
             "source_status": source_status.get("output_path") if source_status else None,
             "spatial_relationships": spatial.get("output_path") if spatial else None,
+            "draft_findings": draft_findings.get("output_path") if draft_findings else None,
             "review_queue": review_queue.get("output_path") if review_queue else None,
         },
         "review_queue_item_count": review_queue.get("item_count") if review_queue else 0,
@@ -108,6 +115,7 @@ def _failed_step_name(
     context: dict[str, Any] | None,
     source_status: dict[str, Any] | None,
     spatial: dict[str, Any] | None,
+    draft_findings: dict[str, Any] | None,
     review_queue: dict[str, Any] | None,
 ) -> str:
     if context is None:
@@ -116,6 +124,8 @@ def _failed_step_name(
         return "source_status"
     if spatial is None:
         return "spatial_analysis"
+    if draft_findings is None:
+        return "draft_findings"
     if review_queue is None:
         return "review_queue"
     return "populate_for_review"

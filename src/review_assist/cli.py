@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+from .findings import FindingGenerationError, generate_draft_findings
 from .inspection import ProjectInspectionError, inspect_project
 from .populate_for_review import PopulateForReviewError, populate_for_review
 from .project_context import ProjectContextError, generate_project_context
@@ -54,6 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
     sources_parser = subparsers.add_parser("resolve-sources", help="Resolve project source category statuses for a workspace.")
     sources_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     sources_parser.add_argument("--json", action="store_true", help="Print full JSON source status set to stdout.")
+
+    findings_parser = subparsers.add_parser("generate-findings", help="Generate deterministic draft finding records.")
+    findings_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    findings_parser.add_argument("--json", action="store_true", help="Print full JSON draft findings artifact to stdout.")
 
     queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
     queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -241,6 +246,23 @@ def generate_review_queue_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
+def generate_findings_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = generate_draft_findings(project_dir)
+    except FindingGenerationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated draft findings: {result['project_id']} ({result['project_name']})")
+    print(f"Findings: {result['finding_count']}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def list_review_queue_command(project_dir: Path, print_json: bool) -> int:
     try:
         summary = summarize_review_queue(project_dir)
@@ -322,6 +344,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_context_command(args.project_dir, args.json)
     if args.command == "resolve-sources":
         return resolve_sources_command(args.project_dir, args.json)
+    if args.command == "generate-findings":
+        return generate_findings_command(args.project_dir, args.json)
     if args.command == "generate-review-queue":
         return generate_review_queue_command(args.project_dir, args.json)
     if args.command == "list-review-queue":
