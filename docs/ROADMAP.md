@@ -39,7 +39,7 @@ Phase 1 remains limited to ingestion and geometry inspection. It does not genera
 
 ## Phase 2A: Source Catalog and Source Population
 
-Status: initial implementation in progress.
+Status: initial baseline complete.
 
 - Define a broad source catalog covering water, land, species, cultural, regulated facilities, community, infrastructure, parcel, imagery, and flood context.
 - Create project source registries that can enable or disable candidate sources per project.
@@ -51,7 +51,7 @@ Flood hazard is cataloged as a secondary optional source. It is not a core first
 
 ## Phase 2B: Local Layer Clipping and Spatial Relationship Checks
 
-Status: initial implementation in progress.
+Status: initial baseline complete.
 
 - Load enabled project-local source layers.
 - Clip or filter layers to the project geometry and configured review buffer.
@@ -63,12 +63,16 @@ Phase 2B still does not create findings, review queue records, maps, reports, ra
 
 ## Phase 3: Finding Model and Review Statuses
 
+Status: next major implementation phase.
+
 - Define structured finding fields.
 - Add review statuses.
 - Support reviewer notes and edits.
 - Track uncertainty and unable-to-verify cases.
 - Map spatial relationship types to reviewable contextual implications.
 - Distinguish source-backed findings from imagery-observed review items.
+
+Phase 3 should treat the review queue as the spine: spatial relationships, no-conflict checks, missing source flags, maps, tables, and draft narrative must become reviewable items before export.
 
 ## Phase 4: Map/Figure and Table Generation
 

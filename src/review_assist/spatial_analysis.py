@@ -177,9 +177,12 @@ def _load_project_layers(inspection: dict[str, Any]) -> list[dict[str, Any]]:
 def _default_buffer_feet(assumptions: dict[str, Any]) -> float:
     raw_value = assumptions.get("default_buffer_feet", 100)
     try:
-        return float(raw_value)
+        buffer_feet = float(raw_value)
     except (TypeError, ValueError) as exc:
         raise SpatialAnalysisError("Project assumption 'default_buffer_feet' must be numeric.") from exc
+    if buffer_feet < 0:
+        raise SpatialAnalysisError("Project assumption 'default_buffer_feet' must be zero or greater.")
+    return buffer_feet
 
 
 def _analyze_source(

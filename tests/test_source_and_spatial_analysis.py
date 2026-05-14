@@ -72,6 +72,13 @@ def write_project(tmp_path: Path) -> Path:
     return project_dir
 
 
+def set_project_buffer(project_dir: Path, value: object) -> None:
+    manifest_path = project_dir / "config" / "project.json"
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data["assumptions"]["default_buffer_feet"] = value
+    manifest_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
 def write_registry(project_dir: Path, source_id: str, source_path: str | None, *, enabled: bool = True, access_method: str = "local_file") -> None:
     (project_dir / "config" / "sources.json").write_text(
         json.dumps(
@@ -131,6 +138,63 @@ def test_project_source_registry_loads_disabled_and_manual_sources(tmp_path: Pat
     assert registry.sources[0].access_method == "manual_document"
     assert result["sources"][0]["status"] == "skipped_non_local"
     assert result["relationships"] == []
+
+
+def test_project_source_registry_requires_boolean_enabled(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_registry(project_dir, "usfws_nwi_wetlands", None, enabled=True)
+    data = json.loads((project_dir / "config" / "sources.json").read_text(encoding="utf-8"))
+    data["sources"][0]["enabled"] = "false"
+    (project_dir / "config" / "sources.json").write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(SourceCatalogError, match="enabled must be true or false"):
+        load_project_source_registry(project_dir)
+
+
+def test_project_source_registry_rejects_duplicate_source_ids(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_registry(project_dir, "usfws_nwi_wetlands", None, enabled=False)
+    data = json.loads((project_dir / "config" / "sources.json").read_text(encoding="utf-8"))
+    data["sources"].append(dict(data["sources"][0]))
+    (project_dir / "config" / "sources.json").write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(SourceCatalogError, match="Duplicate source_id"):
+        load_project_source_registry(project_dir)
+
+
+def test_project_source_registry_rejects_blank_local_path(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_registry(project_dir, "usfws_nwi_wetlands", "", enabled=True)
+
+    with pytest.raises(SourceCatalogError, match="path must not be blank"):
+        load_project_source_registry(project_dir)
+
+
+def test_project_source_registry_requires_non_empty_access_method(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_registry(project_dir, "usfws_nwi_wetlands", None, enabled=False)
+    data = json.loads((project_dir / "config" / "sources.json").read_text(encoding="utf-8"))
+    data["sources"][0]["access_method"] = ""
+    (project_dir / "config" / "sources.json").write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(SourceCatalogError, match="access_method"):
+        load_project_source_registry(project_dir)
+
+
+def test_project_source_registry_must_match_manifest_id(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_registry(project_dir, "usfws_nwi_wetlands", None, enabled=False)
+    data = json.loads((project_dir / "config" / "sources.json").read_text(encoding="utf-8"))
+    data["project_id"] = "wrong_project"
+    (project_dir / "config" / "sources.json").write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(SourceCatalogError, match="does not match project manifest"):
+        load_project_source_registry(project_dir)
+
+
+def test_project_source_registry_requires_project_manifest(tmp_path: Path) -> None:
+    with pytest.raises(SourceCatalogError, match="Missing project manifest"):
+        load_project_source_registry(tmp_path / "not_a_project")
 
 
 def test_register_local_source_updates_project_registry(tmp_path: Path) -> None:
@@ -226,6 +290,28 @@ def test_analyze_project_errors_for_missing_local_source(tmp_path: Path) -> None
         analyze_project(project_dir)
 
 
+def test_analyze_project_rejects_negative_default_buffer(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    set_project_buffer(project_dir, -1)
+    write_layer(project_dir / "far.geojson", [Point(-89.0, 33.0)], [{"name": "Far Feature"}])
+    write_registry(project_dir, "epa_envirofacts_echo", "far.geojson")
+
+    with pytest.raises(SpatialAnalysisError, match="zero or greater"):
+        analyze_project(project_dir)
+
+
+def test_analyze_project_rejects_negative_source_buffer(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(project_dir / "far.geojson", [Point(-89.0, 33.0)], [{"name": "Far Feature"}])
+    write_registry(project_dir, "epa_envirofacts_echo", "far.geojson")
+    data = json.loads((project_dir / "config" / "sources.json").read_text(encoding="utf-8"))
+    data["sources"][0]["buffer_feet"] = -1
+    (project_dir / "config" / "sources.json").write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(SpatialAnalysisError, match="zero or greater"):
+        analyze_project(project_dir)
+
+
 def test_cli_source_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     project_dir = write_project(tmp_path)
     layer_path = write_layer(
@@ -253,3 +339,11 @@ def test_cli_analyze_project_returns_nonzero_for_missing_source(tmp_path: Path, 
     captured = capsys.readouterr()
     assert exit_code == 1
     assert "Missing local source file" in captured.err
+
+
+def test_cli_list_sources_returns_nonzero_for_missing_project_manifest(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = main(["list-sources", str(tmp_path / "not_a_project")])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Missing project manifest" in captured.err

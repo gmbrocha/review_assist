@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current conceptual architecture direction. No production implementation exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, and early spatial relationship checks. No production desktop app or report workflow exists yet.
 
 The system should stay modular enough to support multiple project types while avoiding premature complexity. The likely shape is a set of small services or modules that pass structured project, source, geometry, finding, map, and report artifacts between each other.
 
@@ -27,7 +27,7 @@ Current workspaces:
 
 Phase 1 workspaces include `config/project.json` manifests and copied KMZ inputs under `inputs/`. Phase 2A workspaces include `config/sources.json` source registries.
 
-Future project folders may contain:
+Project folders may contain:
 
 - `inputs/`
 - `layers/`
@@ -38,7 +38,7 @@ Future project folders may contain:
 - `exports/`
 - `review/`
 
-This structure is not implemented yet.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, and generated `intermediate/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `findings/`, `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
 
 Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`. Phase 2B writes clipped source GeoJSON files and `spatial_relationships.json` under `intermediate/`.
 
@@ -100,6 +100,7 @@ Current implementation:
 - Project JSON source registries live at `projects/<project_id>/config/sources.json`.
 - The CLI can list catalog entries and register a local source layer for a project.
 - Local-file registration is the default Phase 2 path; live downloads are deferred.
+- Registry loading validates project IDs, duplicate source IDs, boolean enabled flags, and non-negative source buffer overrides.
 
 This service should not silently call paid services, use credentials, or access restricted systems without explicit approval.
 
@@ -130,6 +131,7 @@ Current implementation:
 - Clips/filter-checks sources against project geometry plus configurable buffer.
 - Emits `intersects`, `crosses`, and `within_buffer` relationship records.
 - Preserves source id, source category, method, CRS, buffer, feature labels, and basic length/area/distance measurements where available.
+- Validates non-negative project default buffers before analysis.
 
 The service currently produces spatial relationship records only. It does not generate findings or report language.
 

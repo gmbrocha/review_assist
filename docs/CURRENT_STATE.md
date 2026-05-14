@@ -2,9 +2,9 @@
 
 ## Phase
 
-Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The project is now entering Phase 2A/2B source catalog, local source registration, and local spatial relationship checks.
+Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks.
 
-The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, an initial Python service/CLI implementation for Phase 1 inspection, and early Phase 2 source catalog/spatial check services. No production workflow has been implemented.
+The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, and Phase 2 source catalog/spatial check services. No production workflow has been implemented.
 
 The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page.
 
@@ -48,13 +48,13 @@ All outputs are pre-review drafts until reviewed by a human professional.
 
 ## Not Implemented
 
-- Full GIS analysis.
+- Production GIS pipelines or full environmental analysis.
 - External API integrations.
 - Basemap or imagery acquisition workflows.
 - Report assembly pipelines.
 - Finding generation.
 - Review queue persistence.
-- Public source downloads.
+- Public source downloads or live source querying.
 - Desktop GUI.
 - LLM-assisted narrative synthesis.
 - ML or computer vision detection.
@@ -87,6 +87,19 @@ The root-level KMZ files are retained as reference originals. Phase 1 project ma
 - Flood hazard is retained as a secondary optional source category, not a first-pass driver for every project.
 - Generated spatial relationship outputs are JSON and GeoJSON under ignored project `intermediate/` directories.
 - Source layers under `projects/<project_id>/layers/` are ignored by Git because they may be large, licensed, or project-specific.
+
+Current CLI commands:
+
+- `review-assist inspect-project <project_dir>`
+- `review-assist list-sources [project_dir]`
+- `review-assist import-source <project_dir> <source_id> <path>`
+- `review-assist analyze-project <project_dir>`
+
+Current audit status:
+
+- The codebase has passing tests for ingestion, source registry validation, local source registration, and synthetic spatial checks.
+- The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, and negative buffer values.
+- See `docs/CODE_AUDIT.md` for latest audit notes.
 
 ## Archive Directories
 

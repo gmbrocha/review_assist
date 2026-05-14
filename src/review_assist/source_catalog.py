@@ -89,10 +89,13 @@ class SourceCatalog:
         categories = data.get("categories", [])
         if not isinstance(categories, list):
             raise SourceCatalogError("Source catalog 'categories' must be a list when present.")
+        for item in categories:
+            if not isinstance(item, dict):
+                raise SourceCatalogError("Each source catalog category entry must be an object.")
 
         return cls(
             catalog_version=str(data.get("catalog_version", "")),
-            categories=[dict(item) for item in categories if isinstance(item, dict)],
+            categories=[dict(item) for item in categories],
             sources=sources,
         )
 
@@ -114,19 +117,33 @@ class ProjectSource:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ProjectSource":
         source_id = _required_string(data, "source_id", "project source")
+        enabled = data.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise SourceCatalogError(f"Project source '{source_id}' enabled must be true or false.")
+
         path = data.get("path")
         if path is not None and not isinstance(path, str):
             raise SourceCatalogError(f"Project source '{source_id}' path must be a string or null.")
+        if isinstance(path, str) and not path.strip():
+            raise SourceCatalogError(f"Project source '{source_id}' path must not be blank.")
+
+        access_method = data.get("access_method", "local_file")
+        if not isinstance(access_method, str) or not access_method.strip():
+            raise SourceCatalogError(f"Project source '{source_id}' requires a non-empty access_method.")
+
         buffer_feet = data.get("buffer_feet")
         if buffer_feet is not None:
             try:
                 buffer_feet = float(buffer_feet)
             except (TypeError, ValueError) as exc:
                 raise SourceCatalogError(f"Project source '{source_id}' buffer_feet must be numeric.") from exc
+            if buffer_feet < 0:
+                raise SourceCatalogError(f"Project source '{source_id}' buffer_feet must be zero or greater.")
+
         return cls(
             source_id=source_id,
-            enabled=bool(data.get("enabled", False)),
-            access_method=str(data.get("access_method", "local_file")),
+            enabled=enabled,
+            access_method=access_method,
             path=path,
             role=str(data.get("role", "context")),
             buffer_feet=buffer_feet,
@@ -158,9 +175,19 @@ class ProjectSourceRegistry:
         raw_sources = data.get("sources", [])
         if not isinstance(raw_sources, list):
             raise SourceCatalogError("Project source registry requires a list field named 'sources'.")
+        sources: list[ProjectSource] = []
+        seen_source_ids: set[str] = set()
+        for item in raw_sources:
+            if not isinstance(item, dict):
+                raise SourceCatalogError("Each project source registry entry must be an object.")
+            source = ProjectSource.from_dict(item)
+            if source.source_id in seen_source_ids:
+                raise SourceCatalogError(f"Duplicate source_id in project source registry: {source.source_id}")
+            seen_source_ids.add(source.source_id)
+            sources.append(source)
         return cls(
             project_id=project_id,
-            sources=[ProjectSource.from_dict(item) for item in raw_sources if isinstance(item, dict)],
+            sources=sources,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -191,16 +218,22 @@ def load_source_catalog(path: Path | None = None) -> SourceCatalog:
 
 
 def load_project_source_registry(project_dir: Path) -> ProjectSourceRegistry:
+    project_id = _project_id(project_dir)
     registry_file = project_dir / PROJECT_SOURCES_PATH
     if not registry_file.exists():
-        return ProjectSourceRegistry(project_id=_project_id(project_dir), sources=[])
+        return ProjectSourceRegistry(project_id=project_id, sources=[])
     try:
         data = json.loads(registry_file.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise SourceCatalogError(f"Invalid project source registry JSON: {registry_file}: {exc}") from exc
     if not isinstance(data, dict):
         raise SourceCatalogError(f"Project source registry must be a JSON object: {registry_file}")
-    return ProjectSourceRegistry.from_dict(data)
+    registry = ProjectSourceRegistry.from_dict(data)
+    if registry.project_id != project_id:
+        raise SourceCatalogError(
+            f"Project source registry id '{registry.project_id}' does not match project manifest id '{project_id}'."
+        )
+    return registry
 
 
 def save_project_source_registry(project_dir: Path, registry: ProjectSourceRegistry) -> Path:
@@ -269,8 +302,8 @@ def _required_string(data: dict[str, Any], key: str, context: str) -> str:
 def _project_id(project_dir: Path) -> str:
     try:
         return load_project_manifest(project_dir).project_id
-    except ProjectManifestError:
-        return project_dir.name
+    except ProjectManifestError as exc:
+        raise SourceCatalogError(str(exc)) from exc
 
 
 def _display_path(path: Path, project_dir: Path) -> str:

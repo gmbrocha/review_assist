@@ -10,7 +10,7 @@ Human review is mandatory before any output is used outside the draft review pro
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning and has an initial Phase 1 KMZ/KML ingestion CLI. Phase 2A/2B now adds a broad source catalog, project source registries, local source-layer registration, and early local spatial relationship checks.
+The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, and the first Phase 2A/2B source-context baseline. The current CLI can inspect project KMZ/KML inputs, list the source catalog, register local source layers, and run early local spatial relationship checks.
 
 The implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source downloads, AI narrative generation, scoring, report generation, review queue persistence, or production workflow has been implemented.
 
@@ -22,6 +22,7 @@ Key planning documents live under `docs/`:
 - `ARCHITECTURE.md`: conceptual service/module boundaries.
 - `FIRST_VERSION_PLAN.md`: desktop GUI first-version plan centered on the review queue.
 - `DATA_SOURCES.md`: practical source stack, candidate sources, and source-registry planning.
+- `CODE_AUDIT.md`: latest implementation audit notes, fixes, and known limits.
 - `REPORT_TAXONOMY.md`: expected report structure.
 - `FINDING_TYPES.md`: future finding and implication types.
 - `UNCERTAINTY_AND_PROVENANCE.md`: source traceability and uncertainty policy.

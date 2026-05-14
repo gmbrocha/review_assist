@@ -55,6 +55,13 @@ class ProjectManifest:
         raw_inputs = data.get("inputs", [])
         if not isinstance(raw_inputs, list) or not raw_inputs:
             raise ProjectManifestError("Project manifest requires at least one input.")
+        for item in raw_inputs:
+            if not isinstance(item, dict):
+                raise ProjectManifestError("Each project input must be a JSON object.")
+
+        raw_assumptions = data.get("assumptions", {})
+        if not isinstance(raw_assumptions, dict):
+            raise ProjectManifestError("Project manifest 'assumptions' must be a JSON object when present.")
 
         return cls(
             project_id=project_id,
@@ -62,7 +69,7 @@ class ProjectManifest:
             description=str(data.get("description", "")),
             project_type=str(data.get("project_type", "alternatives_review")),
             inputs=[ProjectInput.from_dict(item) for item in raw_inputs],
-            assumptions=dict(data.get("assumptions", {})),
+            assumptions=dict(raw_assumptions),
             special_reviewer_instructions=str(data.get("special_reviewer_instructions", "")),
         )
 
@@ -96,4 +103,3 @@ def save_project_manifest(project_dir: Path, manifest: ProjectManifest) -> Path:
     manifest_file.parent.mkdir(parents=True, exist_ok=True)
     manifest_file.write_text(json.dumps(manifest.to_dict(), indent=2) + "\n", encoding="utf-8")
     return manifest_file
-
