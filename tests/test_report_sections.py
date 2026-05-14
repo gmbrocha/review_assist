@@ -153,6 +153,30 @@ def test_report_section_template_config_rejects_invalid_templates(tmp_path: Path
         load_report_section_template_config(template_path)
 
 
+def test_report_section_template_config_rejects_boolean_section_order(tmp_path: Path) -> None:
+    template_path = tmp_path / "report_section_templates.json"
+    template_path.write_text(
+        json.dumps(
+            {
+                "sections": [
+                    {
+                        "section_id": "broken",
+                        "type": "resource_section",
+                        "title": "Broken",
+                        "section_order": True,
+                        "resource_category": "broken",
+                        "purpose": "Broken",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ReportSectionTemplateError, match="section_order"):
+        load_report_section_template_config(template_path)
+
+
 def test_generate_report_sections_writes_no_blank_page_artifact(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
@@ -218,6 +242,16 @@ def test_load_report_sections_rejects_malformed_artifact(tmp_path: Path) -> None
         load_report_sections(project_dir)
     with pytest.raises(ReviewQueueError, match="missing required fields"):
         generate_review_queue(project_dir)
+
+
+def test_load_report_sections_rejects_boolean_section_order(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    result = generate_report_sections(project_dir)
+    result["sections"][0]["section_order"] = False
+    Path(result["output_path"]).write_text(json.dumps(result), encoding="utf-8")  # type: ignore[arg-type]
+
+    with pytest.raises(ReportSectionGenerationError, match="section_order"):
+        load_report_sections(project_dir)
 
 
 def test_generate_report_sections_fails_clearly_for_malformed_upstream_artifact(tmp_path: Path) -> None:

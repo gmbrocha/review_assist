@@ -144,6 +144,8 @@ class ProjectSource:
 
         buffer_feet = data.get("buffer_feet")
         if buffer_feet is not None:
+            if isinstance(buffer_feet, bool):
+                raise SourceCatalogError(f"Project source '{source_id}' buffer_feet must be numeric.")
             try:
                 buffer_feet = float(buffer_feet)
             except (TypeError, ValueError) as exc:

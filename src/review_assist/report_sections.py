@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -73,7 +72,7 @@ class ReportSectionTemplate:
     def from_dict(cls, data: dict[str, Any]) -> "ReportSectionTemplate":
         section_id = _required_string(data, "section_id", "report section template")
         raw_order = data.get("section_order")
-        if not isinstance(raw_order, int):
+        if not _is_integer(raw_order):
             raise ReportSectionTemplateError(f"Report section template '{section_id}' requires integer 'section_order'.")
         return cls(
             section_id=section_id,
@@ -794,7 +793,7 @@ def _validate_report_sections_artifact(data: dict[str, Any], location: str) -> N
         if section_id in seen_ids:
             raise ReportSectionGenerationError(f"Duplicate report section id '{section_id}': {location}")
         seen_ids.add(section_id)
-        if not isinstance(section["section_order"], int):
+        if not _is_integer(section["section_order"]):
             raise ReportSectionGenerationError(f"Report section '{section_id}' section_order must be an integer: {location}")
         if section["review_status"] not in SUPPORTED_SECTION_REVIEW_STATUSES:
             raise ReportSectionGenerationError(f"Report section '{section_id}' has unsupported review_status: {location}")
@@ -832,9 +831,8 @@ def _string_list(value: Any) -> list[str]:
     return [str(item) for item in value if str(item).strip()]
 
 
-def _slug(value: str) -> str:
-    slug = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower()).strip("-")
-    return slug or "item"
+def _is_integer(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _utc_now() -> str:

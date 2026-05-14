@@ -300,6 +300,16 @@ def test_analyze_project_rejects_negative_default_buffer(tmp_path: Path) -> None
         analyze_project(project_dir)
 
 
+def test_analyze_project_rejects_boolean_default_buffer(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    set_project_buffer(project_dir, True)
+    write_layer(project_dir / "far.geojson", [Point(-89.0, 33.0)], [{"name": "Far Feature"}])
+    write_registry(project_dir, "epa_envirofacts_echo", "far.geojson")
+
+    with pytest.raises(SpatialAnalysisError, match="default_buffer_feet.*numeric"):
+        analyze_project(project_dir)
+
+
 def test_analyze_project_rejects_negative_source_buffer(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     write_layer(project_dir / "far.geojson", [Point(-89.0, 33.0)], [{"name": "Far Feature"}])
@@ -310,6 +320,17 @@ def test_analyze_project_rejects_negative_source_buffer(tmp_path: Path) -> None:
 
     with pytest.raises(SpatialAnalysisError, match="zero or greater"):
         analyze_project(project_dir)
+
+
+def test_project_source_registry_rejects_boolean_source_buffer(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_registry(project_dir, "epa_envirofacts_echo", None, enabled=False)
+    data = json.loads((project_dir / "config" / "sources.json").read_text(encoding="utf-8"))
+    data["sources"][0]["buffer_feet"] = True
+    (project_dir / "config" / "sources.json").write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(SourceCatalogError, match="buffer_feet must be numeric"):
+        load_project_source_registry(project_dir)
 
 
 def test_cli_source_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

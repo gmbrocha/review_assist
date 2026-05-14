@@ -49,6 +49,7 @@ This document records the latest implementation audit for the current prototype 
 - Tightened source inventory artifact validation so `record_count` must match the record list.
 - Tightened comparison table artifact validation so `table_count`, row counts, and table review statuses are checked clearly.
 - Hardened review queue generation against malformed nonnumeric relationship/table counts and non-list optional validation fields in local JSON artifacts.
+- Hardened numeric validation so JSON booleans are not accepted as `section_order`, source-specific `buffer_feet`, or project `default_buffer_feet` values.
 - Added vector-only map generation with Matplotlib, including project overview and local source-context PNG figures.
 - Added map manifest validation for figure count, required figure fields, duplicate figure IDs, PNG paths, review status, provenance, and list fields.
 - Added map figure review queue items with deterministic IDs and image preview metadata.
@@ -63,12 +64,13 @@ This document records the latest implementation audit for the current prototype 
 - Kept report section top-level validation issues empty unless section generation itself creates a new issue, so upstream validation issues do not become duplicate populate warnings or duplicate validation queue items.
 - Tightened limitations and reviewer follow-up section statuses so unresolved missing/gated/stubbed source categories require review or verification instead of remaining draft.
 - Hardened review queue regeneration so accepted/edited/rejected/noted reviewer state is preserved, while untouched stale generated `draft` statuses can be upgraded by stricter regenerated defaults.
+- Removed an unused report-section slug helper/import during the interim audit.
 - Added tests for the validation and orchestration cases above.
 
 ## Current Verification
 
 - Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `107 passed`.
+- Current full test run: `111 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist analyze-project projects/trails`
