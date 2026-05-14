@@ -123,12 +123,12 @@ Current CLI commands:
 - The current implementation creates deterministic draft findings from source status records, spatial relationships, and no-mapped-relationship checks.
 - The current implementation creates descriptive comparison tables from source status, spatial relationship, and draft finding artifacts.
 - The current implementation creates vector-only draft map figures from normalized project geometry and analyzed local source clipped layers.
-- The current implementation creates review queue items from source inventory records, deterministic draft findings, comparison tables, map figures, source status records, spatial relationships, no-mapped-relationship checks, and validation issues.
+- The current implementation creates review queue items from source inventory records, deterministic draft findings, comparison tables, map figures, source status records, spatial relationships, no-mapped-relationship checks, map-generation warnings, and validation issues.
 - `populate-for-review` runs context generation, source status resolution, source inventory generation, tolerant local spatial analysis, deterministic draft finding generation, comparison table generation, map generation, and review queue generation into one inspectable run manifest.
 
 Current audit status:
 
-- The codebase has passing tests for ingestion, source registry validation, local source registration, synthetic spatial checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts, vector-only map artifacts, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
+- The codebase has passing tests for ingestion, source registry validation, local source registration, synthetic spatial checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts, vector-only map artifacts, render-error handling, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
 - The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, optional source metadata, source inventory record counts, comparison table counts/statuses, and negative buffer values.
 - See `docs/CODE_AUDIT.md` for latest audit notes.
 

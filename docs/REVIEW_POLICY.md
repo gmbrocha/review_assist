@@ -101,7 +101,7 @@ Draft map figures are generated at:
 - `projects/<project_id>/maps/map_manifest.json`
 - `projects/<project_id>/maps/figures/*.png`
 
-Current map generation is vector-only. It can produce a project overview and source-context figures for analyzed local clipped source layers. These figures are not final report maps and are not exportable unless they pass through review queue status and export-eligibility rules.
+Current map generation is vector-only. It can produce a project overview and source-context figures for analyzed local clipped source layers. These figures are not final report maps and are not exportable unless they pass through review queue status and export-eligibility rules. Map-generation warnings, such as skipped source-context figures, become validation items in the review queue.
 
 The current baseline does not generate report prose, basemap/imagery-backed maps, final report tables, or exports. It does generate descriptive comparison table artifacts and draft PNG map figures, but it does not compile them into an export package.
 

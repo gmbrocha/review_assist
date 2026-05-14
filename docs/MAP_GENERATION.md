@@ -38,6 +38,7 @@ Current behavior:
 - Uses GeoPandas and Matplotlib only.
 - Stores figure metadata, source refs, shown layers, provenance, uncertainty flags, validation issues, and review status in the map manifest.
 - Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.
+- Adds review queue validation items for map-generation warnings, including skipped or failed source-context figures.
 - Runs as part of `populate-for-review` after comparison table generation and before review queue generation.
 
 Current limits:

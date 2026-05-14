@@ -9,6 +9,7 @@ import pytest
 from shapely.geometry import Point, Polygon
 
 from review_assist.cli import main
+import review_assist.maps as maps_module
 from review_assist.maps import MapGenerationError, generate_maps, load_map_manifest
 from review_assist.populate_for_review import populate_for_review
 from review_assist.review_queue import ReviewQueueError, generate_review_queue, update_review_item
@@ -157,6 +158,48 @@ def test_generate_maps_handles_missing_and_malformed_spatial_artifacts(tmp_path:
 
     assert malformed["figure_count"] == 1
     assert any(issue["code"] == "invalid_spatial_relationships_json" for issue in malformed["validation_issues"])
+
+
+def test_generate_maps_fails_clearly_for_overview_render_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project_dir = write_project(tmp_path)
+
+    def broken_render_map(**_: object) -> None:
+        raise RuntimeError("render failed")
+
+    monkeypatch.setattr(maps_module, "_render_map", broken_render_map)
+
+    with pytest.raises(MapGenerationError, match="Unable to render project overview map"):
+        generate_maps(project_dir)
+
+
+def test_generate_maps_records_source_render_error_and_continues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.999, 31.999), (-89.999, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"name": "Wetland A"}],
+    )
+    write_registry(project_dir, "usfws_nwi_wetlands", "wetlands.geojson")
+    analyze_project(project_dir)
+    original_render_map = maps_module._render_map
+
+    def partially_broken_render_map(**kwargs: object) -> None:
+        if kwargs.get("source_layer") is not None:
+            raise RuntimeError("source render failed")
+        original_render_map(**kwargs)
+
+    monkeypatch.setattr(maps_module, "_render_map", partially_broken_render_map)
+
+    manifest = generate_maps(project_dir)
+
+    assert manifest["figure_count"] == 1
+    assert [figure["figure_id"] for figure in manifest["figures"]] == ["project-overview"]
+    assert any(issue["code"] == "source_map_render_error" for issue in manifest["validation_issues"])
+
+    queue = generate_review_queue(project_dir)
+    validation_item = item_by_id(queue, "validation-map-generation-001-source-map-render-error")
+    assert validation_item["type"] == "validation_issue"
+    assert validation_item["source_refs"] == ["usfws_nwi_wetlands"]
 
 
 def test_map_figure_ids_are_deterministic(tmp_path: Path) -> None:

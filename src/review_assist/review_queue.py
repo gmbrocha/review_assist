@@ -291,6 +291,8 @@ def _build_review_items(
     if map_manifest is not None:
         for figure in _dict_list(map_manifest.get("figures", [])):
             items.append(_map_figure_item(project_id, now, map_manifest, figure))
+        for issue_index, issue in enumerate(_dict_list(map_manifest.get("validation_issues", [])), start=1):
+            items.append(_validation_issue_item(project_id, now, "map_generation", issue_index, map_manifest.get("output_path"), issue))
 
     for status_record in _dict_list(source_status.get("statuses", [])):
         items.append(_source_status_item(project_id, now, source_status, status_record))

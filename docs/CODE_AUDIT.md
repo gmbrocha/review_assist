@@ -53,12 +53,14 @@ This document records the latest implementation audit for the current prototype 
 - Added map figure review queue items with deterministic IDs and image preview metadata.
 - Wired map generation into `populate-for-review` before review queue generation.
 - Kept map-generation warnings aggregated at the manifest level to avoid duplicate populate run warnings.
+- Hardened map rendering so project-overview render failures fail clearly, source-context render failures become nonfatal validation issues, and Matplotlib figures close even when rendering fails.
+- Added review queue validation issue items for map-generation warnings so failed or skipped source-context figures remain reviewable.
 - Added tests for the validation and orchestration cases above.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `94 passed`.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, map render-error handling, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
+- Current full test run: `96 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist analyze-project projects/trails`

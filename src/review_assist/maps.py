@@ -67,12 +67,15 @@ def generate_maps(project_dir: Path) -> dict[str, Any]:
 
     figures: list[dict[str, Any]] = []
     overview_path = figures_dir / "project-overview.png"
-    _render_map(
-        output_path=overview_path,
-        title=f"{context['project_name']} - Project Overview",
-        project_layers=project_layers,
-        analysis_crs=analysis_crs,
-    )
+    try:
+        _render_map(
+            output_path=overview_path,
+            title=f"{context['project_name']} - Project Overview",
+            project_layers=project_layers,
+            analysis_crs=analysis_crs,
+        )
+    except Exception as exc:
+        raise MapGenerationError(f"Unable to render project overview map: {exc}") from exc
     figures.append(
         _figure_record(
             figure_id="project-overview",
@@ -260,13 +263,24 @@ def _source_context_figure(
 
     figure_id = f"source-context-{_slug(source_id)}"
     image_path = figures_dir / f"{figure_id}.png"
-    _render_map(
-        output_path=image_path,
-        title=f"{source_name} - Source Context",
-        project_layers=project_layers,
-        analysis_crs=analysis_crs,
-        source_layer={"source": source, "gdf": source_gdf, "path": clipped_path},
-    )
+    try:
+        _render_map(
+            output_path=image_path,
+            title=f"{source_name} - Source Context",
+            project_layers=project_layers,
+            analysis_crs=analysis_crs,
+            source_layer={"source": source, "gdf": source_gdf, "path": clipped_path},
+        )
+    except Exception as exc:
+        validation_issues.append(
+            _issue(
+                code="source_map_render_error",
+                message=f"Unable to render source-context figure for source '{source_id}': {exc}",
+                location=str(clipped_path),
+                source_id=source_id,
+            )
+        )
+        return {"figure": None, "validation_issues": validation_issues}
     uncertainty_flags = ["draft_pre_review", "vector_only_no_basemap"]
     if source_gdf.empty:
         uncertainty_flags.append("empty_clipped_source_layer")
@@ -311,42 +325,44 @@ def _render_map(
     source_layer: dict[str, Any] | None = None,
 ) -> None:
     fig, ax = plt.subplots(figsize=(10, 7.5), dpi=150)
-    handles: list[Any] = []
-    plotted_layers: list[gpd.GeoDataFrame] = []
+    try:
+        handles: list[Any] = []
+        plotted_layers: list[gpd.GeoDataFrame] = []
 
-    for index, layer in enumerate(project_layers):
-        gdf = layer["gdf"].to_crs(analysis_crs)
-        color = PROJECT_COLORS[index % len(PROJECT_COLORS)]
-        label = _project_layer_label(layer)
-        handles.extend(_plot_gdf(ax, gdf, color=color, label=label, is_project=True))
-        plotted_layers.append(gdf)
+        for index, layer in enumerate(project_layers):
+            gdf = layer["gdf"].to_crs(analysis_crs)
+            color = PROJECT_COLORS[index % len(PROJECT_COLORS)]
+            label = _project_layer_label(layer)
+            handles.extend(_plot_gdf(ax, gdf, color=color, label=label, is_project=True))
+            plotted_layers.append(gdf)
 
-    if source_layer is not None:
-        source_gdf = source_layer["gdf"].to_crs(analysis_crs)
-        source_label = str(source_layer["source"].get("source_name") or source_layer["source"].get("source_id") or "Source layer")
-        handles.extend(_plot_gdf(ax, source_gdf, color=SOURCE_COLOR, label=source_label, is_project=False))
-        if not source_gdf.empty:
-            plotted_layers.append(source_gdf)
+        if source_layer is not None:
+            source_gdf = source_layer["gdf"].to_crs(analysis_crs)
+            source_label = str(source_layer["source"].get("source_name") or source_layer["source"].get("source_id") or "Source layer")
+            handles.extend(_plot_gdf(ax, source_gdf, color=SOURCE_COLOR, label=source_label, is_project=False))
+            if not source_gdf.empty:
+                plotted_layers.append(source_gdf)
 
-    _set_extent(ax, plotted_layers)
-    ax.set_title(title, fontsize=14, pad=12)
-    ax.set_axis_off()
-    if handles:
-        ax.legend(handles=handles, loc="upper left", frameon=True, framealpha=0.92, fontsize=8)
-    ax.text(
-        0.99,
-        0.01,
-        "Draft / Pre-Review - Vector Only",
-        transform=ax.transAxes,
-        ha="right",
-        va="bottom",
-        fontsize=8,
-        color="#4A4A4A",
-        bbox={"facecolor": "white", "edgecolor": "#BDBDBD", "alpha": 0.9, "pad": 4},
-    )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+        _set_extent(ax, plotted_layers)
+        ax.set_title(title, fontsize=14, pad=12)
+        ax.set_axis_off()
+        if handles:
+            ax.legend(handles=handles, loc="upper left", frameon=True, framealpha=0.92, fontsize=8)
+        ax.text(
+            0.99,
+            0.01,
+            "Draft / Pre-Review - Vector Only",
+            transform=ax.transAxes,
+            ha="right",
+            va="bottom",
+            fontsize=8,
+            color="#4A4A4A",
+            bbox={"facecolor": "white", "edgecolor": "#BDBDBD", "alpha": 0.9, "pad": 4},
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output_path, bbox_inches="tight", facecolor="white")
+    finally:
+        plt.close(fig)
 
 
 def _plot_gdf(
