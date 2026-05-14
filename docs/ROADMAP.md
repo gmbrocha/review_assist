@@ -96,7 +96,7 @@ Current baseline:
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
 - JSON artifact at `projects/<project_id>/review_queue/review_queue.json`.
 
-The baseline converts current source inventory records, deterministic draft findings, comparison tables, source status records, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet generate report prose, rendered maps, exports, GUI review screens, or LLM-assisted narrative.
+The baseline converts current source inventory records, deterministic draft findings, comparison tables, map figures, source status records, deterministic spatial relationships, no-mapped-relationship checks, and validation issues into review queue items. It does not yet generate report prose, exports, GUI review screens, or LLM-assisted narrative.
 
 ## Phase 5: Populate for Review
 
@@ -116,7 +116,7 @@ Current baseline:
 - Runs project context generation, source status resolution, source inventory generation, tolerant local spatial analysis, deterministic draft finding generation, comparison table generation, and review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict.
 
-This baseline does not yet render maps, generate report prose, compile exports, implement GUI review screens, download sources, or use LLM-assisted narrative.
+This baseline now includes vector-only map generation through Phase 6C, but it does not generate report prose, compile exports, implement GUI review screens, download sources, render basemap/imagery-backed maps, or use LLM-assisted narrative.
 
 ## Phase 6A: Deterministic Finding Templates
 
@@ -135,7 +135,7 @@ Current baseline:
 - JSON artifact at `projects/<project_id>/findings/draft_findings.json`.
 - `populate-for-review` runs finding generation before review queue generation and records the artifact path in the run manifest.
 
-This baseline does not rank, score, recommend, produce final conclusions, render maps, generate final report tables, draft report prose, call LLMs, or compile exports.
+This baseline does not rank, score, recommend, produce final conclusions, generate final report tables, draft report prose, call LLMs, or compile exports.
 
 ## Phase 6B: Source Provenance and Comparison Tables
 
@@ -158,7 +158,7 @@ This baseline does not download sources, render map images, draft report prose, 
 
 ## Phase 6C: Map/Figure and Imagery Generation
 
-Status: next likely implementation area.
+Status: initial vector-only map baseline complete.
 
 - Generate overall project maps.
 - Generate resource-specific maps.
@@ -166,6 +166,19 @@ Status: next likely implementation area.
 - Preserve legends, source notes, draft labels, and map provenance.
 - Prepare basemap/imagery review overlays where source terms allow.
 - Store map, figure, and imagery observations as review queue items.
+
+Current baseline:
+
+- `review-assist generate-maps <project_dir>`
+- JSON map manifest at `projects/<project_id>/maps/map_manifest.json`.
+- PNG draft figures under `projects/<project_id>/maps/figures/`.
+- Generates a project overview figure from normalized project geometry.
+- Generates source-context figures for analyzed local source clipped layers when available.
+- Uses GeoPandas and Matplotlib only; maps are vector-only and contain no basemap or imagery.
+- `populate-for-review` runs map generation after comparison table generation and before review queue generation.
+- Review queue generation converts map figures into `map_figure` items with deterministic IDs and preview metadata.
+
+This baseline does not implement basemap tiles, local raster imagery, NAIP/Google/ArcGIS acquisition, panel map sheets, PDF/SVG exports, final cartographic styling, or map package compilation.
 
 ## Phase 7: Export Compilation
 

@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or report workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or report workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -33,10 +33,11 @@ Conceptual state objects:
 - Spatial relationship records.
 - Draft finding records.
 - Comparison table records.
+- Map/figure records.
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, source inventory records, normalized GeoJSON intermediates, spatial relationship records, deterministic draft finding records, comparison table records, review queue persistence, and populate run manifests. Export manifests remain future work.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, source inventory records, normalized GeoJSON intermediates, spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, review queue persistence, and populate run manifests. Export manifests remain future work.
 
 ## Project Workspace Layer
 
@@ -63,7 +64,7 @@ Project folders may contain:
 - `exports/`
 - `review/`
 
-Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, generated `maps/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `drafts/`, `exports/`, and `review/` remain future workflow areas.
 
 `populate_for_review/` is also currently used for orchestration run manifests. It is generated workflow state and ignored by Git.
 
@@ -276,6 +277,16 @@ Purpose:
 - Render legends, scale/context, figure titles, source notes, and draft labels.
 - Export PNG/PDF/SVG or other figure formats.
 
+Current implementation:
+
+- Writes `projects/<project_id>/maps/map_manifest.json`.
+- Writes PNG draft figures under `projects/<project_id>/maps/figures/`.
+- CLI command: `review-assist generate-maps <project_dir>`.
+- Renders a project overview from normalized project geometry.
+- Renders source-context maps for analyzed local source clipped layers when available.
+- Uses GeoPandas and Matplotlib only; no basemap, raster, imagery, Contextily, or Rasterio path exists yet.
+- Map figures become review queue items with preview metadata before export.
+
 Likely future stack:
 
 - GeoPandas for vector layers.
@@ -285,7 +296,7 @@ Likely future stack:
 
 See `docs/MAP_GENERATION.md`.
 
-Generated maps and figure previews should become review queue items before export.
+Generated maps and figure previews should become review queue items before export. The current baseline implements this for vector-only PNG figures.
 
 ## Report Drafting Service
 
@@ -339,19 +350,19 @@ Review statuses are defined in `docs/REVIEW_POLICY.md`.
 Current implementation:
 
 - Writes `projects/<project_id>/review_queue/review_queue.json`.
-- Converts source inventory records, deterministic draft findings, comparison tables, source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
+- Converts source inventory records, deterministic draft findings, comparison tables, map figures, source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
 - Supports CLI listing and status/note/export-eligibility updates.
-- Does not yet provide GUI review screens, report drafting, map review items, or export compilation.
+- Does not yet provide GUI review screens, report drafting, or export compilation.
 
 ## Populate For Review Service
 
 Purpose:
 
 - Provide the service-level backend for the future desktop `Populate for Review` action.
-- Run current workflow steps in order: project context, source status, source inventory, tolerant spatial analysis, deterministic draft finding generation, comparison table generation, and review queue generation.
+- Run current workflow steps in order: project context, source status, source inventory, tolerant spatial analysis, deterministic draft finding generation, comparison table generation, map generation, and review queue generation.
 - Write a run manifest with step statuses, artifact paths, warning records, review queue item count, and critical error text when a run fails.
 
-Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, source status, source inventory, spatial relationship, draft findings, comparison table, and review queue artifact paths. It does not download public sources, render maps, generate report prose, call LLMs, compile exports, or make recommendations.
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, source status, source inventory, spatial relationship, draft findings, comparison table, map manifest, and review queue artifact paths. It does not download public sources, render basemap/imagery-backed maps, generate report prose, call LLMs, compile exports, or make recommendations.
 
 ## LLM Boundary
 

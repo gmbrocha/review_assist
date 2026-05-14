@@ -1,6 +1,6 @@
 # Map Generation
 
-This document captures likely future map and figure generation workflows. No production map-generation pipeline is implemented yet.
+This document captures current and future map and figure generation workflows. A first vector-only draft map baseline is implemented; production cartography, basemaps, imagery, panel sheets, and export packaging remain future work.
 
 ## Purpose
 
@@ -17,6 +17,37 @@ Expected outputs:
 - Appendix map sets.
 
 Maps are draft/pre-review artifacts until reviewed. Generated map and figure previews should become review queue items before export.
+
+## Current Baseline
+
+Current command:
+
+```powershell
+.\.venv\Scripts\review-assist.exe generate-maps projects/trails
+```
+
+Current artifacts:
+
+- `projects/<project_id>/maps/map_manifest.json`
+- `projects/<project_id>/maps/figures/*.png`
+
+Current behavior:
+
+- Generates `project-overview` from normalized project geometry.
+- Generates `source-context-<source_id>` for each analyzed local source clipped layer from `spatial_relationships.json`.
+- Uses GeoPandas and Matplotlib only.
+- Stores figure metadata, source refs, shown layers, provenance, uncertainty flags, validation issues, and review status in the map manifest.
+- Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.
+- Runs as part of `populate-for-review` after comparison table generation and before review queue generation.
+
+Current limits:
+
+- No basemap tiles.
+- No raster imagery.
+- No NAIP, Google, ArcGIS, USGS, state imagery, or county imagery acquisition.
+- No panel maps.
+- No PDF/SVG map sheet export.
+- No final cartographic styling.
 
 ## Likely Python Workflow
 

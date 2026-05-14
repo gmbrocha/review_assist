@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .findings import FindingGenerationError, generate_draft_findings
+from .maps import MapGenerationError, generate_maps
 from .project_context import ProjectContextError, generate_project_context
 from .review_queue import ReviewQueueError, generate_review_queue
 from .source_inventory import SourceInventoryError, generate_source_inventory
@@ -35,6 +36,7 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
     spatial: dict[str, Any] | None = None
     draft_findings: dict[str, Any] | None = None
     comparison_tables: dict[str, Any] | None = None
+    map_manifest: dict[str, Any] | None = None
     review_queue: dict[str, Any] | None = None
 
     try:
@@ -64,6 +66,10 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
         steps.append(_step("comparison_tables", "completed", artifact_path=comparison_tables.get("output_path")))
         warnings.extend(_issue_warnings("comparison_tables", comparison_tables.get("validation_issues", [])))
 
+        map_manifest = generate_maps(project_dir)
+        steps.append(_step("map_generation", "completed", artifact_path=map_manifest.get("output_path")))
+        warnings.extend(_issue_warnings("map_generation", map_manifest.get("validation_issues", [])))
+
         review_queue = generate_review_queue(project_dir)
         steps.append(_step("review_queue", "completed", artifact_path=review_queue.get("output_path")))
     except (
@@ -73,20 +79,34 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
         SpatialAnalysisError,
         FindingGenerationError,
         TableGenerationError,
+        MapGenerationError,
         ReviewQueueError,
     ) as exc:
         critical_error = str(exc)
         steps.append(
             _step(
-                _failed_step_name(context, source_status, source_inventory, spatial, draft_findings, comparison_tables, review_queue),
+                _failed_step_name(
+                    context,
+                    source_status,
+                    source_inventory,
+                    spatial,
+                    draft_findings,
+                    comparison_tables,
+                    map_manifest,
+                    review_queue,
+                ),
                 "failed",
                 message=critical_error,
             )
         )
 
     manifest = {
-        "project_id": _first_value("project_id", context, source_status, source_inventory, spatial, draft_findings, comparison_tables, review_queue),
-        "project_name": _first_value("project_name", context, source_status, source_inventory, spatial, draft_findings, comparison_tables, review_queue),
+        "project_id": _first_value(
+            "project_id", context, source_status, source_inventory, spatial, draft_findings, comparison_tables, map_manifest, review_queue
+        ),
+        "project_name": _first_value(
+            "project_name", context, source_status, source_inventory, spatial, draft_findings, comparison_tables, map_manifest, review_queue
+        ),
         "project_dir": str(project_dir),
         "started_at": started_at,
         "completed_at": _utc_now(),
@@ -99,6 +119,7 @@ def populate_for_review(project_dir: Path) -> dict[str, Any]:
             "spatial_relationships": spatial.get("output_path") if spatial else None,
             "draft_findings": draft_findings.get("output_path") if draft_findings else None,
             "comparison_tables": comparison_tables.get("output_path") if comparison_tables else None,
+            "map_manifest": map_manifest.get("output_path") if map_manifest else None,
             "review_queue": review_queue.get("output_path") if review_queue else None,
         },
         "review_queue_item_count": review_queue.get("item_count") if review_queue else 0,
@@ -146,6 +167,7 @@ def _failed_step_name(
     spatial: dict[str, Any] | None,
     draft_findings: dict[str, Any] | None,
     comparison_tables: dict[str, Any] | None,
+    map_manifest: dict[str, Any] | None,
     review_queue: dict[str, Any] | None,
 ) -> str:
     if context is None:
@@ -160,6 +182,8 @@ def _failed_step_name(
         return "draft_findings"
     if comparison_tables is None:
         return "comparison_tables"
+    if map_manifest is None:
+        return "map_generation"
     if review_queue is None:
         return "review_queue"
     return "populate_for_review"

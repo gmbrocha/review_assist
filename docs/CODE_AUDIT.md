@@ -16,6 +16,7 @@ This document records the latest implementation audit for the current prototype 
 - Phase 5 populate-for-review orchestration.
 - Phase 6A deterministic draft finding generation.
 - Phase 6B source inventory/provenance and comparison table generation.
+- Phase 6C vector-only map/figure generation.
 - CLI commands for project inspection, source listing, local source registration, project analysis, review queue operations, and populate-for-review.
 - Tests and active documentation.
 
@@ -47,12 +48,17 @@ This document records the latest implementation audit for the current prototype 
 - Tightened source inventory artifact validation so `record_count` must match the record list.
 - Tightened comparison table artifact validation so `table_count`, row counts, and table review statuses are checked clearly.
 - Hardened review queue generation against malformed nonnumeric relationship/table counts and non-list optional validation fields in local JSON artifacts.
+- Added vector-only map generation with Matplotlib, including project overview and local source-context PNG figures.
+- Added map manifest validation for figure count, required figure fields, duplicate figure IDs, PNG paths, review status, provenance, and list fields.
+- Added map figure review queue items with deterministic IDs and image preview metadata.
+- Wired map generation into `populate-for-review` before review queue generation.
+- Kept map-generation warnings aggregated at the manifest level to avoid duplicate populate run warnings.
 - Added tests for the validation and orchestration cases above.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `85 passed`.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
+- Current full test run: `94 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist analyze-project projects/trails`
@@ -60,6 +66,8 @@ This document records the latest implementation audit for the current prototype 
   - `review-assist generate-source-inventory projects/trails`
   - `review-assist generate-findings projects/trails`
   - `review-assist generate-tables projects/trails`
+  - `review-assist generate-maps projects/trails`
+  - `review-assist generate-maps projects/conexon_projects`
   - `review-assist populate-for-review projects/trails`
   - `review-assist populate-for-review projects/conexon_projects`
   - `review-assist list-review-queue projects/trails`
@@ -70,13 +78,14 @@ This document records the latest implementation audit for the current prototype 
 - Local source layers are supported; live public downloads are not implemented.
 - Spatial analysis produces relationship records only. Deterministic draft finding generation is a separate service.
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or report sections.
-- Source inventory and comparison table artifacts are descriptive workflow state. They are not final citations, final report tables, or export packages until reviewed.
-- The review queue stores source inventory, draft finding, comparison table, source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet produce rendered maps, narrative, or export packages.
-- `populate-for-review` orchestrates current services only. It does not download sources, call LLMs, render maps, draft prose, or compile exports.
+- Source inventory, comparison table, and map figure artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, or export packages until reviewed.
+- The review queue stores source inventory, draft finding, comparison table, map figure, source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet produce narrative or export packages.
+- `populate-for-review` orchestrates current services only. It does not download sources, call LLMs, render basemap/imagery-backed maps, draft prose, or compile exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.
 - Raster source analysis is cataloged but not implemented.
+- Basemap/imagery acquisition, panel map sheets, and final map export packages are not implemented.
 - Large local source layers should remain outside Git under ignored project `layers/` folders.
 
 ## Archive Review

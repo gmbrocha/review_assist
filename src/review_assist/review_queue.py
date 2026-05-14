@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .findings import FINDINGS_PATH, FindingGenerationError, load_draft_findings
+from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
 from .source_inventory import SOURCE_INVENTORY_PATH, SourceInventoryError, load_source_inventory
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
@@ -62,6 +63,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
     spatial = _load_optional_spatial_relationships(project_dir)
     draft_findings = _load_optional_draft_findings(project_dir)
     comparison_tables = _load_optional_comparison_tables(project_dir)
+    map_manifest = _load_optional_map_manifest(project_dir)
     existing = _load_existing_queue(project_dir)
 
     items = _build_review_items(
@@ -73,6 +75,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
         spatial=spatial,
         draft_findings=draft_findings,
         comparison_tables=comparison_tables,
+        map_manifest=map_manifest,
     )
     if existing is not None:
         existing_items = {item["id"]: item for item in existing["items"]}
@@ -93,6 +96,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
             "spatial_relationships_path": spatial.get("output_path") if spatial else None,
             "draft_findings_path": draft_findings.get("output_path") if draft_findings else None,
             "comparison_tables_path": comparison_tables.get("output_path") if comparison_tables else None,
+            "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
         },
         "item_count": len(items),
         "items": items,
@@ -242,6 +246,16 @@ def _load_optional_comparison_tables(project_dir: Path) -> dict[str, Any] | None
         raise ReviewQueueError(str(exc)) from exc
 
 
+def _load_optional_map_manifest(project_dir: Path) -> dict[str, Any] | None:
+    map_path = project_dir / MAP_MANIFEST_PATH
+    if not map_path.exists():
+        return None
+    try:
+        return load_map_manifest(project_dir)
+    except MapGenerationError as exc:
+        raise ReviewQueueError(str(exc)) from exc
+
+
 def _load_existing_queue(project_dir: Path) -> dict[str, Any] | None:
     queue_path = project_dir / REVIEW_QUEUE_PATH
     if not queue_path.exists():
@@ -259,6 +273,7 @@ def _build_review_items(
     spatial: dict[str, Any] | None,
     draft_findings: dict[str, Any] | None,
     comparison_tables: dict[str, Any] | None,
+    map_manifest: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     if source_inventory is not None:
@@ -272,6 +287,10 @@ def _build_review_items(
     if comparison_tables is not None:
         for table in _dict_list(comparison_tables.get("tables", [])):
             items.append(_comparison_table_item(project_id, now, comparison_tables, table))
+
+    if map_manifest is not None:
+        for figure in _dict_list(map_manifest.get("figures", [])):
+            items.append(_map_figure_item(project_id, now, map_manifest, figure))
 
     for status_record in _dict_list(source_status.get("statuses", [])):
         items.append(_source_status_item(project_id, now, source_status, status_record))
@@ -423,6 +442,51 @@ def _comparison_table_item(
             "columns": _string_list(table.get("columns", [])),
             "row_count": row_count,
             "rows_preview": table.get("rows", [])[:5] if isinstance(table.get("rows", []), list) else [],
+        },
+    )
+
+
+def _map_figure_item(
+    project_id: str,
+    now: str,
+    map_manifest: dict[str, Any],
+    figure: dict[str, Any],
+) -> dict[str, Any]:
+    figure_id = str(figure.get("figure_id", "figure"))
+    title = str(figure.get("title") or figure_id)
+    status = str(figure.get("review_status", "draft"))
+    if status not in SUPPORTED_STATUSES:
+        status = "needs_review"
+    return _review_item(
+        item_id=f"map-figure-{_slug(figure_id)}",
+        project_id=project_id,
+        item_type="map_figure",
+        title=title,
+        generated_content=(
+            f"Generated draft map figure '{title}' as a vector-only PNG. "
+            "Review visible layers, labels, source notes, and cartographic fit before export."
+        ),
+        status=status,
+        export_section="maps",
+        assumptions={
+            "figure_type": figure.get("type"),
+            "shown_layers": figure.get("shown_layers", []),
+            "draft_pre_review": True,
+        },
+        provenance={
+            "artifact": "map_manifest",
+            "artifact_path": map_manifest.get("output_path"),
+            "figure_id": figure_id,
+            "figure_provenance": figure.get("provenance", {}),
+        },
+        source_refs=_string_list(figure.get("source_refs", [])),
+        uncertainty_flags=_string_list(figure.get("uncertainty_flags", [])),
+        now=now,
+        extra={
+            "figure_id": figure_id,
+            "image_path": figure.get("image_path"),
+            "figure_type": figure.get("type"),
+            "shown_layers": figure.get("shown_layers", []),
         },
     )
 

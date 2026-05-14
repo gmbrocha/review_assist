@@ -88,7 +88,7 @@ Current commands:
 - `review-assist list-review-queue <project_dir>`
 - `review-assist update-review-item <project_dir> <item_id> --status <status> [--note "..."] [--export-eligible true|false]`
 
-The current generator creates review items from source inventory/provenance records, deterministic draft findings, comparison tables, source status records, missing-data placeholders, deterministic spatial relationships, no-mapped-relationship checks, and validation issues.
+The current generator creates review items from source inventory/provenance records, deterministic draft findings, comparison tables, draft map figures, source status records, missing-data placeholders, deterministic spatial relationships, no-mapped-relationship checks, and validation issues.
 
 Deterministic draft findings are generated at:
 
@@ -96,7 +96,14 @@ Deterministic draft findings are generated at:
 
 Current finding generation is template-driven and cautious. It can produce draft finding cards for source-unavailable/deferred categories, source-backed spatial relationships, and no-mapped-relationship checks. These findings are not final and are not exportable unless they pass through review queue status and export-eligibility rules.
 
-The current baseline does not generate report prose, rendered maps, final report tables, or exports. It does generate descriptive comparison table artifacts, but it does not render final report tables or compile them into an export package.
+Draft map figures are generated at:
+
+- `projects/<project_id>/maps/map_manifest.json`
+- `projects/<project_id>/maps/figures/*.png`
+
+Current map generation is vector-only. It can produce a project overview and source-context figures for analyzed local clipped source layers. These figures are not final report maps and are not exportable unless they pass through review queue status and export-eligibility rules.
+
+The current baseline does not generate report prose, basemap/imagery-backed maps, final report tables, or exports. It does generate descriptive comparison table artifacts and draft PNG map figures, but it does not compile them into an export package.
 
 ## Policy Notes
 

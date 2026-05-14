@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .findings import FindingGenerationError, generate_draft_findings
 from .inspection import ProjectInspectionError, inspect_project
+from .maps import MapGenerationError, generate_maps
 from .populate_for_review import PopulateForReviewError, populate_for_review
 from .project_context import ProjectContextError, generate_project_context
 from .review_queue import (
@@ -69,6 +70,10 @@ def build_parser() -> argparse.ArgumentParser:
     tables_parser = subparsers.add_parser("generate-tables", help="Generate comparison table artifacts.")
     tables_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     tables_parser.add_argument("--json", action="store_true", help="Print full JSON comparison tables artifact to stdout.")
+
+    maps_parser = subparsers.add_parser("generate-maps", help="Generate draft static map/figure artifacts.")
+    maps_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    maps_parser.add_argument("--json", action="store_true", help="Print full JSON map manifest to stdout.")
 
     queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
     queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -308,6 +313,24 @@ def generate_tables_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
+def generate_maps_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = generate_maps(project_dir)
+    except MapGenerationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated maps: {result['project_id']} ({result['project_name']})")
+    print(f"Figures: {result['figure_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def list_review_queue_command(project_dir: Path, print_json: bool) -> int:
     try:
         summary = summarize_review_queue(project_dir)
@@ -395,6 +418,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_findings_command(args.project_dir, args.json)
     if args.command == "generate-tables":
         return generate_tables_command(args.project_dir, args.json)
+    if args.command == "generate-maps":
+        return generate_maps_command(args.project_dir, args.json)
     if args.command == "generate-review-queue":
         return generate_review_queue_command(args.project_dir, args.json)
     if args.command == "list-review-queue":
