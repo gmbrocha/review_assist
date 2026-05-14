@@ -64,6 +64,18 @@ GeoPandas, Shapely, PyProj, Pyogrio, and Pandas are the standard geospatial depe
 
 Project manifests are JSON. Geometry inspection summaries are JSON. Normalized geometry outputs are GeoJSON under ignored project `intermediate/` directories.
 
+### 2026-05-14: Phase 2 starts with a broad source catalog and local source registration
+
+The source stack should cover the major review categories now, while implementation begins with local-file registration and deterministic spatial checks. Live public downloads are deferred until specific sources are validated.
+
+### 2026-05-14: Water and land context drive the first Phase 2 spatial checks
+
+The first useful automated checks prioritize wetlands/waterbodies, hydrography/crossings, land cover/disturbance, and soils. Flood hazard remains cataloged as a secondary optional category rather than a first-pass driver for every project.
+
+### 2026-05-14: Phase 2 outputs spatial relationships, not findings
+
+Phase 2B produces reviewable spatial relationship records with source and method metadata. It does not generate findings, recommendations, report text, review queue decisions, or final conclusions.
+
 ## Future Decision Template
 
 ### YYYY-MM-DD: Decision title

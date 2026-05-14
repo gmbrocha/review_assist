@@ -2,9 +2,9 @@
 
 ## Phase
 
-Phase 0 scaffold/planning is complete. The project is now entering Phase 1 KMZ/KML ingestion and geometry inspection.
+Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The project is now entering Phase 2A/2B source catalog, local source registration, and local spatial relationship checks.
 
-The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, and an initial Python service/CLI implementation for Phase 1 inspection. No production workflow has been implemented.
+The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, an initial Python service/CLI implementation for Phase 1 inspection, and early Phase 2 source catalog/spatial check services. No production workflow has been implemented.
 
 The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page.
 
@@ -52,7 +52,9 @@ All outputs are pre-review drafts until reviewed by a human professional.
 - External API integrations.
 - Basemap or imagery acquisition workflows.
 - Report assembly pipelines.
+- Finding generation.
 - Review queue persistence.
+- Public source downloads.
 - Desktop GUI.
 - LLM-assisted narrative synthesis.
 - ML or computer vision detection.
@@ -75,6 +77,16 @@ The root-level KMZ files are retained as reference originals. Phase 1 project ma
 - Intermediate geometry format: GeoJSON.
 - Geometry summary format: JSON.
 - Generated project intermediates are ignored by Git.
+
+## Phase 2A/2B Implementation Defaults
+
+- Source catalog format: JSON at `config/source_catalog.json`.
+- Project source registry format: JSON at `projects/<project_id>/config/sources.json`.
+- Source population strategy: local source-layer registration first; live downloads are deferred unless a simple public source can be implemented safely.
+- First spatial-check priority: wetlands/waterbodies, hydrography/crossings, land cover/disturbance, and soils.
+- Flood hazard is retained as a secondary optional source category, not a first-pass driver for every project.
+- Generated spatial relationship outputs are JSON and GeoJSON under ignored project `intermediate/` directories.
+- Source layers under `projects/<project_id>/layers/` are ignored by Git because they may be large, licensed, or project-specific.
 
 ## Archive Directories
 

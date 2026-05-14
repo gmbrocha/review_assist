@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-No integrations are implemented yet. All sources below are candidate sources requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+No live external-source downloads or restricted integrations are implemented yet. Phase 2A adds a local source catalog and project source registries so reviewer-supplied or manually downloaded layers can be registered and checked. All sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -32,6 +32,33 @@ The system should preserve:
 - Do not add paid services, credentials, or restricted integrations without explicit approval.
 - Treat imagery-observed features as review items until validated by a human reviewer.
 - Send every source-backed output into the review queue before export.
+
+## Phase 2A/2B Source Priority
+
+The implemented Phase 2A catalog is intentionally broader than the first automated checks. The catalog records major source categories now, while Phase 2B initially analyzes local files only.
+
+First-pass automated spatial checks should prioritize:
+
+- Wetlands and mapped waterbodies.
+- Hydrography, streams, rivers, ditches, and crossings.
+- Land cover, impervious surface, forested area, disturbed area, and low-disturbance context.
+- Soils, hydric soils, prime farmland, and related soil constraints.
+
+Important cataloged categories that remain manual, semi-automated, or later-phase include:
+
+- Species and habitat, including IPaC reports, critical habitat GIS, and state heritage placeholders.
+- Cultural and historic resources, including public historic resources and restricted MDAH archaeological placeholders.
+- Hazardous materials and regulated facilities.
+- Community resources and socioeconomic context.
+- Transportation, utilities, infrastructure, corridors, parcels, property age, and ROW context.
+- Imagery and basemaps for visual review and report figures.
+
+Flood hazard/floodplain data remains a valid optional source category, but it is secondary for the first useful implementation and should not crowd out water, land, and disturbance context.
+
+Current local configuration files:
+
+- Global catalog: `config/source_catalog.json`
+- Project source registries: `projects/<project_id>/config/sources.json`
 
 ## Source Tiers
 

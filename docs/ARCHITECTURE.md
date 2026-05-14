@@ -25,7 +25,7 @@ Current workspaces:
 - `projects/trails`
 - `projects/conexon_projects`
 
-Phase 1 workspaces include `config/project.json` manifests and copied KMZ inputs under `inputs/`.
+Phase 1 workspaces include `config/project.json` manifests and copied KMZ inputs under `inputs/`. Phase 2A workspaces include `config/sources.json` source registries.
 
 Future project folders may contain:
 
@@ -40,7 +40,7 @@ Future project folders may contain:
 
 This structure is not implemented yet.
 
-Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`.
+Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`. Phase 2B writes clipped source GeoJSON files and `spatial_relationships.json` under `intermediate/`.
 
 ## Ingestion Service
 
@@ -94,6 +94,13 @@ Purpose:
 - Track source version, access date, metadata, and licensing.
 - Distinguish public sources from restricted or reviewer-supplied sources.
 
+Current implementation:
+
+- A global JSON source catalog lives at `config/source_catalog.json`.
+- Project JSON source registries live at `projects/<project_id>/config/sources.json`.
+- The CLI can list catalog entries and register a local source layer for a project.
+- Local-file registration is the default Phase 2 path; live downloads are deferred.
+
 This service should not silently call paid services, use credentials, or access restricted systems without explicit approval.
 
 Open questions:
@@ -116,6 +123,15 @@ Examples:
 - Corridor buffer overlaps FEMA floodway.
 - Alternative is within configured distance of a community facility.
 - Alternative overlaps an existing disturbed corridor.
+
+Current implementation:
+
+- Loads enabled project-local source layers.
+- Clips/filter-checks sources against project geometry plus configurable buffer.
+- Emits `intersects`, `crosses`, and `within_buffer` relationship records.
+- Preserves source id, source category, method, CRS, buffer, feature labels, and basic length/area/distance measurements where available.
+
+The service currently produces spatial relationship records only. It does not generate findings or report language.
 
 Open questions:
 

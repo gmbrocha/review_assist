@@ -17,7 +17,7 @@ Status: complete.
 
 ## Phase 1: Parse KMZ/KML and Inspect Geometries
 
-Status: in progress.
+Status: complete for the current prototype baseline.
 
 Implementation defaults:
 
@@ -37,14 +37,29 @@ Implementation defaults:
 
 Phase 1 remains limited to ingestion and geometry inspection. It does not generate findings, run source-layer spatial analysis, generate reports, implement a GUI, query external APIs, or decide preferred alternatives.
 
-## Phase 2: Local/Source-Layer Clipping and Spatial Checks
+## Phase 2A: Source Catalog and Source Population
 
-- Define initial source/layer registry.
-- Clip or filter local layers to the project area.
-- Run deterministic spatial checks.
-- Preserve source and method metadata.
-- Support configurable corridor/buffer assumptions.
-- Produce spatial relationship records before narrative drafting.
+Status: initial implementation in progress.
+
+- Define a broad source catalog covering water, land, species, cultural, regulated facilities, community, infrastructure, parcel, imagery, and flood context.
+- Create project source registries that can enable or disable candidate sources per project.
+- Support local source-layer registration before implementing fragile live downloads.
+- Treat restricted, manual, and reviewer-supplied sources as explicit placeholders.
+- Track source category, publisher, access method, public/restricted status, limitations, and intended spatial relationships.
+
+Flood hazard is cataloged as a secondary optional source. It is not a core first-pass driver for every project.
+
+## Phase 2B: Local Layer Clipping and Spatial Relationship Checks
+
+Status: initial implementation in progress.
+
+- Load enabled project-local source layers.
+- Clip or filter layers to the project geometry and configured review buffer.
+- Run deterministic spatial checks for `intersects`, `crosses`, and `within_buffer`.
+- Preserve source, method, CRS, buffer, and measurement metadata.
+- Produce `spatial_relationships.json` before findings, narrative, maps, or report drafting.
+
+Phase 2B still does not create findings, review queue records, maps, reports, rankings, recommendations, or final conclusions.
 
 ## Phase 3: Finding Model and Review Statuses
 

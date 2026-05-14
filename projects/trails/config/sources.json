@@ -1,0 +1,55 @@
+{
+  "project_id": "trails",
+  "sources": [
+    {
+      "source_id": "usfws_nwi_wetlands",
+      "enabled": false,
+      "access_method": "local_file",
+      "path": null,
+      "role": "wetland_and_waterbody_screening",
+      "buffer_feet": null,
+      "notes": "Register local NWI export when available.",
+      "status": "candidate_needs_local_layer"
+    },
+    {
+      "source_id": "usgs_nhd_hydrography",
+      "enabled": false,
+      "access_method": "local_file",
+      "path": null,
+      "role": "stream_crossing_screening",
+      "buffer_feet": null,
+      "notes": "Register local hydrography export when available.",
+      "status": "candidate_needs_local_layer"
+    },
+    {
+      "source_id": "mrlc_nlcd_land_cover",
+      "enabled": false,
+      "access_method": "local_file",
+      "path": null,
+      "role": "land_cover_and_disturbance_context",
+      "buffer_feet": null,
+      "notes": "Register local vectorized or project-ready land cover layer when available.",
+      "status": "candidate_needs_local_layer"
+    },
+    {
+      "source_id": "usda_nrcs_ssurgo_soils",
+      "enabled": false,
+      "access_method": "local_file",
+      "path": null,
+      "role": "soil_context",
+      "buffer_feet": null,
+      "notes": "Register local SSURGO or Web Soil Survey export when available.",
+      "status": "candidate_needs_local_layer"
+    },
+    {
+      "source_id": "fema_nfhl_flood_hazard",
+      "enabled": false,
+      "access_method": "local_file",
+      "path": null,
+      "role": "secondary_flood_context",
+      "buffer_feet": null,
+      "notes": "Optional secondary source; not a first-pass driver for the current trail prototype.",
+      "status": "secondary_optional"
+    }
+  ]
+}

@@ -29,6 +29,7 @@ projects/*/maps/
 projects/*/tables/
 projects/*/drafts/
 projects/*/exports/
+projects/*/layers/
 
 # OS/editor files
 .DS_Store

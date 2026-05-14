@@ -10,9 +10,9 @@ Human review is mandatory before any output is used outside the draft review pro
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning and is entering Phase 1 KMZ/KML ingestion.
+The project has completed Phase 0 scaffold/planning and has an initial Phase 1 KMZ/KML ingestion CLI. Phase 2A/2B now adds a broad source catalog, project source registries, local source-layer registration, and early local spatial relationship checks.
 
-The Phase 1 implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source-layer spatial analysis, AI narrative generation, scoring, report generation, or production workflow has been implemented.
+The implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source downloads, AI narrative generation, scoring, report generation, review queue persistence, or production workflow has been implemented.
 
 ## Planning Docs
 
@@ -52,7 +52,15 @@ Inspect a project workspace:
 .\.venv\Scripts\review-assist.exe inspect-project projects/conexon_projects
 ```
 
-The CLI writes `geometry_summary.json` and normalized GeoJSON files under each project's `intermediate/` directory. Project intermediate outputs are generated artifacts and are ignored by Git.
+List the source catalog, register a local source layer, and run local spatial checks:
+
+```powershell
+.\.venv\Scripts\review-assist.exe list-sources projects/trails
+.\.venv\Scripts\review-assist.exe import-source projects/trails usfws_nwi_wetlands C:\path\to\nwi_export.geojson
+.\.venv\Scripts\review-assist.exe analyze-project projects/trails
+```
+
+The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Project intermediate outputs and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Intended Workflow
 

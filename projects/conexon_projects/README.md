@@ -6,12 +6,13 @@ Known current source file in the repository root:
 
 - `conexon_projects_color_coded.kmz`
 
-Phase 1 project-local input:
+Project-local input:
 
 - `inputs/conexon_projects_color_coded.kmz`
 
-Project manifest:
+Project configuration:
 
 - `config/project.json`
+- `config/sources.json`
 
-Future project-specific inputs, notes, intermediate files, and report draft materials can be organized here.
+Future project-specific source layers, notes, intermediate files, and report draft materials can be organized here. Large local source layers should live under `layers/`, which is ignored by Git.
