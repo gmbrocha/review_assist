@@ -1,0 +1,46 @@
+---
+alwaysApply: true
+---
+
+---
+description: Keep documentation synchronized with code changes
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Documentation Discipline
+
+For every code or configuration change, review whether documentation must also change.
+
+Update documentation when changes affect:
+
+- app behavior
+- architecture
+- public interfaces
+- data models
+- project setup
+- environment variables
+- workflows
+- GIS/source-layer assumptions
+- finding/review/report behavior
+- known constraints or limitations
+- roadmap/current-state status
+
+Prefer updating documentation in the same task as the code change.
+
+At minimum, review:
+
+- README.md
+- AGENTS.md
+- docs/CURRENT_STATE.md
+- docs/ARCHITECTURE.md
+- docs/DATA_SOURCES.md
+- docs/REVIEW_POLICY.md
+- docs/DECISIONS.md
+- docs/ROADMAP.md
+- docs/OVERALL_CONTEXT.md
+
+If a code change does not require a documentation update, state that explicitly in the final summary.
+
+Never make behavior-changing code edits while leaving directly related documentation stale.

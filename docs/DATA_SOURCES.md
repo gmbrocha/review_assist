@@ -1,0 +1,740 @@
+# Data Sources
+
+This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
+
+No integrations are implemented yet. All sources below are candidate sources requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+
+## Source Philosophy
+
+The system should build reports from source-backed context wherever possible.
+
+Public datasets from government agencies, educational institutions, and authoritative public infrastructure sources can serve as reliable baseline screening data. They still require provenance and caveats because desktop review is not field verification.
+
+The system should preserve:
+
+- Source name.
+- Publisher.
+- Access URL or local path.
+- Access date.
+- Published or metadata date where available.
+- Geometry type and CRS.
+- Use restrictions and attribution.
+- Known limitations.
+- Review status.
+
+## Source Handling Principles
+
+- Record source name, publisher, access URL/path, access date, published date if available, CRS, geometry type, and usage constraints.
+- Distinguish downloaded local layers from remote services.
+- Distinguish public sources from restricted, authenticated, or reviewer-supplied sources.
+- Preserve source uncertainty and stale-data warnings.
+- Prefer deterministic GIS/source checks before AI narrative synthesis.
+- Do not add paid services, credentials, or restricted integrations without explicit approval.
+- Treat imagery-observed features as review items until validated by a human reviewer.
+- Send every source-backed output into the review queue before export.
+
+## Source Tiers
+
+### Tier 1: Automated Baseline Sources
+
+Sources that are likely candidates for repeatable local or remote ingestion after validation.
+
+Examples:
+
+- USGS The National Map.
+- USFWS NWI wetlands.
+- FEMA National Flood Hazard Layer.
+- USDA NRCS soils / SSURGO.
+- USDA NAIP imagery.
+- MRLC / NLCD land cover.
+- U.S. Census TIGER/Line and ACS.
+- MARIS / Mississippi Geospatial Clearinghouse.
+
+Use:
+
+- Deterministic spatial checks.
+- Baseline map layers.
+- Comparison tables.
+- Source-backed review queue findings.
+
+### Tier 2: Semi-Automated or Manual Review Sources
+
+Sources that may support workflow but may require manual downloads, generated reports, reviewer input, or careful access handling.
+
+Examples:
+
+- USFWS IPaC project reports.
+- MDWFP / Mississippi Natural Heritage Program context.
+- MDEQ interactive maps and datasets.
+- County GIS and parcel/tax assessor data.
+- MDOT project documents or transportation layers.
+- Existing environmental assessments or design plans.
+
+Use:
+
+- Supplemental findings.
+- Reviewer-attached source files.
+- Agency coordination context.
+- Review items requiring human confirmation.
+
+### Tier 3: Restricted or Reviewer-Supplied Sources
+
+Sources that should not be automated until explicitly approved and access is understood.
+
+Examples:
+
+- MDAH archaeological records.
+- MDAH GIS/HSMT restricted data.
+- Consultant-provided cultural resource KMZ/GIS exports.
+- Agency consultation letters.
+- Internal hazardous materials reports.
+
+Use:
+
+- Reviewer-supplied context.
+- Restricted-source review status.
+- Findings with controlled visibility.
+
+Important rule:
+
+- Do not implement authentication, scraping, or restricted access workflows without explicit approval.
+
+### Tier 4: Context-Only or Visual Review Sources
+
+Sources useful for visual awareness but not authoritative by default.
+
+Examples:
+
+- Google Earth.
+- Historical aerial imagery.
+- GBIF biodiversity occurrence records.
+- iDigBio specimen records.
+- NatureServe species status context.
+
+Use:
+
+- Imagery-observed review items.
+- Data gap discovery.
+- Supplemental context.
+- Human reviewer prompts.
+
+Important rule:
+
+- Visual observations remain review items until validated.
+
+## Core National Sources
+
+### USGS The National Map
+
+Likely uses:
+
+- Hydrography.
+- Elevation.
+- Transportation context.
+- Structures and boundaries.
+- Topographic and imagery basemaps.
+
+Potential findings:
+
+- Stream/river crossings.
+- Waterbody context.
+- Elevation/drainage context.
+- Nearby structures or transportation context.
+
+References:
+
+- https://www.usgs.gov/the-national-map-data-delivery/gis-data-download
+- https://www.usgs.gov/faqs/what-are-base-map-services-or-urls-used-national-map
+
+### USFWS National Wetlands Inventory
+
+Likely uses:
+
+- Wetland screening.
+- Deepwater habitat screening.
+- Wetland/waterbody map figures.
+
+Potential findings:
+
+- Wetland intersection.
+- Wetland adjacency.
+- Freshwater pond or waterbody context.
+- Field verification needed.
+
+Important caveat:
+
+- NWI data does not define jurisdictional wetland boundaries.
+
+References:
+
+- https://www.fws.gov/program/national-wetlands-inventory/data-download
+- https://www.fws.gov/apps/program/national-wetlands-inventory/wetlands-mapper
+
+### FEMA National Flood Hazard Layer
+
+Likely uses:
+
+- Flood zone overlays.
+- Floodway screening.
+- Floodplain map figures.
+
+Potential findings:
+
+- Floodplain overlap.
+- Floodway overlap.
+- Floodplain review needed.
+- Hydraulic/hydrologic review may be needed.
+
+Important caveat:
+
+- Effective, preliminary, and pending data have different official uses. Official-purpose map display requires appropriate basemap accuracy and interpretation.
+
+Reference:
+
+- https://hazards.fema.gov/femaportal/resources/flood_map_svc.htm
+
+### USDA NRCS Soils / SSURGO / Web Soil Survey
+
+Likely uses:
+
+- Soils context.
+- Hydric soil screening.
+- Prime farmland or other soil-related constraints where relevant.
+
+Potential findings:
+
+- Hydric soil context.
+- Soil constraint context.
+- Field verification or design review needed.
+
+Reference:
+
+- https://www.nrcs.usda.gov/resources/data-and-reports/web-soil-survey
+
+### USDA NAIP Imagery
+
+Likely uses:
+
+- Aerial basemap.
+- Imagery review.
+- Disturbed-area context.
+- Cropped project imagery.
+
+Potential findings:
+
+- Visible pond not present in source layer.
+- Recent clearing visible.
+- Disturbed corridor visible.
+- New road or infrastructure visible.
+
+Important caveat:
+
+- Imagery observations are review items, not authoritative facts.
+
+Reference:
+
+- https://catalog.data.gov/dataset/national-agriculture-imagery-program-naip-imagery
+
+### MRLC / NLCD Land Cover
+
+Likely uses:
+
+- Land cover classification.
+- Developed vs. forested or low-disturbance context.
+- Impervious surface context.
+
+Potential findings:
+
+- Existing disturbed corridor overlap.
+- Forested area overlap.
+- Developed land overlap.
+- Low-disturbance area context.
+
+Reference:
+
+- https://www.mrlc.gov/data
+
+### U.S. Census TIGER/Line and ACS
+
+Likely uses:
+
+- Census tracts/block groups.
+- Demographics.
+- Income and socioeconomic context.
+- Community profile tables.
+
+Potential findings:
+
+- Demographic context by tract.
+- Lower-income population context.
+- Public engagement focus area.
+- Transportation dependency context.
+
+References:
+
+- https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html
+- https://www.census.gov/programs-surveys/acs/data.html
+
+## Species, Habitat, and Ecology Sources
+
+### USFWS IPaC
+
+Likely uses:
+
+- Project species list.
+- Critical habitat context.
+- Migratory bird and conservation context.
+- Federal consultation support.
+
+Potential findings:
+
+- Federally listed species may occur in project area.
+- Critical habitat overlap or nearby context.
+- Agency coordination needed.
+- Review/consultation document needed.
+
+Important caveat:
+
+- IPaC outputs may be report/document based and may need to be attached or entered as source material rather than treated as a simple GIS layer.
+
+Reference:
+
+- https://ipac.ecosphere.fws.gov/
+
+### USFWS ECOS / Critical Habitat
+
+Likely uses:
+
+- Listed species status context.
+- Critical habitat GIS boundaries.
+
+Potential findings:
+
+- Critical habitat intersection.
+- Critical habitat nearby.
+- Listed species context.
+
+Reference:
+
+- https://ecos.fws.gov/ecp/
+
+### MDWFP / Mississippi Natural Heritage Program
+
+Likely uses:
+
+- State species of concern.
+- Rare species and ecological communities context.
+- Project-specific biological review support.
+
+Potential findings:
+
+- State species of concern context.
+- Natural heritage review needed.
+- Agency coordination needed.
+
+Important caveat:
+
+- Sensitive species data may be restricted or request-based.
+
+Reference:
+
+- https://www.mdwfp.com/ms-museum-nature-science/mississippi-natural-heritage-program/about-natural-heritage-database
+
+### NOAA Fisheries
+
+Likely uses:
+
+- Coastal and marine listed species context where relevant.
+
+Potential findings:
+
+- NOAA-jurisdiction species context.
+- Consultation needed for coastal/marine resources.
+
+Reference:
+
+- https://www.fisheries.noaa.gov/southeast/consultations/threatened-and-endangered-species-list-mississippi
+
+### Supplemental Biodiversity Context
+
+Candidate sources:
+
+- NatureServe.
+- GBIF.
+- iDigBio.
+
+Likely uses:
+
+- Supplemental species occurrence/context review.
+- Conservation status context.
+- Data gap exploration.
+
+Important caveat:
+
+- These should not replace regulatory species consultation sources.
+
+References:
+
+- https://explorer.natureserve.org/
+- https://www.gbif.org/
+- https://www.idigbio.org/
+
+## Mississippi and Local Sources
+
+### MARIS / Mississippi State GIS
+
+Likely uses:
+
+- Statewide GIS layers.
+- Community resources.
+- Transportation context.
+- Aerial photography.
+- Hydrology and infrastructure context.
+- Statewide reference layers.
+
+Reference:
+
+- https://www.mississippi.gov/Agencies/automated-resource-information-system-maris
+
+### Mississippi Geospatial Clearinghouse
+
+Likely uses:
+
+- Statewide source discovery.
+- Downloadable GIS datasets.
+- Cross-agency source lookup.
+- Metadata lookup.
+
+Reference:
+
+- https://www.ms.gov/Agencies/geospatial-clearinghouse-mgc
+
+### MDEQ
+
+Likely uses:
+
+- Interactive maps.
+- Public water supply context.
+- UST/hazardous site context.
+- Water quality context.
+- Boreholes, mines, geology, dams, and related state environmental context.
+
+Potential findings:
+
+- Public water supply well nearby.
+- UST or hazardous materials site nearby.
+- Water quality review needed.
+- MDEQ coordination likely.
+
+Important caveat:
+
+- Interactive map outputs may need validation, manual export, or reviewer-attached source documents.
+
+Reference:
+
+- https://www.mdeq.ms.gov/about-mdeq/interactive-maps/
+
+### MDAH Public and Restricted Cultural Resources
+
+Public context:
+
+- Historic Resources Inventory.
+- Public historic property context.
+- National Register context.
+- County tax parcel or property-age clues.
+
+Restricted context:
+
+- Archaeological records.
+- HSMT/GIS data.
+- Consultant-provided KMZ/GIS exports.
+- Agency consultation context.
+
+Potential findings:
+
+- Public historic resource nearby.
+- Property older than 50 years.
+- Archaeological lookup required.
+- Restricted cultural review needed.
+- SHPO/MDAH coordination likely.
+
+Important caveat:
+
+- Keep public historic context separate from restricted archaeological data.
+- Restricted data may require qualified users, subscriptions, appointments, or reviewer-supplied files.
+- MDAH restricted integration is a placeholder/stub only.
+
+References:
+
+- https://www.apps.mdah.ms.gov/Public/search.aspx
+- https://mdah.ms.gov/historic-preservation/archaeological-records-research
+
+### County GIS / Parcel and Tax Assessor Data
+
+Likely uses:
+
+- Property age screening.
+- Ownership context.
+- Local facility verification.
+- ROW/access context.
+
+Potential findings:
+
+- Property older than 50 years may require review.
+- ROW acquisition may trigger cultural review.
+- Local resource or access issue identified.
+
+Important caveat:
+
+- County data availability, licensing, schemas, and freshness vary.
+
+### MDOT and Local Transportation Sources
+
+Likely uses:
+
+- Roads.
+- ROW context.
+- Recent project plans.
+- Existing environmental assessments.
+- New alignments not visible in stale imagery.
+
+Potential findings:
+
+- Existing disturbed transportation corridor overlap.
+- New roadway/context update needed.
+- Design/ROW coordination needed.
+
+## Hazardous Materials and Regulated Facility Sources
+
+### EPA NEPAssist
+
+Likely uses:
+
+- Environmental screening reference.
+- Cross-source project context.
+
+Potential findings:
+
+- Screening context item.
+- Source discovery for other EPA datasets.
+
+Reference:
+
+- https://www.epa.gov/nepa/nepassist
+
+### EPA Envirofacts
+
+Likely uses:
+
+- Facilities and regulated sites.
+- Waste, air, water, toxic release, and compliance context.
+
+Potential findings:
+
+- Regulated facility nearby.
+- Hazardous materials review item.
+- Agency coordination may be needed.
+
+Reference:
+
+- https://www.epa.gov/enviro/envirofacts-overview
+
+### EPA ECHO
+
+Likely uses:
+
+- Compliance and enforcement records.
+- NPDES and facility data.
+
+Potential findings:
+
+- Discharge or regulated facility nearby.
+- Compliance context.
+
+Reference:
+
+- https://echo.epa.gov/tools/data-downloads
+
+### Mississippi State Oil and Gas Board
+
+Likely uses:
+
+- Oil/gas well context.
+
+Potential findings:
+
+- Oil/gas well near project area.
+- Excavation or coordination review needed.
+
+Reference:
+
+- https://www.ogb.state.ms.us/
+
+## Infrastructure and Community Sources
+
+### BTS National Transportation Atlas Database
+
+Likely uses:
+
+- Transportation networks and facilities.
+- National transportation context.
+
+Reference:
+
+- https://www.bts.gov/ntad
+
+### FAA Aeronautical Data
+
+Likely uses:
+
+- Airport proximity context.
+- Aviation-related constraints where relevant.
+
+Reference:
+
+- https://www.faa.gov/data/aero_data
+
+### HIFLD / Infrastructure Data
+
+Likely uses:
+
+- Hospitals.
+- Schools.
+- Fire stations.
+- Utilities.
+- Infrastructure context.
+
+Important caveat:
+
+- Public availability and access conditions should be validated before relying on HIFLD as a repeatable source.
+
+Reference:
+
+- https://www.dhs.gov/gmo/hifld
+
+### Local Government and Open Data Portals
+
+Likely uses:
+
+- Fire/EMS.
+- Schools.
+- Parks.
+- Government buildings.
+- Utilities.
+- Local plans and capital projects.
+
+Important caveat:
+
+- These sources are valuable but inconsistent across jurisdictions.
+
+## Aerial Imagery and Basemap Sources
+
+Candidate imagery sources may include NAIP, state orthophotos, county imagery, ArcGIS basemaps, USGS imagery services, and Google Earth visual review context.
+
+Potential use:
+
+- Basemap and map figure context.
+- Cropped project imagery.
+- Visual QC against stale GIS layers.
+- Imagery-observed review items.
+
+Important limitations:
+
+- Imagery observations should remain review items, not authoritative facts.
+- Source, capture date, tile/service, attribution, and licensing constraints must be tracked where available.
+- Do not implement Google API usage without explicit approval because Maps Static API requires API keys and billing.
+- Google imagery requires visible attribution to Google Earth and third-party imagery providers when used.
+
+References:
+
+- NAIP: https://catalog.data.gov/dataset/national-agriculture-imagery-program-naip-imagery
+- USGS imagery services: https://www.usgs.gov/faqs/what-are-base-map-services-or-urls-used-national-map
+- ArcGIS basemap styles: https://developers.arcgis.com/documentation/mapping-and-location-services/mapping/basemaps/introduction-basemap-styles-service/
+- Google Earth Studio attribution: https://earth.google.com/studio/docs/en_gb/attribution/
+- Google Maps Static API: https://developers.google.com/maps/documentation/maps-static/start
+
+## Best-Case First Stack for Trails Project
+
+For the initial trails example, prioritize:
+
+1. Trail alternatives KMZ.
+2. Project footprint/study area if available.
+3. USFWS NWI wetlands.
+4. USGS hydrography / NHD or successor datasets.
+5. FEMA NFHL flood zones/floodways.
+6. NAIP or MARIS/state imagery.
+7. NLCD land cover.
+8. NRCS soils.
+9. USFWS IPaC project species list.
+10. USFWS critical habitat GIS.
+11. MDWFP / Mississippi Natural Heritage context.
+12. MDAH public Historic Resources Inventory.
+13. Manual placeholder for restricted MDAH archaeological/HSMT review.
+14. MDEQ UST/hazardous materials/public water supply/water quality context.
+15. EPA Envirofacts/ECHO regulated facility context.
+16. Census TIGER/ACS demographic context.
+17. County parcel/tax assessor data for property age and ROW context.
+18. MDOT/local transportation context for recent roads, ROW, and project plans.
+
+## How Sources Feed the Review Queue
+
+Each source-backed output should become a review queue item or support one.
+
+Examples:
+
+- NWI intersection -> wetland finding card.
+- NHD crossing -> stream crossing finding card.
+- FEMA floodway overlap -> floodplain/floodway finding card.
+- IPaC report attached -> species context card.
+- MDAH restricted data unavailable -> cultural review required card.
+- NAIP discrepancy -> imagery review item.
+- Census table -> socioeconomic table preview card.
+- MDEQ UST site nearby -> contamination risk finding card.
+- Map export -> map preview card with source/provenance notes.
+
+Nothing should skip the review queue.
+
+## Source Registry Fields
+
+Future source registry entries should include:
+
+- `source_id`
+- `name`
+- `publisher`
+- `category`
+- `tier`
+- `access_method`
+- `url`
+- `local_path`
+- `requires_credentials`
+- `public_or_restricted`
+- `license_or_terms`
+- `attribution`
+- `coverage`
+- `geometry_type`
+- `crs`
+- `published_date`
+- `metadata_date`
+- `access_date`
+- `refresh_frequency`
+- `known_limitations`
+- `review_notes`
+
+## Source Validation Questions
+
+- What is the authoritative source for each layer?
+- What access restrictions apply?
+- How current is the data?
+- What geographic coverage is available?
+- What usage or redistribution limits apply?
+- What attribution is required in maps or reports?
+- Is the source suitable for deterministic analysis or only visual review?
+- How should source provenance be cited in draft findings?
+- How should stale, missing, restricted, or unavailable data be represented in findings?
+- Which sources should be automated first for the trails prototype?
+- What source download/cache location should the desktop app use?
+- Should the app ship with a starter registry of URLs or require project-specific source folders?
+- What level of Google Earth/Google Maps usage is permitted in draft or final deliverables?
+- How should IPaC reports be generated, stored, and cited?
+- How should restricted MDAH review be represented without exposing sensitive data?
+- Which local/county data sources are required for the first Mississippi trail report?
