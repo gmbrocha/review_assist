@@ -10,9 +10,9 @@ Human review is mandatory before any output is used outside the draft review pro
 
 ## Current Status
 
-The project is currently in scaffold and planning phase only.
+The project has completed Phase 0 scaffold/planning and is entering Phase 1 KMZ/KML ingestion.
 
-No GIS processing, external API integration, AI narrative generation, scoring, report generation, or production workflow has been implemented.
+The Phase 1 implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source-layer spatial analysis, AI narrative generation, scoring, report generation, or production workflow has been implemented.
 
 ## Planning Docs
 
@@ -36,6 +36,23 @@ Key planning documents live under `docs/`:
 - `archive/`: general project archive for retained but inactive files.
 - `docs/archive/`: archive for superseded or historical documentation.
 - `outputs/`: generated outputs; ignored except for `.gitkeep`.
+
+## Local Setup
+
+Install the package and development dependencies into the local virtual environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+```
+
+Inspect a project workspace:
+
+```powershell
+.\.venv\Scripts\review-assist.exe inspect-project projects/trails
+.\.venv\Scripts\review-assist.exe inspect-project projects/conexon_projects
+```
+
+The CLI writes `geometry_summary.json` and normalized GeoJSON files under each project's `intermediate/` directory. Project intermediate outputs are generated artifacts and are ignored by Git.
 
 ## Intended Workflow
 

@@ -48,6 +48,22 @@ The first GUI version should treat the review queue as the core domain model. Ge
 
 The PyInstaller desktop app should use a modular service architecture underneath the GUI so pipeline, GIS, findings, review, and export logic does not become trapped in callbacks.
 
+### 2026-05-14: Phase 1 starts with services plus CLI
+
+Phase 1 implementation should build reusable ingestion/inspection services and a command-line entrypoint before GUI work, so the later desktop shell can sit on top of stable workflow logic.
+
+### 2026-05-14: Phase 1 project inputs are copied into project workspaces
+
+Root KMZ files are retained as reference originals, while project manifests reference copies under `projects/<project_id>/inputs/`.
+
+### 2026-05-14: Phase 1 standardizes on GeoPandas
+
+GeoPandas, Shapely, PyProj, Pyogrio, and Pandas are the standard geospatial dependency path for Phase 1. The earlier dependency-free KMZ preview utility remains a reference/compatibility tool, not the primary ingestion path.
+
+### 2026-05-14: Phase 1 uses JSON manifests and JSON/GeoJSON intermediates
+
+Project manifests are JSON. Geometry inspection summaries are JSON. Normalized geometry outputs are GeoJSON under ignored project `intermediate/` directories.
+
 ## Future Decision Template
 
 ### YYYY-MM-DD: Decision title

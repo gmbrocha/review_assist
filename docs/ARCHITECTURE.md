@@ -25,6 +25,8 @@ Current workspaces:
 - `projects/trails`
 - `projects/conexon_projects`
 
+Phase 1 workspaces include `config/project.json` manifests and copied KMZ inputs under `inputs/`.
+
 Future project folders may contain:
 
 - `inputs/`
@@ -37,6 +39,8 @@ Future project folders may contain:
 - `review/`
 
 This structure is not implemented yet.
+
+Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`.
 
 ## Ingestion Service
 
@@ -51,6 +55,8 @@ Likely early stack:
 
 - GeoPandas/Fiona/pyogrio for geospatial file reads where supported.
 - Python standard library ZIP/XML parsing for lightweight KMZ inspection where useful.
+
+Phase 1 standardizes on GeoPandas data structures and GeoJSON intermediates. The KML/KMZ XML parsing layer exists to avoid depending on optional GDAL KML driver support.
 
 Open questions:
 

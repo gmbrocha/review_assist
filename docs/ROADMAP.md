@@ -4,14 +4,29 @@ This roadmap is intentionally rough and may change as requirements are clarified
 
 ## Phase 0: Scaffold and Clarify Requirements
 
+Status: complete.
+
 - Establish repository structure.
 - Document product boundaries.
 - Confirm initial input and output expectations.
 - Identify first candidate data sources.
 - Create project workspaces for current example projects.
 - Document report taxonomy, finding types, uncertainty, provenance, map-generation direction, and report assembly direction.
+- Record first-version desktop direction, with the review queue as the spine.
+- Record source stack, archive conventions, and Phase 1 implementation defaults.
 
 ## Phase 1: Parse KMZ/KML and Inspect Geometries
+
+Status: in progress.
+
+Implementation defaults:
+
+- Services plus CLI first; no GUI work in this phase.
+- GeoPandas is the standard geospatial dependency path.
+- Real KMZ inputs are copied into project `inputs/` folders while root originals remain as reference files.
+- Project manifests use JSON.
+- Normalized geometry outputs use GeoJSON.
+- Geometry summaries use JSON.
 
 - Parse KMZ and KML files.
 - Identify project footprints and alternatives.
@@ -19,6 +34,8 @@ This roadmap is intentionally rough and may change as requirements are clarified
 - Report validation issues.
 - Move or reference real KMZ inputs from project workspaces.
 - Standardize a geospatial Python dependency plan, likely including GeoPandas.
+
+Phase 1 remains limited to ingestion and geometry inspection. It does not generate findings, run source-layer spatial analysis, generate reports, implement a GUI, query external APIs, or decide preferred alternatives.
 
 ## Phase 2: Local/Source-Layer Clipping and Spatial Checks
 

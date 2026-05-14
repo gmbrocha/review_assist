@@ -9,6 +9,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+*.egg-info/
 
 # Virtual environments
 .venv/
@@ -23,10 +24,14 @@ env/
 # Generated outputs
 outputs/*
 !outputs/.gitkeep
+projects/*/intermediate/
+projects/*/maps/
+projects/*/tables/
+projects/*/drafts/
+projects/*/exports/
 
 # OS/editor files
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
-

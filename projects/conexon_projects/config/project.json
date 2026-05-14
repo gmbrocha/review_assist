@@ -1,0 +1,20 @@
+{
+  "project_id": "conexon_projects",
+  "name": "Conexon Broadband Installation Spots",
+  "description": "Broadband installation spot example project for Phase 1 KMZ/KML ingestion.",
+  "project_type": "location_review",
+  "inputs": [
+    {
+      "path": "inputs/conexon_projects_color_coded.kmz",
+      "role": "project_locations",
+      "description": "KMZ containing broadband installation spot locations."
+    }
+  ],
+  "assumptions": {
+    "default_buffer_feet": 100,
+    "input_crs": "EPSG:4326",
+    "review_stage": "phase_1_ingestion"
+  },
+  "special_reviewer_instructions": "Use this as a second Phase 1 project to verify point-heavy KMZ ingestion."
+}
+

@@ -1,0 +1,20 @@
+{
+  "project_id": "trails",
+  "name": "Trail Alternatives Review",
+  "description": "Initial trail alternatives example project for Phase 1 KMZ/KML ingestion.",
+  "project_type": "alternatives_review",
+  "inputs": [
+    {
+      "path": "inputs/trail_route_alternatives.kmz",
+      "role": "alternatives",
+      "description": "KMZ containing proposed trail alternative geometries."
+    }
+  ],
+  "assumptions": {
+    "default_buffer_feet": 100,
+    "input_crs": "EPSG:4326",
+    "review_stage": "phase_1_ingestion"
+  },
+  "special_reviewer_instructions": "Use this as the initial Phase 1 project for KMZ/KML parsing and geometry inspection only."
+}
+

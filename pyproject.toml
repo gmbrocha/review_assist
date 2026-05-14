@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "review-assist"
+version = "0.1.0"
+description = "Local alternatives review workflow prototype"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "geopandas>=1.0",
+    "pandas>=2.2",
+    "pyogrio>=0.10",
+    "pyproj>=3.6",
+    "shapely>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+review-assist = "review_assist.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+

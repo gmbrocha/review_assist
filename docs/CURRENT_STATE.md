@@ -2,9 +2,9 @@
 
 ## Phase
 
-This project is in scaffold and planning phase only.
+Phase 0 scaffold/planning is complete. The project is now entering Phase 1 KMZ/KML ingestion and geometry inspection.
 
-The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, and directory structure for a future alternatives review assistant. No production workflow has been implemented.
+The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, and an initial Python service/CLI implementation for Phase 1 inspection. No production workflow has been implemented.
 
 The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page.
 
@@ -23,6 +23,11 @@ Current real example inputs in the repository include:
 - `trail_route_alternatives.kmz`, representing the trail alternatives context.
 - `conexon_projects_color_coded.kmz`, representing broadband installation spot context.
 - `env_constraints_report_20260511_EXAMPLE_ONLY.docx`, an example environmental constraints report used for deliverable structure research only.
+
+Project-local copies are now expected under:
+
+- `projects/trails/inputs/trail_route_alternatives.kmz`
+- `projects/conexon_projects/inputs/conexon_projects_color_coded.kmz`
 
 ## Known Future Output Goal
 
@@ -47,6 +52,8 @@ All outputs are pre-review drafts until reviewed by a human professional.
 - External API integrations.
 - Basemap or imagery acquisition workflows.
 - Report assembly pipelines.
+- Review queue persistence.
+- Desktop GUI.
 - LLM-assisted narrative synthesis.
 - ML or computer vision detection.
 - Scoring, ranking, or preferred alternative selection.
@@ -58,7 +65,16 @@ All outputs are pre-review drafts until reviewed by a human professional.
 - `projects/trails`: trail alternative review context.
 - `projects/conexon_projects`: broadband installation spot review context.
 
-The root-level KMZ files have not yet been moved into project-specific input folders.
+The root-level KMZ files are retained as reference originals. Phase 1 project manifests point to copied project-local inputs.
+
+## Phase 1 Implementation Defaults
+
+- Implementation surface: reusable services plus CLI.
+- Geospatial stack: GeoPandas with Shapely, PyProj, Pyogrio, and Pandas.
+- Project manifest format: JSON.
+- Intermediate geometry format: GeoJSON.
+- Geometry summary format: JSON.
+- Generated project intermediates are ignored by Git.
 
 ## Archive Directories
 

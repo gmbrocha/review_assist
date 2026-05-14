@@ -1,6 +1,12 @@
 # Source Directory
 
-This directory is reserved for future application code.
+This directory contains the Phase 1 Python package for local project ingestion and geometry inspection.
 
-No implementation exists yet. Do not add broad functionality until requirements are confirmed.
+Current implementation scope:
 
+- Project manifest loading.
+- KMZ/KML geometry ingestion.
+- Geometry summaries and validation issues.
+- CLI entrypoint for project inspection.
+
+Do not put GUI callback logic here. Future desktop UI code should call service modules rather than owning workflow logic directly.

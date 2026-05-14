@@ -1,6 +1,11 @@
 # Tests Directory
 
-This directory is reserved for future tests.
+This directory contains tests for the Phase 1 ingestion and inspection services.
 
-When implementation begins, tests should focus on deterministic behavior, geometry parsing, source provenance, finding status transitions, and report draft safety boundaries.
+Current focus:
 
+- KMZ/KML parsing.
+- Geometry summary generation.
+- Validation and CLI error handling.
+
+Future tests should add coverage for source provenance, finding status transitions, review queue behavior, map generation, and report draft safety boundaries as those features are implemented.
