@@ -100,7 +100,7 @@ The baseline converts current source status records, deterministic spatial relat
 
 ## Phase 5: Populate for Review
 
-Status: next major orchestration phase.
+Status: initial orchestration baseline complete.
 
 - Create the service-level workflow behind the future `Populate for Review` action.
 - Acquire or load approved sources where possible.
@@ -109,7 +109,18 @@ Status: next major orchestration phase.
 - Generate findings, caveats, implication notes, source notes, tables, maps, and draft narrative as review queue items.
 - Keep deterministic GIS/source checks separate from LLM-assisted narrative synthesis.
 
+Current baseline:
+
+- `review-assist populate-for-review <project_dir>`
+- JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
+- Runs project context generation, source status resolution, tolerant local spatial analysis, and review queue generation.
+- Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict.
+
+This baseline does not yet generate new findings, maps, tables, report prose, exports, GUI review screens, source downloads, or LLM-assisted narrative.
+
 ## Phase 6: Map/Figure, Table, and Imagery Generation
+
+Status: next likely implementation area unless deterministic finding templates are prioritized first.
 
 - Generate overall project maps.
 - Generate resource-specific maps.

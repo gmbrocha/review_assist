@@ -30,7 +30,7 @@ class SpatialAnalysisError(RuntimeError):
     """Raised when spatial analysis cannot complete."""
 
 
-def analyze_project(project_dir: Path) -> dict[str, Any]:
+def analyze_project(project_dir: Path, *, tolerate_source_errors: bool = False) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     try:
         manifest = load_project_manifest(project_dir)
@@ -74,13 +74,63 @@ def analyze_project(project_dir: Path) -> dict[str, Any]:
 
         source_path = resolve_project_source_path(project_dir, project_source)
         if source_path is None:
+            if tolerate_source_errors:
+                source_issue = _source_issue(
+                    project_source,
+                    code="local_source_path_missing",
+                    message=f"Enabled local source '{project_source.source_id}' requires a path.",
+                    location=str(project_dir / "config" / "sources.json"),
+                )
+                source_results.append(
+                    _source_result(
+                        project_source,
+                        source_definition,
+                        status="source_missing",
+                        validation_issues=[source_issue],
+                    )
+                )
+                continue
             raise SpatialAnalysisError(f"Enabled local source '{project_source.source_id}' requires a path.")
         if not source_path.exists():
+            if tolerate_source_errors:
+                source_issue = _source_issue(
+                    project_source,
+                    code="missing_local_source_file",
+                    message=f"Missing local source file for '{project_source.source_id}': {source_path}",
+                    location=str(source_path),
+                )
+                source_results.append(
+                    _source_result(
+                        project_source,
+                        source_definition,
+                        status="source_missing",
+                        source_path=source_path,
+                        validation_issues=[source_issue],
+                    )
+                )
+                continue
             raise SpatialAnalysisError(f"Missing local source file for '{project_source.source_id}': {source_path}")
 
         try:
             source_gdf = gpd.read_file(source_path)
         except Exception as exc:  # pragma: no cover - driver-specific exception types vary.
+            if tolerate_source_errors:
+                source_issue = _source_issue(
+                    project_source,
+                    code="unreadable_local_source_file",
+                    message=f"Unable to read source layer '{project_source.source_id}': {source_path}: {exc}",
+                    location=str(source_path),
+                )
+                source_results.append(
+                    _source_result(
+                        project_source,
+                        source_definition,
+                        status="source_unreadable",
+                        source_path=source_path,
+                        validation_issues=[source_issue],
+                    )
+                )
+                continue
             raise SpatialAnalysisError(f"Unable to read source layer '{project_source.source_id}': {source_path}: {exc}") from exc
 
         source_issues: list[ValidationIssue] = []
@@ -118,14 +168,36 @@ def analyze_project(project_dir: Path) -> dict[str, Any]:
             continue
 
         buffer_feet = project_source.buffer_feet if project_source.buffer_feet is not None else default_buffer_feet
-        clipped_wgs84, source_relationships, analysis_crs = _analyze_source(
-            project_layers=project_layers,
-            source_gdf=source_gdf,
-            project_source=project_source,
-            source_definition=source_definition,
-            buffer_feet=buffer_feet,
-            relationship_start=len(relationships),
-        )
+        try:
+            clipped_wgs84, source_relationships, analysis_crs = _analyze_source(
+                project_layers=project_layers,
+                source_gdf=source_gdf,
+                project_source=project_source,
+                source_definition=source_definition,
+                buffer_feet=buffer_feet,
+                relationship_start=len(relationships),
+            )
+        except Exception as exc:
+            if tolerate_source_errors:
+                source_issues.append(
+                    _source_issue(
+                        project_source,
+                        code="source_analysis_error",
+                        message=f"Unable to analyze source layer '{project_source.source_id}': {source_path}: {exc}",
+                        location=str(source_path),
+                    )
+                )
+                source_results.append(
+                    _source_result(
+                        project_source,
+                        source_definition,
+                        status="source_analysis_error",
+                        source_path=source_path,
+                        validation_issues=source_issues,
+                    )
+                )
+                continue
+            raise
 
         clipped_path = clipped_dir / f"{project_source.source_id}.geojson"
         write_geojson(clipped_wgs84, clipped_path)
@@ -388,6 +460,16 @@ def _source_result(
         "buffer_feet": buffer_feet,
         "validation_issues": [issue.to_dict() for issue in validation_issues or []],
     }
+
+
+def _source_issue(project_source: ProjectSource, *, code: str, message: str, location: str) -> ValidationIssue:
+    return ValidationIssue(
+        severity="warning",
+        code=code,
+        message=message,
+        location=location,
+        source_id=project_source.source_id,
+    )
 
 
 def _json_value(value: Any) -> str | int:

@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .inspection import ProjectInspectionError, inspect_project
+from .populate_for_review import PopulateForReviewError, populate_for_review
 from .project_context import ProjectContextError, generate_project_context
 from .review_queue import (
     ReviewQueueError,
@@ -73,6 +74,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Whether the item is eligible for export.",
     )
     update_item_parser.add_argument("--json", action="store_true", help="Print updated item JSON to stdout.")
+
+    populate_parser = subparsers.add_parser("populate-for-review", help="Run the current workflow into the review queue.")
+    populate_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    populate_parser.add_argument("--json", action="store_true", help="Print full JSON populate run manifest to stdout.")
     return parser
 
 
@@ -284,6 +289,24 @@ def update_review_item_command(
     return 0
 
 
+def populate_for_review_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = populate_for_review(project_dir)
+    except PopulateForReviewError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Populated for review: {result['project_id']} ({result['project_name']})")
+    print(f"Review queue items: {result['review_queue_item_count']}")
+    print(f"Warnings: {len(result['warnings'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -312,6 +335,8 @@ def main(argv: list[str] | None = None) -> int:
             args.export_eligible,
             args.json,
         )
+    if args.command == "populate-for-review":
+        return populate_for_review_command(args.project_dir, args.json)
     parser.error(f"Unknown command: {args.command}")
     return 2
 

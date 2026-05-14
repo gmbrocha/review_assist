@@ -12,7 +12,7 @@ The review queue is the core workflow object. Every generated artifact should be
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, Phase 3 project context/source status artifacts, and an initial Phase 4 JSON-backed review queue baseline. The current CLI can inspect project KMZ/KML inputs, list the source catalog, register local source layers, run early local spatial relationship checks, generate workflow artifacts, and create/update review queue items.
+The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, and a Phase 5 populate-for-review orchestration baseline. The current CLI can inspect project KMZ/KML inputs, list the source catalog, register local source layers, run early local spatial relationship checks, generate workflow artifacts, populate the review queue, and create/update review queue items.
 
 The implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source downloads, AI narrative generation, scoring, report generation, export compilation, or production workflow has been implemented.
 
@@ -79,7 +79,13 @@ Generate and update review queue items:
 .\.venv\Scripts\review-assist.exe update-review-item projects/trails source-status-wetlands-waterbodies --status accepted --note "Reviewed."
 ```
 
-The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/`, `source_status/`, and `review_queue/` directories. Project intermediate outputs, workflow artifacts, and local project layers are generated/project-specific artifacts and are ignored by Git.
+Run the current orchestration behind the future desktop `Populate for Review` action:
+
+```powershell
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails
+```
+
+The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/`, `source_status/`, `review_queue/`, and `populate_for_review/` directories. Project intermediate outputs, workflow artifacts, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Testing
 

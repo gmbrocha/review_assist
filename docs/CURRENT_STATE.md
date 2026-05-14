@@ -2,9 +2,9 @@
 
 ## Phase
 
-Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks. Phase 3 project context/source status artifacts and the first Phase 4 JSON-backed review queue baseline are implemented.
+Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks. Phase 3 project context/source status artifacts, the first Phase 4 JSON-backed review queue baseline, and a Phase 5 populate-for-review orchestration baseline are implemented.
 
-The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check services, workflow-native project context/source status services, and JSON review queue services. No production workflow has been implemented.
+The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check services, workflow-native project context/source status services, JSON review queue services, and populate-for-review orchestration. No production workflow has been implemented.
 
 The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page. The canonical workflow is now workspace driven: open/create workspace, add inputs, generate project context, resolve source status, populate for review, review every generated item, and export accepted content.
 
@@ -100,6 +100,7 @@ Current CLI commands:
 - `review-assist generate-review-queue <project_dir>`
 - `review-assist list-review-queue <project_dir>`
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
+- `review-assist populate-for-review <project_dir>`
 
 ## Workflow Artifact Defaults
 
@@ -107,12 +108,14 @@ Current CLI commands:
 - Project context output: JSON at `projects/<project_id>/context/project_context.json`.
 - Source status output: JSON at `projects/<project_id>/source_status/source_status_set.json`.
 - Review queue output: JSON at `projects/<project_id>/review_queue/review_queue.json`.
-- Generated context, source status, and review queue artifacts are ignored by Git.
+- Populate run manifest: JSON at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
+- Generated context, source status, review queue, and populate artifacts are ignored by Git.
 - The current implementation creates review queue items from source status records, spatial relationships, no-mapped-relationship checks, and validation issues.
+- `populate-for-review` runs context generation, source status resolution, tolerant local spatial analysis, and review queue generation into one inspectable run manifest.
 
 Current audit status:
 
-- The codebase has passing tests for ingestion, source registry validation, local source registration, synthetic spatial checks, project context/source status artifacts, and review queue generation/update behavior.
+- The codebase has passing tests for ingestion, source registry validation, local source registration, synthetic spatial checks, project context/source status artifacts, review queue generation/update behavior, and populate-for-review orchestration.
 - The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, and negative buffer values.
 - See `docs/CODE_AUDIT.md` for latest audit notes.
 

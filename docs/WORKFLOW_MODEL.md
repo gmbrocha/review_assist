@@ -142,6 +142,13 @@ Deterministic GIS analysis must remain separate from AI narrative synthesis.
 
 GPT/LLM calls are acceptable here for draft narrative generation, summarization, implication drafting, and review-oriented synthesis, but AI output must remain editable, traceable, and reviewable. AI must not make final recommendations.
 
+Current baseline:
+
+- `populate-for-review` runs context generation, source status resolution, tolerant local spatial analysis, and review queue generation.
+- It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
+- Missing or unreadable local source layers become warnings and reviewable validation items rather than blocking review queue generation.
+- It does not yet download sources, generate maps/tables, draft report prose, call LLMs, or compile exports.
+
 ## Review Queue
 
 The review queue is the core workflow object.

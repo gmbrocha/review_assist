@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, and JSON-backed review queue items. No production desktop app or report workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or report workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -33,7 +33,7 @@ Conceptual state objects:
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, normalized GeoJSON intermediates, spatial relationship records, and review queue persistence. Export manifests remain future work.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, normalized GeoJSON intermediates, spatial relationship records, review queue persistence, and populate run manifests. Export manifests remain future work.
 
 ## Project Workspace Layer
 
@@ -61,6 +61,8 @@ Project folders may contain:
 - `review/`
 
 Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `findings/`, `maps/`, `drafts/`, `exports/`, and `review/` remain future workflow areas.
+
+`populate_for_review/` is also currently used for orchestration run manifests. It is generated workflow state and ignored by Git.
 
 Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`. Phase 2B writes clipped source GeoJSON files and `spatial_relationships.json` under `intermediate/`.
 
@@ -188,6 +190,8 @@ Current implementation:
 
 The service currently produces spatial relationship records only. It does not generate findings or report language.
 
+The standalone `analyze-project` command remains strict for missing local source files. The populate-for-review orchestration uses a tolerant analysis mode that records missing or unreadable local source layers as validation issues and continues when possible.
+
 Open questions:
 
 - Which checks are highest value for v1?
@@ -296,6 +300,16 @@ Current implementation:
 - Converts source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
 - Supports CLI listing and status/note/export-eligibility updates.
 - Does not yet provide GUI review screens, report drafting, map/table review items, or export compilation.
+
+## Populate For Review Service
+
+Purpose:
+
+- Provide the service-level backend for the future desktop `Populate for Review` action.
+- Run current workflow steps in order: project context, source status, tolerant spatial analysis, and review queue generation.
+- Write a run manifest with step statuses, artifact paths, warning records, review queue item count, and critical error text when a run fails.
+
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It does not download public sources, create maps/tables, generate report prose, call LLMs, compile exports, or make recommendations.
 
 ## LLM Boundary
 

@@ -112,6 +112,10 @@ Each behavior-changing implementation phase should add or update tests for the s
 
 The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI and export workflow are still deferred. The baseline converts source status records, spatial relationships, no-mapped checks, and validation issues into reviewable items, but it does not generate final findings or reports.
 
+### 2026-05-14: Populate for Review starts as orchestration, not generation
+
+The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It runs context generation, source status resolution, tolerant local spatial analysis, and review queue generation. It deliberately does not download public sources, generate maps/tables, draft report prose, call LLMs, compile exports, or create recommendations.
+
 ## Future Decision Template
 
 ### YYYY-MM-DD: Decision title

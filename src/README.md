@@ -1,6 +1,6 @@
 # Source Directory
 
-This directory contains the Python package for local project ingestion, geometry inspection, source registry handling, project context/source status artifacts, early spatial relationship checks, and JSON-backed review queue items.
+This directory contains the Python package for local project ingestion, geometry inspection, source registry handling, project context/source status artifacts, early spatial relationship checks, JSON-backed review queue items, and populate-for-review orchestration.
 
 Current implementation scope:
 
@@ -14,6 +14,7 @@ Current implementation scope:
 - Source status set resolution.
 - Local source-layer clipping and spatial relationship checks.
 - Review queue generation, listing, and item status updates.
+- Populate-for-review orchestration and run manifest generation.
 - CLI entrypoints for project inspection and workflow artifact generation.
 
 Do not put GUI callback logic here. Future desktop UI code should call service modules rather than owning workflow logic directly.

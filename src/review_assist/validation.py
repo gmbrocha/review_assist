@@ -17,7 +17,7 @@ class ValidationIssue:
     code: str
     message: str
     location: str | None = None
+    source_id: str | None = None
 
     def to_dict(self) -> dict[str, str | None]:
         return asdict(self)
-

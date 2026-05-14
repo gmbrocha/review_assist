@@ -11,7 +11,10 @@ This document records the latest implementation audit for the current prototype 
 - Phase 1 KMZ/KML ingestion and geometry inspection services.
 - Phase 2A source catalog and project source registry services.
 - Phase 2B local source-layer spatial relationship analysis.
-- CLI commands for project inspection, source listing, local source registration, and project analysis.
+- Phase 3 project context/source status services.
+- Phase 4 review queue generation/update services.
+- Phase 5 populate-for-review orchestration.
+- CLI commands for project inspection, source listing, local source registration, project analysis, review queue operations, and populate-for-review.
 - Tests and active documentation.
 
 ## Fixes Made
@@ -27,21 +30,28 @@ This document records the latest implementation audit for the current prototype 
   - Source-specific buffer overrides must be zero or greater.
 - Tightened catalog validation so category entries must be JSON objects.
 - Tightened spatial analysis validation so project default buffers must be zero or greater.
-- Added tests for the validation cases above.
+- Added tolerant spatial analysis behavior for populate-for-review while keeping `analyze-project` strict.
+- Added populate run manifests with step status, artifact paths, review queue count, warnings, and critical error text.
+- Added tests for the validation and orchestration cases above.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, and synthetic spatial checks.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, review queue behavior, and populate-for-review orchestration.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist analyze-project projects/trails`
   - `review-assist analyze-project projects/conexon_projects`
+  - `review-assist populate-for-review projects/trails`
+  - `review-assist populate-for-review projects/conexon_projects`
+  - `review-assist list-review-queue projects/trails`
+  - `review-assist list-review-queue projects/conexon_projects`
 
 ## Known Limits
 
 - Local source layers are supported; live public downloads are not implemented.
-- Spatial analysis produces relationship records only. It does not produce findings, review queue records, maps, reports, recommendations, or final conclusions.
-- Project context and source status services produce workflow state only. They do not create findings or review queue records yet.
+- Spatial analysis produces relationship records only. It does not produce final findings, maps, reports, recommendations, or final conclusions.
+- The review queue stores source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet produce richer deterministic finding templates, maps, tables, narrative, or export packages.
+- `populate-for-review` orchestrates current services only. It does not download sources, call LLMs, render maps, draft prose, or compile exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.
