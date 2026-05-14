@@ -12,7 +12,7 @@ from review_assist.cli import main
 from review_assist.populate_for_review import populate_for_review
 from review_assist.review_queue import ReviewQueueError, generate_review_queue, update_review_item
 from review_assist.source_catalog import SourceCatalogError, load_project_source_registry
-from review_assist.source_inventory import SourceInventoryError, generate_source_inventory
+from review_assist.source_inventory import SourceInventoryError, generate_source_inventory, load_source_inventory
 from review_assist.spatial_analysis import analyze_project
 from review_assist.tables import TableGenerationError, generate_comparison_tables, load_comparison_tables
 
@@ -172,6 +172,16 @@ def test_source_inventory_records_missing_and_unreadable_local_sources(tmp_path:
     assert any(issue["code"] == "unreadable_local_source_file" for issue in unreadable_record["validation_issues"])  # type: ignore[index]
 
 
+def test_load_source_inventory_rejects_record_count_mismatch(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    inventory = generate_source_inventory(project_dir)
+    inventory["record_count"] = inventory["record_count"] + 1
+    Path(inventory["output_path"]).write_text(json.dumps(inventory), encoding="utf-8")
+
+    with pytest.raises(SourceInventoryError, match="record_count does not match"):
+        load_source_inventory(project_dir)
+
+
 def test_project_source_registry_rejects_invalid_metadata(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     write_registry(project_dir, "usfws_nwi_wetlands", None, metadata="not an object")
@@ -236,6 +246,57 @@ def test_load_comparison_tables_rejects_malformed_artifact(tmp_path: Path) -> No
         load_comparison_tables(project_dir)
     with pytest.raises(ReviewQueueError, match="missing required fields"):
         generate_review_queue(project_dir)
+
+
+def test_load_comparison_tables_rejects_count_and_status_mismatch(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    tables = generate_comparison_tables(project_dir)
+    tables["table_count"] = tables["table_count"] + 1
+    Path(tables["output_path"]).write_text(json.dumps(tables), encoding="utf-8")
+
+    with pytest.raises(TableGenerationError, match="table_count does not match"):
+        load_comparison_tables(project_dir)
+
+    tables = generate_comparison_tables(project_dir)
+    tables["tables"][0]["review_status"] = "done"
+    Path(tables["output_path"]).write_text(json.dumps(tables), encoding="utf-8")
+
+    with pytest.raises(TableGenerationError, match="unsupported review_status"):
+        load_comparison_tables(project_dir)
+
+
+def test_review_queue_handles_nonnumeric_spatial_relationship_count(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    spatial_path = project_dir / "intermediate" / "spatial_relationships.json"
+    spatial_path.parent.mkdir(parents=True)
+    spatial_path.write_text(
+        json.dumps(
+            {
+                "project_id": "test_project",
+                "project_name": "Test Project",
+                "project_dir": str(project_dir),
+                "relationships": [],
+                "sources": [
+                    "not-an-object",
+                    {
+                        "source_id": "synthetic_source",
+                        "source_name": "Synthetic Source",
+                        "source_category": "synthetic_category",
+                        "status": "analyzed",
+                        "relationship_count": "not-a-number",
+                        "validation_issues": None,
+                    }
+                ],
+                "validation_issues": None,
+                "output_path": str(spatial_path),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    queue = generate_review_queue(project_dir)
+
+    assert item_by_id(queue, "no-mapped-relationships-synthetic-source")["type"] == "no_mapped_relationships"
 
 
 def test_review_queue_includes_inventory_and_table_items_and_preserves_state(tmp_path: Path) -> None:

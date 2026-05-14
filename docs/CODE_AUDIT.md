@@ -44,11 +44,15 @@ This document records the latest implementation audit for the current prototype 
 - Added comparison table generation for source status, spatial relationships, and draft finding summaries.
 - Added source inventory and comparison table review queue items with deterministic IDs and preview metadata.
 - Wired source inventory and comparison tables into `populate-for-review`.
+- Tightened source inventory artifact validation so `record_count` must match the record list.
+- Tightened comparison table artifact validation so `table_count`, row counts, and table review statuses are checked clearly.
+- Hardened review queue generation against malformed nonnumeric relationship/table counts and non-list optional validation fields in local JSON artifacts.
 - Added tests for the validation and orchestration cases above.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, review queue behavior, and populate-for-review orchestration.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
+- Current full test run: `85 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist analyze-project projects/trails`

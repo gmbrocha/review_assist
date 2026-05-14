@@ -271,6 +271,9 @@ def _validate_source_inventory(data: dict[str, Any], location: str) -> None:
     records = data.get("records")
     if not isinstance(records, list):
         raise SourceInventoryError(f"Source inventory requires a list field named 'records': {location}")
+    record_count = data.get("record_count")
+    if record_count is not None and record_count != len(records):
+        raise SourceInventoryError(f"Source inventory record_count does not match records: {location}")
     seen_ids: set[str] = set()
     for record in records:
         if not isinstance(record, dict):

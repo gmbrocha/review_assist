@@ -293,6 +293,9 @@ def _validate_comparison_tables(data: dict[str, Any], location: str) -> None:
     tables = data.get("tables")
     if not isinstance(tables, list):
         raise TableGenerationError(f"Comparison tables artifact requires a list field named 'tables': {location}")
+    table_count = data.get("table_count")
+    if table_count is not None and table_count != len(tables):
+        raise TableGenerationError(f"Comparison tables artifact table_count does not match tables: {location}")
     seen_ids: set[str] = set()
     for table in tables:
         if not isinstance(table, dict):
@@ -312,6 +315,8 @@ def _validate_comparison_tables(data: dict[str, Any], location: str) -> None:
             raise TableGenerationError(f"Comparison table '{table_id}' rows must be a list of objects: {location}")
         if table["row_count"] != len(table["rows"]):
             raise TableGenerationError(f"Comparison table '{table_id}' row_count does not match rows: {location}")
+        if table["review_status"] not in {"draft", "needs_review", "accepted", "edited", "rejected", "needs_verification", "unable_to_verify"}:
+            raise TableGenerationError(f"Comparison table '{table_id}' has unsupported review_status: {location}")
         if not isinstance(table["provenance"], dict):
             raise TableGenerationError(f"Comparison table '{table_id}' provenance must be an object: {location}")
         for list_field in ("source_refs", "uncertainty_flags"):

@@ -124,8 +124,8 @@ Current CLI commands:
 
 Current audit status:
 
-- The codebase has passing tests for ingestion, source registry validation, local source registration, synthetic spatial checks, project context/source status artifacts, review queue generation/update behavior, and populate-for-review orchestration.
-- The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, and negative buffer values.
+- The codebase has passing tests for ingestion, source registry validation, local source registration, synthetic spatial checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
+- The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, optional source metadata, source inventory record counts, comparison table counts/statuses, and negative buffer values.
 - See `docs/CODE_AUDIT.md` for latest audit notes.
 
 ## Archive Directories

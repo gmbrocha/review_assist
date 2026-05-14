@@ -262,51 +262,39 @@ def _build_review_items(
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     if source_inventory is not None:
-        for record in source_inventory.get("records", []):
-            if isinstance(record, dict):
-                items.append(_source_inventory_item(project_id, now, source_inventory, record))
+        for record in _dict_list(source_inventory.get("records", [])):
+            items.append(_source_inventory_item(project_id, now, source_inventory, record))
 
     if draft_findings is not None:
-        for finding in draft_findings.get("findings", []):
-            if isinstance(finding, dict):
-                items.append(_draft_finding_item(project_id, now, draft_findings, finding))
+        for finding in _dict_list(draft_findings.get("findings", [])):
+            items.append(_draft_finding_item(project_id, now, draft_findings, finding))
 
     if comparison_tables is not None:
-        for table in comparison_tables.get("tables", []):
-            if isinstance(table, dict):
-                items.append(_comparison_table_item(project_id, now, comparison_tables, table))
+        for table in _dict_list(comparison_tables.get("tables", [])):
+            items.append(_comparison_table_item(project_id, now, comparison_tables, table))
 
-    for status_record in source_status.get("statuses", []):
-        if not isinstance(status_record, dict):
-            continue
+    for status_record in _dict_list(source_status.get("statuses", [])):
         items.append(_source_status_item(project_id, now, source_status, status_record))
         if status_record.get("status") in MISSING_DATA_STATUSES:
             items.append(_missing_data_item(project_id, now, source_status, status_record))
 
-    for issue_index, issue in enumerate(context.get("validation_issues", []), start=1):
-        if isinstance(issue, dict):
-            items.append(_validation_issue_item(project_id, now, "project_context", issue_index, context.get("context_path"), issue))
+    for issue_index, issue in enumerate(_dict_list(context.get("validation_issues", [])), start=1):
+        items.append(_validation_issue_item(project_id, now, "project_context", issue_index, context.get("context_path"), issue))
 
-    for issue_index, issue in enumerate(source_status.get("validation_issues", []), start=1):
-        if isinstance(issue, dict):
-            items.append(
-                _validation_issue_item(project_id, now, "source_status", issue_index, source_status.get("output_path"), issue)
-            )
+    for issue_index, issue in enumerate(_dict_list(source_status.get("validation_issues", [])), start=1):
+        items.append(_validation_issue_item(project_id, now, "source_status", issue_index, source_status.get("output_path"), issue))
 
     if spatial is not None:
-        for relationship in spatial.get("relationships", []):
-            if isinstance(relationship, dict):
-                items.append(_spatial_relationship_item(project_id, now, spatial, relationship))
-        for source in spatial.get("sources", []):
-            if isinstance(source, dict) and source.get("status") == "analyzed" and int(source.get("relationship_count", 0)) == 0:
+        for relationship in _dict_list(spatial.get("relationships", [])):
+            items.append(_spatial_relationship_item(project_id, now, spatial, relationship))
+        for source in _dict_list(spatial.get("sources", [])):
+            if source.get("status") == "analyzed" and _int_count(source.get("relationship_count", 0)) == 0:
                 items.append(_no_mapped_relationships_item(project_id, now, spatial, source))
-            for issue_index, issue in enumerate(source.get("validation_issues", []), start=1):
-                if isinstance(issue, dict):
-                    origin = f"spatial_source_{_slug(str(source.get('source_id', 'source')))}"
-                    items.append(_validation_issue_item(project_id, now, origin, issue_index, spatial.get("output_path"), issue))
-        for issue_index, issue in enumerate(spatial.get("validation_issues", []), start=1):
-            if isinstance(issue, dict):
-                items.append(_validation_issue_item(project_id, now, "spatial_analysis", issue_index, spatial.get("output_path"), issue))
+            for issue_index, issue in enumerate(_dict_list(source.get("validation_issues", [])), start=1):
+                origin = f"spatial_source_{_slug(str(source.get('source_id', 'source')))}"
+                items.append(_validation_issue_item(project_id, now, origin, issue_index, spatial.get("output_path"), issue))
+        for issue_index, issue in enumerate(_dict_list(spatial.get("validation_issues", [])), start=1):
+            items.append(_validation_issue_item(project_id, now, "spatial_analysis", issue_index, spatial.get("output_path"), issue))
 
     return items
 
@@ -403,8 +391,11 @@ def _comparison_table_item(
     table: dict[str, Any],
 ) -> dict[str, Any]:
     table_id = str(table.get("table_id", "table"))
-    row_count = int(table.get("row_count", 0))
+    row_count = _int_count(table.get("row_count", 0))
     title = str(table.get("title") or table_id)
+    status = str(table.get("review_status", "draft"))
+    if status not in SUPPORTED_STATUSES:
+        status = "needs_review"
     return _review_item(
         item_id=f"comparison-table-{_slug(table_id)}",
         project_id=project_id,
@@ -414,7 +405,7 @@ def _comparison_table_item(
             f"Generated descriptive comparison table '{title}' with {row_count} rows. "
             "This table does not rank alternatives or identify a preferred option."
         ),
-        status=str(table.get("review_status", "draft")),
+        status=status,
         export_section="tables",
         assumptions={"description": table.get("description", "")},
         provenance={
@@ -705,6 +696,19 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _int_count(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _dict_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def _slug(value: str) -> str:
