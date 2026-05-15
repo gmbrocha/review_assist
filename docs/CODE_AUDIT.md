@@ -74,7 +74,7 @@ This document records the latest implementation audit for the current prototype 
 - Added `build-project-geometry` and `analyze-constraints` CLI commands.
 - Wired constraint results into draft findings, comparison tables, populate-for-review manifests, and lean review queue validation handling.
 - Changed review queue generation to default to a lean queue; source inventory review items are now opt-in with `include_source_inventory` or `--include-source-inventory`.
-- Added a deterministic section-drafting provider interface as the future GenAI insertion point.
+- Added an evidence package artifact and optional GPT section-drafting provider behind `GPT_DRAFTING`, while keeping deterministic drafting available through `--no-gpt-drafting`.
 - Added tests for the validation and orchestration cases above.
 - Added catalog-driven source gap resolution and acquisition manifests under `projects/<project_id>/source_acquisition/`.
 - Added opt-in USFWS NWI wetlands downloader using the public Wetlands REST MapServer layer.
@@ -114,7 +114,7 @@ This document records the latest implementation audit for the current prototype 
 ## Current Verification
 
 - Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source acquisition failure propagation, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown/DOCX export compilation, demo deliverable package generation, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `179 passed`.
+- Current full test run: `187 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist build-project-geometry projects/trails`
@@ -128,13 +128,14 @@ This document records the latest implementation audit for the current prototype 
   - `review-assist generate-tables projects/trails`
   - `review-assist generate-maps projects/trails`
   - `review-assist generate-maps projects/conexon_projects`
-  - `review-assist generate-report-sections projects/trails`
-  - `review-assist generate-report-sections projects/conexon_projects`
+  - `review-assist build-evidence-package projects/trails`
+  - `review-assist generate-report-sections projects/trails --no-gpt-drafting`
+  - `review-assist generate-report-sections projects/conexon_projects --no-gpt-drafting`
   - `review-assist resolve-source-gaps projects/trails`
-  - `review-assist populate-for-review projects/trails`
-  - `review-assist populate-for-review projects/conexon_projects`
+  - `review-assist populate-for-review projects/trails --no-gpt-drafting`
+  - `review-assist populate-for-review projects/conexon_projects --no-gpt-drafting`
   - `review-assist export-report projects/trails --include-draft --format both`
-  - `review-assist build-demo-deliverable projects/trails --format both`
+  - `review-assist build-demo-deliverable projects/trails --format both --no-gpt-drafting`
   - `review-assist build-mvp-deliverable projects/trails --include-optional-sources`
   - `review-assist list-review-queue projects/trails`
   - `review-assist list-review-queue projects/conexon_projects`
@@ -146,7 +147,7 @@ This document records the latest implementation audit for the current prototype 
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or final report sections.
 - Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, or final report prose until reviewed.
 - The review queue defaults to draft finding, comparison table, map figure, report section, report-relevant missing-data, validation, and no-mapped items. Source inventory/provenance items are opt-in for audit workflows, and legacy spatial relationship items remain available when those artifacts exist. Export compilation now uses review queue status and export eligibility instead of every generated artifact, and MVP deliverable generation additionally checks real-data lineage before packaging.
-- `populate-for-review` orchestrates current services only. It downloads supported sources only when `--prepare-sources` is used; it does not call LLMs, render basemap/imagery-backed maps, or create final PDF/template-grade DOCX exports.
+- `populate-for-review` orchestrates current services only. It downloads supported sources only when `--prepare-sources` is used; GPT drafting may run only when enabled and only after structured evidence exists. It does not render basemap/imagery-backed maps or create final PDF/template-grade DOCX exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Downloaded NWI, NHD, Critical Habitat, EPA/ECHO, and FEMA layers now receive normalized feature fields, but broader source schema normalization is not implemented for every cataloged source.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.

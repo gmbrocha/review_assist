@@ -403,7 +403,14 @@ def test_build_mvp_deliverable_fails_without_real_source_data(
 ) -> None:
     project_dir = write_project(tmp_path)
 
-    def populate_without_source_preparation(project_dir: Path, *, prepare_sources: bool, include_optional_sources: bool) -> dict[str, Any]:
+    def populate_without_source_preparation(
+        project_dir: Path,
+        *,
+        prepare_sources: bool,
+        include_optional_sources: bool,
+        gpt_drafting: bool | None = None,
+        gpt_model: str | None = None,
+    ) -> dict[str, Any]:
         return populate_for_review(project_dir, prepare_sources=False, include_optional_sources=False)
 
     monkeypatch.setattr(deliverable_module, "populate_for_review", populate_without_source_preparation)

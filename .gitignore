@@ -37,6 +37,7 @@ projects/*/maps/
 projects/*/tables/
 projects/*/drafts/
 projects/*/exports/
+projects/*/evidence/
 projects/*/layers/
 
 # OS/editor files

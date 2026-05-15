@@ -107,6 +107,7 @@ def generate_review_queue(project_dir: Path, *, include_source_inventory: bool =
             "comparison_tables_path": comparison_tables.get("output_path") if comparison_tables else None,
             "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
             "report_sections_path": report_sections.get("output_path") if report_sections else None,
+            "evidence_package_path": _nested_value(report_sections, "upstream_artifacts", "evidence_package_path") if report_sections else None,
         },
         "item_count": len(items),
         "items": items,
@@ -898,6 +899,15 @@ def _nested_string(value: Any, key: str) -> str:
         return ""
     item = value.get(key)
     return str(item) if isinstance(item, str) and item.strip() else ""
+
+
+def _nested_value(value: Any, parent_key: str, child_key: str) -> Any:
+    if not isinstance(value, dict):
+        return None
+    parent = value.get(parent_key)
+    if not isinstance(parent, dict):
+        return None
+    return parent.get(child_key)
 
 
 def _finding_data_authenticity(finding: dict[str, Any]) -> str:

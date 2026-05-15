@@ -153,7 +153,7 @@ Current baseline:
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
 - JSON artifact at `projects/<project_id>/review_queue/review_queue.json`.
 
-The baseline defaults to a lean queue from deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues. Source inventory/provenance notes are opt-in for audit workflows. Queue items now carry export-group metadata for report assembly. It does not yet provide GUI review screens or use LLM-assisted narrative.
+The baseline defaults to a lean queue from deterministic draft findings, comparison tables, map figures, report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues. Source inventory/provenance notes are opt-in for audit workflows. Queue items now carry export-group metadata for report assembly and preserve GPT-drafted sections as reviewable items when GPT drafting is enabled. It does not yet provide GUI review screens.
 
 ## Phase 5: Populate for Review
 
@@ -175,7 +175,7 @@ Current baseline:
 - `--prepare-sources` resolves catalog gaps and runs supported required public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - `--include-optional-sources`, when paired with `--prepare-sources`, also downloads supported optional sources such as FEMA NFHL flood hazard.
 
-This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
+This baseline now includes vector-only map generation through Phase 6C, report section generation with deterministic and optional GPT drafting through Phase 6D, evidence package generation, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, or render basemap/imagery-backed maps.
 
 ## Phase 6A: Deterministic Finding Templates
 
@@ -239,27 +239,34 @@ Current baseline:
 
 This baseline does not implement basemap tiles, local raster imagery, NAIP/Google/ArcGIS acquisition, panel map sheets, PDF/SVG exports, final cartographic styling, or map package compilation.
 
-## Phase 6D: Deterministic Draft Report Sections
+## Phase 6D: Draft Report Sections and Evidence Package
 
-Status: initial baseline complete.
+Status: deterministic baseline, evidence package, and optional GPT-backed section drafting baseline complete.
 
 - Generate no-blank-page draft report section artifacts from existing workflow artifacts.
-- Keep deterministic section drafting separate from LLM-assisted synthesis and export compilation.
+- Keep deterministic GIS/source analysis separate from GPT-assisted narrative synthesis and export compilation.
 - Preserve source refs, related finding/table/figure IDs, assumptions, provenance, uncertainty flags, validation issues, and review status.
 - Feed report sections into the review queue with deterministic IDs so reviewer status and notes survive regeneration.
+- Build an evidence package that groups real sources, stubs, acquisition provenance, source-backed constraints, table/figure refs, and section-level evidence classes.
+- Allow GPT section drafting only from structured evidence when explicitly enabled by environment.
 
 Current baseline:
 
 - Template config at `config/report_section_templates.json`.
+- Evidence package at `projects/<project_id>/evidence/evidence_package.json`.
+- `review-assist build-evidence-package <project_dir>`
 - `review-assist generate-report-sections <project_dir>`
+- `review-assist generate-report-sections <project_dir> --no-gpt-drafting`
 - JSON section artifact at `projects/<project_id>/drafts/report_sections.json`.
 - Generates project overview, methodology/data sources, limitations/missing data, resource sections, comparison summary, maps/figures, and reviewer follow-up sections.
-- `populate-for-review` runs report section generation after map generation and before review queue generation.
+- `populate-for-review` runs evidence package generation and report section generation after map generation and before review queue generation.
 - Review queue generation converts report sections into `report_section` items with section metadata and related artifact IDs.
+- GPT drafting uses `OPENAI_API_KEY`, `OPENAI_INTERPRETER_MODEL`, and `GPT_DRAFTING` from root `.env` when enabled.
+- GPT output stores provider/model/prompt/schema/timestamp/input-digest/output-digest provenance and is rejected or flagged when it cites unknown IDs or uses prohibited recommendation/ranking/selection/final-determination/field-verification language.
 
 This baseline now mirrors the example environmental constraints report more closely with front matter, executive summary, introduction/study area, methodology subsections, environmental constraints inventory, resource sections, conclusion/next steps, attachments, visual slots, and table slots.
 
-This baseline does not itself compile exports, call LLMs, generate final conclusions, rank alternatives, or bypass review queue acceptance.
+This baseline does not itself compile exports, generate final conclusions, rank alternatives, or bypass review queue acceptance.
 
 ## Constraint Core Slice: Geometry, Constraint Results, and Lean Queue
 
@@ -276,7 +283,7 @@ Status: initial baseline complete.
 - `populate-for-review` now routes through constraint analysis before findings/tables/maps/sections/queue generation.
 - `generate-review-queue` defaults to useful report-facing items instead of source-inventory/source-status volume; source inventory notes are available with `--include-source-inventory`.
 
-This slice uses deterministic drafting only. The section-drafting provider interface exists for future GenAI, but no live OpenAI/GenAI calls are made.
+This slice now feeds the evidence package/report section path. GPT, when enabled, is limited to report-section copy from structured evidence and remains downstream of deterministic constraint results.
 
 ## Phase 7: Export Compilation
 
@@ -313,10 +320,15 @@ Next export milestone:
 
 ## Phase 8: Optional AI-Assisted Narrative Synthesis
 
-- Explore AI-assisted drafting after deterministic checks and review workflow are defined.
-- Keep narrative synthesis traceable to source findings.
-- Preserve uncertainty and human review requirements.
-- Use LLMs for draft language, implication phrasing, summary checks, and structured normalization without replacing source-backed analysis.
+Status: initial section-drafting baseline implemented; broader AI workflows remain future work.
+
+- [x] Add GPT section drafting from structured evidence after deterministic checks and review workflow are defined.
+- [x] Keep narrative synthesis traceable to source findings, table IDs, figure IDs, source refs, and evidence package path.
+- [x] Preserve uncertainty and human review requirements.
+- [x] Use LLMs for draft language without replacing source-backed analysis.
+- [ ] Add UI controls and reviewer-visible GPT provenance.
+- [ ] Add reviewer-requested rewrites after the review queue UI exists.
+- [ ] Add stronger unsupported-fact checks after MVP smoke review.
 
 ## Still Out of Scope
 

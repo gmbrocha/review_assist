@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .constraints import ConstraintAnalysisError, analyze_constraints
+from .evidence_package import EvidencePackageError, build_evidence_package
 from .findings import FindingGenerationError, generate_draft_findings
 from .maps import MapGenerationError, generate_maps
 from .project_geometry import ProjectGeometryError, build_project_geometry
@@ -32,6 +33,8 @@ def populate_for_review(
     *,
     prepare_sources: bool = False,
     include_optional_sources: bool = False,
+    gpt_drafting: bool | None = None,
+    gpt_model: str | None = None,
 ) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     started_at = _utc_now()
@@ -47,6 +50,7 @@ def populate_for_review(
     draft_findings: dict[str, Any] | None = None
     comparison_tables: dict[str, Any] | None = None
     map_manifest: dict[str, Any] | None = None
+    evidence_package: dict[str, Any] | None = None
     report_sections: dict[str, Any] | None = None
     review_queue: dict[str, Any] | None = None
 
@@ -92,7 +96,17 @@ def populate_for_review(
         steps.append(_step("map_generation", "completed", artifact_path=map_manifest.get("output_path")))
         warnings.extend(_issue_warnings("map_generation", map_manifest.get("validation_issues", [])))
 
-        report_sections = generate_report_sections(project_dir)
+        evidence_package = build_evidence_package(project_dir)
+        steps.append(_step("evidence_package", "completed", artifact_path=evidence_package.get("output_path")))
+        warnings.extend(
+            _issue_warnings(
+                "evidence_package",
+                evidence_package.get("validation_issues", []),
+                exclude_codes={"no_real_source_layers"},
+            )
+        )
+
+        report_sections = generate_report_sections(project_dir, gpt_drafting=gpt_drafting, gpt_model=gpt_model)
         steps.append(_step("report_sections", "completed", artifact_path=report_sections.get("output_path")))
         warnings.extend(_issue_warnings("report_sections", report_sections.get("validation_issues", [])))
 
@@ -108,6 +122,7 @@ def populate_for_review(
         FindingGenerationError,
         TableGenerationError,
         MapGenerationError,
+        EvidencePackageError,
         ReportSectionGenerationError,
         ReviewQueueError,
     ) as exc:
@@ -125,6 +140,7 @@ def populate_for_review(
                     draft_findings,
                     comparison_tables,
                     map_manifest,
+                    evidence_package,
                     report_sections,
                     review_queue,
                 ),
@@ -145,6 +161,7 @@ def populate_for_review(
             draft_findings,
             comparison_tables,
             map_manifest,
+            evidence_package,
             report_sections,
             review_queue,
         ),
@@ -159,6 +176,7 @@ def populate_for_review(
             draft_findings,
             comparison_tables,
             map_manifest,
+            evidence_package,
             report_sections,
             review_queue,
         ),
@@ -179,9 +197,11 @@ def populate_for_review(
             "draft_findings": draft_findings.get("output_path") if draft_findings else None,
             "comparison_tables": comparison_tables.get("output_path") if comparison_tables else None,
             "map_manifest": map_manifest.get("output_path") if map_manifest else None,
+            "evidence_package": evidence_package.get("output_path") if evidence_package else None,
             "report_sections": report_sections.get("output_path") if report_sections else None,
             "review_queue": review_queue.get("output_path") if review_queue else None,
         },
+        "gpt_drafting": report_sections.get("gpt_drafting") if report_sections else {},
         "constraint_count": constraints.get("constraint_count") if constraints else 0,
         "source_acquisition_download_count": source_acquisition.get("download_count") if source_acquisition else 0,
         "source_acquisition_include_optional_sources": include_optional_sources if prepare_sources else False,
@@ -208,12 +228,21 @@ def _step(name: str, status: str, *, artifact_path: Any = None, message: str = "
     }
 
 
-def _issue_warnings(stage: str, issues: Any, *, source_id: Any = None) -> list[dict[str, Any]]:
+def _issue_warnings(
+    stage: str,
+    issues: Any,
+    *,
+    source_id: Any = None,
+    exclude_codes: set[str] | None = None,
+) -> list[dict[str, Any]]:
     if not isinstance(issues, list):
         return []
     warnings: list[dict[str, Any]] = []
+    excluded = exclude_codes or set()
     for issue in issues:
         if not isinstance(issue, dict):
+            continue
+        if str(issue.get("code", "")) in excluded:
             continue
         warning = dict(issue)
         warning["stage"] = stage
@@ -234,6 +263,7 @@ def _failed_step_name(
     draft_findings: dict[str, Any] | None,
     comparison_tables: dict[str, Any] | None,
     map_manifest: dict[str, Any] | None,
+    evidence_package: dict[str, Any] | None,
     report_sections: dict[str, Any] | None,
     review_queue: dict[str, Any] | None,
 ) -> str:
@@ -255,6 +285,8 @@ def _failed_step_name(
         return "comparison_tables"
     if map_manifest is None:
         return "map_generation"
+    if evidence_package is None:
+        return "evidence_package"
     if report_sections is None:
         return "report_sections"
     if review_queue is None:

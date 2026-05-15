@@ -157,7 +157,7 @@ GPT/LLM calls are acceptable here for draft narrative generation, summarization,
 
 Current baseline:
 
-- `populate-for-review` runs context generation, project geometry normalization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, and lean review queue generation.
+- `populate-for-review` runs context generation, project geometry normalization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
 - It records `projects/<project_id>/intermediate/project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` in the run manifest when project geometry generation succeeds.
 - It records `projects/<project_id>/constraints/constraint_results.json` in the run manifest when constraint analysis succeeds.
@@ -167,7 +167,7 @@ Current baseline:
 - It records `projects/<project_id>/maps/map_manifest.json` in the run manifest when map generation succeeds.
 - It records `projects/<project_id>/drafts/report_sections.json` in the run manifest when report section generation succeeds.
 - Missing or unreadable local source layers become warnings and reviewable validation/caveat items rather than blocking review queue generation.
-- It downloads only explicitly requested supported sources. It does not render basemap/imagery-backed maps, call LLMs, or create exports itself.
+- It downloads only explicitly requested supported sources. It does not render basemap/imagery-backed maps or create exports itself. GPT section drafting may run when `GPT_DRAFTING=1`, but only after structured evidence exists and only for reviewable section copy.
 
 ## Review Queue
 
@@ -229,10 +229,10 @@ The review queue is the human-in-the-loop control boundary. It is not a side pan
 
 Current baseline:
 
-- `generate-review-queue` creates a lean JSON review queue from deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, and validation issues. Source inventory notes can still be included explicitly for audit/review workflows.
+- `generate-review-queue` creates a lean JSON review queue from deterministic draft findings, comparison tables, map figures, report sections, report-relevant missing-data placeholders, and validation issues. Source inventory notes can still be included explicitly for audit/review workflows.
 - `list-review-queue` summarizes item status/type counts and item eligibility.
 - `update-review-item` supports status changes, reviewer notes, and export eligibility flags.
-- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, LLM-assisted report drafting, PDF export, and final template-grade DOCX layout remain future work.
+- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, PDF export, reviewer-facing GPT controls, and final template-grade DOCX layout remain future work.
 
 ## Export Compilation
 

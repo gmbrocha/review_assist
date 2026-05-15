@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .constraints import ConstraintAnalysisError, analyze_constraints
 from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
+from .evidence_package import EvidencePackageError, build_evidence_package
 from .export_report import ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
 from .inspection import ProjectInspectionError, inspect_project
@@ -112,9 +113,15 @@ def build_parser() -> argparse.ArgumentParser:
     maps_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     maps_parser.add_argument("--json", action="store_true", help="Print full JSON map manifest to stdout.")
 
-    sections_parser = subparsers.add_parser("generate-report-sections", help="Generate deterministic draft report section artifacts.")
+    sections_parser = subparsers.add_parser("generate-report-sections", help="Generate draft report section artifacts.")
     sections_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    sections_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    sections_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     sections_parser.add_argument("--json", action="store_true", help="Print full JSON report sections artifact to stdout.")
+
+    evidence_parser = subparsers.add_parser("build-evidence-package", help="Build source evidence confidence package for report drafting.")
+    evidence_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    evidence_parser.add_argument("--json", action="store_true", help="Print full JSON evidence package artifact to stdout.")
 
     export_parser = subparsers.add_parser("export-report", help="Export reviewed queue items into an editable report package.")
     export_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -154,6 +161,8 @@ def build_parser() -> argparse.ArgumentParser:
         default="both",
         help="Editable export format to generate for the demo package.",
     )
+    demo_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    demo_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     demo_parser.add_argument("--json", action="store_true", help="Print full JSON demo deliverable manifest to stdout.")
 
     mvp_parser = subparsers.add_parser(
@@ -179,6 +188,8 @@ def build_parser() -> argparse.ArgumentParser:
         default="both",
         help="Editable export format to generate for the MVP package.",
     )
+    mvp_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    mvp_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     mvp_parser.add_argument("--json", action="store_true", help="Print full JSON MVP deliverable manifest to stdout.")
 
     queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
@@ -218,6 +229,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="When used with --prepare-sources, also download supported optional sources.",
     )
+    populate_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    populate_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     populate_parser.add_argument("--json", action="store_true", help="Print full JSON populate run manifest to stdout.")
     return parser
 
@@ -545,9 +558,33 @@ def generate_maps_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
-def generate_report_sections_command(project_dir: Path, print_json: bool) -> int:
+def build_evidence_package_command(project_dir: Path, print_json: bool) -> int:
     try:
-        result = generate_report_sections(project_dir)
+        result = build_evidence_package(project_dir)
+    except EvidencePackageError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Built evidence package: {result['project_id']} ({result['project_name']})")
+    print(f"Real source records: {result['real_source_count']}")
+    print(f"Source-backed constraints: {result['source_backed_constraint_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def generate_report_sections_command(
+    project_dir: Path,
+    print_json: bool,
+    no_gpt_drafting: bool = False,
+    gpt_model: str | None = None,
+) -> int:
+    try:
+        result = generate_report_sections(project_dir, gpt_drafting=False if no_gpt_drafting else None, gpt_model=gpt_model)
     except ReportSectionGenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -558,6 +595,7 @@ def generate_report_sections_command(project_dir: Path, print_json: bool) -> int
 
     print(f"Generated report sections: {result['project_id']} ({result['project_name']})")
     print(f"Sections: {result['section_count']}")
+    print(f"GPT drafting: {result.get('gpt_drafting', {}).get('enabled', False)}")
     print(f"Validation issues: {len(result['validation_issues'])}")
     print(f"Output: {result['output_path']}")
     return 0
@@ -593,6 +631,8 @@ def build_demo_deliverable_command(
     prepare_sources_flag: bool = False,
     include_optional_sources: bool = False,
     output_format: str = "both",
+    no_gpt_drafting: bool = False,
+    gpt_model: str | None = None,
 ) -> int:
     try:
         result = build_demo_deliverable(
@@ -600,6 +640,8 @@ def build_demo_deliverable_command(
             prepare_sources=prepare_sources_flag,
             include_optional_sources=include_optional_sources,
             output_format=output_format,
+            gpt_drafting=False if no_gpt_drafting else None,
+            gpt_model=gpt_model,
         )
     except DemoDeliverableError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -611,6 +653,7 @@ def build_demo_deliverable_command(
 
     print(f"Generated demo deliverable: {result['project_id']} ({result['project_name']})")
     print(f"Included items: {result['included_count']}")
+    print(f"GPT drafting: {result.get('gpt_drafting', {}).get('enabled', False)}")
     print(f"Validation issues: {len(result['validation_issues'])}")
     if result.get("markdown_path"):
         print(f"Markdown: {result['markdown_path']}")
@@ -626,6 +669,8 @@ def build_mvp_deliverable_command(
     include_optional_sources: bool = False,
     fail_on_no_downloaded_sources: bool = True,
     output_format: str = "both",
+    no_gpt_drafting: bool = False,
+    gpt_model: str | None = None,
 ) -> int:
     try:
         result = build_mvp_deliverable(
@@ -633,6 +678,8 @@ def build_mvp_deliverable_command(
             include_optional_sources=include_optional_sources,
             fail_on_no_downloaded_sources=fail_on_no_downloaded_sources,
             output_format=output_format,
+            gpt_drafting=False if no_gpt_drafting else None,
+            gpt_model=gpt_model,
         )
     except MvpDeliverableError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -644,6 +691,7 @@ def build_mvp_deliverable_command(
 
     print(f"Generated MVP deliverable: {result['project_id']} ({result['project_name']})")
     print(f"Included items: {result['included_count']}")
+    print(f"GPT drafting: {result.get('gpt_drafting', {}).get('enabled', False)}")
     print(f"Validation issues: {len(result['validation_issues'])}")
     lineage = result.get("data_lineage", {}) if isinstance(result.get("data_lineage"), dict) else {}
     print(f"Real source records: {lineage.get('real_source_count', 0)}")
@@ -709,12 +757,16 @@ def populate_for_review_command(
     print_json: bool,
     prepare_sources_flag: bool = False,
     include_optional_sources: bool = False,
+    no_gpt_drafting: bool = False,
+    gpt_model: str | None = None,
 ) -> int:
     try:
         result = populate_for_review(
             project_dir,
             prepare_sources=prepare_sources_flag,
             include_optional_sources=include_optional_sources,
+            gpt_drafting=False if no_gpt_drafting else None,
+            gpt_model=gpt_model,
         )
     except PopulateForReviewError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -726,6 +778,7 @@ def populate_for_review_command(
 
     print(f"Populated for review: {result['project_id']} ({result['project_name']})")
     print(f"Review queue items: {result['review_queue_item_count']}")
+    print(f"GPT drafting: {result.get('gpt_drafting', {}).get('enabled', False)}")
     print(f"Warnings: {len(result['warnings'])}")
     print(f"Output: {result['output_path']}")
     return 0
@@ -764,8 +817,10 @@ def main(argv: list[str] | None = None) -> int:
         return generate_tables_command(args.project_dir, args.json)
     if args.command == "generate-maps":
         return generate_maps_command(args.project_dir, args.json)
+    if args.command == "build-evidence-package":
+        return build_evidence_package_command(args.project_dir, args.json)
     if args.command == "generate-report-sections":
-        return generate_report_sections_command(args.project_dir, args.json)
+        return generate_report_sections_command(args.project_dir, args.json, args.no_gpt_drafting, args.gpt_model)
     if args.command == "export-report":
         return export_report_command(args.project_dir, args.include_draft, args.output_format, args.json)
     if args.command == "build-demo-deliverable":
@@ -777,6 +832,8 @@ def main(argv: list[str] | None = None) -> int:
             args.prepare_sources,
             args.include_optional_sources,
             args.output_format,
+            args.no_gpt_drafting,
+            args.gpt_model,
         )
     if args.command == "build-mvp-deliverable":
         return build_mvp_deliverable_command(
@@ -785,6 +842,8 @@ def main(argv: list[str] | None = None) -> int:
             args.include_optional_sources,
             args.fail_on_no_downloaded_sources,
             args.output_format,
+            args.no_gpt_drafting,
+            args.gpt_model,
         )
     if args.command == "generate-review-queue":
         return generate_review_queue_command(args.project_dir, args.include_source_inventory, args.json)
@@ -802,7 +861,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "populate-for-review":
         if args.include_optional_sources and not args.prepare_sources:
             parser.error("--include-optional-sources requires --prepare-sources for populate-for-review.")
-        return populate_for_review_command(args.project_dir, args.json, args.prepare_sources, args.include_optional_sources)
+        return populate_for_review_command(
+            args.project_dir,
+            args.json,
+            args.prepare_sources,
+            args.include_optional_sources,
+            args.no_gpt_drafting,
+            args.gpt_model,
+        )
     parser.error(f"Unknown command: {args.command}")
     return 2
 

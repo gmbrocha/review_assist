@@ -132,6 +132,8 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "included_source_refs": sorted({ref for item in included for ref in _string_list(item.get("source_refs", []))}),
         "unresolved_required_sources": unresolved_required_sources,
         "data_lineage": data_lineage,
+        "evidence_package_path": _evidence_package_path(queue),
+        "gpt_drafting": _gpt_drafting_summary(items),
         "package_contents": _package_contents(queue, output_paths={
             "markdown_report": str(markdown_path) if "markdown" in formats else None,
             "docx_report": str(docx_path) if "docx" in formats else None,
@@ -722,7 +724,37 @@ def _package_contents(queue: dict[str, Any], *, output_paths: dict[str, str | No
         "comparison_tables": upstream.get("comparison_tables_path"),
         "map_manifest": upstream.get("map_manifest_path"),
         "report_sections": upstream.get("report_sections_path"),
+        "evidence_package": upstream.get("evidence_package_path"),
         "exports": {key: value for key, value in output_paths.items() if value},
+    }
+
+
+def _evidence_package_path(queue: dict[str, Any]) -> Any:
+    upstream = queue.get("upstream_artifacts", {}) if isinstance(queue.get("upstream_artifacts"), dict) else {}
+    return upstream.get("evidence_package_path")
+
+
+def _gpt_drafting_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
+    section_items = [item for item in items if item.get("type") == "report_section"]
+    gpt_items = []
+    models = set()
+    rejected = 0
+    for item in section_items:
+        provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+        section_provenance = provenance.get("section_provenance", {}) if isinstance(provenance.get("section_provenance"), dict) else {}
+        if section_provenance.get("draft_provider") != "openai_responses":
+            continue
+        gpt_items.append(item)
+        if section_provenance.get("gpt_model"):
+            models.add(str(section_provenance.get("gpt_model")))
+        if section_provenance.get("gpt_output_accepted") is False:
+            rejected += 1
+    return {
+        "enabled": bool(gpt_items),
+        "section_count": len(gpt_items),
+        "accepted_section_count": len(gpt_items) - rejected,
+        "rejected_section_count": rejected,
+        "models": sorted(models),
     }
 
 

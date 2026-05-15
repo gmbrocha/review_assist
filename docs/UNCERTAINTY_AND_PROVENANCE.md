@@ -188,6 +188,47 @@ The current convention is:
 
 The real-data MVP command fails by default if no real source layer is available and always fails if included export content contains `test_fixture` provenance. Stubs may remain in an MVP package only when clearly labeled as unavailable, manual, gated, failed, or reviewer-needed.
 
+## Evidence Package
+
+The workflow now writes `projects/<project_id>/evidence/evidence_package.json`. This artifact packages the confidence context used for report drafting:
+
+- Data lineage.
+- Source acquisition provenance.
+- Real source records and stubs.
+- Constraint counts.
+- Source-backed constraint counts.
+- Finding/table/figure references.
+- Per-section evidence bundles.
+- Validation issues.
+
+Section evidence uses only these classes:
+
+- `source_backed`
+- `source_available_no_overlap`
+- `stub_or_manual`
+- `failed_or_missing`
+- `test_fixture_blocked`
+
+The evidence package is not a final report. It exists to keep deterministic hard data separate from narrative drafting while preserving traceability.
+
+## GPT Drafting Provenance
+
+GPT-assisted section drafting is allowed only after deterministic evidence exists. It must preserve:
+
+- Provider and model.
+- Prompt version.
+- Response schema version.
+- Generated timestamp.
+- Input digest.
+- Output digest.
+- Evidence package path.
+- Cited finding/table/figure/source IDs.
+- Validation warnings.
+
+GPT-drafted text remains draft/pre-review content. It must enter the review queue as a `report_section` item and must not be exported as reviewed content unless the reviewer accepts, edits, or explicitly includes it under the existing export rules.
+
+If GPT cites unknown IDs or uses prohibited framing, the output is rejected or flagged and deterministic baseline copy is retained.
+
 ## Confidence Language
 
 Use cautious language for draft outputs.

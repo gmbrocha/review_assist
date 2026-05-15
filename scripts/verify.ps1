@@ -35,10 +35,11 @@ if (-not $SkipSmoke) {
     & $ReviewAssist resolve-source-gaps projects/trails
     & $ReviewAssist analyze-constraints projects/trails
     & $ReviewAssist analyze-constraints projects/conexon_projects
-    & $ReviewAssist populate-for-review projects/trails
-    & $ReviewAssist populate-for-review projects/conexon_projects
+    & $ReviewAssist build-evidence-package projects/trails
+    & $ReviewAssist populate-for-review projects/trails --no-gpt-drafting
+    & $ReviewAssist populate-for-review projects/conexon_projects --no-gpt-drafting
     & $ReviewAssist export-report projects/trails --include-draft --format both
-    & $ReviewAssist build-demo-deliverable projects/trails --format both
+    & $ReviewAssist build-demo-deliverable projects/trails --format both --no-gpt-drafting
     & $ReviewAssist list-review-queue projects/trails
     & $ReviewAssist list-review-queue projects/conexon_projects
 }

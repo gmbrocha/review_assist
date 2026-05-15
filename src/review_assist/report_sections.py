@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,10 +12,17 @@ from typing import Any
 from .findings import FINDINGS_PATH, FindingGenerationError, generate_draft_findings, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
+from .env_config import GptConfigurationError, gpt_drafting_enabled, resolve_gpt_model
+from .evidence_package import EvidencePackageError, build_evidence_package, section_evidence_for
 from .source_catalog import repo_root
 from .source_inventory import SOURCE_INVENTORY_PATH, SourceInventoryError, generate_source_inventory, load_source_inventory
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
-from .section_drafting import default_section_draft_provider
+from .section_drafting import (
+    SectionDraftingError,
+    SectionDraftRequest,
+    default_section_draft_provider,
+    openai_section_draft_provider,
+)
 from .tables import TABLES_PATH, TableGenerationError, generate_comparison_tables, load_comparison_tables
 
 
@@ -134,7 +142,12 @@ def load_report_section_template_config(path: Path | None = None) -> ReportSecti
     return ReportSectionTemplateConfig.from_dict(data)
 
 
-def generate_report_sections(project_dir: Path) -> dict[str, Any]:
+def generate_report_sections(
+    project_dir: Path,
+    *,
+    gpt_drafting: bool | None = None,
+    gpt_model: str | None = None,
+) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     try:
         context = _load_or_generate_context(project_dir)
@@ -143,7 +156,10 @@ def generate_report_sections(project_dir: Path) -> dict[str, Any]:
         draft_findings = _load_or_generate_findings(project_dir)
         comparison_tables = _load_or_generate_tables(project_dir)
         map_manifest = _load_optional_map_manifest(project_dir)
+        evidence_package = build_evidence_package(project_dir)
         templates = load_report_section_template_config()
+        use_gpt_drafting = gpt_drafting_enabled() if gpt_drafting is None else gpt_drafting
+        model = resolve_gpt_model(gpt_model) if use_gpt_drafting else ""
     except (
         ProjectContextError,
         SourceStatusError,
@@ -151,12 +167,14 @@ def generate_report_sections(project_dir: Path) -> dict[str, Any]:
         FindingGenerationError,
         TableGenerationError,
         MapGenerationError,
+        EvidencePackageError,
+        GptConfigurationError,
         ReportSectionTemplateError,
     ) as exc:
         raise ReportSectionGenerationError(str(exc)) from exc
 
     now = _utc_now()
-    draft_provider = default_section_draft_provider()
+    draft_provider = openai_section_draft_provider(model=model) if use_gpt_drafting else default_section_draft_provider()
     sections = [
         _section_record(
             template=template,
@@ -166,10 +184,12 @@ def generate_report_sections(project_dir: Path) -> dict[str, Any]:
             draft_findings=draft_findings,
             comparison_tables=comparison_tables,
             map_manifest=map_manifest,
+            evidence_package=evidence_package,
             draft_provider=draft_provider,
         )
         for template in templates.sections
     ]
+    validation_issues = _artifact_validation_issues(sections)
 
     output_path = project_dir / REPORT_SECTIONS_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -186,10 +206,12 @@ def generate_report_sections(project_dir: Path) -> dict[str, Any]:
             "draft_findings_path": draft_findings.get("output_path"),
             "comparison_tables_path": comparison_tables.get("output_path"),
             "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
+            "evidence_package_path": evidence_package.get("output_path"),
         },
+        "gpt_drafting": _gpt_drafting_summary(sections, enabled=use_gpt_drafting, model=model),
         "section_count": len(sections),
         "sections": sections,
-        "validation_issues": [],
+        "validation_issues": validation_issues,
         "output_path": str(output_path),
     }
     _validate_report_sections_artifact(result, str(output_path))
@@ -268,6 +290,7 @@ def _section_record(
     draft_findings: dict[str, Any],
     comparison_tables: dict[str, Any],
     map_manifest: dict[str, Any] | None,
+    evidence_package: dict[str, Any],
     draft_provider: Any,
 ) -> dict[str, Any]:
     category = template.resource_category
@@ -318,11 +341,68 @@ def _section_record(
         source_refs=source_refs,
         validation_issues=validation_issues,
     )
-    content = draft_provider.draft(
-        section_id=template.section_id,
-        section_type=template.section_type,
-        deterministic_content=deterministic_content,
-    )
+    evidence_bundle = section_evidence_for(evidence_package, template.section_id)
+    try:
+        draft_result = draft_provider.draft(
+            SectionDraftRequest(
+                section_id=template.section_id,
+                section_type=template.section_type,
+                title=template.title,
+                purpose=template.purpose,
+                resource_category=category,
+                deterministic_content=deterministic_content,
+                related_finding_ids=[str(finding.get("finding_id")) for finding in related_findings if finding.get("finding_id")],
+                related_table_ids=[str(table.get("table_id")) for table in related_tables if table.get("table_id")],
+                related_figure_ids=[str(figure.get("figure_id")) for figure in related_figures if figure.get("figure_id")],
+                source_refs=source_refs,
+                visual_slots=list(template.visual_slots),
+                table_slots=list(template.table_slots),
+                evidence_bundle=evidence_bundle,
+                validation_issues=validation_issues,
+                project_context=context,
+            )
+        )
+    except (SectionDraftingError, GptConfigurationError) as exc:
+        raise ReportSectionGenerationError(str(exc)) from exc
+    section_validation_issues = validation_issues + draft_result.validation_issues
+    provenance = {
+        "artifact": "report_sections",
+        "template_id": template.section_id,
+        "template_type": template.section_type,
+        "export_group": template.export_group,
+        "draft_provider": draft_result.provenance.get("draft_provider", getattr(draft_provider, "provider_id", "unknown")),
+        "drafting": draft_result.provenance,
+        "evidence_package_path": evidence_package.get("output_path"),
+        "upstream_artifacts": {
+            "project_context_path": context.get("context_path"),
+            "source_status_path": source_status.get("output_path"),
+            "source_inventory_path": source_inventory.get("output_path"),
+            "draft_findings_path": draft_findings.get("output_path"),
+            "comparison_tables_path": comparison_tables.get("output_path"),
+            "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
+            "evidence_package_path": evidence_package.get("output_path"),
+        },
+    }
+    if draft_result.provenance.get("model"):
+        provenance["gpt_model"] = draft_result.provenance["model"]
+    if draft_result.provenance.get("prompt_version"):
+        provenance["prompt_version"] = draft_result.provenance["prompt_version"]
+    if draft_result.provenance.get("response_schema_version"):
+        provenance["response_schema_version"] = draft_result.provenance["response_schema_version"]
+    if draft_result.provenance.get("input_digest"):
+        provenance["input_digest"] = draft_result.provenance["input_digest"]
+    if draft_result.provenance.get("output_digest"):
+        provenance["output_digest"] = draft_result.provenance["output_digest"]
+    if draft_result.provenance.get("generated_at"):
+        provenance["generated_at"] = draft_result.provenance["generated_at"]
+    if draft_result.provenance.get("gpt_output_accepted") is not None:
+        provenance["gpt_output_accepted"] = draft_result.provenance["gpt_output_accepted"]
+    content = draft_result.content
+    uncertainty_with_draft = list(uncertainty_flags)
+    if draft_result.provenance.get("draft_provider") == "openai_responses":
+        uncertainty_with_draft = sorted(set(uncertainty_with_draft + ["gpt_drafted_pre_review"]))
+    if any(issue.get("code") in {"gpt_output_rejected", "gpt_empty_output"} for issue in draft_result.validation_issues):
+        uncertainty_with_draft = sorted(set(uncertainty_with_draft + ["gpt_draft_rejected"]))
     return {
         "section_id": template.section_id,
         "project_id": context["project_id"],
@@ -344,24 +424,10 @@ def _section_record(
             "report_profile": context.get("report_profile", {}),
             "project_assumptions": context.get("assumptions", {}),
         },
-        "provenance": {
-            "artifact": "report_sections",
-            "template_id": template.section_id,
-            "template_type": template.section_type,
-            "export_group": template.export_group,
-            "draft_provider": getattr(draft_provider, "provider_id", "unknown"),
-            "upstream_artifacts": {
-                "project_context_path": context.get("context_path"),
-                "source_status_path": source_status.get("output_path"),
-                "source_inventory_path": source_inventory.get("output_path"),
-                "draft_findings_path": draft_findings.get("output_path"),
-                "comparison_tables_path": comparison_tables.get("output_path"),
-                "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
-            },
-        },
-        "uncertainty_flags": uncertainty_flags,
+        "provenance": provenance,
+        "uncertainty_flags": uncertainty_with_draft,
         "review_status": review_status,
-        "validation_issues": validation_issues,
+        "validation_issues": section_validation_issues,
     }
 
 
@@ -411,6 +477,51 @@ def _section_content(
     if template.section_type == "attachments":
         return _attachments_content(template, map_manifest)
     return _generic_content(template, related_findings, related_tables, related_figures, source_refs)
+
+
+def _artifact_validation_issues(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for section in sections:
+        for issue in _dict_list(section.get("validation_issues", [])):
+            code = str(issue.get("code", ""))
+            if not (code.startswith("gpt_") or code.startswith("unknown_") or code == "prohibited_gpt_language"):
+                continue
+            message = str(issue.get("message", ""))
+            key = (str(section.get("section_id", "")), code, message)
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized = dict(issue)
+            normalized["section_id"] = section.get("section_id")
+            issues.append(normalized)
+    return issues
+
+
+def _gpt_drafting_summary(sections: list[dict[str, Any]], *, enabled: bool, model: str) -> dict[str, Any]:
+    provider_counts = Counter(
+        str(section.get("provenance", {}).get("draft_provider", "unknown"))
+        for section in sections
+        if isinstance(section.get("provenance"), dict)
+    )
+    accepted_count = 0
+    rejected_count = 0
+    for section in sections:
+        provenance = section.get("provenance", {}) if isinstance(section.get("provenance"), dict) else {}
+        if provenance.get("draft_provider") != "openai_responses":
+            continue
+        if provenance.get("gpt_output_accepted") is False:
+            rejected_count += 1
+        else:
+            accepted_count += 1
+    return {
+        "enabled": enabled,
+        "model": model,
+        "provider_counts": dict(provider_counts),
+        "gpt_section_count": int(provider_counts.get("openai_responses", 0)),
+        "accepted_gpt_section_count": accepted_count,
+        "rejected_gpt_section_count": rejected_count,
+    }
 
 
 def _project_overview_content(context: dict[str, Any], validation_issues: list[dict[str, Any]]) -> str:
@@ -911,14 +1022,19 @@ def _source_refs_for_category(
     refs: set[str] = set()
     status_record = _status_for_category(source_status, category)
     if status_record:
-        refs.update(_string_list(status_record.get("source_ids", [])))
+        refs.update(_status_source_ids(status_record))
     for record in _inventory_for_category(source_inventory, category):
         source_id = str(record.get("source_id", ""))
         if source_id:
             refs.add(source_id)
     for finding in findings:
+        refs.update(_string_list(finding.get("source_refs", [])))
         refs.update(_string_list(finding.get("source_ids", [])))
     return sorted(refs)
+
+
+def _status_source_ids(status_record: dict[str, Any]) -> list[str]:
+    return _string_list(status_record.get("source_ids", [])) or _string_list(status_record.get("registered_source_ids", []))
 
 
 def _status_for_category(source_status: dict[str, Any], category: str) -> dict[str, Any] | None:

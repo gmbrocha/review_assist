@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 from review_assist.inspection import inspect_project
@@ -44,13 +45,17 @@ def test_active_project_source_registries_only_reference_catalog_sources() -> No
         assert registry_source_ids
 
 
-def test_active_projects_populate_for_review_without_warnings() -> None:
+def test_active_projects_populate_for_review_without_warnings(tmp_path: Path) -> None:
     for project_dir, expected_geometry_role in (
         (PROJECTS_DIR / "trails", "line_corridor"),
         (PROJECTS_DIR / "conexon_projects", "point_site"),
     ):
-        result = populate_for_review(project_dir)
-        queue = load_review_queue(project_dir)
+        isolated_project_dir = tmp_path / project_dir.name
+        shutil.copytree(project_dir / "config", isolated_project_dir / "config")
+        shutil.copytree(project_dir / "inputs", isolated_project_dir / "inputs")
+
+        result = populate_for_review(isolated_project_dir)
+        queue = load_review_queue(isolated_project_dir)
         item_types = {item["type"] for item in queue["items"]}
 
         assert result["status"] == "completed"

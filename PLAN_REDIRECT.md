@@ -336,6 +336,9 @@ The app should generate these where source data is available and create reviewab
 - [x] Comparison table generation exists through `review-assist generate-tables`.
 - [x] Vector-only map generation exists through `review-assist generate-maps`.
 - [x] Deterministic report section generation exists through `review-assist generate-report-sections`.
+- [x] Evidence package generation exists through `review-assist build-evidence-package`.
+- [x] Optional GPT-backed report section drafting exists when `GPT_DRAFTING=1`.
+- [x] `--no-gpt-drafting` exists as a per-run emergency override for report-section, populate, demo, and MVP workflows.
 - [x] JSON-backed review queue generation exists through `review-assist generate-review-queue`.
 - [x] Review queue listing exists through `review-assist list-review-queue`.
 - [x] Review queue status/note/export updates exist through `review-assist update-review-item`.
@@ -373,7 +376,7 @@ The app should generate these where source data is available and create reviewab
 - [x] Legacy spatial relationship queue items are suppressed when first-class constraint results exist.
 - [x] Reviewer state is preserved across regeneration.
 - [x] Deterministic section drafting provider interface exists.
-- [x] No live GenAI/API calls are made in the current section drafting slice.
+- [x] OpenAI GPT section drafting provider exists behind explicit environment configuration.
 - [x] `.gitignore` ignores generated project constraint artifacts.
 - [x] `scripts/verify.ps1` exists as a repeatable readiness check.
 - [x] Active sample workspace smoke tests exist.
@@ -432,6 +435,13 @@ The app should generate these where source data is available and create reviewab
 - [x] MVP deliverables fail when no real source layer is available by default.
 - [x] MVP deliverables fail when test fixture/mock source records are detected.
 - [x] DOCX exports include `Real Data Used` and `Stubs / Manual Review Needed` sections.
+- [x] Evidence packages are written to `projects/<id>/evidence/evidence_package.json`.
+- [x] Evidence packages classify section evidence as `source_backed`, `source_available_no_overlap`, `stub_or_manual`, `failed_or_missing`, or `test_fixture_blocked`.
+- [x] GPT section drafting receives only structured evidence bundles, deterministic baseline copy, related IDs, source refs, validation issues, section purpose, and project context.
+- [x] GPT section drafting stores provider/model/prompt/schema/timestamp/input digest/output digest provenance.
+- [x] GPT guardrails reject or flag unknown cited finding/table/figure/source IDs.
+- [x] GPT guardrails reject or flag recommendation, ranking, scoring, selection, rejection, final-determination, jurisdictional-certainty, or field-verification language.
+- [x] GPT-drafted sections remain `report_section` review queue items and are not auto-accepted.
 
 ## Still To Go
 
@@ -504,15 +514,22 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 
 ### 5. GPT-Assisted Report Generation
 
-- [ ] Add a GPT-backed report drafting provider alongside the deterministic provider.
-- [ ] Feed GPT only structured inputs: constraint findings, source statuses, source provenance, table summaries, map/figure references, validation issues, report section purpose, and reviewer instructions.
-- [ ] Generate pre-review copy that aligns with generated visuals and explicitly references relevant map/table/figure IDs where appropriate.
-- [ ] Keep GPT output editable and reviewable as `report_section` items.
-- [ ] Store prompt/provider/model/version metadata in provenance.
-- [ ] Preserve source refs and related finding/table/figure IDs on GPT-drafted sections.
-- [ ] Add checks that GPT copy does not introduce unsupported source facts.
-- [ ] Add checks that GPT copy does not recommend, rank, choose, or reject alternatives.
-- [ ] Add a deterministic fallback when GPT is unavailable or disabled.
+This milestone has started. GPT is implemented only for report-section drafting after deterministic source acquisition, geometry normalization, constraint analysis, findings, tables, maps, and evidence packaging already exist.
+
+- [x] Add a GPT-backed report drafting provider alongside the deterministic provider.
+- [x] Feed GPT only structured inputs: constraint findings, source statuses, source provenance, table summaries, map/figure references, validation issues, report section purpose, and reviewer instructions.
+- [x] Generate pre-review copy that aligns with generated visuals and explicitly references relevant map/table/figure IDs where appropriate.
+- [x] Keep GPT output editable and reviewable as `report_section` items.
+- [x] Store prompt/provider/model/version metadata in provenance.
+- [x] Preserve source refs and related finding/table/figure IDs on GPT-drafted sections.
+- [x] Add checks that GPT copy does not cite unknown structured IDs.
+- [x] Add checks that GPT copy does not recommend, rank, choose, or reject alternatives.
+- [x] Keep deterministic drafting available when GPT is disabled with `GPT_DRAFTING=0` or per-run `--no-gpt-drafting`.
+- [x] Fail clearly when GPT is enabled but `OPENAI_API_KEY` is missing.
+- [ ] Improve prompt quality against the example report template after real MVP smoke runs.
+- [ ] Add stronger unsupported-fact detection beyond ID and prohibited-language guardrails.
+- [ ] Add reviewer-facing GPT provenance display in the future UI.
+- [ ] Decide whether accepted reviewer edits should suppress GPT regeneration for that section.
 
 ### 6. Report Section Quality
 
@@ -565,11 +582,11 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 
 ### 10. GenAI Boundary
 
-- [ ] Keep GenAI out of deterministic GIS/source checks.
-- [ ] Use GPT during report generation to draft pre-review copy from structured findings, source gaps, visuals, map/table refs, and explicit report section purposes.
-- [ ] Require GPT output to enter the review queue.
-- [ ] Never let GenAI invent source-backed facts.
-- [ ] Never let GenAI recommend, rank, choose, or reject alternatives.
+- [x] Keep GenAI out of deterministic GIS/source checks.
+- [x] Use GPT during report generation to draft pre-review copy from structured findings, source gaps, visuals, map/table refs, and explicit report section purposes.
+- [x] Require GPT output to enter the review queue.
+- [x] Never let GenAI recommend, rank, choose, or reject alternatives.
+- [ ] Continue tightening checks that prevent unsupported source-backed facts.
 
 ### 11. Documentation and Drift Control
 
@@ -604,6 +621,6 @@ The practical next milestones are:
 1. Run real-data MVP smoke packages with `build-mvp-deliverable` and inspect downloaded-source/constraint counts.
 2. Improve DOCX package layout against the example report template without bypassing review gates.
 3. Improve section language quality and map/table placement so the generated report reads like a coherent pre-review draft.
-4. Add GPT-assisted section drafting from structured artifacts only after deterministic DOCX assembly remains stable.
+4. Run GPT-assisted MVP smoke packages and inspect whether the copy aligns with the example report template without adding unsupported facts.
 5. Add reviewer-facing UI only after the backend can repeatedly produce a useful draft package.
 6. Resume additional source downloaders only when they directly improve a missing template section needed for the MVP.

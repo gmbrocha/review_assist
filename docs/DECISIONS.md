@@ -38,7 +38,7 @@ The system may document future integration points and reviewer-supplied workflow
 
 ### 2026-05-14: LLM synthesis is allowed only as reviewable draft synthesis
 
-Future GPT/LLM calls may assist with narrative, summaries, implications, uncertainty phrasing, and sanity checks, but deterministic GIS/source analysis must remain separate and source-backed.
+GPT/LLM calls may assist with narrative, summaries, implications, uncertainty phrasing, and sanity checks, but deterministic GIS/source analysis must remain separate and source-backed. The first implemented use is report-section draft copy from structured evidence only.
 
 ### 2026-05-14: The desktop app review queue is the spine
 
@@ -114,7 +114,7 @@ The first review queue implementation stores project-local review state at `proj
 
 ### 2026-05-14: Populate for Review starts as orchestration, not generation
 
-The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation, Phase 6D added deterministic report section generation, the constraint-core slice added project geometry normalization plus first-class constraint analysis, and the source-acquisition slice added opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL downloads. It deliberately does not download public sources unless explicitly requested, render basemap/imagery-backed maps, call LLMs, create exports itself, or create recommendations.
+The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation, Phase 6D added report section generation, the constraint-core slice added project geometry normalization plus first-class constraint analysis, the source-acquisition slice added opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL downloads, and the GPT/evidence slice added evidence packages plus optional GPT section drafting. It deliberately does not download public sources unless explicitly requested, render basemap/imagery-backed maps, create exports itself, or create recommendations.
 
 ### 2026-05-14: Deterministic draft findings come before maps, reports, GUI, and LLM work
 
@@ -130,7 +130,7 @@ The first map-generation baseline writes `projects/<project_id>/maps/map_manifes
 
 ### 2026-05-14: Phase 6D report section drafting starts deterministic
 
-The first report section baseline writes `projects/<project_id>/drafts/report_sections.json` using templates from `config/report_section_templates.json`. It creates no-blank-page draft sections from structured workflow artifacts and feeds `report_section` items into the review queue. LLM synthesis, final PDF/report compilation, ranking, recommendations, and unreviewed external-ready report output remain deferred.
+The first report section baseline writes `projects/<project_id>/drafts/report_sections.json` using templates from `config/report_section_templates.json`. It creates no-blank-page draft sections from structured workflow artifacts and feeds `report_section` items into the review queue. Final PDF/report compilation, ranking, recommendations, and unreviewed external-ready report output remain deferred.
 
 ### 2026-05-15: Markdown export proves accepted-content assembly before DOCX
 
@@ -138,7 +138,7 @@ The first export compiler writes `projects/<project_id>/exports/environmental_co
 
 ### 2026-05-15: MVP demo deliverable moves export from Markdown to DOCX package assembly
 
-The MVP export slice adds DOCX generation through `review-assist export-report --format docx|both` and an internal preview package command through `review-assist build-demo-deliverable`. Default export remains review-gated. The demo command uses `--include-draft` preview semantics, visibly labels output as not reviewed, and does not auto-accept or mutate review item statuses. PDF export, final template fidelity, UI review screens, and GPT drafting remain deferred.
+The MVP export slice adds DOCX generation through `review-assist export-report --format docx|both` and an internal preview package command through `review-assist build-demo-deliverable`. Default export remains review-gated. The demo command uses `--include-draft` preview semantics, visibly labels output as not reviewed, and does not auto-accept or mutate review item statuses. PDF export, final template fidelity, and UI review screens remain deferred.
 
 ### 2026-05-15: MVP deliverables must prove real-data lineage
 
@@ -147,6 +147,10 @@ The real-data MVP path adds `review-assist build-mvp-deliverable`, which runs so
 ### 2026-05-15: Failed source downloads must remain visible downstream
 
 Supported public downloader failures are nonfatal, but they must not disappear as generic `downloadable` source gaps. Source status, draft findings, report sections, and review queue missing-data/caveat items should carry `failed` and `source_download_failed` when the acquisition manifest records a failed latest attempt.
+
+### 2026-05-15: GPT drafting must be evidence-grounded and review-gated
+
+The first GPT slice adds `projects/<project_id>/evidence/evidence_package.json` and optional OpenAI report-section drafting controlled by `GPT_DRAFTING`, `OPENAI_INTERPRETER_MODEL`, and `OPENAI_API_KEY`. GPT receives structured section requests only and must return structured output with cited IDs. Unknown citations or prohibited recommendation/ranking/selection/final-determination/field-verification language are rejected or flagged. GPT output remains a `report_section` review item and is never auto-accepted.
 
 ### 2026-05-14: The product is a constraint overlap engine plus review queue
 

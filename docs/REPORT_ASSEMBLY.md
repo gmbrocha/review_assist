@@ -2,7 +2,7 @@
 
 This document captures the pipeline for assembling editable pre-review report packages.
 
-A deterministic draft section baseline exists, and the accepted-content export compiler now writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first and blocks client-facing packages that contain mock/test fixture source evidence or no real source layers.
+A deterministic draft section baseline exists, optional GPT section drafting now runs from structured evidence when enabled, and the accepted-content export compiler writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first and blocks client-facing packages that contain mock/test fixture source evidence or no real source layers.
 
 ## Goal
 
@@ -55,11 +55,12 @@ A section should not be blank simply because data is missing. It can state that 
 
 These missing-data statements should be review queue items before they are included in export.
 
-## Current Deterministic Section Baseline
+## Current Section Baseline
 
 The current CLI can generate draft report section artifacts:
 
 - Command: `review-assist generate-report-sections <project_dir>`
+- Deterministic override: `review-assist generate-report-sections <project_dir> --no-gpt-drafting`
 - Output: `projects/<project_id>/drafts/report_sections.json`
 - Template config: `config/report_section_templates.json`
 
@@ -71,13 +72,35 @@ The generator creates no-blank-page section drafts from existing structured arti
 - Draft findings.
 - Comparison tables.
 - Map manifest when available.
+- Evidence package when available or generated.
 - Validation issues.
 
-Current section drafts follow the example report structure more closely: front matter, executive summary, introduction/study area, methodology/data sources, mapping and analysis procedures, limitations/data gaps, environmental constraints inventory, resource sections, comparison/maps, conclusion/next steps, attachments, and reviewer follow-up. The active provider is deterministic only; the provider boundary is present so a future GenAI drafting provider can be added without replacing the constraint engine.
+Current section drafts follow the example report structure more closely: front matter, executive summary, introduction/study area, methodology/data sources, mapping and analysis procedures, limitations/data gaps, environmental constraints inventory, resource sections, comparison/maps, conclusion/next steps, attachments, and reviewer follow-up.
+
+The active provider is deterministic unless root `.env` enables GPT with `GPT_DRAFTING=1`. When enabled, the OpenAI provider uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`, sends only structured evidence and deterministic baseline copy, and stores provider/model/prompt/schema/input digest/output digest provenance. GPT output remains a `report_section` review queue item and is never auto-accepted.
 
 Resource sections now cite related finding, table, and figure IDs where structured artifacts exist, including source-backed wetlands, hydrography, flood hazard, USFWS critical habitat, and EPA/ECHO regulated facility summaries. Missing or failed source categories still generate caveats rather than unsupported conclusions.
 
+GPT guardrails reject or flag unknown cited finding/table/figure/source IDs and prohibited recommendation/ranking/scoring/selection/rejection/final-determination/jurisdictional/field-verification language. If GPT is enabled but the API key is missing, the command fails clearly instead of silently pretending GPT ran. If GPT is disabled or `--no-gpt-drafting` is supplied, deterministic sections remain the active path.
+
 These sections are not final exports. They become `report_section` review queue items and require human review before reviewed-content export.
+
+## Evidence Package
+
+The current CLI can build the evidence confidence package used by report drafting:
+
+- Command: `review-assist build-evidence-package <project_dir>`
+- Output: `projects/<project_id>/evidence/evidence_package.json`
+
+The evidence package includes data lineage, source acquisition provenance, source status, source inventory refs, source-backed constraint counts, grouped section evidence, table IDs, figure IDs, validation issues, and section-level evidence classes:
+
+- `source_backed`
+- `source_available_no_overlap`
+- `stub_or_manual`
+- `failed_or_missing`
+- `test_fixture_blocked`
+
+The evidence package is the bridge between hard GIS/source artifacts and narrative drafting. GPT should read this structured package rather than raw source files or unbounded prose.
 
 ## Current Export Baseline
 
@@ -96,7 +119,7 @@ The `--include-draft` option is for internal preview only. It includes unaccepte
 
 The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included table ids, included map paths, and generated package contents. DOCX export renders report sections, table previews where practical, map figures when files exist, placeholders when files are missing, source refs, uncertainty flags, caveats, and package contents.
 
-Export and deliverable manifests include `data_lineage` counts and records. The lineage model distinguishes project input geometry, registered local layers, user-provided input layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records. Generated source-gap caveats are stubs, not source-backed records.
+Export and deliverable manifests include `data_lineage` counts and records, the evidence package path, and GPT drafting status/counts when GPT-backed sections are present. The lineage model distinguishes project input geometry, registered local layers, user-provided input layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records. Generated source-gap caveats are stubs, not source-backed records.
 
 DOCX and Markdown exports include `Real Data Used` and `Stubs / Manual Review Needed` sections. These sections exist so a reviewer can tell which content came from real project/source material and which content is an honest placeholder for unavailable, manual, gated, failed, or reviewer-needed data.
 
@@ -208,7 +231,7 @@ Exports should compile accepted or explicitly included reviewed content only. Re
 
 ## LLM-Assisted Drafting Insertion Points
 
-LLM calls may help:
+LLM calls currently help only with report-section draft copy after deterministic artifacts exist. Future LLM calls may also help:
 
 - Draft section narratives from structured findings.
 - Summarize alternative-specific findings.
@@ -217,7 +240,7 @@ LLM calls may help:
 - Identify contradictory or unsupported draft statements.
 - Normalize reviewer notes into structured findings.
 
-LLM calls should receive structured inputs and produce editable outputs. They should not create new source-backed facts.
+LLM calls must receive structured inputs and produce editable outputs. They should not create new source-backed facts, make recommendations, rank alternatives, claim final determinations, or bypass the review queue.
 
 ## Package Manifest
 
@@ -237,6 +260,8 @@ The compiled package manifest includes or should continue to include:
 - Included/skipped queue item summaries.
 - Known missing data.
 - Data lineage and authenticity counts.
+- Evidence package path.
+- GPT drafting status, model, counts, and validation warnings when GPT is used.
 - Generation timestamp.
 
 This manifest should support reproducibility and review.

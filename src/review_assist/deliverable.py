@@ -31,6 +31,8 @@ def build_demo_deliverable(
     prepare_sources: bool = False,
     include_optional_sources: bool = False,
     output_format: str = "both",
+    gpt_drafting: bool | None = None,
+    gpt_model: str | None = None,
 ) -> dict[str, Any]:
     """Run the draft pipeline and export an internal preview package without changing review statuses."""
 
@@ -40,6 +42,8 @@ def build_demo_deliverable(
             project_dir,
             prepare_sources=prepare_sources,
             include_optional_sources=include_optional_sources,
+            gpt_drafting=gpt_drafting,
+            gpt_model=gpt_model,
         )
         export_manifest = export_report(project_dir, include_draft=True, output_format=output_format)
         queue = load_review_queue(project_dir)
@@ -69,6 +73,8 @@ def build_demo_deliverable(
         "included_count": export_manifest.get("included_count", 0),
         "skipped_count": export_manifest.get("skipped_count", 0),
         "data_lineage": export_manifest.get("data_lineage", {}),
+        "evidence_package_path": export_manifest.get("evidence_package_path"),
+        "gpt_drafting": export_manifest.get("gpt_drafting", populate_manifest.get("gpt_drafting", {})),
         "validation_issues": export_manifest.get("validation_issues", []),
         "warnings": populate_manifest.get("warnings", []),
         "output_path": str(manifest_path),
@@ -83,6 +89,8 @@ def build_mvp_deliverable(
     include_optional_sources: bool = False,
     fail_on_no_downloaded_sources: bool = True,
     output_format: str = "both",
+    gpt_drafting: bool | None = None,
+    gpt_model: str | None = None,
 ) -> dict[str, Any]:
     """Run source-backed populate-for-review and export an internal MVP preview package."""
 
@@ -92,6 +100,8 @@ def build_mvp_deliverable(
             project_dir,
             prepare_sources=True,
             include_optional_sources=include_optional_sources,
+            gpt_drafting=gpt_drafting,
+            gpt_model=gpt_model,
         )
         queue = load_review_queue(project_dir)
     except (PopulateForReviewError, ReviewQueueError) as exc:
@@ -137,6 +147,8 @@ def build_mvp_deliverable(
         "included_count": export_manifest.get("included_count", 0),
         "skipped_count": export_manifest.get("skipped_count", 0),
         "data_lineage": export_manifest.get("data_lineage", data_lineage),
+        "evidence_package_path": export_manifest.get("evidence_package_path"),
+        "gpt_drafting": export_manifest.get("gpt_drafting", populate_manifest.get("gpt_drafting", {})),
         "validation_issues": export_manifest.get("validation_issues", []),
         "warnings": populate_manifest.get("warnings", []),
         "output_path": str(manifest_path),

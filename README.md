@@ -12,9 +12,9 @@ The review queue is the core workflow object. Every generated artifact should be
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, the Phase 2C catalog-driven source acquisition baseline with explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D deterministic draft report sections, the first Markdown/DOCX export compiler, internal demo/MVP deliverable package commands, and the first constraint-engine baseline. The current CLI can inspect project KMZ/KML inputs, normalize project geometry into point/site, line/corridor, polygon/area, or mixed feature artifacts, list the source catalog, register local source layers, resolve source gaps, explicitly download NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL flood hazard, run legacy spatial relationship checks, run constraint overlap/proximity checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section artifacts, populate a lean review queue, create/update review queue items, export accepted/edited review items to Markdown/DOCX plus an export manifest, create an internal preview demo deliverable package, and create a real-data guarded MVP deliverable package.
+The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, the Phase 2C catalog-driven source acquisition baseline with explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D report sections with deterministic and optional GPT drafting, evidence package generation, the first Markdown/DOCX export compiler, internal demo/MVP deliverable package commands, and the first constraint-engine baseline. The current CLI can inspect project KMZ/KML inputs, normalize project geometry into point/site, line/corridor, polygon/area, or mixed feature artifacts, list the source catalog, register local source layers, resolve source gaps, explicitly download NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL flood hazard, run legacy spatial relationship checks, run constraint overlap/proximity checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section/evidence artifacts, optionally use GPT for source-grounded report section drafting, populate a lean review queue, create/update review queue items, export accepted/edited review items to Markdown/DOCX plus an export manifest, create an internal preview demo deliverable package, and create a real-data guarded MVP deliverable package.
 
-The implementation surface is reusable Python services plus a CLI. No GUI, broad external API integration, source downloads beyond opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard, AI narrative generation, scoring, PDF export, basemap/imagery acquisition, or production workflow has been implemented.
+The implementation surface is reusable Python services plus a CLI. No GUI, broad external API integration, source downloads beyond opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard, scoring, PDF export, basemap/imagery acquisition, or production workflow has been implemented. GPT is limited to report-section copy from structured evidence and never replaces geometry, source acquisition, constraint analysis, measurements, review decisions, or export acceptance.
 
 ## Planning Docs
 
@@ -33,7 +33,7 @@ Key planning documents live at the repo root and under `docs/`:
 - `MAP_GENERATION.md`: current vector-only map baseline and future map/figure direction.
 - `REPORT_ASSEMBLY.md`: findings-to-report workflow and current Markdown/DOCX export baseline.
 - `IMAGERY_REVIEW.md`: imagery observation philosophy.
-- `LLM_ASSISTED_SYNTHESIS.md`: future GPT/LLM insertion points and boundaries.
+- `LLM_ASSISTED_SYNTHESIS.md`: GPT/LLM section-drafting insertion point and boundaries.
 
 ## Directory Notes
 
@@ -93,13 +93,30 @@ Resolve source gaps and explicitly acquire supported public sources:
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails --include-optional-sources
 ```
 
-Generate deterministic draft findings, comparison tables, vector-only draft maps, and deterministic draft report sections:
+Generate deterministic draft findings, comparison tables, vector-only draft maps, an evidence package, and draft report sections:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe generate-findings projects/trails
 .\.venv\Scripts\review-assist.exe generate-tables projects/trails
 .\.venv\Scripts\review-assist.exe generate-maps projects/trails
+.\.venv\Scripts\review-assist.exe build-evidence-package projects/trails
 .\.venv\Scripts\review-assist.exe generate-report-sections projects/trails
+```
+
+Optional GPT report-section drafting is controlled by root `.env` values. Copy `.env.example` to `.env` and set placeholders locally; `.env` is ignored by Git and must not be committed:
+
+```powershell
+OPENAI_API_KEY=
+OPENAI_INTERPRETER_MODEL=gpt-5.5
+GPT_DRAFTING=0
+```
+
+`GPT_DRAFTING=1`, `true`, `yes`, or `on` enables GPT drafting. `0`, `false`, `no`, `off`, empty, or missing disables it. When enabled, report-section generation uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`; if the key is missing the command fails clearly. Use `--no-gpt-drafting` to force deterministic sections for a run:
+
+```powershell
+.\.venv\Scripts\review-assist.exe generate-report-sections projects/trails --no-gpt-drafting
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources --no-gpt-drafting
+.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --include-optional-sources --no-gpt-drafting
 ```
 
 Generate and update review queue items:
@@ -142,7 +159,7 @@ Run the current orchestration behind the future desktop `Populate for Review` ac
 
 For `populate-for-review`, `--include-optional-sources` is valid only with `--prepare-sources`; optional source acquisition must be explicit.
 
-The CLI writes `geometry_summary.json`, normalized input GeoJSON files, `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under each project's `intermediate/` directory. Constraint artifacts are written under `constraints`, including `constraint_results.json` and clipped source GeoJSON files. Source acquisition manifests and downloads are written under `source_acquisition` when source gap resolution/downloads run. Markdown/DOCX exports, export manifests, demo/MVP deliverable manifests, and `data_lineage` summaries are written under `exports`. Workflow artifacts are written under project `context`, `source_status`, `source_inventory`, `findings`, `tables`, `maps`, `drafts`, `review_queue`, and `populate_for_review` directories. Project intermediate outputs, source acquisition artifacts/downloads, constraint artifacts, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, exports, and local project layers are generated/project-specific artifacts and are ignored by Git.
+The CLI writes `geometry_summary.json`, normalized input GeoJSON files, `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under each project's `intermediate/` directory. Constraint artifacts are written under `constraints`, including `constraint_results.json` and clipped source GeoJSON files. Source acquisition manifests and downloads are written under `source_acquisition` when source gap resolution/downloads run. Evidence packages are written under `evidence`. Markdown/DOCX exports, export manifests, demo/MVP deliverable manifests, and `data_lineage` summaries are written under `exports`. Workflow artifacts are written under project `context`, `source_status`, `source_inventory`, `findings`, `tables`, `maps`, `drafts`, `review_queue`, and `populate_for_review` directories. Project intermediate outputs, source acquisition artifacts/downloads, evidence packages, constraint artifacts, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, exports, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Testing
 
@@ -169,7 +186,7 @@ Implementation phases should add or update tests with the behavior they introduc
 3. Generate persistent project context: extent, assumptions, detected alternatives, likely report profile, provided sources, missing categories, and reviewer instructions.
 4. Resolve needed source categories into a source status set: provided locally, downloadable, downloaded, failed, gated, stubbed, missing, optional, or needs review.
 5. Resolve source gaps against the source catalog and, when explicitly requested, acquire supported public sources such as NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard.
-6. Populate for review by normalizing project geometry, acquiring/loading registered sources, cropping data to analysis bounds, generating constraint results, findings, tables, maps, narrative drafts, caveats, and provenance notes.
+6. Populate for review by normalizing project geometry, acquiring/loading registered sources, cropping data to analysis bounds, generating constraint results, findings, tables, maps, evidence packages, narrative drafts, caveats, and provenance notes.
 7. Send every generated artifact into the review queue for human edit/accept/reject/verification.
 8. Compile accepted or explicitly included reviewed content into editable Markdown/DOCX export packages, create a clearly labeled internal preview demo package, or create a real-data guarded MVP package that blocks mock/test fixture source records.
 

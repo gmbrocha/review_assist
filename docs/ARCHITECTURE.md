@@ -346,7 +346,7 @@ Purpose:
 - Keep deterministic finding data separate from generated prose.
 - Preserve citations, uncertainty, review status, and editable output.
 
-LLM-assisted drafting may be useful here, but the input should be structured findings and explicit source notes.
+LLM-assisted drafting is now available for report sections only, and the input is structured evidence, deterministic baseline copy, section metadata, IDs, and explicit source notes.
 
 See `docs/REPORT_ASSEMBLY.md` and `docs/LLM_ASSISTED_SYNTHESIS.md`.
 
@@ -355,14 +355,17 @@ Generated narrative sections should become review queue items before export.
 Current implementation:
 
 - Template config lives at `config/report_section_templates.json`.
-- The service reads project context, source status, source inventory, deterministic draft findings, comparison tables, optional map manifests, and validation issues.
+- The service reads project context, source status, source inventory, deterministic draft findings, comparison tables, optional map manifests, evidence packages, and validation issues.
 - It writes `projects/<project_id>/drafts/report_sections.json`.
 - It creates deterministic no-blank-page draft sections for project overview, methodology/data sources, limitations/missing data, resource categories, comparison summary, maps/figures, and reviewer follow-up.
-- It uses a deterministic section-drafting provider interface; no LLM/GenAI provider is active in the current slice.
+- It writes `projects/<project_id>/evidence/evidence_package.json` through the evidence package service.
+- It uses a section-drafting provider interface with deterministic and optional OpenAI GPT providers.
+- GPT drafting is controlled by root `.env` (`OPENAI_API_KEY`, `OPENAI_INTERPRETER_MODEL`, `GPT_DRAFTING`) and can be disabled per run with `--no-gpt-drafting`.
 - The CLI command is `review-assist generate-report-sections <project_dir>`.
+- The evidence CLI command is `review-assist build-evidence-package <project_dir>`.
 - Report section IDs are deterministic so review queue regeneration can preserve reviewer status, notes, edits, and export eligibility.
 
-The current report drafting baseline is deterministic only. It does not call LLMs, produce final conclusions, or compile report exports.
+The current report drafting baseline does not produce final conclusions or compile report exports. GPT, when enabled, drafts pre-review section copy only from structured evidence and stores provider/model/prompt/schema/digest provenance.
 
 ## Compilation/Export Service
 
@@ -416,21 +419,21 @@ Review statuses are defined in `docs/REVIEW_POLICY.md`.
 Current implementation:
 
 - Writes `projects/<project_id>/review_queue/review_queue.json`.
-- Converts deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues into a lean review queue by default.
+- Converts deterministic draft findings, comparison tables, map figures, report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues into a lean review queue by default.
 - Source inventory/provenance records can be included explicitly for audit workflows with the `--include-source-inventory` flag.
 - Supports CLI listing and status/note/export-eligibility updates.
 - Supports downstream Markdown/DOCX export through review status and export eligibility.
-- Does not yet provide GUI review screens or LLM-assisted report drafting.
+- Does not yet provide GUI review screens or reviewer-facing GPT controls.
 
 ## Populate For Review Service
 
 Purpose:
 
 - Provide the service-level backend for the future desktop `Populate for Review` action.
-- Run current workflow steps in order: project context, project geometry normalization, optional source preparation, source status, source inventory, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, deterministic report section generation, and lean review queue generation.
+- Run current workflow steps in order: project context, project geometry normalization, optional source preparation, source status, source inventory, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, evidence package generation, report section generation, and lean review queue generation.
 - Write a run manifest with step statuses, artifact paths, warning records, constraint count, review queue item count for traceability only, and critical error text when a run fails.
 
-Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, project geometry, project features, analysis bounds, optional source acquisition, source status, source inventory, constraint results, draft findings, comparison table, map manifest, report section, and review queue artifact paths. It downloads only explicitly requested supported sources through `--prepare-sources`; it does not render basemap/imagery-backed maps, call LLMs, create exports itself, or make recommendations.
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, project geometry, project features, analysis bounds, optional source acquisition, source status, source inventory, constraint results, draft findings, comparison table, map manifest, evidence package, report section, and review queue artifact paths. It downloads only explicitly requested supported sources through `--prepare-sources`; it does not render basemap/imagery-backed maps, create exports itself, or make recommendations.
 
 ## LLM Boundary
 
