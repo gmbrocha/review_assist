@@ -114,7 +114,7 @@ Live downloads are explicit only:
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources --include-optional-sources
 ```
 
-Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior. Running `prepare-sources` or `populate-for-review --prepare-sources` without `--include-optional-sources` downloads supported required sources only, so FEMA flood hazard remains optional unless directly requested.
+Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior. Running `prepare-sources` or `populate-for-review --prepare-sources` without `--include-optional-sources` downloads supported required sources only, so FEMA flood hazard remains optional unless directly requested. The `populate-for-review --include-optional-sources` flag is valid only when paired with `--prepare-sources`.
 
 ## Source Tiers
 

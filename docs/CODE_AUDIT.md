@@ -78,12 +78,16 @@ This document records the latest implementation audit for the current prototype 
 - Added tests for the validation and orchestration cases above.
 - Added catalog-driven source gap resolution and acquisition manifests under `projects/<project_id>/source_acquisition/`.
 - Added opt-in USFWS NWI wetlands downloader using the public Wetlands REST MapServer layer.
+- Added opt-in USGS NHD hydrography downloads using The National Map NHD flowline and area layers.
+- Added optional FEMA NFHL effective Flood Hazard Zones downloads that run only when directly requested or optional source acquisition is explicitly included.
+- Added normalized downloaded-source fields for implemented NWI, NHD, and FEMA layers while preserving original source attributes.
 - Added `resolve-source-gaps`, `download-source`, and `prepare-sources` CLI commands.
 - Added `populate-for-review --prepare-sources` so supported public downloads can run before source status, inventory, constraints, findings, tables, maps, sections, and review queue generation.
+- Tightened `populate-for-review` CLI validation so `--include-optional-sources` cannot be used without `--prepare-sources`.
 - Preserved reviewer-supplied local source layers so downloads do not overwrite them.
 - Added support for project inputs tagged with `source_id` or unambiguous `source_category` as provided source layers.
 - Added source acquisition provenance into source inventory records when an acquisition manifest exists.
-- Added tests for mocked NWI download success/failure, non-overwrite behavior, prepare-sources integration, CLI commands, and populate-for-review opt-in download behavior.
+- Added tests for mocked NWI, NHD, and FEMA download success/failure, non-overwrite behavior, optional-source behavior, prepare-sources integration, CLI commands, and populate-for-review opt-in download behavior.
 - Expanded report section templates to mirror the environmental constraints report destination more closely, including front matter, executive summary, study area, methodology, constraints inventory, resource sections, conclusion/next steps, attachments, and reviewer follow-up.
 - Added report section export grouping plus explicit visual/table slots so generated section artifacts can carry map, figure, and table needs into review and export.
 - Added review queue export grouping metadata while preserving reviewer state across regeneration, including backward-compatible normalization for older generated queue files.
@@ -92,6 +96,8 @@ This document records the latest implementation audit for the current prototype 
 - Added export validation warnings for missing accepted sections, missing accepted maps, and unresolved required source gaps.
 - Added tests for export filtering, edited-content precedence, unable-to-verify eligibility, section ordering, preview export mode, reviewer edit preservation, and NWI-backed export flow.
 - Fixed failed supported source downloads so the source acquisition manifest propagates `failed` status into source status, deterministic findings, report sections, and review queue caveat items instead of falling back to generic `downloadable` language.
+- Carried FEMA flood hazard datum and length-unit fields through the constraint-to-table path for report-ready flood summaries.
+- Updated FEMA date-field fallbacks so effective, panel, and revert dates are considered before generic date fields.
 - Removed an unused source-status review item helper from the lean review queue implementation.
 - Simplified Markdown export item partitioning so inclusion/skipping rules are evaluated once per review queue item.
 - Reviewed active documentation for stale export/source-status language and updated architecture, workflow, data-source, review-policy, roadmap, current-state, product, README, and agent guidance docs.
@@ -99,7 +105,7 @@ This document records the latest implementation audit for the current prototype 
 ## Current Verification
 
 - Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source acquisition failure propagation, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown export compilation, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `144 passed`.
+- Current full test run: `157 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist build-project-geometry projects/trails`
@@ -124,14 +130,14 @@ This document records the latest implementation audit for the current prototype 
 
 ## Known Limits
 
-- Local source layers are supported; opt-in USFWS NWI public downloads are implemented. Other public downloaders are not implemented yet.
+- Local source layers are supported; opt-in USFWS NWI and USGS NHD downloads are implemented, and FEMA NFHL effective flood hazard downloads are implemented as optional explicit context. Other public downloaders are not implemented yet.
 - Legacy spatial analysis produces relationship records only. The constraint engine now produces first-class constraint result records for the main populate-for-review flow.
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or final report sections.
 - Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, or final report prose until reviewed.
 - The review queue defaults to draft finding, comparison table, map figure, report section, report-relevant missing-data, validation, and no-mapped items. Source inventory/provenance items are opt-in for audit workflows, and legacy spatial relationship items remain available when those artifacts exist. Export compilation now uses review queue status and export eligibility instead of every generated artifact.
 - `populate-for-review` orchestrates current services only. It downloads supported sources only when `--prepare-sources` is used; it does not call LLMs, render basemap/imagery-backed maps, or create final DOCX/PDF exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
-- Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.
+- Downloaded NWI, NHD, and FEMA layers now receive normalized feature fields, but broader source schema normalization is not implemented for every cataloged source.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.
 - Raster source analysis is cataloged but not implemented.
 - Basemap/imagery acquisition, panel map sheets, DOCX/PDF export, and final map export packages are not implemented.

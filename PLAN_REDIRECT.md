@@ -395,6 +395,7 @@ The app should generate these where source data is available and create reviewab
 - [x] FEMA remains optional unless explicitly downloaded or optional-source acquisition is requested.
 - [x] `prepare-sources --include-optional-sources` can include supported optional sources.
 - [x] `populate-for-review --prepare-sources --include-optional-sources` can include supported optional sources.
+- [x] `populate-for-review --include-optional-sources` is rejected unless `--prepare-sources` is also present, so optional downloads cannot be implied silently.
 - [x] Downloaded source layers preserve original attributes while adding normalized Review Assist source, layer, label, type, subtype, original id, date, quality flag, and source citation fields where available.
 - [x] Hydrography constraints now feed stream/crossing findings, a hydrography crossing summary table, source-context maps, report sections, and review queue items.
 - [x] FEMA flood hazard constraints now feed flood hazard findings, a flood hazard summary table, source-context maps, report sections, and review queue items when FEMA is downloaded.

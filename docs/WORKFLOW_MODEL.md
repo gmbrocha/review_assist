@@ -108,7 +108,7 @@ The system compares required categories against:
 
 The result is a `SOURCE_STATUS_SET`.
 
-The companion source acquisition workflow writes `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`. It compares the project input package and project registry against the catalog, marks source gaps as provided, registered local, downloaded, downloadable, unsupported, gated, manual, optional, missing, or failed, and can explicitly acquire supported public sources. The first implemented downloader is USFWS NWI wetlands. Downloads are opt-in through `download-source`, `prepare-sources`, or `populate-for-review --prepare-sources`.
+The companion source acquisition workflow writes `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`. It compares the project input package and project registry against the catalog, marks source gaps as provided, registered local, downloaded, downloadable, unsupported, gated, manual, optional, missing, or failed, and can explicitly acquire supported public sources. Implemented public downloaders include USFWS NWI wetlands, USGS NHD hydrography, and optional FEMA NFHL flood hazard. Downloads are opt-in through `download-source`, `prepare-sources`, or `populate-for-review --prepare-sources`; optional downloads through `populate-for-review` require pairing `--include-optional-sources` with `--prepare-sources`.
 
 ## Source Status Set
 

@@ -653,6 +653,8 @@ def main(argv: list[str] | None = None) -> int:
             args.json,
         )
     if args.command == "populate-for-review":
+        if args.include_optional_sources and not args.prepare_sources:
+            parser.error("--include-optional-sources requires --prepare-sources for populate-for-review.")
         return populate_for_review_command(args.project_dir, args.json, args.prepare_sources, args.include_optional_sources)
     parser.error(f"Unknown command: {args.command}")
     return 2

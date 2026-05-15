@@ -441,7 +441,10 @@ def _feature_original_id(row: Any) -> str:
 
 
 def _feature_date(row: Any) -> str:
-    return _feature_value(row, ("review_assist_feature_date", "EFF_DATE", "FIRM_PAN", "fdate", "FDATE", "UPDATED", "DATE"))
+    return _feature_value(
+        row,
+        ("review_assist_feature_date", "EFF_DATE", "PANEL_DATE", "REVERT_DATE", "fdate", "FDATE", "UPDATED", "DATE"),
+    )
 
 
 def _feature_quality_flag(row: Any) -> str:

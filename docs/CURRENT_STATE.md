@@ -121,6 +121,8 @@ Current CLI commands:
 - `review-assist populate-for-review <project_dir> --prepare-sources`
 - `review-assist populate-for-review <project_dir> --prepare-sources --include-optional-sources`
 
+For `populate-for-review`, optional source acquisition is only valid when `--include-optional-sources` is paired with `--prepare-sources`.
+
 ## Workflow Artifact Defaults
 
 - Report profile config: JSON at `config/report_profiles.json`.

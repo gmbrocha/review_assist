@@ -206,7 +206,9 @@ def fake_fema_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
                         "ZONE_SUBTY": "FLOODWAY",
                         "SFHA_TF": "T",
                         "STATIC_BFE": 101.5,
+                        "V_DATUM": "NAVD88",
                         "DEPTH": 2.0,
+                        "LEN_UNIT": "feet",
                         "SOURCE_CIT": "Mock FEMA NFHL",
                         "GFID": "fema-zone-1",
                     },
@@ -585,6 +587,8 @@ def test_prepare_sources_with_optional_feeds_fema_into_downstream_artifacts(tmp_
     assert flood_table["rows"][0]["flood_zone"] == "AE"
     assert flood_table["rows"][0]["zone_subtype"] == "FLOODWAY"
     assert flood_table["rows"][0]["sfha_flag"] == "T"
+    assert flood_table["rows"][0]["vertical_datum"] == "NAVD88"
+    assert flood_table["rows"][0]["length_unit"] == "feet"
     assert any(figure["figure_id"] == "source-context-fema-nfhl-flood-hazard" for figure in maps["figures"])
     flood_section = next(section for section in sections["sections"] if section["resource_category"] == "flood_hazard")
     inventory_section = next(section for section in sections["sections"] if section["section_id"] == "environmental-constraints-inventory")
@@ -659,3 +663,17 @@ def test_source_acquisition_cli_commands(tmp_path: Path, capsys: pytest.CaptureF
     assert "Downloaded source workflow" in captured.out
     assert "Prepared sources" in captured.out
     assert "Populated for review" in captured.out
+
+
+def test_populate_for_review_optional_sources_requires_prepare_sources(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = write_project(tmp_path)
+
+    with pytest.raises(SystemExit) as excinfo:
+        main(["populate-for-review", str(project_dir), "--include-optional-sources"])
+
+    assert excinfo.value.code == 2
+    captured = capsys.readouterr()
+    assert "--include-optional-sources requires --prepare-sources" in captured.err

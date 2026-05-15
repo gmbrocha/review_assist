@@ -112,7 +112,7 @@ Current baseline:
 - `review-assist populate-for-review <project_dir> --prepare-sources`
 - `review-assist populate-for-review <project_dir> --prepare-sources --include-optional-sources`
 
-Live downloads remain opt-in. Running `populate-for-review` without `--prepare-sources` preserves the previous no-live-download behavior. FEMA flood hazard remains optional unless directly downloaded or optional-source acquisition is requested with `--include-optional-sources`.
+Live downloads remain opt-in. Running `populate-for-review` without `--prepare-sources` preserves the previous no-live-download behavior. FEMA flood hazard remains optional unless directly downloaded or optional-source acquisition is requested with `--include-optional-sources`; for `populate-for-review`, that optional flag must be paired with `--prepare-sources`.
 
 ## Phase 3: Workspace Context and Source Status Model
 
@@ -171,7 +171,7 @@ Current baseline:
 - `--prepare-sources` resolves catalog gaps and runs supported required public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - `--include-optional-sources`, when paired with `--prepare-sources`, also downloads supported optional sources such as FEMA NFHL flood hazard.
 
-This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, and explicit NWI plus USGS NHD hydrography source acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
+This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, explicit NWI plus USGS NHD hydrography source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
 
 ## Phase 6A: Deterministic Finding Templates
 

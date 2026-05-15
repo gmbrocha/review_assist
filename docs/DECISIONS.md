@@ -114,7 +114,7 @@ The first review queue implementation stores project-local review state at `proj
 
 ### 2026-05-14: Populate for Review starts as orchestration, not generation
 
-The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation, Phase 6D added deterministic report section generation, the constraint-core slice added project geometry normalization plus first-class constraint analysis, and the source-acquisition slice added opt-in NWI downloads through `--prepare-sources`. It deliberately does not download public sources unless explicitly requested, render basemap/imagery-backed maps, call LLMs, create exports itself, or create recommendations.
+The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation, Phase 6D added deterministic report section generation, the constraint-core slice added project geometry normalization plus first-class constraint analysis, and the source-acquisition slice added opt-in NWI, USGS NHD hydrography, and optional FEMA NFHL downloads. It deliberately does not download public sources unless explicitly requested, render basemap/imagery-backed maps, call LLMs, create exports itself, or create recommendations.
 
 ### 2026-05-14: Deterministic draft findings come before maps, reports, GUI, and LLM work
 
