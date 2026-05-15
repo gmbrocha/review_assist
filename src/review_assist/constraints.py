@@ -374,6 +374,14 @@ def _feature_label(row: Any) -> str:
         "review_assist_feature_label",
         "candidate_label",
         "placemark_name",
+        "comname",
+        "COMNAME",
+        "sciname",
+        "SCINAME",
+        "unitname",
+        "UNITNAME",
+        "subunitname",
+        "SUBUNITNAME",
         "FLD_ZONE",
         "ZONE_SUBTY",
         "gnis_name",
@@ -403,6 +411,8 @@ def _feature_label(row: Any) -> str:
 def _feature_type(row: Any) -> str:
     for column in (
         "review_assist_feature_type",
+        "status",
+        "STATUS",
         "FLD_ZONE",
         "featuretypelabel",
         "ATTRIBUTE",
@@ -420,7 +430,26 @@ def _feature_type(row: Any) -> str:
 
 
 def _feature_subtype(row: Any) -> str:
-    return _feature_value(row, ("review_assist_feature_subtype", "ZONE_SUBTY", "fcode", "FCODE", "WETLAND_TYPE"))
+    return _feature_value(
+        row,
+        (
+            "review_assist_feature_subtype",
+            "listing_status",
+            "LISTING_STATUS",
+            "unitname",
+            "UNITNAME",
+            "subunitname",
+            "SUBUNITNAME",
+            "unit",
+            "UNIT",
+            "subunit",
+            "SUBUNIT",
+            "ZONE_SUBTY",
+            "fcode",
+            "FCODE",
+            "WETLAND_TYPE",
+        ),
+    )
 
 
 def _feature_original_id(row: Any) -> str:
@@ -434,6 +463,11 @@ def _feature_original_id(row: Any) -> str:
             "Permanent_Identifier",
             "nhdplusid",
             "NHDPlusID",
+            "GlobalID",
+            "globalid",
+            "objectid_1",
+            "source_id",
+            "entity_id",
             "OBJECTID",
             "objectid",
         ),
@@ -443,16 +477,34 @@ def _feature_original_id(row: Any) -> str:
 def _feature_date(row: Any) -> str:
     return _feature_value(
         row,
-        ("review_assist_feature_date", "EFF_DATE", "PANEL_DATE", "REVERT_DATE", "fdate", "FDATE", "UPDATED", "DATE"),
+        (
+            "review_assist_feature_date",
+            "effectdate",
+            "EFFECTDATE",
+            "pubdate",
+            "PUBDATE",
+            "vacatedate",
+            "VACATEDATE",
+            "EFF_DATE",
+            "PANEL_DATE",
+            "REVERT_DATE",
+            "fdate",
+            "FDATE",
+            "UPDATED",
+            "DATE",
+        ),
     )
 
 
 def _feature_quality_flag(row: Any) -> str:
-    return _feature_value(row, ("review_assist_quality_flag", "SFHA_TF", "AR_REVERT", "DUAL_ZONE", "visibilityfilter", "VisibilityFilter"))
+    return _feature_value(
+        row,
+        ("review_assist_quality_flag", "accuracy", "ACCURACY", "SFHA_TF", "AR_REVERT", "DUAL_ZONE", "visibilityfilter", "VisibilityFilter"),
+    )
 
 
 def _feature_source_citation(row: Any) -> str:
-    return _feature_value(row, ("review_assist_source_citation", "SOURCE_CIT", "source_cit", "Source_Cit"))
+    return _feature_value(row, ("review_assist_source_citation", "fedreg", "FEDREG", "SOURCE_CIT", "source_cit", "Source_Cit"))
 
 
 def _source_feature_values(row: Any) -> dict[str, str]:
@@ -465,6 +517,17 @@ def _source_feature_values(row: Any) -> dict[str, str]:
         "depth": _feature_value(row, ("DEPTH",)),
         "length_unit": _feature_value(row, ("LEN_UNIT",)),
         "source_citation": _feature_source_citation(row),
+        "species_common_name": _feature_value(row, ("comname", "COMNAME", "review_assist_feature_label")),
+        "species_scientific_name": _feature_value(row, ("sciname", "SCINAME")),
+        "critical_habitat_status": _feature_value(row, ("status", "STATUS", "review_assist_feature_type")),
+        "listing_status": _feature_value(row, ("listing_status", "LISTING_STATUS")),
+        "critical_habitat_unit": _feature_value(row, ("unitname", "UNITNAME", "unit", "UNIT")),
+        "critical_habitat_subunit": _feature_value(row, ("subunitname", "SUBUNITNAME", "subunit", "SUBUNIT")),
+        "federal_register": _feature_value(row, ("fedreg", "FEDREG", "review_assist_source_citation")),
+        "publication_date": _feature_value(row, ("pubdate", "PUBDATE")),
+        "effective_date": _feature_value(row, ("effectdate", "EFFECTDATE", "review_assist_feature_date")),
+        "vacate_date": _feature_value(row, ("vacatedate", "VACATEDATE")),
+        "accuracy": _feature_value(row, ("accuracy", "ACCURACY", "review_assist_quality_flag")),
     }
     return {key: value for key, value in values.items() if value}
 

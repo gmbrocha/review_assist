@@ -121,6 +121,7 @@ def test_finding_template_config_loads() -> None:
     config = load_finding_template_config()
 
     assert "wetland_or_waterbody_relationship" in config.templates
+    assert "protected_species_or_critical_habitat_context" in config.templates
     assert "source_unavailable_or_deferred" in config.templates
 
 

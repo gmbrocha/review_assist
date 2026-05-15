@@ -395,7 +395,7 @@ def _section_content(
     if template.section_type == "analysis_procedures":
         return _analysis_procedures_content(context, map_manifest)
     if template.section_type == "limitations":
-        return _limitations_content(source_status, validation_issues)
+        return _limitations_content(source_status, related_findings, related_tables, related_figures, validation_issues)
     if template.section_type == "constraints_inventory":
         return _constraints_inventory_content(draft_findings, comparison_tables, map_manifest)
     if template.section_type in RESOURCE_SECTION_TYPES:
@@ -596,6 +596,9 @@ def _analysis_procedures_content(
 
 def _limitations_content(
     source_status: dict[str, Any],
+    related_findings: list[dict[str, Any]],
+    related_tables: list[dict[str, Any]],
+    related_figures: list[dict[str, Any]],
     validation_issues: list[dict[str, Any]],
 ) -> str:
     deferred = [
@@ -618,6 +621,12 @@ def _limitations_content(
         lines.append("No missing, gated, stubbed, downloadable, or needs-review source categories were identified in the current source status set.")
     if issue_count:
         lines.append(f"{issue_count} validation issue(s) should be checked before any report export.")
+    if related_findings:
+        lines.append(f"Related finding references: {', '.join(str(finding.get('finding_id')) for finding in related_findings if finding.get('finding_id'))}.")
+    if related_tables:
+        lines.append(f"Related table references: {', '.join(str(table.get('table_id')) for table in related_tables if table.get('table_id'))}.")
+    if related_figures:
+        lines.append(f"Related figure references: {', '.join(str(figure.get('figure_id')) for figure in related_figures if figure.get('figure_id'))}.")
     lines.append("Unavailable or restricted data should create caveat language rather than unsupported conclusions.")
     return "\n".join(lines)
 
@@ -820,9 +829,14 @@ def _findings_for_category(draft_findings: dict[str, Any], category: str) -> lis
         "conclusion",
         "attachments",
         "review_notes",
-        "assumptions_caveats",
     }:
         return []
+    if category == "assumptions_caveats":
+        return [
+            finding
+            for finding in _dict_list(draft_findings.get("findings", []))
+            if str(finding.get("type", "")) == "source_unavailable_or_deferred"
+        ]
     return [
         finding
         for finding in _dict_list(draft_findings.get("findings", []))
@@ -840,10 +854,14 @@ def _tables_for_category(comparison_tables: dict[str, Any], category: str, secti
             "grouped-constraint-summary",
             "hydrography-crossing-summary",
             "flood-hazard-summary",
+            "critical-habitat-summary",
             "spatial-relationship-summary",
             "draft-finding-summary",
         }
         return [table for table in tables if str(table.get("table_id", "")) in inventory_table_ids]
+    if section_type == "limitations":
+        limitation_table_ids = {"source-status-matrix", "draft-finding-summary"}
+        return [table for table in tables if str(table.get("table_id", "")) in limitation_table_ids]
     if section_type in {
         "front_matter",
         "executive_summary",
@@ -852,7 +870,6 @@ def _tables_for_category(comparison_tables: dict[str, Any], category: str, secti
         "project_overview",
         "methodology",
         "analysis_procedures",
-        "limitations",
         "maps_and_figures",
         "conclusion",
         "attachments",

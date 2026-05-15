@@ -224,6 +224,8 @@ def test_deferred_source_sections_use_review_statuses_and_cautious_language(tmp_
     assert follow_up["review_status"] == "needs_verification"
     assert "draft/pre-review" in content
     assert "final determinations may require" in content
+    assert "source-status-matrix" in str(limitations["generated_content"])
+    assert "draft-finding-summary" in str(limitations["generated_content"])
 
 
 def test_report_sections_preserve_related_ids_and_source_refs(tmp_path: Path) -> None:

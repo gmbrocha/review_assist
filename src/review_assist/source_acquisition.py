@@ -153,7 +153,7 @@ def prepare_sources(
         if not isinstance(gap, dict):
             continue
         source_id = str(gap.get("source_id") or "")
-        if source_id not in SUPPORTED_DOWNLOADERS:
+        if not gap.get("download_supported"):
             continue
         if not _should_prepare_download(gap, include_optional_sources=include_optional_sources):
             continue
@@ -193,14 +193,17 @@ def load_source_acquisition_manifest(project_dir: Path) -> dict[str, Any]:
 
 def _download_source(project_dir: Path, source_id: str, *, fetch_json: FetchJson | None, write_manifest: bool) -> dict[str, Any]:
     project_dir = project_dir.resolve()
-    if source_id not in SUPPORTED_DOWNLOADERS:
-        raise SourceAcquisitionError(f"Unsupported source downloader: {source_id}")
-
     initial = _resolve_source_gaps(project_dir, preserve_downloads=True)
     try:
-        source = load_source_catalog().sources[source_id]
+        catalog = load_source_catalog()
     except SourceCatalogError as exc:
         raise SourceAcquisitionError(str(exc)) from exc
+    source = catalog.sources.get(source_id)
+    if source is None:
+        raise SourceAcquisitionError(f"Unknown source_id '{source_id}'.")
+    if not _source_download_supported(source):
+        raise SourceAcquisitionError(f"Unsupported source downloader: {source_id}")
+
     download = _download_arcgis_geojson_source(project_dir, source, fetch_json=fetch_json)
 
     final = _resolve_source_gaps(project_dir, preserve_downloads=True)
@@ -491,15 +494,23 @@ def _query_arcgis_geojson_layer(
 
 
 def _download_config(source: SourceDefinition) -> dict[str, Any]:
-    config = dict(SUPPORTED_DOWNLOADERS.get(source.source_id, {}))
     catalog_config = source.download if isinstance(source.download, dict) else {}
     if catalog_config.get("supported"):
-        config.update(catalog_config)
+        config = dict(catalog_config)
+    else:
+        config = dict(SUPPORTED_DOWNLOADERS.get(source.source_id, {}))
     if str(config.get("downloader") or "") != "arcgis_rest_geojson":
         raise SourceAcquisitionError(f"Unsupported downloader type for source '{source.source_id}'.")
     if not str(config.get("service_url") or "").strip():
         raise SourceAcquisitionError(f"Source '{source.source_id}' download metadata requires a service_url.")
     return config
+
+
+def _source_download_supported(source: SourceDefinition) -> bool:
+    catalog_config = source.download if isinstance(source.download, dict) else {}
+    if catalog_config.get("supported"):
+        return str(catalog_config.get("downloader") or "") == "arcgis_rest_geojson"
+    return source.source_id in SUPPORTED_DOWNLOADERS
 
 
 def _download_layers(config: dict[str, Any]) -> list[dict[str, Any]]:
@@ -850,7 +861,7 @@ def _source_gap(
         "requirement": requirement,
         "status": status,
         "reason": reason,
-        "download_supported": source.source_id in SUPPORTED_DOWNLOADERS,
+        "download_supported": _source_download_supported(source),
         "access_methods": source.access_methods,
         "public_or_restricted": source.public_or_restricted,
         "source_url": source.url,
@@ -887,7 +898,7 @@ def _gap_status(
     if requirement == "optional":
         return "optional", "Optional source is not required for this report profile."
     if _public_future_download(source):
-        if source.source_id in SUPPORTED_DOWNLOADERS:
+        if _source_download_supported(source):
             return "downloadable", "Public source data is supported by an implemented downloader but has not been downloaded."
         return "unsupported_download", "Public source data appears downloadable, but no downloader is implemented yet."
     if _gated_source(source):

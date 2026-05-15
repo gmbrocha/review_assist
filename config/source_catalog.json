@@ -184,7 +184,37 @@
       "geometry_type": "polygon",
       "url": "https://ecos.fws.gov/ecp/",
       "spatial_relationships": ["intersects", "within_buffer"],
-      "known_limitations": "Critical habitat GIS is only part of species review and does not replace IPaC or consultation.",
+      "download": {
+        "supported": true,
+        "downloader": "arcgis_rest_geojson",
+        "service_url": "https://services.arcgis.com/QVENGdaPbd4LUkLV/ArcGIS/rest/services/USFWS_Critical_Habitat/FeatureServer",
+        "output_name": "usfws_critical_habitat",
+        "layers": [
+          {
+            "layer_id": 0,
+            "layer_name": "Final Critical Habitat Features",
+            "label_fields": ["comname", "COMNAME", "sciname", "SCINAME"],
+            "feature_type_fields": ["status", "STATUS"],
+            "feature_subtype_fields": ["listing_status", "LISTING_STATUS", "unitname", "UNITNAME", "subunitname", "SUBUNITNAME", "unit", "UNIT", "subunit", "SUBUNIT"],
+            "original_id_fields": ["GlobalID", "globalid", "OBJECTID", "objectid", "objectid_1", "source_id", "entity_id"],
+            "date_fields": ["effectdate", "EFFECTDATE", "pubdate", "PUBDATE", "vacatedate", "VACATEDATE"],
+            "quality_flag_fields": ["accuracy", "ACCURACY"],
+            "source_citation_fields": ["fedreg", "FEDREG"]
+          },
+          {
+            "layer_id": 2,
+            "layer_name": "Proposed Critical Habitat Features",
+            "label_fields": ["comname", "COMNAME", "sciname", "SCINAME"],
+            "feature_type_fields": ["status", "STATUS"],
+            "feature_subtype_fields": ["listing_status", "LISTING_STATUS", "unitname", "UNITNAME", "subunitname", "SUBUNITNAME", "unit", "UNIT", "subunit", "SUBUNIT"],
+            "original_id_fields": ["GlobalID", "globalid", "OBJECTID", "objectid", "objectid_1", "source_id", "entity_id"],
+            "date_fields": ["effectdate", "EFFECTDATE", "pubdate", "PUBDATE", "vacatedate", "VACATEDATE"],
+            "quality_flag_fields": ["accuracy", "ACCURACY"],
+            "source_citation_fields": ["fedreg", "FEDREG"]
+          }
+        ]
+      },
+      "known_limitations": "Critical habitat GIS is screening context, not the legal boundary source, not a project species list, and not a replacement for IPaC or agency consultation.",
       "notes": "GIS-checkable species/habitat context."
     },
     {

@@ -53,6 +53,7 @@ def generate_comparison_tables(project_dir: Path) -> dict[str, Any]:
         _grouped_constraint_summary(constraints),
         _hydrography_crossing_summary(constraints),
         _flood_hazard_summary(constraints),
+        _critical_habitat_summary(constraints),
         _spatial_relationship_summary(spatial),
         _draft_finding_summary(draft_findings),
     ]
@@ -442,6 +443,81 @@ def _flood_hazard_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
         table_type="flood_hazard_summary",
         title="FEMA Flood Hazard Summary",
         description="Effective FEMA NFHL flood hazard zone relationships by project feature.",
+        columns=columns,
+        rows=rows,
+        provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
+        source_refs=sorted(source_refs),
+        uncertainty_flags=["no_constraint_results_artifact"] if constraints is None else [],
+    )
+
+
+def _critical_habitat_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
+    columns = [
+        "project_feature_id",
+        "project_feature_name",
+        "source_category",
+        "source_id",
+        "species_common_name",
+        "species_scientific_name",
+        "critical_habitat_status",
+        "listing_status",
+        "critical_habitat_unit",
+        "critical_habitat_subunit",
+        "federal_register",
+        "publication_date",
+        "effective_date",
+        "relationship_type",
+        "intersection_length_feet",
+        "intersection_area_acres",
+        "distance_feet",
+        "buffer_feet",
+        "source_feature_original_id",
+    ]
+    rows: list[dict[str, Any]] = []
+    source_refs: set[str] = set()
+    if constraints is not None:
+        for constraint in constraints.get("constraints", []):
+            if not isinstance(constraint, dict) or constraint.get("source_category") != "species_habitat":
+                continue
+            if constraint.get("source_id") != "usfws_critical_habitat":
+                continue
+            source_id = str(constraint.get("source_id", ""))
+            if source_id:
+                source_refs.add(source_id)
+            measurements = constraint.get("measurements", {})
+            if not isinstance(measurements, dict):
+                measurements = {}
+            values = constraint.get("source_feature_values", {})
+            if not isinstance(values, dict):
+                values = {}
+            rows.append(
+                {
+                    "project_feature_id": constraint.get("project_feature_id", ""),
+                    "project_feature_name": constraint.get("project_feature_name", ""),
+                    "source_category": constraint.get("source_category", ""),
+                    "source_id": source_id,
+                    "species_common_name": values.get("species_common_name") or constraint.get("source_feature_label", ""),
+                    "species_scientific_name": values.get("species_scientific_name", ""),
+                    "critical_habitat_status": values.get("critical_habitat_status") or constraint.get("source_feature_type", ""),
+                    "listing_status": values.get("listing_status", ""),
+                    "critical_habitat_unit": values.get("critical_habitat_unit", ""),
+                    "critical_habitat_subunit": values.get("critical_habitat_subunit", ""),
+                    "federal_register": values.get("federal_register") or constraint.get("source_feature_source_citation", ""),
+                    "publication_date": values.get("publication_date", ""),
+                    "effective_date": values.get("effective_date") or constraint.get("source_feature_date", ""),
+                    "relationship_type": constraint.get("relationship_type", ""),
+                    "intersection_length_feet": measurements.get("intersection_length_feet"),
+                    "intersection_area_acres": measurements.get("intersection_area_acres"),
+                    "distance_feet": measurements.get("distance_feet"),
+                    "buffer_feet": constraint.get("buffer_feet"),
+                    "source_feature_original_id": constraint.get("source_feature_original_id", ""),
+                }
+            )
+    return _table(
+        table_id="critical-habitat-summary",
+        table_type="critical_habitat_summary",
+        title="USFWS Critical Habitat Summary",
+        description="USFWS final and proposed critical habitat relationships by project feature.",
         columns=columns,
         rows=rows,
         provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},

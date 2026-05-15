@@ -230,11 +230,90 @@ def fake_fema_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
     raise AssertionError(f"Unexpected FEMA fetch URL: {url}")
 
 
+def fake_critical_habitat_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    if url.endswith("/0") or url.endswith("/2"):
+        return {"maxRecordCount": 1}
+    offset = int(params.get("resultOffset", 0))
+    if offset:
+        return {"type": "FeatureCollection", "features": []}
+    if url.endswith("/0/query"):
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "comname": "Mock Mussel",
+                        "sciname": "Musselus testus",
+                        "status": "FINAL",
+                        "listing_status": "Endangered",
+                        "unitname": "Unit 1",
+                        "subunitname": "Subunit A",
+                        "fedreg": "88FR12345",
+                        "pubdate": "20240101",
+                        "effectdate": "20240201",
+                        "accuracy": "Source Adjustment",
+                        "GlobalID": "critical-final-1",
+                    },
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [-90.001, 31.999],
+                                [-89.998, 31.999],
+                                [-89.998, 32.001],
+                                [-90.001, 32.001],
+                                [-90.001, 31.999],
+                            ]
+                        ],
+                    },
+                }
+            ],
+        }
+    if url.endswith("/2/query"):
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "comname": "Mock Bat",
+                        "sciname": "Battus testus",
+                        "status": "PROPOSED",
+                        "listing_status": "Threatened",
+                        "unit": "Unit 2",
+                        "subunit": "Subunit B",
+                        "fedreg": "89FR54321",
+                        "pubdate": "20240301",
+                        "effectdate": "20240401",
+                        "accuracy": "Tidal Adjustment",
+                        "OBJECTID": 22,
+                    },
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [-90.0005, 31.9995],
+                                [-89.999, 31.9995],
+                                [-89.999, 32.0005],
+                                [-90.0005, 32.0005],
+                                [-90.0005, 31.9995],
+                            ]
+                        ],
+                    },
+                }
+            ],
+        }
+    raise AssertionError(f"Unexpected Critical Habitat fetch URL: {url}")
+
+
 def fake_supported_source_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
     if "/Wetlands/MapServer" in url:
         return fake_nwi_fetch(url, params)
     if "/nhd/MapServer" in url:
         return fake_nhd_fetch(url, params)
+    if "/USFWS_Critical_Habitat/FeatureServer" in url:
+        return fake_critical_habitat_fetch(url, params)
     raise AssertionError(f"Unexpected source fetch URL: {url}")
 
 
@@ -260,6 +339,37 @@ def fake_empty_fema_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
     raise AssertionError(f"Unexpected FEMA fetch URL: {url}")
 
 
+def fake_empty_critical_habitat_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    if url.endswith("/0") or url.endswith("/2"):
+        return {"maxRecordCount": 1}
+    if url.endswith("/0/query") or url.endswith("/2/query"):
+        return {"type": "FeatureCollection", "features": []}
+    raise AssertionError(f"Unexpected Critical Habitat fetch URL: {url}")
+
+
+def fake_no_overlap_critical_habitat_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    if url.endswith("/0") or url.endswith("/2"):
+        return {"maxRecordCount": 1}
+    offset = int(params.get("resultOffset", 0))
+    if offset or url.endswith("/2/query"):
+        return {"type": "FeatureCollection", "features": []}
+    if url.endswith("/0/query"):
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"comname": "Far Species", "sciname": "Species farus", "status": "FINAL"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[-89.0, 33.0], [-88.9, 33.0], [-88.9, 33.1], [-89.0, 33.1], [-89.0, 33.0]]],
+                    },
+                }
+            ],
+        }
+    raise AssertionError(f"Unexpected Critical Habitat fetch URL: {url}")
+
+
 def test_gap_resolver_marks_unregistered_nwi_downloadable(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
@@ -275,6 +385,16 @@ def test_gap_resolver_marks_unregistered_nhd_downloadable(tmp_path: Path) -> Non
     result = resolve_source_gaps(project_dir)
 
     assert source_gap(result, "usgs_nhd_hydrography")["status"] == "downloadable"
+
+
+def test_gap_resolver_marks_unregistered_critical_habitat_downloadable(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    result = resolve_source_gaps(project_dir)
+    gap = source_gap(result, "usfws_critical_habitat")
+
+    assert gap["status"] == "downloadable"
+    assert gap["download_supported"] is True
 
 
 def test_gap_resolver_marks_fema_optional_but_download_supported(tmp_path: Path) -> None:
@@ -378,6 +498,31 @@ def test_successful_fema_downloader_writes_geojson_normalized_fields_and_registr
     assert set(gdf["review_assist_source_citation"]) == {"Mock FEMA NFHL"}
 
 
+def test_successful_critical_habitat_downloader_writes_combined_geojson_normalized_fields_and_registry(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    result = download_source(project_dir, "usfws_critical_habitat", fetch_json=fake_critical_habitat_fetch)
+    download = result["downloads"][-1]
+    registry_source = load_project_source_registry(project_dir).by_source_id()["usfws_critical_habitat"]
+    output_path = Path(download["output_path"])
+    gdf = gpd.read_file(output_path)
+
+    assert download["status"] == "downloaded"
+    assert download["feature_count"] == 2
+    assert [layer["feature_count"] for layer in download["layers"]] == [1, 1]
+    assert [layer["layer_id"] for layer in download["layers"]] == [0, 2]
+    assert download["checksum_sha256"]
+    assert output_path.exists()
+    assert registry_source.access_method == "local_file"
+    assert registry_source.status == "downloaded"
+    assert registry_source.path == "source_acquisition/downloads/usfws_critical_habitat.geojson"
+    assert set(gdf["review_assist_source_id"]) == {"usfws_critical_habitat"}
+    assert set(gdf["review_assist_layer_name"]) == {"Final Critical Habitat Features", "Proposed Critical Habitat Features"}
+    assert {"Mock Mussel", "Mock Bat"}.issubset(set(gdf["review_assist_feature_label"]))
+    assert {"FINAL", "PROPOSED"}.issubset(set(gdf["review_assist_feature_type"]))
+    assert {"88FR12345", "89FR54321"}.issubset(set(gdf["review_assist_source_citation"]))
+
+
 def test_failed_nwi_downloader_records_nonfatal_failed_status(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
@@ -460,6 +605,38 @@ def test_failed_fema_downloader_records_nonfatal_failed_status_and_caveats(tmp_p
     assert missing_item["assumptions"]["source_status"] == "failed"
 
 
+def test_failed_critical_habitat_downloader_records_nonfatal_failed_status_and_caveats(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    def failing_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
+        raise RuntimeError("network unavailable")
+
+    result = download_source(project_dir, "usfws_critical_habitat", fetch_json=failing_fetch)
+    download = result["downloads"][-1]
+
+    assert download["status"] == "failed"
+    assert download["validation_issues"][0]["code"] == "source_download_failed"
+    assert source_gap(result, "usfws_critical_habitat")["status"] == "failed"
+
+    source_status = resolve_source_status_set(project_dir)
+    species_status = next(item for item in source_status["statuses"] if item["category"] == "species_habitat")
+    assert species_status["status"] == "failed"
+    assert "source_download_failed" in species_status["uncertainty_flags"]
+
+    findings = generate_draft_findings(project_dir)
+    failed_finding = next(item for item in findings["findings"] if item["resource_category"] == "species_habitat")
+    assert failed_finding["assumptions"]["source_status"] == "failed"
+
+    sections = generate_report_sections(project_dir)
+    species_section = next(section for section in sections["sections"] if section["section_id"] == "species-and-habitat")
+    assert species_section["review_status"] == "needs_review"
+    assert "source_download_failed" in species_section["uncertainty_flags"]
+
+    queue = generate_review_queue(project_dir)
+    missing_item = next(item for item in queue["items"] if item["id"] == "missing-data-species-habitat")
+    assert missing_item["assumptions"]["source_status"] == "failed"
+
+
 def test_empty_nhd_downloader_writes_valid_empty_artifact(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
@@ -488,6 +665,37 @@ def test_empty_fema_downloader_writes_valid_empty_artifact(tmp_path: Path) -> No
     assert Path(download["output_path"]).exists()
     assert constraints["constraint_count"] == 0
     assert constraints["sources"][0]["status"] == "analyzed_empty"
+
+
+def test_empty_critical_habitat_downloader_writes_valid_empty_artifact(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    result = download_source(project_dir, "usfws_critical_habitat", fetch_json=fake_empty_critical_habitat_fetch)
+    download = result["downloads"][-1]
+    constraints = analyze_constraints(project_dir)
+
+    assert download["status"] == "downloaded"
+    assert download["feature_count"] == 0
+    assert download["warnings"][0]["code"] == "downloaded_source_empty"
+    assert Path(download["output_path"]).exists()
+    assert constraints["constraint_count"] == 0
+    assert constraints["sources"][0]["status"] == "analyzed_empty"
+
+
+def test_no_overlap_critical_habitat_produces_no_mapped_context(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    download_source(project_dir, "usfws_critical_habitat", fetch_json=fake_no_overlap_critical_habitat_fetch)
+    constraints = analyze_constraints(project_dir)
+    findings = generate_draft_findings(project_dir)
+
+    source = next(item for item in constraints["sources"] if item["source_id"] == "usfws_critical_habitat")
+    assert source["status"] == "analyzed"
+    assert source["constraint_count"] == 0
+    assert any(
+        item["type"] == "no_mapped_conflict_identified" and item["resource_category"] == "species_habitat"
+        for item in findings["findings"]
+    )
 
 
 def test_existing_local_registered_source_is_not_overwritten_by_download(tmp_path: Path) -> None:
@@ -536,6 +744,24 @@ def test_existing_local_flood_hazard_source_is_not_overwritten_by_download(tmp_p
     assert registry_source.status == "local_registered"
 
 
+def test_existing_local_critical_habitat_source_is_not_overwritten_by_download(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "critical.geojson",
+        [Polygon([(-90.001, 31.999), (-89.999, 31.999), (-89.999, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"comname": "Local critical habitat"}],
+    )
+    write_registry(project_dir, "usfws_critical_habitat", "critical.geojson")
+
+    result = download_source(project_dir, "usfws_critical_habitat", fetch_json=fake_critical_habitat_fetch)
+    download = result["downloads"][-1]
+    registry_source = load_project_source_registry(project_dir).by_source_id()["usfws_critical_habitat"]
+
+    assert download["status"] == "skipped_existing_local"
+    assert registry_source.path == "critical.geojson"
+    assert registry_source.status == "local_registered"
+
+
 def test_prepare_sources_feeds_downloaded_sources_into_constraints_findings_tables_and_maps(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
@@ -549,18 +775,30 @@ def test_prepare_sources_feeds_downloaded_sources_into_constraints_findings_tabl
 
     assert source_gap(acquisition, "usfws_nwi_wetlands")["status"] == "downloaded"
     assert source_gap(acquisition, "usgs_nhd_hydrography")["status"] == "downloaded"
-    assert constraints["constraint_count"] >= 3
+    assert source_gap(acquisition, "usfws_critical_habitat")["status"] == "downloaded"
+    assert constraints["constraint_count"] >= 5
     assert any(item["relationship_type"] == "crosses" and item["source_id"] == "usgs_nhd_hydrography" for item in constraints["constraints"])
+    assert any(item["source_id"] == "usfws_critical_habitat" for item in constraints["constraints"])
     assert any("Mock NWI Wetland" in finding["summary"] or "Mock NWI Wetland" in finding["details"] for finding in findings["findings"])
     assert any("Mock NHD Stream" in finding["summary"] or "Mock NHD Stream" in finding["details"] for finding in findings["findings"])
+    assert any("Mock Mussel" in finding["summary"] or "Mock Mussel" in finding["details"] for finding in findings["findings"])
     hydrography_table = next(table for table in tables["tables"] if table["table_id"] == "hydrography-crossing-summary")
+    critical_table = next(table for table in tables["tables"] if table["table_id"] == "critical-habitat-summary")
     assert hydrography_table["row_count"] >= 2
+    assert critical_table["row_count"] >= 2
+    assert critical_table["rows"][0]["species_common_name"] in {"Mock Mussel", "Mock Bat"}
     assert maps["figure_count"] > 0
     assert any(figure["figure_id"] == "source-context-usgs-nhd-hydrography" for figure in maps["figures"])
+    assert any(figure["figure_id"] == "source-context-usfws-critical-habitat" for figure in maps["figures"])
     hydrography_section = next(section for section in sections["sections"] if section["resource_category"] == "hydrography_crossings")
+    species_section = next(section for section in sections["sections"] if section["resource_category"] == "species_habitat")
     assert "hydrography-crossing-summary" in hydrography_section["related_table_ids"]
     assert "source-context-usgs-nhd-hydrography" in hydrography_section["related_figure_ids"]
+    assert "critical-habitat-summary" in species_section["related_table_ids"]
+    assert "source-context-usfws-critical-habitat" in species_section["related_figure_ids"]
+    assert "critical-habitat-summary" in str(species_section["generated_content"])
     assert any(item["type"] == "report_section" and item["source_refs"] == ["usgs_nhd_hydrography"] for item in queue["items"])
+    assert any(item["type"] == "report_section" and "usfws_critical_habitat" in item["source_refs"] for item in queue["items"])
     assert source_gap(acquisition, "fema_nfhl_flood_hazard")["status"] == "optional"
     assert not (project_dir / "source_acquisition" / "downloads" / "fema_nfhl_flood_hazard.geojson").exists()
 
@@ -609,9 +847,9 @@ def test_populate_for_review_prepare_sources_records_acquisition_and_constraints
     result = populate_for_review(project_dir, prepare_sources=True)
 
     assert result["artifact_paths"]["source_acquisition"].endswith("source_acquisition_manifest.json")
-    assert result["source_acquisition_download_count"] >= 2
+    assert result["source_acquisition_download_count"] >= 3
     assert result["source_acquisition_include_optional_sources"] is False
-    assert result["constraint_count"] >= 3
+    assert result["constraint_count"] >= 5
     assert not (project_dir / "source_acquisition" / "downloads" / "fema_nfhl_flood_hazard.geojson").exists()
 
 
@@ -625,8 +863,8 @@ def test_populate_for_review_prepare_sources_with_optional_records_fema(
     result = populate_for_review(project_dir, prepare_sources=True, include_optional_sources=True)
 
     assert result["source_acquisition_include_optional_sources"] is True
-    assert result["source_acquisition_download_count"] >= 3
-    assert result["constraint_count"] >= 4
+    assert result["source_acquisition_download_count"] >= 4
+    assert result["constraint_count"] >= 6
     assert (project_dir / "source_acquisition" / "downloads" / "fema_nfhl_flood_hazard.geojson").exists()
 
 
@@ -653,6 +891,7 @@ def test_source_acquisition_cli_commands(tmp_path: Path, capsys: pytest.CaptureF
     assert main(["resolve-source-gaps", str(project_dir)]) == 0
     assert main(["download-source", str(project_dir), "usfws_nwi_wetlands"]) == 0
     assert main(["download-source", str(project_dir), "usgs_nhd_hydrography"]) == 0
+    assert main(["download-source", str(project_dir), "usfws_critical_habitat"]) == 0
     assert main(["download-source", str(project_dir), "fema_nfhl_flood_hazard"]) == 0
     assert main(["prepare-sources", str(project_dir)]) == 0
     assert main(["prepare-sources", str(project_dir), "--include-optional-sources"]) == 0

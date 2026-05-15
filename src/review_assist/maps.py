@@ -47,6 +47,15 @@ REQUIRED_FIGURE_FIELDS = {
 }
 PROJECT_COLORS = ["#2F80ED", "#F2994A", "#9B51E0", "#27AE60", "#EB5757", "#56CCF2", "#F2C94C"]
 SOURCE_COLOR = "#6BAA75"
+SOURCE_CATEGORY_COLORS = {
+    "wetlands_waterbodies": "#3A8D8F",
+    "hydrography_crossings": "#2F80ED",
+    "flood_hazard": "#9B51E0",
+    "species_habitat": "#6BAA32",
+    "regulated_facilities": "#EB5757",
+    "community_socioeconomic": "#F2994A",
+    "transportation_utilities": "#7A6FF0",
+}
 
 
 class MapGenerationError(RuntimeError):
@@ -375,8 +384,11 @@ def _render_map(
 
         if source_layer is not None:
             source_gdf = source_layer["gdf"].to_crs(analysis_crs)
-            source_label = str(source_layer["source"].get("source_name") or source_layer["source"].get("source_id") or "Source layer")
-            handles.extend(_plot_gdf(ax, source_gdf, color=SOURCE_COLOR, label=source_label, is_project=False))
+            source_record = source_layer["source"]
+            source_name = str(source_record.get("source_name") or source_record.get("source_id") or "Source layer")
+            source_category = str(source_record.get("source_category") or "")
+            source_label = f"{source_name} ({source_category})" if source_category else source_name
+            handles.extend(_plot_gdf(ax, source_gdf, color=_source_color(source_category), label=source_label, is_project=False))
             if not source_gdf.empty:
                 plotted_layers.append(source_gdf)
 
@@ -451,6 +463,10 @@ def _set_extent(ax: Any, layers: list[gpd.GeoDataFrame]) -> None:
     ax.set_xlim(west - pad_x, east + pad_x)
     ax.set_ylim(south - pad_y, north + pad_y)
     ax.set_aspect("equal", adjustable="box")
+
+
+def _source_color(source_category: str) -> str:
+    return SOURCE_CATEGORY_COLORS.get(source_category, SOURCE_COLOR)
 
 
 def _figure_record(

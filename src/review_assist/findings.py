@@ -52,6 +52,7 @@ CATEGORY_FINDING_TYPES = {
     "hydrography_crossings": "stream_or_hydrography_crossing",
     "land_cover_disturbance": "land_cover_or_disturbance_context",
     "soils": "soil_constraint_context",
+    "species_habitat": "protected_species_or_critical_habitat_context",
     "regulated_facilities": "regulated_facility_context",
     "cultural_historic": "cultural_or_historic_review_required",
     "transportation_utilities": "utility_or_transportation_coordination",

@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands, USGS NHD hydrography, and optional FEMA NFHL effective flood hazard zones are the first implemented public downloaders. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, and optional FEMA NFHL effective flood hazard zones are the first implemented public downloaders. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -107,6 +107,7 @@ Live downloads are explicit only:
 .\.venv\Scripts\review-assist.exe resolve-source-gaps projects/trails
 .\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
 .\.venv\Scripts\review-assist.exe download-source projects/trails usgs_nhd_hydrography
+.\.venv\Scripts\review-assist.exe download-source projects/trails usfws_critical_habitat
 .\.venv\Scripts\review-assist.exe download-source projects/trails fema_nfhl_flood_hazard
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails --include-optional-sources
@@ -431,9 +432,19 @@ Potential findings:
 - Critical habitat nearby.
 - Listed species context.
 
+Current implementation status:
+
+- `usfws_critical_habitat` is an implemented explicit public downloader.
+- The downloader queries the USFWS Critical Habitat FeatureServer final layer `0` and proposed layer `2` by project analysis bounds and writes GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
+- Successful downloads are registered as normal `local_file` sources with `status: downloaded`.
+- Downloaded records preserve original attributes and add normalized Review Assist source/layer/label/type/subtype/original-id/date/quality/citation fields.
+- Critical habitat constraints feed protected species/critical habitat findings, a critical habitat summary table, source-context maps, report sections, and review queue items.
+- Critical habitat GIS is screening context only. It is not the legal boundary source, not a project species list, and not a replacement for IPaC or agency consultation.
+
 Reference:
 
 - https://ecos.fws.gov/ecp/
+- https://services.arcgis.com/QVENGdaPbd4LUkLV/ArcGIS/rest/services/USFWS_Critical_Habitat/FeatureServer
 
 ### MDWFP / Mississippi Natural Heritage Program
 

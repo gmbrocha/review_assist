@@ -2,7 +2,7 @@
 
 ## Phase
 
-Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks. The Phase 2C catalog-driven source acquisition baseline is implemented with explicit USFWS NWI, USGS NHD hydrography, and optional FEMA NFHL flood hazard downloaders. Phase 3 project context/source status artifacts, the first Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D deterministic draft report section generation, the first Markdown export compiler, and the first constraint-engine baseline are implemented.
+Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks. The Phase 2C catalog-driven source acquisition baseline is implemented with explicit USFWS NWI, USGS NHD hydrography, USFWS Critical Habitat, and optional FEMA NFHL flood hazard downloaders. Phase 3 project context/source status artifacts, the first Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D deterministic draft report section generation, the first Markdown export compiler, and the first constraint-engine baseline are implemented.
 
 The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check/source acquisition services, project geometry normalization, constraint overlap/proximity analysis, workflow-native project context/source status services, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts including grouped, hydrography, and flood hazard summaries, vector-only map artifacts, deterministic draft report section artifacts, JSON review queue services, Markdown export services, and populate-for-review orchestration. No production workflow has been implemented.
 
@@ -51,10 +51,10 @@ The review queue is the required control point before export. Findings, paragrap
 ## Not Implemented
 
 - Production GIS pipelines or full environmental analysis.
-- External API integrations beyond the explicit, opt-in NWI, USGS NHD, and optional FEMA NFHL public downloaders.
+- External API integrations beyond the explicit, opt-in NWI, USGS NHD, USFWS Critical Habitat, and optional FEMA NFHL public downloaders.
 - Basemap or imagery acquisition workflows.
 - DOCX/PDF export assembly pipelines.
-- Public source downloads beyond the explicit, opt-in NWI, USGS NHD, and optional FEMA NFHL public downloaders.
+- Public source downloads beyond the explicit, opt-in NWI, USGS NHD, USFWS Critical Habitat, and optional FEMA NFHL public downloaders.
 - Desktop GUI.
 - LLM-assisted narrative synthesis.
 - Basemap-backed, raster, panel-sheet, or final cartographic map rendering.
@@ -85,7 +85,7 @@ The root-level KMZ files are retained as reference originals. Phase 1 project ma
 - Project source registry format: JSON at `projects/<project_id>/config/sources.json`.
 - Source population strategy: local source-layer registration first; live downloads are explicit and opt-in.
 - Source acquisition strategy: compare project inputs and project registry against the catalog, then download only supported public sources when requested.
-- Implemented downloaders: USFWS NWI wetlands through the public Wetlands REST MapServer layer; USGS NHD hydrography through The National Map NHD MapServer large-scale flowline and area layers; FEMA NFHL effective Flood Hazard Zones through public NFHL MapServer layer 28.
+- Implemented downloaders: USFWS NWI wetlands through the public Wetlands REST MapServer layer; USGS NHD hydrography through The National Map NHD MapServer large-scale flowline and area layers; USFWS Critical Habitat through the public Critical Habitat FeatureServer final and proposed layers; FEMA NFHL effective Flood Hazard Zones through public NFHL MapServer layer 28.
 - First spatial-check priority: wetlands/waterbodies, hydrography/crossings, land cover/disturbance, and soils.
 - Flood hazard is retained as a secondary optional source category, not a first-pass driver for every project, and is downloaded only by direct `download-source` or optional-source acquisition.
 - Generated spatial relationship outputs are JSON and GeoJSON under ignored project `intermediate/` directories.
@@ -104,6 +104,7 @@ Current CLI commands:
 - `review-assist resolve-source-gaps <project_dir>`
 - `review-assist download-source <project_dir> usfws_nwi_wetlands`
 - `review-assist download-source <project_dir> usgs_nhd_hydrography`
+- `review-assist download-source <project_dir> usfws_critical_habitat`
 - `review-assist download-source <project_dir> fema_nfhl_flood_hazard`
 - `review-assist prepare-sources <project_dir>`
 - `review-assist prepare-sources <project_dir> --include-optional-sources`
@@ -149,10 +150,10 @@ For `populate-for-review`, optional source acquisition is only valid when `--inc
 - Generated context, source status, source acquisition, source inventory, constraint results, draft findings, comparison tables, draft maps, draft report sections, review queue, and populate artifacts are ignored by Git.
 - The current implementation creates normalized project geometry artifacts that classify inputs as point/site, line/corridor, polygon/area, or mixed context.
 - The current implementation creates objective constraint results from registered local source layers, cropped to project analysis bounds and compared to normalized project features.
-- The current implementation can explicitly prepare sources by resolving catalog gaps, downloading NWI and USGS NHD hydrography when needed, optionally downloading FEMA NFHL flood hazard when requested, preserving acquisition provenance, and registering downloaded layers as normal project sources.
+- The current implementation can explicitly prepare sources by resolving catalog gaps, downloading NWI, USGS NHD hydrography, and USFWS Critical Habitat when needed, optionally downloading FEMA NFHL flood hazard when requested, preserving acquisition provenance, and registering downloaded layers as normal project sources.
 - Failed supported source downloads are nonfatal and now propagate as `failed` source status, uncertainty, finding, section, and review queue caveat context.
 - The current implementation creates deterministic draft findings from source status records, constraint results, spatial relationships, and no-mapped-relationship checks.
-- The current implementation creates descriptive comparison tables from source status, constraint result, grouped constraint, hydrography crossing, flood hazard, spatial relationship, and draft finding artifacts.
+- The current implementation creates descriptive comparison tables from source status, constraint result, grouped constraint, hydrography crossing, flood hazard, critical habitat, spatial relationship, and draft finding artifacts.
 - The current implementation creates vector-only draft map figures from normalized project geometry and analyzed local source clipped layers.
 - The current implementation creates deterministic draft report sections from project context, source status, source inventory, draft findings, comparison tables, map manifests, and validation issues.
 - The current implementation creates a lean review queue by default from deterministic draft findings, comparison tables, map figures, report sections, report-relevant missing-data placeholders, map/report/constraint warnings, and validation issues. Source inventory notes are optional.
@@ -161,7 +162,7 @@ For `populate-for-review`, optional source acquisition is only valid when `--inc
 
 Current audit status:
 
-- The codebase has passing tests for ingestion, source registry validation, local source registration, source acquisition with mocked NWI, USGS NHD, and FEMA NFHL responses, failed-download propagation, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts including grouped, hydrography crossing, and flood hazard summaries, vector-only map artifacts, draft report section artifacts, Markdown export compilation, render-error handling, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
+- The codebase has passing tests for ingestion, source registry validation, local source registration, source acquisition with mocked NWI, USGS NHD, USFWS Critical Habitat, and FEMA NFHL responses, failed-download propagation, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts including grouped, hydrography crossing, flood hazard, and critical habitat summaries, vector-only map artifacts, draft report section artifacts, Markdown export compilation, render-error handling, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
 - The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, optional source metadata, source inventory record counts, comparison table counts/statuses, and negative buffer values.
 - `scripts/verify.ps1` provides a repeatable local readiness check that creates the virtual environment when needed, installs development dependencies, runs pytest, and smoke-checks the current CLI workflows.
 - See `docs/CODE_AUDIT.md` for latest audit notes.

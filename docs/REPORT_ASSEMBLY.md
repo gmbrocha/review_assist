@@ -75,6 +75,8 @@ The generator creates no-blank-page section drafts from existing structured arti
 
 Current section drafts follow the example report structure more closely: front matter, executive summary, introduction/study area, methodology/data sources, mapping and analysis procedures, limitations/data gaps, environmental constraints inventory, resource sections, comparison/maps, conclusion/next steps, attachments, and reviewer follow-up. The active provider is deterministic only; the provider boundary is present so a future GenAI drafting provider can be added without replacing the constraint engine.
 
+Resource sections now cite related finding, table, and figure IDs where structured artifacts exist, including source-backed wetlands, hydrography, flood hazard, and USFWS critical habitat summaries. Missing or failed source categories still generate caveats rather than unsupported conclusions.
+
 These sections are not final exports. They become `report_section` review queue items and require human review before reviewed-content export.
 
 ## Current Markdown Export Baseline

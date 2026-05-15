@@ -38,6 +38,15 @@
       "evidence_class": "deterministic_spatial_check"
     },
     {
+      "finding_type": "protected_species_or_critical_habitat_context",
+      "resource_categories": ["species_habitat"],
+      "title": "Species or critical habitat context: {feature_label}",
+      "summary": "Desktop screening identified mapped species or critical habitat context from {source_name}.",
+      "details": "The relationship type is {spatial_relationship}. The mapped source feature is {source_feature_label}; the project feature is {project_feature_label}. Critical habitat GIS is screening context and should be reviewed with IPaC and agency consultation material where applicable.",
+      "implication": "Protected species and critical habitat context may require reviewer confirmation, IPaC documentation, agency coordination, or field verification. This item does not establish a final species effect determination.",
+      "evidence_class": "deterministic_spatial_check"
+    },
+    {
       "finding_type": "regulated_facility_context",
       "resource_categories": ["regulated_facilities"],
       "title": "Regulated facility context: {feature_label}",
