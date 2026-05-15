@@ -9,6 +9,7 @@ import pytest
 from shapely.geometry import Point, Polygon
 
 from review_assist.cli import main
+from review_assist.constraints import analyze_constraints
 from review_assist.populate_for_review import populate_for_review
 from review_assist.review_queue import ReviewQueueError, generate_review_queue, update_review_item
 from review_assist.source_catalog import SourceCatalogError, load_project_source_registry
@@ -225,6 +226,28 @@ def test_generate_comparison_tables_summarizes_spatial_relationships_and_finding
     assert spatial_table["rows"][0]["source_category"] == "wetlands_waterbodies"  # type: ignore[index]
     assert spatial_table["rows"][0]["measurements"]  # type: ignore[index]
     assert any(row["resource_category"] == "wetlands_waterbodies" for row in finding_table["rows"])  # type: ignore[index]
+
+
+def test_generate_comparison_tables_includes_soil_mapunit_summary(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "soils.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"MUSYM": "s3973", "MUKEY": "669769", "AREASYMBOL": "US", "SPATIALVER": 3}],
+    )
+    write_registry(project_dir, "usda_nrcs_ssurgo_soils", "soils.geojson")
+    analyze_constraints(project_dir)
+
+    result = generate_comparison_tables(project_dir)
+    soil_table = table_by_id(result, "soil-mapunit-summary")
+
+    assert soil_table["row_count"] == 1
+    row = soil_table["rows"][0]
+    assert row["source_category"] == "soils"
+    assert row["mapunit_symbol"] == "s3973"
+    assert row["mapunit_key"] == "669769"
+    assert row["area_symbol"] == "US"
+    assert "usda_nrcs_ssurgo_soils" in soil_table["source_refs"]
 
 
 def test_comparison_table_ids_are_deterministic(tmp_path: Path) -> None:

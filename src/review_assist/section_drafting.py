@@ -9,11 +9,41 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
-from .env_config import GptConfigurationError, openai_api_key_required, resolve_gpt_model
+from .env_config import GptConfigurationError, gpt_draft_max_payload_bytes, openai_api_key_required, resolve_gpt_model
 
 
 PROMPT_VERSION = "report-section-drafting-v1"
 OUTPUT_SCHEMA_VERSION = "report-section-draft-schema-v1"
+MAX_GPT_STRING_LENGTH = 2000
+MAX_GPT_LIST_ITEMS = 20
+COMPACT_FINDING_LIMIT = 4
+COMPACT_TABLE_ROW_LIMIT = 2
+COMPACT_FIGURE_LIMIT = 4
+DISALLOWED_PAYLOAD_KEYS = {
+    "geometry",
+    "coordinates",
+    "features",
+    "feature",
+    "featurecollection",
+    "geojson",
+    "raw_geojson",
+    "raw_features",
+    "__geo_interface__",
+}
+BULK_SOURCE_EXTENSIONS = (
+    ".shp",
+    ".shx",
+    ".dbf",
+    ".prj",
+    ".cpg",
+    ".qix",
+    ".sbn",
+    ".sbx",
+    ".gdb",
+    ".tif",
+    ".tiff",
+    ".zip",
+)
 PROHIBITED_PATTERNS = {
     "preferred alternative": r"\bpreferred alternative\b",
     "best alternative": r"\bbest (route|trail|alternative|option)\b",
@@ -176,7 +206,7 @@ def openai_section_draft_provider(*, model: str | None = None) -> SectionDraftPr
 
 
 def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
-    return {
+    payload = {
         "prompt_version": PROMPT_VERSION,
         "section": {
             "section_id": request.section_id,
@@ -214,6 +244,7 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
             "Preserve missing, gated, failed, and manual-source caveats.",
         ],
     }
+    return _bounded_payload(payload)
 
 
 def _system_prompt() -> str:
@@ -245,6 +276,122 @@ def _output_schema() -> dict[str, Any]:
             "caveats": {"type": "array", "items": {"type": "string"}},
         },
     }
+
+
+def _bounded_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    sanitized = _sanitize_for_gpt(payload)
+    if _payload_size(sanitized) <= gpt_draft_max_payload_bytes():
+        return sanitized
+    compact = _compact_payload(sanitized)
+    if _payload_size(compact) <= gpt_draft_max_payload_bytes():
+        return compact
+    raise SectionDraftingError(
+        "GPT section drafting payload exceeds GPT_DRAFT_MAX_PAYLOAD_BYTES after safe compaction."
+    )
+
+
+def _sanitize_for_gpt(value: Any) -> Any:
+    if isinstance(value, dict):
+        clean: dict[str, Any] = {}
+        for key, item in value.items():
+            key_text = str(key)
+            if key_text.strip().lower() in DISALLOWED_PAYLOAD_KEYS:
+                continue
+            clean[key_text] = _sanitize_for_gpt(item)
+        return clean
+    if isinstance(value, list):
+        return [_sanitize_for_gpt(item) for item in value[:MAX_GPT_LIST_ITEMS]]
+    if isinstance(value, str):
+        return _safe_string(value)
+    return value
+
+
+def _safe_string(value: str) -> str:
+    stripped = value.strip()
+    if _looks_like_local_source_path(stripped):
+        return "[local source path withheld]"
+    if len(stripped) > MAX_GPT_STRING_LENGTH:
+        return stripped[:MAX_GPT_STRING_LENGTH].rstrip() + "..."
+    return stripped
+
+
+def _looks_like_local_source_path(value: str) -> bool:
+    normalized = value.replace("\\", "/")
+    lowered = normalized.lower()
+    if "/sources/" in lowered or lowered.startswith("sources/"):
+        return True
+    if lowered.startswith(("http://", "https://")):
+        return False
+    path_like = ":/" in lowered or "/" in lowered or "\\" in value
+    return path_like and any(lowered.endswith(extension) for extension in BULK_SOURCE_EXTENSIONS)
+
+
+def _compact_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    compact = dict(payload)
+    evidence = compact.get("evidence")
+    if isinstance(evidence, dict):
+        compact["evidence"] = _compact_evidence(evidence)
+    return compact
+
+
+def _compact_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
+    compact = {
+        "section_id": evidence.get("section_id"),
+        "resource_category": evidence.get("resource_category"),
+        "evidence_classes": evidence.get("evidence_classes", []),
+        "source_refs": evidence.get("source_refs", []),
+        "sources": evidence.get("sources", []),
+        "validation_issues": evidence.get("validation_issues", [])[:10]
+        if isinstance(evidence.get("validation_issues"), list)
+        else [],
+    }
+    findings = evidence.get("findings", [])
+    if isinstance(findings, list):
+        compact["findings"] = [
+            {
+                "finding_id": finding.get("finding_id"),
+                "title": finding.get("title"),
+                "finding_type": finding.get("finding_type"),
+                "source_refs": finding.get("source_refs", []),
+                "content": _safe_string(str(finding.get("content", "")))[:600],
+            }
+            for finding in findings[:COMPACT_FINDING_LIMIT]
+            if isinstance(finding, dict)
+        ]
+    tables = evidence.get("tables", [])
+    if isinstance(tables, list):
+        compact["tables"] = [
+            {
+                "table_id": table.get("table_id"),
+                "title": table.get("title"),
+                "table_type": table.get("table_type"),
+                "row_count": table.get("row_count", 0),
+                "columns": table.get("columns", []),
+                "rows_preview": table.get("rows_preview", [])[:COMPACT_TABLE_ROW_LIMIT]
+                if isinstance(table.get("rows_preview"), list)
+                else [],
+            }
+            for table in tables
+            if isinstance(table, dict)
+        ]
+    figures = evidence.get("figures", [])
+    if isinstance(figures, list):
+        compact["figures"] = [
+            {
+                "figure_id": figure.get("figure_id"),
+                "title": figure.get("title"),
+                "figure_type": figure.get("figure_type"),
+                "source_refs": figure.get("source_refs", []),
+                "has_image": figure.get("has_image", False),
+            }
+            for figure in figures[:COMPACT_FIGURE_LIMIT]
+            if isinstance(figure, dict)
+        ]
+    return _sanitize_for_gpt(compact)
+
+
+def _payload_size(payload: dict[str, Any]) -> int:
+    return len(json.dumps(payload, sort_keys=True, default=str).encode("utf-8"))
 
 
 def _parse_response_payload(raw_output: Any) -> dict[str, Any]:

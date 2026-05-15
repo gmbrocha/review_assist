@@ -424,7 +424,23 @@ def _measure_intersection(intersection: BaseGeometry) -> dict[str, float]:
 
 
 def _feature_label(row: Any) -> str:
-    for column in ("candidate_label", "placemark_name", "name", "Name", "NAME", "label", "Label", "LABEL"):
+    for column in (
+        "candidate_label",
+        "placemark_name",
+        "review_assist_feature_label",
+        "MUSYM",
+        "musym",
+        "MUKEY",
+        "mukey",
+        "AREASYMBOL",
+        "areasymbol",
+        "name",
+        "Name",
+        "NAME",
+        "label",
+        "Label",
+        "LABEL",
+    ):
         if column in row.index:
             value = row[column]
             if value is not None and str(value).strip() and str(value).lower() != "nan":

@@ -12,6 +12,22 @@ Set-Location $RepoRoot
 $Python = Join-Path $RepoRoot ".venv\Scripts\python.exe"
 $ReviewAssist = Join-Path $RepoRoot ".venv\Scripts\review-assist.exe"
 
+Write-Host "Checking source-data guardrails..."
+$TrackedSources = & git ls-files sources
+if ($TrackedSources) {
+    throw "Root sources/ files are tracked by Git. Move them out of the index before verification."
+}
+$StagedFiles = & git diff --cached --name-only
+$BlockedStagedFiles = @(
+    $StagedFiles | Where-Object {
+        $_ -match '^(sources/|projects/[^/]+/layers/)' -or
+        $_ -match '\.(shp|shx|dbf|prj|cpg|qix|sbn|sbx|gdb|tif|tiff|zip)$'
+    }
+)
+if ($BlockedStagedFiles.Count -gt 0) {
+    throw "Bulk source files are staged and must not be committed: $($BlockedStagedFiles -join ', ')"
+}
+
 if (-not (Test-Path $Python)) {
     Write-Host "Creating local virtual environment..."
     python -m venv .venv

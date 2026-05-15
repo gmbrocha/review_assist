@@ -11,6 +11,7 @@ from shapely.geometry import LineString, Point, Polygon
 from review_assist.cli import main
 from review_assist.source_catalog import (
     SourceCatalogError,
+    copy_and_register_local_source,
     load_project_source_registry,
     load_source_catalog,
     register_local_source,
@@ -107,6 +108,13 @@ def write_registry(project_dir: Path, source_id: str, source_path: str | None, *
 def write_layer(path: Path, geometries: list[object], rows: list[dict[str, object]]) -> Path:
     gdf = gpd.GeoDataFrame(rows, geometry=geometries, crs="EPSG:4326")
     path.write_text(gdf.to_json(drop_id=True), encoding="utf-8")
+    return path
+
+
+def write_shapefile(path: Path, geometries: list[object], rows: list[dict[str, object]]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    gdf = gpd.GeoDataFrame(rows, geometry=geometries, crs="EPSG:4326")
+    gdf.to_file(path)
     return path
 
 
@@ -214,6 +222,48 @@ def test_register_local_source_updates_project_registry(tmp_path: Path) -> None:
     source = registry.by_source_id()["usfws_nwi_wetlands"]
     assert source.enabled is True
     assert source.path == "wetlands.geojson"
+
+
+def test_copy_and_register_local_source_copies_shapefile_sidecars_without_mutating_source(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    warehouse_path = write_shapefile(
+        tmp_path / "warehouse" / "gsmsoilmu_a_ms.shp",
+        [Polygon([(-90.001, 31.999), (-89.999, 31.999), (-89.999, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"MUSYM": "s3973", "MUKEY": "669769", "AREASYMBOL": "US", "SPATIALVER": 3}],
+    )
+    original_dbf_bytes = warehouse_path.with_suffix(".dbf").read_bytes()
+
+    registry = copy_and_register_local_source(project_dir, "usda_nrcs_ssurgo_soils", warehouse_path)
+    source = registry.by_source_id()["usda_nrcs_ssurgo_soils"]
+    copied_path = project_dir / source.path
+
+    assert source.enabled is True
+    assert source.path == "layers/usda_nrcs_ssurgo_soils/gsmsoilmu_a_ms.shp"
+    assert copied_path.exists()
+    for extension in (".shp", ".shx", ".dbf", ".prj"):
+        assert copied_path.with_suffix(extension).exists()
+        assert warehouse_path.with_suffix(extension).exists()
+    assert warehouse_path.with_suffix(".dbf").read_bytes() == original_dbf_bytes
+
+    with pytest.raises(SourceCatalogError, match="already exists"):
+        copy_and_register_local_source(project_dir, "usda_nrcs_ssurgo_soils", warehouse_path)
+
+
+def test_cli_import_source_copy_registers_project_local_layer(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project_dir = write_project(tmp_path)
+    warehouse_path = write_shapefile(
+        tmp_path / "warehouse" / "wetlands.shp",
+        [Polygon([(-90.001, 31.999), (-89.999, 31.999), (-89.999, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"name": "Wetland A"}],
+    )
+
+    assert main(["import-source", str(project_dir), "usfws_nwi_wetlands", str(warehouse_path), "--copy"]) == 0
+    captured = capsys.readouterr()
+    registry = load_project_source_registry(project_dir)
+
+    assert "Copied and registered source" in captured.out
+    assert registry.by_source_id()["usfws_nwi_wetlands"].path == "layers/usfws_nwi_wetlands/wetlands.shp"
+    assert (project_dir / "layers" / "usfws_nwi_wetlands" / "wetlands.dbf").exists()
 
 
 def test_analyze_project_reports_wetland_intersection(tmp_path: Path) -> None:

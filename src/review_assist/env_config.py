@@ -11,6 +11,8 @@ from .source_catalog import repo_root
 TRUE_VALUES = {"1", "true", "yes", "on"}
 FALSE_VALUES = {"", "0", "false", "no", "off"}
 DEFAULT_GPT_MODEL = "gpt-5.5"
+DEFAULT_GPT_DRAFTING_WORKERS = 2
+DEFAULT_GPT_DRAFT_MAX_PAYLOAD_BYTES = 60000
 
 
 class GptConfigurationError(RuntimeError):
@@ -52,6 +54,26 @@ def openai_api_key_required() -> str:
     return value
 
 
+def gpt_drafting_workers() -> int:
+    load_project_env()
+    return _bounded_int(
+        os.environ.get("GPT_DRAFTING_WORKERS"),
+        default=DEFAULT_GPT_DRAFTING_WORKERS,
+        minimum=1,
+        maximum=8,
+    )
+
+
+def gpt_draft_max_payload_bytes() -> int:
+    load_project_env()
+    return _bounded_int(
+        os.environ.get("GPT_DRAFT_MAX_PAYLOAD_BYTES"),
+        default=DEFAULT_GPT_DRAFT_MAX_PAYLOAD_BYTES,
+        minimum=10000,
+        maximum=500000,
+    )
+
+
 def _truthy(value: str | None) -> bool:
     if value is None:
         return False
@@ -79,3 +101,13 @@ def _unquote(value: str) -> str:
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
         return value[1:-1]
     return value
+
+
+def _bounded_int(value: str | None, *, default: int, minimum: int, maximum: int) -> int:
+    if value is None or not value.strip():
+        return default
+    try:
+        parsed = int(value.strip())
+    except ValueError:
+        return default
+    return max(minimum, min(maximum, parsed))

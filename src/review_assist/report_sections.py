@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -12,7 +13,7 @@ from typing import Any
 from .findings import FINDINGS_PATH, FindingGenerationError, generate_draft_findings, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
-from .env_config import GptConfigurationError, gpt_drafting_enabled, resolve_gpt_model
+from .env_config import GptConfigurationError, gpt_drafting_enabled, gpt_drafting_workers, resolve_gpt_model
 from .evidence_package import EvidencePackageError, build_evidence_package, section_evidence_for
 from .source_catalog import repo_root
 from .source_inventory import SOURCE_INVENTORY_PATH, SourceInventoryError, generate_source_inventory, load_source_inventory
@@ -175,20 +176,20 @@ def generate_report_sections(
 
     now = _utc_now()
     draft_provider = openai_section_draft_provider(model=model) if use_gpt_drafting else default_section_draft_provider()
-    sections = [
-        _section_record(
-            template=template,
-            context=context,
-            source_status=source_status,
-            source_inventory=source_inventory,
-            draft_findings=draft_findings,
-            comparison_tables=comparison_tables,
-            map_manifest=map_manifest,
-            evidence_package=evidence_package,
-            draft_provider=draft_provider,
-        )
-        for template in templates.sections
-    ]
+    workers = gpt_drafting_workers() if use_gpt_drafting else 1
+    sections = _section_records(
+        templates.sections,
+        context=context,
+        source_status=source_status,
+        source_inventory=source_inventory,
+        draft_findings=draft_findings,
+        comparison_tables=comparison_tables,
+        map_manifest=map_manifest,
+        evidence_package=evidence_package,
+        draft_provider=draft_provider,
+        workers=workers,
+        parallel=use_gpt_drafting,
+    )
     validation_issues = _artifact_validation_issues(sections)
 
     output_path = project_dir / REPORT_SECTIONS_PATH
@@ -208,7 +209,7 @@ def generate_report_sections(
             "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
             "evidence_package_path": evidence_package.get("output_path"),
         },
-        "gpt_drafting": _gpt_drafting_summary(sections, enabled=use_gpt_drafting, model=model),
+        "gpt_drafting": _gpt_drafting_summary(sections, enabled=use_gpt_drafting, model=model, workers=workers),
         "section_count": len(sections),
         "sections": sections,
         "validation_issues": validation_issues,
@@ -279,6 +280,50 @@ def _load_optional_map_manifest(project_dir: Path) -> dict[str, Any] | None:
     if not map_path.exists():
         return None
     return load_map_manifest(project_dir)
+
+
+def _section_records(
+    templates: list[ReportSectionTemplate],
+    *,
+    context: dict[str, Any],
+    source_status: dict[str, Any],
+    source_inventory: dict[str, Any],
+    draft_findings: dict[str, Any],
+    comparison_tables: dict[str, Any],
+    map_manifest: dict[str, Any] | None,
+    evidence_package: dict[str, Any],
+    draft_provider: Any,
+    workers: int,
+    parallel: bool,
+) -> list[dict[str, Any]]:
+    kwargs = {
+        "context": context,
+        "source_status": source_status,
+        "source_inventory": source_inventory,
+        "draft_findings": draft_findings,
+        "comparison_tables": comparison_tables,
+        "map_manifest": map_manifest,
+        "evidence_package": evidence_package,
+        "draft_provider": draft_provider,
+    }
+    if not parallel or workers <= 1:
+        return [_section_record(template=template, **kwargs) for template in templates]
+
+    ordered: list[dict[str, Any] | None] = [None] * len(templates)
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(_section_record, template=template, **kwargs): (index, template.section_id)
+            for index, template in enumerate(templates)
+        }
+        for future in as_completed(futures):
+            index, section_id = futures[future]
+            try:
+                ordered[index] = future.result()
+            except ReportSectionGenerationError as exc:
+                raise ReportSectionGenerationError(f"Report section '{section_id}' failed: {exc}") from exc
+            except Exception as exc:
+                raise ReportSectionGenerationError(f"Report section '{section_id}' failed: {exc}") from exc
+    return [section for section in ordered if section is not None]
 
 
 def _section_record(
@@ -498,7 +543,7 @@ def _artifact_validation_issues(sections: list[dict[str, Any]]) -> list[dict[str
     return issues
 
 
-def _gpt_drafting_summary(sections: list[dict[str, Any]], *, enabled: bool, model: str) -> dict[str, Any]:
+def _gpt_drafting_summary(sections: list[dict[str, Any]], *, enabled: bool, model: str, workers: int) -> dict[str, Any]:
     provider_counts = Counter(
         str(section.get("provenance", {}).get("draft_provider", "unknown"))
         for section in sections
@@ -517,6 +562,7 @@ def _gpt_drafting_summary(sections: list[dict[str, Any]], *, enabled: bool, mode
     return {
         "enabled": enabled,
         "model": model,
+        "workers": workers if enabled else 0,
         "provider_counts": dict(provider_counts),
         "gpt_section_count": int(provider_counts.get("openai_responses", 0)),
         "accepted_gpt_section_count": accepted_count,
@@ -967,6 +1013,7 @@ def _tables_for_category(comparison_tables: dict[str, Any], category: str, secti
             "flood-hazard-summary",
             "critical-habitat-summary",
             "regulated-facility-summary",
+            "soil-mapunit-summary",
             "spatial-relationship-summary",
             "draft-finding-summary",
         }

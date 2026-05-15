@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ from .projects import ProjectManifestError, load_project_manifest
 
 CATALOG_PATH = Path("config/source_catalog.json")
 PROJECT_SOURCES_PATH = Path("config/sources.json")
+SHAPEFILE_REQUIRED_EXTENSIONS = (".shp", ".shx", ".dbf", ".prj")
+SHAPEFILE_OPTIONAL_EXTENSIONS = (".cpg", ".qix", ".sbn", ".sbx", ".xml")
 ALLOWED_SOURCE_METADATA_KEYS = {
     "citation",
     "license_or_terms",
@@ -327,6 +330,40 @@ def register_local_source(project_dir: Path, source_id: str, source_path: Path, 
     return saved
 
 
+def copy_and_register_local_source(
+    project_dir: Path,
+    source_id: str,
+    source_path: Path,
+    *,
+    replace: bool = False,
+    catalog: SourceCatalog | None = None,
+) -> ProjectSourceRegistry:
+    """Copy a file-based local source layer into the project workspace and register it."""
+
+    project_dir = project_dir.resolve()
+    source_path = source_path.resolve()
+    catalog = catalog or load_source_catalog()
+    if source_id not in catalog.sources:
+        raise SourceCatalogError(f"Unknown source_id '{source_id}'.")
+    if not source_path.exists():
+        raise SourceCatalogError(f"Missing source file: {source_path}")
+    if source_path.is_dir():
+        raise SourceCatalogError("--copy currently supports file-based source layers. Register directory sources without --copy.")
+
+    target_dir = (project_dir / "layers" / source_id).resolve()
+    _ensure_project_layer_target(project_dir, target_dir)
+    if _path_contains(source_path, target_dir):
+        raise SourceCatalogError("Source path is already inside the target project layer directory.")
+    if target_dir.exists():
+        if not replace:
+            raise SourceCatalogError(f"Project layer copy already exists: {target_dir}. Use --replace to overwrite it.")
+        _remove_project_layer_copy(project_dir, target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    copied_path = _copy_source_file(source_path, target_dir)
+    return register_local_source(project_dir, source_id, copied_path, catalog)
+
+
 def resolve_project_source_path(project_dir: Path, source: ProjectSource) -> Path | None:
     if not source.path:
         return None
@@ -355,3 +392,56 @@ def _display_path(path: Path, project_dir: Path) -> str:
         return path.relative_to(project_dir).as_posix()
     except ValueError:
         return str(path)
+
+
+def _copy_source_file(source_path: Path, target_dir: Path) -> Path:
+    if source_path.suffix.lower() == ".shp":
+        required = [source_path.with_suffix(extension) for extension in SHAPEFILE_REQUIRED_EXTENSIONS]
+        missing = [path.name for path in required if not path.exists()]
+        if missing:
+            raise SourceCatalogError(f"Shapefile source is missing required sidecars: {', '.join(missing)}.")
+        copied_main = target_dir / source_path.name
+        for sidecar in _shapefile_sidecars(source_path):
+            shutil.copy2(sidecar, target_dir / sidecar.name)
+        return copied_main
+
+    copied_path = target_dir / source_path.name
+    shutil.copy2(source_path, copied_path)
+    return copied_path
+
+
+def _shapefile_sidecars(source_path: Path) -> list[Path]:
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for extension in (*SHAPEFILE_REQUIRED_EXTENSIONS, *SHAPEFILE_OPTIONAL_EXTENSIONS):
+        candidate = source_path.with_suffix(extension)
+        if candidate.exists() and candidate not in seen:
+            paths.append(candidate)
+            seen.add(candidate)
+    shp_xml = Path(str(source_path) + ".xml")
+    if shp_xml.exists() and shp_xml not in seen:
+        paths.append(shp_xml)
+    return paths
+
+
+def _ensure_project_layer_target(project_dir: Path, target_dir: Path) -> None:
+    layers_dir = (project_dir / "layers").resolve()
+    if not _path_contains(target_dir, layers_dir):
+        raise SourceCatalogError(f"Refusing to copy source outside project layers directory: {target_dir}")
+
+
+def _remove_project_layer_copy(project_dir: Path, target_dir: Path) -> None:
+    _ensure_project_layer_target(project_dir, target_dir)
+    if not target_dir.exists():
+        return
+    if not target_dir.is_dir():
+        raise SourceCatalogError(f"Refusing to replace non-directory project layer path: {target_dir}")
+    shutil.rmtree(target_dir)
+
+
+def _path_contains(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False

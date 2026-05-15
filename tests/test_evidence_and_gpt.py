@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +11,14 @@ import pytest
 from review_assist import section_drafting
 from review_assist.cli import main
 from review_assist.deliverable import build_mvp_deliverable
-from review_assist.env_config import GptConfigurationError, gpt_drafting_enabled, openai_api_key_required, resolve_gpt_model
+from review_assist.env_config import (
+    GptConfigurationError,
+    gpt_draft_max_payload_bytes,
+    gpt_drafting_enabled,
+    gpt_drafting_workers,
+    openai_api_key_required,
+    resolve_gpt_model,
+)
 from review_assist.evidence_package import build_evidence_package
 from review_assist.populate_for_review import populate_for_review
 from review_assist.report_sections import ReportSectionGenerationError, generate_report_sections
@@ -52,6 +61,10 @@ def test_gpt_env_parsing_and_missing_key(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setenv("OPENAI_INTERPRETER_MODEL", "gpt-test-model")
     assert resolve_gpt_model() == "gpt-test-model"
     assert resolve_gpt_model("cli-model") == "cli-model"
+    monkeypatch.setenv("GPT_DRAFTING_WORKERS", "2")
+    monkeypatch.setenv("GPT_DRAFT_MAX_PAYLOAD_BYTES", "60000")
+    assert gpt_drafting_workers() == 2
+    assert gpt_draft_max_payload_bytes() == 60000
 
     monkeypatch.setenv("OPENAI_API_KEY", "")
     with pytest.raises(GptConfigurationError, match="OPENAI_API_KEY"):
@@ -109,6 +122,95 @@ def test_report_sections_use_mocked_gpt_provider_and_record_provenance(
     assert front_matter["provenance"]["gpt_model"] == "gpt-test"
     assert front_matter["provenance"]["input_digest"]
     assert "gpt_drafted_pre_review" in front_matter["uncertainty_flags"]
+
+
+def test_gpt_payload_sanitizes_raw_geometries_and_source_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def response_create(*, model: str, payload: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+        captured["payload"] = payload
+        return {
+            "draft_content": "GPT draft using bounded evidence only.",
+            "cited_finding_ids": [],
+            "cited_table_ids": [],
+            "cited_figure_ids": [],
+            "cited_source_refs": [],
+            "caveats": [],
+        }
+
+    monkeypatch.setenv("GPT_DRAFT_MAX_PAYLOAD_BYTES", "60000")
+    provider = section_drafting.OpenAISectionDraftProvider(
+        model="gpt-test",
+        api_key="test-key",
+        response_create=response_create,
+    )
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="soils",
+            section_type="resource_section",
+            title="Soils",
+            purpose="Summarize soils context.",
+            resource_category="soils",
+            deterministic_content="Deterministic soils summary.",
+            evidence_bundle={
+                "section_id": "soils",
+                "features": [{"type": "Feature", "geometry": {"coordinates": [[-90.0, 32.0]]}}],
+                "sources": [
+                    {
+                        "source_id": "usda_nrcs_ssurgo_soils",
+                        "path": r"F:\Desktop\review_assist\sources\wss_gsmsoil_MS_10_13_2016\spatial\gsmsoilmu_a_ms.shp",
+                    }
+                ],
+                "tables": [
+                    {
+                        "table_id": "soil-mapunit-summary",
+                        "rows_preview": [{"geometry": "raw", "coordinates": [1, 2], "mapunit_symbol": "s3973"}],
+                    }
+                ],
+            },
+        )
+    )
+    serialized = json.dumps(captured["payload"])
+
+    assert result.provenance["gpt_output_accepted"] is True
+    assert "coordinates" not in serialized
+    assert "geometry" not in serialized
+    assert "Feature" not in serialized
+    assert "gsmsoilmu_a_ms.shp" not in serialized
+    assert r"F:\Desktop\review_assist\sources" not in serialized
+
+
+def test_report_sections_gpt_drafting_uses_two_workers_and_preserves_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    lock = threading.Lock()
+    active = 0
+    max_active = 0
+
+    def slow_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+        nonlocal active, max_active
+        with lock:
+            active += 1
+            max_active = max(max_active, active)
+        time.sleep(0.03)
+        with lock:
+            active -= 1
+        return fake_gpt_response(self, payload)
+
+    monkeypatch.setenv("GPT_DRAFTING", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("GPT_DRAFTING_WORKERS", "2")
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", slow_gpt_response)
+
+    result = generate_report_sections(project_dir, gpt_model="gpt-test")
+
+    assert result["gpt_drafting"]["workers"] == 2
+    assert max_active == 2
+    assert [section["section_order"] for section in result["sections"]] == sorted(
+        section["section_order"] for section in result["sections"]
+    )
 
 
 def test_report_sections_reject_invalid_gpt_citations_and_language(

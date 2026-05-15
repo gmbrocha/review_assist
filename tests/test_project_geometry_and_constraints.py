@@ -213,6 +213,33 @@ def test_constraint_analysis_reports_line_line_stream_crossing(tmp_path: Path) -
     assert result["constraints"][0]["source_feature_type"] == "460"
 
 
+def test_constraint_analysis_reports_ssurgo_soil_mapunit_values(tmp_path: Path) -> None:
+    project_dir = write_project(
+        tmp_path,
+        """
+        <Placemark><name>Route A</name><LineString><coordinates>-90.0000,32.0000,0 -89.9900,32.0000,0</coordinates></LineString></Placemark>
+        """,
+    )
+    write_layer(
+        project_dir / "soils.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"MUSYM": "s3973", "MUKEY": "669769", "AREASYMBOL": "US", "SPATIALVER": 3}],
+    )
+    write_registry(project_dir, "usda_nrcs_ssurgo_soils", "soils.geojson")
+
+    result = analyze_constraints(project_dir)
+    constraint = result["constraints"][0]
+
+    assert constraint["source_category"] == "soils"
+    assert constraint["source_feature_label"] == "s3973"
+    assert constraint["source_feature_type"] == "s3973"
+    assert constraint["source_feature_original_id"] == "669769"
+    assert constraint["source_feature_values"]["soil_mapunit_symbol"] == "s3973"
+    assert constraint["source_feature_values"]["soil_mapunit_key"] == "669769"
+    assert constraint["source_feature_values"]["soil_area_symbol"] == "US"
+    assert constraint["source_feature_values"]["soil_spatial_version"] == "3"
+
+
 def test_constraint_analysis_reports_point_polygon_and_nearby_line_constraints(tmp_path: Path) -> None:
     project_dir = write_project(
         tmp_path,

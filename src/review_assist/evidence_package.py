@@ -340,7 +340,7 @@ def _sources_for_category(
                 "source_id": source_id,
                 "source_name": inventory_lookup.get(source_id, {}).get("name") or inventory_lookup.get(source_id, {}).get("source_name"),
                 "status": inventory_lookup.get(source_id, {}).get("status"),
-                "path": inventory_lookup.get(source_id, {}).get("path"),
+                "has_local_path": bool(inventory_lookup.get(source_id, {}).get("path")),
                 "source_url": inventory_lookup.get(source_id, {}).get("source_url"),
                 "access_date": inventory_lookup.get(source_id, {}).get("access_date"),
             }
@@ -366,7 +366,7 @@ def _figures_for_refs(map_manifest: dict[str, Any] | None, source_refs: list[str
                     "figure_id": figure.get("figure_id"),
                     "title": figure.get("title"),
                     "figure_type": figure.get("figure_type"),
-                    "image_path": figure.get("image_path"),
+                    "has_image": bool(figure.get("image_path")),
                     "source_refs": _string_list(figure.get("source_refs", [])),
                 }
             )

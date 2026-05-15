@@ -77,9 +77,9 @@ The generator creates no-blank-page section drafts from existing structured arti
 
 Current section drafts follow the example report structure more closely: front matter, executive summary, introduction/study area, methodology/data sources, mapping and analysis procedures, limitations/data gaps, environmental constraints inventory, resource sections, comparison/maps, conclusion/next steps, attachments, and reviewer follow-up.
 
-The active provider is deterministic unless root `.env` enables GPT with `GPT_DRAFTING=1`. When enabled, the OpenAI provider uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`, sends only structured evidence and deterministic baseline copy, and stores provider/model/prompt/schema/input digest/output digest provenance. GPT output remains a `report_section` review queue item and is never auto-accepted.
+The active provider is deterministic unless root `.env` enables GPT with `GPT_DRAFTING=1`. When enabled, the OpenAI provider uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`, sends only structured evidence and deterministic baseline copy, and stores provider/model/prompt/schema/input digest/output digest provenance. GPT calls default to two parallel section-drafting workers through `GPT_DRAFTING_WORKERS=2`. Raw source files, geometries, GeoJSON feature dumps, shapefile paths, and root `sources/` paths are withheld from GPT payloads. GPT output remains a `report_section` review queue item and is never auto-accepted.
 
-Resource sections now cite related finding, table, and figure IDs where structured artifacts exist, including source-backed wetlands, hydrography, flood hazard, USFWS critical habitat, and EPA/ECHO regulated facility summaries. Missing or failed source categories still generate caveats rather than unsupported conclusions.
+Resource sections now cite related finding, table, and figure IDs where structured artifacts exist, including source-backed wetlands, hydrography, soils/SSURGO map units, flood hazard, USFWS critical habitat, and EPA/ECHO regulated facility summaries. Missing or failed source categories still generate caveats rather than unsupported conclusions.
 
 GPT guardrails reject or flag unknown cited finding/table/figure/source IDs and prohibited recommendation/ranking/scoring/selection/rejection/final-determination/jurisdictional/field-verification language. If GPT is enabled but the API key is missing, the command fails clearly instead of silently pretending GPT ran. If GPT is disabled or `--no-gpt-drafting` is supplied, deterministic sections remain the active path.
 
@@ -100,7 +100,7 @@ The evidence package includes data lineage, source acquisition provenance, sourc
 - `failed_or_missing`
 - `test_fixture_blocked`
 
-The evidence package is the bridge between hard GIS/source artifacts and narrative drafting. GPT should read this structured package rather than raw source files or unbounded prose.
+The evidence package is the bridge between hard GIS/source artifacts and narrative drafting. GPT should read this structured package rather than raw source files, root `sources/` paths, raw geometries, or unbounded prose.
 
 ## Current Export Baseline
 

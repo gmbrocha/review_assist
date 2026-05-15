@@ -33,6 +33,7 @@ from .source_acquisition import (
 )
 from .source_catalog import (
     SourceCatalogError,
+    copy_and_register_local_source,
     load_project_source_registry,
     load_source_catalog,
     register_local_source,
@@ -58,6 +59,16 @@ def build_parser() -> argparse.ArgumentParser:
     import_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     import_parser.add_argument("source_id", help="Source id from the global source catalog.")
     import_parser.add_argument("path", type=Path, help="Local path to a geospatial source layer.")
+    import_parser.add_argument(
+        "--copy",
+        action="store_true",
+        help="Copy a file-based source layer into projects/<id>/layers/<source_id>/ before registering it.",
+    )
+    import_parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="With --copy, replace an existing copied project layer for this source id.",
+    )
 
     analyze_parser = subparsers.add_parser("analyze-project", help="Run local source-layer spatial checks for a project.")
     analyze_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -307,14 +318,18 @@ def list_sources_command(project_dir: Path | None, print_json: bool) -> int:
     return 0
 
 
-def import_source_command(project_dir: Path, source_id: str, source_path: Path) -> int:
+def import_source_command(project_dir: Path, source_id: str, source_path: Path, copy_source: bool = False, replace: bool = False) -> int:
     try:
-        registry = register_local_source(project_dir, source_id, source_path)
+        if copy_source:
+            registry = copy_and_register_local_source(project_dir, source_id, source_path, replace=replace)
+        else:
+            registry = register_local_source(project_dir, source_id, source_path)
     except SourceCatalogError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     registered = registry.by_source_id()[source_id]
-    print(f"Registered source '{source_id}' for project '{registry.project_id}': {registered.path}")
+    action = "Copied and registered" if copy_source else "Registered"
+    print(f"{action} source '{source_id}' for project '{registry.project_id}': {registered.path}")
     return 0
 
 
@@ -792,7 +807,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "list-sources":
         return list_sources_command(args.project_dir, args.json)
     if args.command == "import-source":
-        return import_source_command(args.project_dir, args.source_id, args.path)
+        if args.replace and not args.copy:
+            parser.error("--replace requires --copy for import-source.")
+        return import_source_command(args.project_dir, args.source_id, args.path, args.copy, args.replace)
     if args.command == "analyze-project":
         return analyze_project_command(args.project_dir, args.json)
     if args.command == "build-project-geometry":

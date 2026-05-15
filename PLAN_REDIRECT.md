@@ -328,6 +328,8 @@ The app should generate these where source data is available and create reviewab
 - [x] Source catalog exists at `config/source_catalog.json`.
 - [x] Project source registries exist at `projects/<id>/config/sources.json`.
 - [x] Local source registration exists through `review-assist import-source`.
+- [x] Local file-based source layers can be copied into ignored project `layers/<source_id>/` folders during import with `review-assist import-source --copy`.
+- [x] The root `sources/` bulk data warehouse is ignored by Git and treated as local-only source storage.
 - [x] Legacy raw spatial analysis exists through `review-assist analyze-project`.
 - [x] Project context generation exists through `review-assist generate-context`.
 - [x] Source status resolution exists through `review-assist resolve-sources`.
@@ -414,6 +416,7 @@ The app should generate these where source data is available and create reviewab
 - [x] Critical Habitat constraints now feed protected species/critical habitat findings, a critical habitat summary table, source-context maps, report sections, and review queue items.
 - [x] EPA/ECHO regulated facility constraints now feed contamination-risk findings, a regulated facility summary table, source-context maps, report sections, and review queue items.
 - [x] FEMA flood hazard constraints now feed flood hazard findings, a flood hazard summary table, source-context maps, report sections, and review queue items when FEMA is downloaded.
+- [x] Registered SSURGO soils constraints now preserve `MUSYM`, `MUKEY`, `AREASYMBOL`, and `SPATIALVER` values and feed a soil map unit summary table.
 - [x] Grouped constraint summaries by project feature and source category now exist for report-ready inventory references.
 - [x] `review-assist prepare-sources <project_dir>` exists.
 - [x] `populate-for-review --prepare-sources` can resolve gaps and run supported source downloads before constraint analysis.
@@ -438,6 +441,8 @@ The app should generate these where source data is available and create reviewab
 - [x] Evidence packages are written to `projects/<id>/evidence/evidence_package.json`.
 - [x] Evidence packages classify section evidence as `source_backed`, `source_available_no_overlap`, `stub_or_manual`, `failed_or_missing`, or `test_fixture_blocked`.
 - [x] GPT section drafting receives only structured evidence bundles, deterministic baseline copy, related IDs, source refs, validation issues, section purpose, and project context.
+- [x] GPT section drafting withholds raw source files, raw geometry/coordinates/features, shapefile paths, and root `sources/` paths from API payloads.
+- [x] GPT section drafting can run report sections through two parallel workers while preserving report section order.
 - [x] GPT section drafting stores provider/model/prompt/schema/timestamp/input digest/output digest provenance.
 - [x] GPT guardrails reject or flag unknown cited finding/table/figure/source IDs.
 - [x] GPT guardrails reject or flag recommendation, ranking, scoring, selection, rejection, final-determination, jurisdictional-certainty, or field-verification language.

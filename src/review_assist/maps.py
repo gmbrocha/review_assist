@@ -53,6 +53,7 @@ SOURCE_CATEGORY_COLORS = {
     "flood_hazard": "#9B51E0",
     "species_habitat": "#6BAA32",
     "regulated_facilities": "#EB5757",
+    "soils": "#8E7A3A",
     "community_socioeconomic": "#F2994A",
     "transportation_utilities": "#7A6FF0",
 }

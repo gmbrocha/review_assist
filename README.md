@@ -41,6 +41,7 @@ Key planning documents live at the repo root and under `docs/`:
 - `archive/`: general project archive for retained but inactive files.
 - `docs/archive/`: archive for superseded or historical documentation.
 - `outputs/`: generated outputs; ignored except for `.gitkeep`.
+- `sources/`: local bulk data warehouse for Mississippi-wide source downloads such as SSURGO, NLCD, MARIS, or agency exports; ignored by Git and never sent directly to GPT.
 
 ## Local Setup
 
@@ -62,8 +63,11 @@ List the source catalog, register a local source layer, and run local spatial ch
 ```powershell
 .\.venv\Scripts\review-assist.exe list-sources projects/trails
 .\.venv\Scripts\review-assist.exe import-source projects/trails usfws_nwi_wetlands C:\path\to\nwi_export.geojson
+.\.venv\Scripts\review-assist.exe import-source projects/trails usda_nrcs_ssurgo_soils .\sources\wss_gsmsoil_MS_10_13_2016\spatial\gsmsoilmu_a_ms.shp --copy
 .\.venv\Scripts\review-assist.exe analyze-project projects/trails
 ```
+
+Use `--copy` for file-based local source layers that should be copied into the ignored project workspace under `projects/<id>/layers/<source_id>/` before registration. For shapefiles, the CLI copies required sidecars such as `.shp`, `.shx`, `.dbf`, and `.prj`; the original source package under `sources/` is not mutated. Use `--replace` with `--copy` only when intentionally refreshing an existing project-local copy.
 
 Build normalized project geometry and run the current constraint engine:
 
@@ -109,9 +113,11 @@ Optional GPT report-section drafting is controlled by root `.env` values. Copy `
 OPENAI_API_KEY=
 OPENAI_INTERPRETER_MODEL=gpt-5.5
 GPT_DRAFTING=0
+GPT_DRAFTING_WORKERS=2
+GPT_DRAFT_MAX_PAYLOAD_BYTES=60000
 ```
 
-`GPT_DRAFTING=1`, `true`, `yes`, or `on` enables GPT drafting. `0`, `false`, `no`, `off`, empty, or missing disables it. When enabled, report-section generation uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`; if the key is missing the command fails clearly. Use `--no-gpt-drafting` to force deterministic sections for a run:
+`GPT_DRAFTING=1`, `true`, `yes`, or `on` enables GPT drafting. `0`, `false`, `no`, `off`, empty, or missing disables it. When enabled, report-section generation uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`; if the key is missing the command fails clearly. GPT section calls default to two workers through `GPT_DRAFTING_WORKERS=2`. GPT receives bounded evidence summaries only; raw source files, geometries, GeoJSON feature dumps, shapefile paths, and root `sources/` paths are withheld. Use `--no-gpt-drafting` to force deterministic sections for a run:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe generate-report-sections projects/trails --no-gpt-drafting
@@ -159,7 +165,7 @@ Run the current orchestration behind the future desktop `Populate for Review` ac
 
 For `populate-for-review`, `--include-optional-sources` is valid only with `--prepare-sources`; optional source acquisition must be explicit.
 
-The CLI writes `geometry_summary.json`, normalized input GeoJSON files, `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under each project's `intermediate/` directory. Constraint artifacts are written under `constraints`, including `constraint_results.json` and clipped source GeoJSON files. Source acquisition manifests and downloads are written under `source_acquisition` when source gap resolution/downloads run. Evidence packages are written under `evidence`. Markdown/DOCX exports, export manifests, demo/MVP deliverable manifests, and `data_lineage` summaries are written under `exports`. Workflow artifacts are written under project `context`, `source_status`, `source_inventory`, `findings`, `tables`, `maps`, `drafts`, `review_queue`, and `populate_for_review` directories. Project intermediate outputs, source acquisition artifacts/downloads, evidence packages, constraint artifacts, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, exports, and local project layers are generated/project-specific artifacts and are ignored by Git.
+The CLI writes `geometry_summary.json`, normalized input GeoJSON files, `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under each project's `intermediate/` directory. Constraint artifacts are written under `constraints`, including `constraint_results.json` and clipped source GeoJSON files. Source acquisition manifests and downloads are written under `source_acquisition` when source gap resolution/downloads run. Locally copied source layers are written under `layers`. Evidence packages are written under `evidence`. Markdown/DOCX exports, export manifests, demo/MVP deliverable manifests, and `data_lineage` summaries are written under `exports`. Workflow artifacts are written under project `context`, `source_status`, `source_inventory`, `findings`, `tables`, `maps`, `drafts`, `review_queue`, and `populate_for_review` directories. Project intermediate outputs, source acquisition artifacts/downloads, evidence packages, constraint artifacts, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, exports, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Testing
 

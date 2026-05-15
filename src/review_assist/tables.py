@@ -55,6 +55,7 @@ def generate_comparison_tables(project_dir: Path) -> dict[str, Any]:
         _flood_hazard_summary(constraints),
         _critical_habitat_summary(constraints),
         _regulated_facility_summary(constraints),
+        _soil_mapunit_summary(constraints),
         _spatial_relationship_summary(spatial),
         _draft_finding_summary(draft_findings),
     ]
@@ -604,6 +605,69 @@ def _regulated_facility_summary(constraints: dict[str, Any] | None) -> dict[str,
         table_type="regulated_facility_summary",
         title="EPA ECHO Regulated Facility Summary",
         description="EPA ECHO regulated facility proximity records by project feature.",
+        columns=columns,
+        rows=rows,
+        provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
+        source_refs=sorted(source_refs),
+        uncertainty_flags=["no_constraint_results_artifact"] if constraints is None else [],
+    )
+
+
+def _soil_mapunit_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
+    columns = [
+        "project_feature_id",
+        "project_feature_name",
+        "source_category",
+        "source_id",
+        "mapunit_symbol",
+        "mapunit_key",
+        "area_symbol",
+        "spatial_version",
+        "relationship_type",
+        "intersection_length_feet",
+        "intersection_area_acres",
+        "distance_feet",
+        "buffer_feet",
+        "source_feature_label",
+    ]
+    rows: list[dict[str, Any]] = []
+    source_refs: set[str] = set()
+    if constraints is not None:
+        for constraint in constraints.get("constraints", []):
+            if not isinstance(constraint, dict) or constraint.get("source_category") != "soils":
+                continue
+            source_id = str(constraint.get("source_id", ""))
+            if source_id:
+                source_refs.add(source_id)
+            measurements = constraint.get("measurements", {})
+            if not isinstance(measurements, dict):
+                measurements = {}
+            values = constraint.get("source_feature_values", {})
+            if not isinstance(values, dict):
+                values = {}
+            rows.append(
+                {
+                    "project_feature_id": constraint.get("project_feature_id", ""),
+                    "project_feature_name": constraint.get("project_feature_name", ""),
+                    "source_category": constraint.get("source_category", ""),
+                    "source_id": source_id,
+                    "mapunit_symbol": values.get("soil_mapunit_symbol") or constraint.get("source_feature_label", ""),
+                    "mapunit_key": values.get("soil_mapunit_key") or constraint.get("source_feature_original_id", ""),
+                    "area_symbol": values.get("soil_area_symbol", ""),
+                    "spatial_version": values.get("soil_spatial_version", ""),
+                    "relationship_type": constraint.get("relationship_type", ""),
+                    "intersection_length_feet": measurements.get("intersection_length_feet"),
+                    "intersection_area_acres": measurements.get("intersection_area_acres"),
+                    "distance_feet": measurements.get("distance_feet"),
+                    "buffer_feet": constraint.get("buffer_feet"),
+                    "source_feature_label": constraint.get("source_feature_label", ""),
+                }
+            )
+    return _table(
+        table_id="soil-mapunit-summary",
+        table_type="soil_mapunit_summary",
+        title="SSURGO Soil Map Unit Summary",
+        description="USDA NRCS SSURGO soil map unit relationships by project feature.",
         columns=columns,
         rows=rows,
         provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},

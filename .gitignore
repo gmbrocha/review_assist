@@ -21,6 +21,9 @@ env/
 .env.*
 !.env.example
 
+# Local bulk source warehouse
+sources/
+
 # Generated outputs
 outputs/*
 !outputs/.gitkeep
