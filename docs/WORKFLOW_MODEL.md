@@ -268,8 +268,9 @@ Current baseline:
 - `build-mvp-deliverable <project_dir>` runs `populate-for-review --prepare-sources` and preview export into a real-data guarded MVP package manifest without accepting review items.
 - Default exports include accepted or edited queue items only, plus `unable_to_verify` items only when explicitly export eligible.
 - `--include-draft` creates an internal preview export that includes non-rejected draft/unaccepted items and marks the Markdown/DOCX as non-final/pre-review.
-- DOCX export renders table previews and embeds map figures when figure files are present; missing visuals/tables remain explicit placeholders.
+- DOCX export renders referenced tables and figures inline inside report sections when those table/figure review items are included, avoids duplicate standalone rendering for those artifacts, and keeps missing visuals/tables as explicit placeholders.
 - Export and deliverable manifests include `data_lineage` so reviewers can distinguish real project inputs, registered/provided/downloaded source layers, manual/gated/missing stubs, and test/mock records.
+- Export and deliverable manifests include `mvp_quality` so reviewers can inspect real-source counts, source-backed constraints, included sections/tables/figures, inline-rendered evidence, placeholders, unresolved source categories, GPT section counts, and warning counts.
 - MVP deliverable builds fail by default when no real source layer is available and always fail when included content contains test fixture/mock source evidence.
 
 ## Conceptual Service Boundaries

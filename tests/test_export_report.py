@@ -309,6 +309,40 @@ def test_export_docx_preview_includes_drafts_and_marks_output(tmp_path: Path) ->
     assert "Generated Package Contents" in text
 
 
+def test_export_strips_duplicate_report_section_headings(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_queue_item(
+        project_dir,
+        "report-section-front-matter",
+        generated_content="# Front Matter\n\nBody without duplicate heading.",
+    )
+
+    manifest = export_report(project_dir, include_draft=True, output_format="both")
+    markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+    text = docx_text(manifest["docx_path"])
+
+    assert "\n### Front Matter\n" not in markdown
+    assert "Body without duplicate heading." in markdown
+    assert "Front Matter\nFront Matter\nBody without duplicate heading." not in text
+    assert "Body without duplicate heading." in text
+
+
+def test_docx_export_front_matter_lists_included_figures_tables_and_attachments(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    manifest = export_report(project_dir, include_draft=True, output_format="docx")
+    text = docx_text(manifest["docx_path"])
+
+    assert "List of Figures" in text
+    assert "Project Overview" in text
+    assert "List of Tables" in text
+    assert "Source Status Matrix" in text
+    assert "List of Attachments" in text
+    assert "Attachment A: Project Maps." in text
+
+
 def test_export_format_both_writes_markdown_and_docx(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
@@ -384,6 +418,33 @@ def test_docx_export_with_nwi_backed_constraints_includes_accepted_evidence(
     assert "Mock NWI Wetland" in text
     assert "Constraint Summary" in text
     assert "Figure file:" in text
+    assert manifest["mvp_quality"]["inline_rendered_table_count"] > 0
+    assert manifest["mvp_quality"]["inline_rendered_figure_count"] > 0
+    assert text.count("Figure file:") == 1
+
+
+def test_report_sections_render_related_table_and_figure_inline_without_standalone_duplicates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
+    populate_for_review(project_dir, prepare_sources=True)
+    queue = load_review_queue(project_dir)
+    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and item["source_refs"])
+
+    update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted")
+    update_review_item(project_dir, "comparison-table-constraint-summary", status="accepted")
+    update_review_item(project_dir, map_id, status="accepted")
+
+    manifest = export_report(project_dir, output_format="docx")
+    text = docx_text(manifest["docx_path"])
+
+    assert "Table: Constraint Summary" in text
+    assert "Figure: Source Context:" in text
+    assert "Generated draft map figure" not in text
+    assert manifest["mvp_quality"]["inline_rendered_table_ids"] == ["constraint-summary"]
+    assert manifest["mvp_quality"]["inline_rendered_figure_count"] == 1
 
 
 def test_export_preserves_reviewer_edit_after_regeneration(tmp_path: Path) -> None:
@@ -472,6 +533,8 @@ def test_build_mvp_deliverable_succeeds_with_real_provided_source_layers(tmp_pat
     assert manifest["package_status"] == "internal_preview_real_data_mvp"
     assert manifest["data_lineage"]["counts"]["provided_in_input"] >= 4
     assert manifest["data_lineage"]["counts"]["test_or_mock"] == 0
+    assert manifest["mvp_quality"]["real_source_count"] >= 4
+    assert manifest["mvp_quality"]["source_backed_constraint_count"] > 0
     assert "Real Data Used" in text
     assert "provided_in_input" in json.dumps(manifest["data_lineage"])
 

@@ -750,6 +750,7 @@ def _methodology_content(
                 if buffer_feet is not None
                 else "No default review buffer assumption was found in the project manifest."
             ),
+            "The resulting report package presents objective constraints only; it does not rank, score, select, reject, or recommend project features.",
             "All measurements, relationships, maps, and draft language are desktop screening only and require human review before export or final use.",
         ]
     )
@@ -778,6 +779,7 @@ def _analysis_procedures_content(
                 if map_manifest
                 else "No map manifest was available when this section was generated."
             ),
+            "The analysis is limited to objective source/project relationships and does not make project selection or avoidance recommendations.",
             "All procedures are desktop-screening methods and do not replace field delineation, agency consultation, engineering design, or professional judgment.",
         ]
     )
@@ -817,6 +819,7 @@ def _limitations_content(
     if related_figures:
         lines.append(f"Related figure references: {', '.join(str(figure.get('figure_id')) for figure in related_figures if figure.get('figure_id'))}.")
     lines.append("Unavailable or restricted data should create caveat language rather than unsupported conclusions.")
+    lines.append("These limitations preserve objective constraints reporting and prevent the draft from implying selection, rejection, ranking, or final clearance.")
     return "\n".join(lines)
 
 
@@ -883,6 +886,8 @@ def _resource_content(
         lines.append(f"Source reference id(s): {', '.join(source_refs)}.")
     if validation_issues:
         lines.append(f"{len(validation_issues)} validation issue(s) require reviewer attention for this section.")
+    if related_findings or related_tables or related_figures:
+        lines.append("The section should use these referenced artifacts as support for objective constraint description, not as a recommendation or final impact determination.")
     lines.append("This language is draft/pre-review only; final determinations may require field verification, agency coordination, or reviewer edits.")
     return "\n".join(lines)
 
@@ -1080,7 +1085,9 @@ def _figures_for_section(map_manifest: dict[str, Any] | None, source_refs: list[
     if map_manifest is None:
         return []
     figures = _dict_list(map_manifest.get("figures", []))
-    if section_type in {"maps_and_figures", "study_area", "constraints_inventory", "attachments"}:
+    if section_type == "study_area":
+        return [figure for figure in figures if str(figure.get("figure_id", "")) == "project-overview"]
+    if section_type in {"maps_and_figures", "constraints_inventory", "attachments"}:
         return figures
     source_ref_set = set(source_refs)
     if not source_ref_set:

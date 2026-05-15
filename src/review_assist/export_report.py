@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .data_lineage import build_data_lineage
+from .maps import MapGenerationError, load_map_manifest
 from .review_queue import ReviewQueueError, generate_review_queue, load_review_queue
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 from .tables import TABLES_PATH, TableGenerationError, load_comparison_tables
@@ -55,6 +56,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         queue = _load_or_generate_queue(project_dir)
         source_status = _load_or_generate_source_status(project_dir)
         comparison_tables = _load_optional_comparison_tables(project_dir)
+        map_manifest = _load_optional_map_manifest(project_dir)
     except (ReviewQueueError, SourceStatusError) as exc:
         raise ExportReportError(str(exc)) from exc
 
@@ -78,6 +80,26 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
     validation_issues.extend(_dict_list(data_lineage.get("validation_issues", [])))
     if comparison_tables:
         validation_issues.extend(_dict_list(comparison_tables.get("validation_issues", [])))
+    if map_manifest:
+        validation_issues.extend(_dict_list(map_manifest.get("validation_issues", [])))
+
+    mvp_quality = _mvp_quality_summary(
+        included=included,
+        data_lineage=data_lineage,
+        unresolved_required_sources=unresolved_required_sources,
+        validation_issues=validation_issues,
+        comparison_tables=comparison_tables,
+        map_manifest=map_manifest,
+    )
+    validation_issues.extend(_mvp_quality_validation_issues(mvp_quality, include_draft=include_draft))
+    mvp_quality = _mvp_quality_summary(
+        included=included,
+        data_lineage=data_lineage,
+        unresolved_required_sources=unresolved_required_sources,
+        validation_issues=validation_issues,
+        comparison_tables=comparison_tables,
+        map_manifest=map_manifest,
+    )
 
     if "markdown" in formats:
         markdown = _markdown_report(
@@ -86,6 +108,8 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
             validation_issues=validation_issues,
             include_draft=include_draft,
             data_lineage=data_lineage,
+            comparison_tables=comparison_tables,
+            map_manifest=map_manifest,
         )
         markdown_path.write_text(markdown, encoding="utf-8")
 
@@ -98,6 +122,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
             validation_issues=validation_issues,
             include_draft=include_draft,
             comparison_tables=comparison_tables,
+            map_manifest=map_manifest,
             data_lineage=data_lineage,
             output_paths={
                 "markdown_report": str(markdown_path) if "markdown" in formats else None,
@@ -134,6 +159,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "data_lineage": data_lineage,
         "evidence_package_path": _evidence_package_path(queue),
         "gpt_drafting": _gpt_drafting_summary(items),
+        "mvp_quality": mvp_quality,
         "package_contents": _package_contents(queue, output_paths={
             "markdown_report": str(markdown_path) if "markdown" in formats else None,
             "docx_report": str(docx_path) if "docx" in formats else None,
@@ -186,6 +212,13 @@ def _load_optional_comparison_tables(project_dir: Path) -> dict[str, Any] | None
                 )
             ],
         }
+
+
+def _load_optional_map_manifest(project_dir: Path) -> dict[str, Any] | None:
+    try:
+        return load_map_manifest(project_dir)
+    except MapGenerationError:
+        return None
 
 
 def _output_formats(output_format: str) -> list[str]:
@@ -244,6 +277,8 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "related_figure_ids": _string_list(item.get("related_figure_ids", [])),
         "related_table_ids": _string_list(item.get("related_table_ids", [])),
         "image_path": item.get("image_path"),
+        "figure_id": item.get("figure_id"),
+        "figure_type": item.get("figure_type"),
         "table_id": item.get("table_id"),
         "columns": _string_list(item.get("columns", [])),
         "rows_preview": _dict_list(item.get("rows_preview", [])),
@@ -330,6 +365,8 @@ def _markdown_report(
     validation_issues: list[dict[str, Any]],
     include_draft: bool,
     data_lineage: dict[str, Any],
+    comparison_tables: dict[str, Any] | None,
+    map_manifest: dict[str, Any] | None,
 ) -> str:
     lines = [
         f"# {queue.get('project_name', 'Environmental Constraints Report')}",
@@ -360,22 +397,71 @@ def _markdown_report(
         lines.extend(["## No Exported Content", "", "No review queue items met the export criteria.", ""])
         return "\n".join(lines)
 
+    table_lookup = _tables_by_id(comparison_tables)
+    figure_lookup = _figures_by_id(map_manifest, included)
+    included_table_ids = _included_table_ids(included)
+    included_figure_ids = _included_figure_ids(included)
+    planned_inline_table_ids = _inline_table_ids(included, included_table_ids, table_lookup)
+    planned_inline_figure_ids = _inline_figure_ids(included, included_figure_ids, figure_lookup)
+    rendered_table_ids: set[str] = set()
+    rendered_figure_ids: set[str] = set()
     current_group = ""
     for item in included:
         group = str(item.get("export_group", "resource_sections"))
         if group != current_group:
             current_group = group
             lines.extend([f"## {EXPORT_GROUP_TITLES.get(group, group.replace('_', ' ').title())}", ""])
-        lines.extend(_markdown_item(item))
+        if _standalone_rendered_inline(item, planned_inline_table_ids, planned_inline_figure_ids):
+            continue
+        lines.extend(
+            _markdown_item(
+                item,
+                suppress_heading=_suppress_item_heading(item),
+                table_lookup=table_lookup,
+                figure_lookup=figure_lookup,
+                included_table_ids=included_table_ids,
+                included_figure_ids=included_figure_ids,
+                rendered_table_ids=rendered_table_ids,
+                rendered_figure_ids=rendered_figure_ids,
+                all_included_items=included,
+            )
+        )
     lines.extend(_markdown_package_contents(queue))
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _markdown_item(item: dict[str, Any]) -> list[str]:
-    lines = [f"### {item.get('title')}", ""]
-    content = str(item.get("content", "")).strip()
+def _markdown_item(
+    item: dict[str, Any],
+    *,
+    suppress_heading: bool = False,
+    table_lookup: dict[str, dict[str, Any]] | None = None,
+    figure_lookup: dict[str, dict[str, Any]] | None = None,
+    included_table_ids: set[str] | None = None,
+    included_figure_ids: set[str] | None = None,
+    rendered_table_ids: set[str] | None = None,
+    rendered_figure_ids: set[str] | None = None,
+    all_included_items: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    lines: list[str] = []
+    if not suppress_heading:
+        lines.extend([f"### {item.get('title')}", ""])
+    content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), str(item.get("title", "")))
     if content:
         lines.extend([content, ""])
+    if item.get("type") == "report_section" and not _is_front_matter_item(item):
+        lines.extend(
+            _markdown_inline_evidence(
+                item,
+                table_lookup=table_lookup or {},
+                figure_lookup=figure_lookup or {},
+                included_table_ids=included_table_ids or set(),
+                included_figure_ids=included_figure_ids or set(),
+                rendered_table_ids=rendered_table_ids if rendered_table_ids is not None else set(),
+                rendered_figure_ids=rendered_figure_ids if rendered_figure_ids is not None else set(),
+            )
+        )
+    if item.get("type") == "report_section" and _is_front_matter_item(item):
+        lines.extend(_markdown_front_matter_lists(all_included_items or []))
     if item.get("type") == "map_figure" and item.get("image_path"):
         lines.extend([f"Map file: `{item['image_path']}`", ""])
     if item.get("type") == "comparison_table":
@@ -388,20 +474,116 @@ def _markdown_item(item: dict[str, Any]) -> list[str]:
             details.append(f"artifact `{item['artifact_path']}`")
         if details:
             lines.extend([f"Table reference: {', '.join(details)}.", ""])
-    visual_slots = _string_list(item.get("visual_slots", []))
-    related_figures = _string_list(item.get("related_figure_ids", []))
-    missing_visuals = visual_slots if visual_slots and not related_figures else []
-    if missing_visuals:
-        lines.extend(["Visual needed:", *[f"- {slot}" for slot in missing_visuals], ""])
-    table_slots = _string_list(item.get("table_slots", []))
-    related_tables = _string_list(item.get("related_table_ids", []))
-    missing_tables = table_slots if table_slots and not related_tables else []
-    if missing_tables:
-        lines.extend(["Table needed:", *[f"- {slot}" for slot in missing_tables], ""])
+    if not _is_front_matter_item(item):
+        visual_slots = _string_list(item.get("visual_slots", []))
+        related_figures = _string_list(item.get("related_figure_ids", []))
+        missing_visuals = visual_slots if visual_slots and not related_figures else []
+        if missing_visuals:
+            lines.extend(["Visual needed:", *[f"- {slot}" for slot in missing_visuals], ""])
+        table_slots = _string_list(item.get("table_slots", []))
+        related_tables = _string_list(item.get("related_table_ids", []))
+        missing_tables = table_slots if table_slots and not related_tables else []
+        if missing_tables:
+            lines.extend(["Table needed:", *[f"- {slot}" for slot in missing_tables], ""])
     if item.get("source_refs"):
         lines.extend([f"Source refs: {', '.join(item['source_refs'])}.", ""])
     if item.get("uncertainty_flags"):
         lines.extend([f"Uncertainty flags: {', '.join(item['uncertainty_flags'])}.", ""])
+    return lines
+
+
+def _markdown_inline_evidence(
+    item: dict[str, Any],
+    *,
+    table_lookup: dict[str, dict[str, Any]],
+    figure_lookup: dict[str, dict[str, Any]],
+    included_table_ids: set[str],
+    included_figure_ids: set[str],
+    rendered_table_ids: set[str],
+    rendered_figure_ids: set[str],
+) -> list[str]:
+    lines: list[str] = []
+    for table_id in _string_list(item.get("related_table_ids", [])):
+        if table_id not in included_table_ids:
+            lines.extend([f"Table placeholder: referenced table `{table_id}` was not included in this export.", ""])
+            continue
+        table = table_lookup.get(table_id)
+        if table is None:
+            lines.extend([f"Table placeholder: source table artifact was not available for `{table_id}`.", ""])
+            continue
+        lines.extend(_markdown_embedded_table(table))
+        rendered_table_ids.add(table_id)
+    for figure_id in _string_list(item.get("related_figure_ids", [])):
+        if figure_id not in included_figure_ids:
+            lines.extend([f"Figure placeholder: referenced figure `{figure_id}` was not included in this export.", ""])
+            continue
+        figure = figure_lookup.get(figure_id)
+        if figure is None:
+            lines.extend([f"Figure placeholder: source figure artifact was not available for `{figure_id}`.", ""])
+            continue
+        lines.extend(_markdown_embedded_figure(figure))
+        rendered_figure_ids.add(figure_id)
+    return lines
+
+
+def _markdown_embedded_table(table: dict[str, Any]) -> list[str]:
+    table_id = str(table.get("table_id") or "table")
+    title = str(table.get("title") or table_id)
+    rows = _dict_list(table.get("rows", []))
+    columns = _string_list(table.get("columns", []))
+    if not columns:
+        columns = sorted({str(key) for row in rows for key in row})
+    lines = [f"Table: {title} (`{table_id}`)", ""]
+    if not columns:
+        lines.extend(["Table placeholder: no columns were available for this table.", ""])
+        return lines
+    if not rows:
+        lines.extend(["Table placeholder: this table currently has no rows.", ""])
+        return lines
+    rendered_rows = rows[: min(DOCX_TABLE_ROW_LIMIT, 10)]
+    lines.append("| " + " | ".join(columns) + " |")
+    lines.append("| " + " | ".join("---" for _ in columns) + " |")
+    for row in rendered_rows:
+        lines.append("| " + " | ".join(_markdown_cell(row.get(column)) for column in columns) + " |")
+    if len(rows) > len(rendered_rows):
+        lines.append(f"Table preview limited to {len(rendered_rows)} of {len(rows)} rows. Full table data remains in the table artifact.")
+    lines.append("")
+    return lines
+
+
+def _markdown_embedded_figure(figure: dict[str, Any]) -> list[str]:
+    figure_id = str(figure.get("figure_id") or "figure")
+    title = str(figure.get("title") or figure_id)
+    image_path = figure.get("image_path")
+    if image_path:
+        return [f"Figure: {title} (`{figure_id}`)", "", f"Map file: `{image_path}`", ""]
+    return [f"Figure placeholder: source figure artifact had no image path for `{figure_id}`.", ""]
+
+
+def _markdown_front_matter_lists(included: list[dict[str, Any]]) -> list[str]:
+    figures = [item for item in included if item.get("type") == "map_figure"]
+    tables = [item for item in included if item.get("type") == "comparison_table"]
+    lines = ["List of Figures", ""]
+    if figures:
+        lines.extend(f"- {item.get('title')} (`{_item_figure_id(item)}`)" for item in figures)
+    else:
+        lines.append("- No figure items are included in this export.")
+    lines.extend(["", "List of Tables", ""])
+    if tables:
+        lines.extend(f"- {item.get('title')} (`{item.get('table_id')}`)" for item in tables)
+    else:
+        lines.append("- No table items are included in this export.")
+    lines.extend(
+        [
+            "",
+            "List of Attachments",
+            "",
+            "- Attachment A: Project Maps.",
+            "- Attachment B: Hazardous Materials Report, when available or reviewer-provided.",
+            "- Attachment C: Agency Consultation Letters or reviewer-provided coordination records.",
+            "",
+        ]
+    )
     return lines
 
 
@@ -468,6 +650,7 @@ def _write_docx_report(
     validation_issues: list[dict[str, Any]],
     include_draft: bool,
     comparison_tables: dict[str, Any] | None,
+    map_manifest: dict[str, Any] | None,
     data_lineage: dict[str, Any],
     output_paths: dict[str, str | None],
 ) -> None:
@@ -478,23 +661,17 @@ def _write_docx_report(
         raise ExportReportError("DOCX export requires the python-docx package to be installed.") from exc
 
     document = Document()
+    _configure_docx_document(document, include_draft=include_draft)
     table_lookup = _tables_by_id(comparison_tables)
+    figure_lookup = _figures_by_id(map_manifest, included)
+    included_table_ids = _included_table_ids(included)
+    included_figure_ids = _included_figure_ids(included)
+    planned_inline_table_ids = _inline_table_ids(included, included_table_ids, table_lookup)
+    planned_inline_figure_ids = _inline_figure_ids(included, included_figure_ids, figure_lookup)
+    rendered_table_ids: set[str] = set()
+    rendered_figure_ids: set[str] = set()
 
-    title = str(queue.get("project_name") or "Environmental Constraints Report")
-    document.add_heading(title, level=0)
-    document.add_paragraph("Environmental Constraints Report")
-    document.add_paragraph(f"Generated: {_utc_now()}")
-    if include_draft:
-        notice = document.add_paragraph()
-        run = notice.add_run("INTERNAL PREVIEW / NOT REVIEWED")
-        run.bold = True
-        document.add_paragraph(
-            "This package includes draft or unaccepted review queue items. It is for internal preview only and is not ready for external use."
-        )
-    else:
-        document.add_paragraph(
-            "Reviewed-content export: this package includes only accepted, edited, or explicitly export-eligible reviewed items."
-        )
+    _add_docx_title_page(document, queue, include_draft=include_draft)
 
     if validation_issues:
         document.add_heading("Export Caveats", level=1)
@@ -508,17 +685,30 @@ def _write_docx_report(
         document.add_paragraph("No review queue items met the export criteria.")
     else:
         current_group = ""
+        first_group = True
         for item in included:
             group = str(item.get("export_group", "resource_sections"))
             if group != current_group:
+                if not first_group:
+                    document.add_page_break()
+                first_group = False
                 current_group = group
                 document.add_heading(EXPORT_GROUP_TITLES.get(group, group.replace("_", " ").title()), level=1)
+            if _standalone_rendered_inline(item, planned_inline_table_ids, planned_inline_figure_ids):
+                continue
             _add_docx_item(
                 document=document,
                 item=item,
                 project_dir=project_dir,
                 table_lookup=table_lookup,
+                figure_lookup=figure_lookup,
+                included_table_ids=included_table_ids,
+                included_figure_ids=included_figure_ids,
+                rendered_table_ids=rendered_table_ids,
+                rendered_figure_ids=rendered_figure_ids,
                 image_width=Inches(6.3),
+                suppress_heading=_suppress_item_heading(item),
+                all_included_items=included,
             )
 
     _add_docx_package_contents(document, queue, output_paths)
@@ -567,19 +757,75 @@ def _add_docx_data_lineage(document: Any, data_lineage: dict[str, Any]) -> None:
         document.add_paragraph("No source stubs were recorded for this export.", style="List Bullet")
 
 
+def _configure_docx_document(document: Any, *, include_draft: bool) -> None:
+    try:
+        from docx.shared import Inches, Pt
+    except ImportError:  # pragma: no cover - guarded by caller.
+        return
+
+    for section in document.sections:
+        section.top_margin = Inches(0.75)
+        section.bottom_margin = Inches(0.75)
+        section.left_margin = Inches(0.75)
+        section.right_margin = Inches(0.75)
+        if include_draft:
+            section.header.paragraphs[0].text = "INTERNAL PREVIEW / NOT REVIEWED"
+            section.footer.paragraphs[0].text = "Generated by Review Assist - draft/pre-review package"
+    styles = document.styles
+    styles["Normal"].font.name = "Calibri"
+    styles["Normal"].font.size = Pt(10.5)
+    for style_name, size in (("Title", 20), ("Heading 1", 16), ("Heading 2", 13), ("Heading 3", 11)):
+        try:
+            style = styles[style_name]
+        except KeyError:
+            continue
+        style.font.name = "Calibri"
+        style.font.size = Pt(size)
+
+
+def _add_docx_title_page(document: Any, queue: dict[str, Any], *, include_draft: bool) -> None:
+    title = str(queue.get("project_name") or "Environmental Constraints Report")
+    document.add_heading(title, level=0)
+    document.add_paragraph("Environmental Constraints Report")
+    document.add_paragraph(f"Generated: {_utc_now()}")
+    if include_draft:
+        notice = document.add_paragraph()
+        run = notice.add_run("INTERNAL PREVIEW / NOT REVIEWED")
+        run.bold = True
+        document.add_paragraph(
+            "This package includes draft or unaccepted review queue items. It is for internal preview only and is not ready for external use."
+        )
+    else:
+        document.add_paragraph(
+            "Reviewed-content export: this package includes only accepted, edited, or explicitly export-eligible reviewed items."
+        )
+    document.add_paragraph(
+        "This report presents objective desktop-screening constraints only and does not rank, select, reject, or recommend project features."
+    )
+    document.add_page_break()
+
+
 def _add_docx_item(
     *,
     document: Any,
     item: dict[str, Any],
     project_dir: Path,
     table_lookup: dict[str, dict[str, Any]],
+    figure_lookup: dict[str, dict[str, Any]],
+    included_table_ids: set[str],
+    included_figure_ids: set[str],
+    rendered_table_ids: set[str],
+    rendered_figure_ids: set[str],
     image_width: Any,
+    suppress_heading: bool = False,
+    all_included_items: list[dict[str, Any]] | None = None,
 ) -> None:
     item_type = str(item.get("type", ""))
     heading_level = 2 if item_type == "report_section" else 3
-    document.add_heading(str(item.get("title") or "Untitled Item"), level=heading_level)
+    if not suppress_heading:
+        document.add_heading(str(item.get("title") or "Untitled Item"), level=heading_level)
 
-    content = str(item.get("content", "")).strip()
+    content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), str(item.get("title", "")))
     if content:
         _add_docx_content(document, content)
     else:
@@ -590,12 +836,89 @@ def _add_docx_item(
     elif item_type == "map_figure":
         _add_docx_map_figure(document, item, project_dir, image_width)
     else:
-        _add_docx_missing_slots(document, item)
+        if item_type == "report_section" and _is_front_matter_item(item):
+            _add_docx_front_matter_lists(document, all_included_items or [])
+        elif item_type == "report_section":
+            _add_docx_inline_evidence(
+                document=document,
+                item=item,
+                project_dir=project_dir,
+                table_lookup=table_lookup,
+                figure_lookup=figure_lookup,
+                included_table_ids=included_table_ids,
+                included_figure_ids=included_figure_ids,
+                rendered_table_ids=rendered_table_ids,
+                rendered_figure_ids=rendered_figure_ids,
+                image_width=image_width,
+            )
+        if not _is_front_matter_item(item):
+            _add_docx_missing_slots(document, item)
 
     if item.get("source_refs"):
         document.add_paragraph(f"Source refs: {', '.join(_string_list(item.get('source_refs', [])))}.")
     if item.get("uncertainty_flags"):
         document.add_paragraph(f"Uncertainty flags: {', '.join(_string_list(item.get('uncertainty_flags', [])))}.")
+
+
+def _add_docx_inline_evidence(
+    *,
+    document: Any,
+    item: dict[str, Any],
+    project_dir: Path,
+    table_lookup: dict[str, dict[str, Any]],
+    figure_lookup: dict[str, dict[str, Any]],
+    included_table_ids: set[str],
+    included_figure_ids: set[str],
+    rendered_table_ids: set[str],
+    rendered_figure_ids: set[str],
+    image_width: Any,
+) -> None:
+    for table_id in _string_list(item.get("related_table_ids", [])):
+        if table_id not in included_table_ids:
+            document.add_paragraph(f"Table placeholder: referenced table '{table_id}' was not included in this export.")
+            continue
+        table = table_lookup.get(table_id)
+        if table is None:
+            document.add_paragraph(f"Table placeholder: source table artifact was not available for table id '{table_id}'.")
+            continue
+        document.add_paragraph(f"Table: {table.get('title') or table_id} ({table_id})")
+        _add_docx_comparison_table(document, {"table_id": table_id}, table_lookup)
+        rendered_table_ids.add(table_id)
+    for figure_id in _string_list(item.get("related_figure_ids", [])):
+        if figure_id not in included_figure_ids:
+            document.add_paragraph(f"Figure placeholder: referenced figure '{figure_id}' was not included in this export.")
+            continue
+        figure = figure_lookup.get(figure_id)
+        if figure is None:
+            document.add_paragraph(f"Figure placeholder: source figure artifact was not available for figure id '{figure_id}'.")
+            continue
+        document.add_paragraph(f"Figure: {figure.get('title') or figure_id} ({figure_id})")
+        _add_docx_map_figure(document, figure, project_dir, image_width)
+        rendered_figure_ids.add(figure_id)
+
+
+def _add_docx_front_matter_lists(document: Any, included: list[dict[str, Any]]) -> None:
+    figures = [item for item in included if item.get("type") == "map_figure"]
+    tables = [item for item in included if item.get("type") == "comparison_table"]
+    document.add_heading("List of Figures", level=2)
+    if figures:
+        for item in figures:
+            document.add_paragraph(f"{item.get('title')} ({_item_figure_id(item)})", style="List Bullet")
+    else:
+        document.add_paragraph("No figure items are included in this export.", style="List Bullet")
+    document.add_heading("List of Tables", level=2)
+    if tables:
+        for item in tables:
+            document.add_paragraph(f"{item.get('title')} ({item.get('table_id')})", style="List Bullet")
+    else:
+        document.add_paragraph("No table items are included in this export.", style="List Bullet")
+    document.add_heading("List of Attachments", level=2)
+    for label in (
+        "Attachment A: Project Maps.",
+        "Attachment B: Hazardous Materials Report, when available or reviewer-provided.",
+        "Attachment C: Agency Consultation Letters or reviewer-provided coordination records.",
+    ):
+        document.add_paragraph(label, style="List Bullet")
 
 
 def _add_docx_content(document: Any, content: str) -> None:
@@ -713,6 +1036,98 @@ def _tables_by_id(comparison_tables: dict[str, Any] | None) -> dict[str, dict[st
     }
 
 
+def _figures_by_id(map_manifest: dict[str, Any] | None, included: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    figures: dict[str, dict[str, Any]] = {}
+    if map_manifest is not None:
+        for figure in _dict_list(map_manifest.get("figures", [])):
+            figure_id = str(figure.get("figure_id") or "").strip()
+            if figure_id:
+                figures[figure_id] = figure
+    for item in included:
+        if item.get("type") != "map_figure":
+            continue
+        figure_id = _item_figure_id(item)
+        if not figure_id:
+            continue
+        figures[figure_id] = {
+            **figures.get(figure_id, {}),
+            "figure_id": figure_id,
+            "title": item.get("title") or figures.get(figure_id, {}).get("title"),
+            "image_path": item.get("image_path") or figures.get(figure_id, {}).get("image_path"),
+            "source_refs": item.get("source_refs", []),
+        }
+    return figures
+
+
+def _included_table_ids(included: list[dict[str, Any]]) -> set[str]:
+    return {str(item.get("table_id")) for item in included if item.get("type") == "comparison_table" and item.get("table_id")}
+
+
+def _included_figure_ids(included: list[dict[str, Any]]) -> set[str]:
+    return {_item_figure_id(item) for item in included if item.get("type") == "map_figure" and _item_figure_id(item)}
+
+
+def _item_figure_id(item: dict[str, Any]) -> str:
+    figure_id = str(item.get("figure_id") or "").strip()
+    if figure_id:
+        return figure_id
+    provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+    figure_id = str(provenance.get("figure_id") or "").strip()
+    if figure_id:
+        return figure_id
+    item_id = str(item.get("id") or "")
+    if item_id.startswith("map-figure-"):
+        return item_id.removeprefix("map-figure-")
+    return ""
+
+
+def _standalone_rendered_inline(
+    item: dict[str, Any],
+    planned_inline_table_ids: set[str],
+    planned_inline_figure_ids: set[str],
+) -> bool:
+    if item.get("type") == "comparison_table" and str(item.get("table_id") or "") in planned_inline_table_ids:
+        return True
+    if item.get("type") == "map_figure" and _item_figure_id(item) in planned_inline_figure_ids:
+        return True
+    return False
+
+
+def _suppress_item_heading(item: dict[str, Any]) -> bool:
+    if item.get("type") != "report_section":
+        return False
+    group_title = EXPORT_GROUP_TITLES.get(str(item.get("export_group", "")), "")
+    return _normalized_heading(str(item.get("title", ""))) == _normalized_heading(group_title)
+
+
+def _is_front_matter_item(item: dict[str, Any]) -> bool:
+    return item.get("type") == "report_section" and str(item.get("export_group")) == "front_matter"
+
+
+def _strip_duplicate_leading_heading(content: str, title: str) -> str:
+    lines = content.splitlines()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    if not lines:
+        return ""
+    title_key = _normalized_heading(title)
+    while lines:
+        first = lines[0].strip()
+        if not first.startswith("#"):
+            break
+        heading = first.lstrip("#").strip()
+        if _normalized_heading(heading) != title_key:
+            break
+        lines.pop(0)
+        while lines and not lines[0].strip():
+            lines.pop(0)
+    return "\n".join(lines).strip()
+
+
+def _normalized_heading(value: str) -> str:
+    return " ".join(value.strip().lower().split())
+
+
 def _package_contents(queue: dict[str, Any], *, output_paths: dict[str, str | None]) -> dict[str, Any]:
     upstream = queue.get("upstream_artifacts", {}) if isinstance(queue.get("upstream_artifacts"), dict) else {}
     return {
@@ -768,6 +1183,11 @@ def _docx_cell_text(value: Any) -> str:
     return text if len(text) <= 250 else text[:247] + "..."
 
 
+def _markdown_cell(value: Any) -> str:
+    text = _docx_cell_text(value).replace("\n", " ")
+    return text.replace("|", "\\|")
+
+
 def _default_export_group(item: dict[str, Any]) -> str:
     item_type = str(item.get("type", ""))
     if item_type == "report_section":
@@ -780,6 +1200,136 @@ def _default_export_group(item: dict[str, Any]) -> str:
     if item_type in {"missing_data_placeholder", "source_inventory_note", "source_status_note"}:
         return "methodology"
     return "attachments"
+
+
+def _mvp_quality_summary(
+    *,
+    included: list[dict[str, Any]],
+    data_lineage: dict[str, Any],
+    unresolved_required_sources: list[dict[str, Any]],
+    validation_issues: list[dict[str, Any]],
+    comparison_tables: dict[str, Any] | None,
+    map_manifest: dict[str, Any] | None,
+) -> dict[str, Any]:
+    included_table_ids = _included_table_ids(included)
+    included_figure_ids = _included_figure_ids(included)
+    table_lookup = _tables_by_id(comparison_tables)
+    figure_lookup = _figures_by_id(map_manifest, included)
+    inline_table_ids = _inline_table_ids(included, included_table_ids, table_lookup)
+    inline_figure_ids = _inline_figure_ids(included, included_figure_ids, figure_lookup)
+    placeholder_count = _export_placeholder_count(
+        included,
+        included_table_ids=included_table_ids,
+        included_figure_ids=included_figure_ids,
+        table_lookup=table_lookup,
+        figure_lookup=figure_lookup,
+    )
+    resource_placeholder_sections = _placeholder_resource_sections(included)
+    gpt_summary = _gpt_drafting_summary(included)
+    return {
+        "real_source_count": int(data_lineage.get("real_source_count", 0)),
+        "source_backed_constraint_count": int(data_lineage.get("source_backed_constraint_count", 0)),
+        "included_section_count": sum(1 for item in included if item.get("type") == "report_section"),
+        "included_table_count": len(included_table_ids),
+        "included_figure_count": len(included_figure_ids),
+        "inline_rendered_table_count": len(inline_table_ids),
+        "inline_rendered_figure_count": len(inline_figure_ids),
+        "inline_rendered_table_ids": sorted(inline_table_ids),
+        "inline_rendered_figure_ids": sorted(inline_figure_ids),
+        "placeholder_count": placeholder_count,
+        "placeholder_resource_section_count": len(resource_placeholder_sections),
+        "placeholder_resource_section_ids": sorted(resource_placeholder_sections),
+        "unresolved_required_source_count": len(unresolved_required_sources),
+        "unresolved_required_source_categories": [str(item.get("category")) for item in unresolved_required_sources],
+        "gpt_section_count": int(gpt_summary.get("section_count", 0)),
+        "gpt_accepted_section_count": int(gpt_summary.get("accepted_section_count", 0)),
+        "gpt_rejected_section_count": int(gpt_summary.get("rejected_section_count", 0)),
+        "validation_warning_count": sum(1 for issue in validation_issues if str(issue.get("severity", "warning")) == "warning"),
+    }
+
+
+def _mvp_quality_validation_issues(mvp_quality: dict[str, Any], *, include_draft: bool) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    real_source_count = int(mvp_quality.get("real_source_count", 0))
+    if real_source_count > 0 and int(mvp_quality.get("source_backed_constraint_count", 0)) == 0:
+        issues.append(_issue("warning", "mvp_no_source_backed_constraints", "MVP preview has real source layers but no source-backed constraints."))
+    if include_draft and real_source_count > 0 and int(mvp_quality.get("inline_rendered_figure_count", 0)) == 0:
+        issues.append(_issue("warning", "mvp_no_inline_figures", "MVP preview has real source layers but no figures rendered inline in report sections."))
+    if include_draft and real_source_count > 0 and int(mvp_quality.get("inline_rendered_table_count", 0)) == 0:
+        issues.append(_issue("warning", "mvp_no_inline_tables", "MVP preview has real source layers but no tables rendered inline in report sections."))
+    if int(mvp_quality.get("placeholder_resource_section_count", 0)) > 5:
+        issues.append(_issue("warning", "mvp_many_placeholder_sections", "MVP preview still has many placeholder-only resource sections."))
+    return issues
+
+
+def _inline_table_ids(
+    included: list[dict[str, Any]],
+    included_table_ids: set[str],
+    table_lookup: dict[str, dict[str, Any]],
+) -> set[str]:
+    values: set[str] = set()
+    for item in included:
+        if item.get("type") != "report_section":
+            continue
+        for table_id in _string_list(item.get("related_table_ids", [])):
+            if table_id in included_table_ids and table_id in table_lookup:
+                values.add(table_id)
+    return values
+
+
+def _inline_figure_ids(
+    included: list[dict[str, Any]],
+    included_figure_ids: set[str],
+    figure_lookup: dict[str, dict[str, Any]],
+) -> set[str]:
+    values: set[str] = set()
+    for item in included:
+        if item.get("type") != "report_section":
+            continue
+        for figure_id in _string_list(item.get("related_figure_ids", [])):
+            if figure_id in included_figure_ids and figure_id in figure_lookup:
+                values.add(figure_id)
+    return values
+
+
+def _export_placeholder_count(
+    included: list[dict[str, Any]],
+    *,
+    included_table_ids: set[str],
+    included_figure_ids: set[str],
+    table_lookup: dict[str, dict[str, Any]],
+    figure_lookup: dict[str, dict[str, Any]],
+) -> int:
+    count = 0
+    for item in included:
+        related_tables = set(_string_list(item.get("related_table_ids", [])))
+        related_figures = set(_string_list(item.get("related_figure_ids", [])))
+        for table_id in related_tables:
+            if table_id not in included_table_ids or table_id not in table_lookup:
+                count += 1
+        for figure_id in related_figures:
+            if figure_id not in included_figure_ids or figure_id not in figure_lookup:
+                count += 1
+        if item.get("type") == "report_section":
+            visual_slots = set(_string_list(item.get("visual_slots", [])))
+            table_slots = set(_string_list(item.get("table_slots", [])))
+            if visual_slots and not related_figures:
+                count += len(visual_slots)
+            if table_slots and not related_tables:
+                count += len(table_slots)
+    return count
+
+
+def _placeholder_resource_sections(included: list[dict[str, Any]]) -> set[str]:
+    section_ids: set[str] = set()
+    for item in included:
+        if item.get("type") != "report_section" or item.get("export_group") != "resource_sections":
+            continue
+        if item.get("source_refs") or item.get("related_table_ids") or item.get("related_figure_ids"):
+            continue
+        if item.get("visual_slots") or item.get("table_slots"):
+            section_ids.add(str(item.get("id") or item.get("title") or "resource_section"))
+    return section_ids
 
 
 def _issue(severity: str, code: str, message: str) -> dict[str, str]:

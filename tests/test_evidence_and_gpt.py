@@ -40,7 +40,7 @@ def fake_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload
 
 def rejected_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
     return {
-        "draft_content": "This is the preferred alternative based on field-verified jurisdictional evidence.",
+        "draft_content": "This is the preferred alternative based on field-verified jurisdictional evidence with no impact, cleared, and approved status.",
         "cited_finding_ids": ["missing-finding-id"],
         "cited_table_ids": [],
         "cited_figure_ids": [],

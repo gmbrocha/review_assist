@@ -12,7 +12,7 @@ from typing import Any, Callable, Protocol
 from .env_config import GptConfigurationError, gpt_draft_max_payload_bytes, openai_api_key_required, resolve_gpt_model
 
 
-PROMPT_VERSION = "report-section-drafting-v1"
+PROMPT_VERSION = "report-section-drafting-v2"
 OUTPUT_SCHEMA_VERSION = "report-section-draft-schema-v1"
 MAX_GPT_STRING_LENGTH = 2000
 MAX_GPT_LIST_ITEMS = 20
@@ -52,9 +52,12 @@ PROHIBITED_PATTERNS = {
     "score": r"\bscor(?:e|ed|ing)\b",
     "reject": r"\breject(?:ed|s|ing)?\b",
     "select": r"\bselect(?:ed|s|ing)?\b",
-    "final determination": r"\bfinal determination\b",
-    "jurisdictional certainty": r"\bjurisdictional\b",
-    "field verified": r"\bfield[- ]verified\b",
+    "final determination": r"\bfinal (determination|finding|conclusion)\b",
+    "jurisdictional certainty": r"\b(jurisdictionally determined|jurisdictional determination|jurisdictional certainty|jurisdictional evidence)\b",
+    "field verified": r"\b(field[- ]verified|field verification (?:was )?(?:completed|conducted|confirmed))\b",
+    "no impact conclusion": r"\bno impacts?\b",
+    "cleared conclusion": r"\bcleared\b",
+    "approval conclusion": r"\bapproved\b",
 }
 
 
@@ -238,9 +241,11 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
         "constraints": [
             "Draft pre-review report copy only.",
             "Use only the structured evidence provided in this request.",
+            "Mirror the environmental constraints report shape with concise paragraphs, not standalone duplicate headings.",
             "Cite IDs that appear in related_ids or the evidence bundle.",
+            "Mention related finding, table, figure, and source IDs only when they are supplied.",
             "Do not rank, score, select, reject, recommend, or identify a preferred alternative.",
-            "Do not state field verification, jurisdictional determinations, or final conclusions.",
+            "Do not state field verification, jurisdictional determinations, approvals, no-impact conclusions, or final conclusions.",
             "Preserve missing, gated, failed, and manual-source caveats.",
         ],
     }
@@ -251,7 +256,8 @@ def _system_prompt() -> str:
     return (
         "You draft pre-review environmental constraints report sections from structured evidence. "
         "Do not invent facts. Do not recommend, rank, select, reject, or identify a preferred alternative. "
-        "Keep language objective, screening-level, and reviewer-editable. Return only valid JSON."
+        "Do not include duplicate section headings. Keep language objective, screening-level, and reviewer-editable. "
+        "Return only valid JSON."
     )
 
 

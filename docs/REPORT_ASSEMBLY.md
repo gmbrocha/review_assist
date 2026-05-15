@@ -117,7 +117,7 @@ Default export includes only queue items with `accepted` or `edited` status and 
 
 The `--include-draft` option is for internal preview only. It includes unaccepted non-rejected items and marks the Markdown/DOCX output as an internal preview, not an external report.
 
-The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included table ids, included map paths, and generated package contents. DOCX export renders report sections, table previews where practical, map figures when files exist, placeholders when files are missing, source refs, uncertainty flags, caveats, and package contents.
+The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included table ids, included map paths, generated package contents, and `mvp_quality` counts. DOCX export now uses a more report-like MVP structure with a title page, internal-preview notice/header/footer for draft exports, major-section page breaks, front-matter figure/table/attachment lists, duplicate section-heading cleanup, inline referenced table/figure rendering, placeholders when referenced evidence is missing, source refs, uncertainty flags, caveats, and package contents.
 
 Export and deliverable manifests include `data_lineage` counts and records, the evidence package path, and GPT drafting status/counts when GPT-backed sections are present. The lineage model distinguishes project input geometry, registered local layers, user-provided input layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records. Generated source-gap caveats are stubs, not source-backed records.
 
@@ -147,7 +147,7 @@ The current CLI can create a stricter MVP package intended to prove that the del
 
 This command runs `populate-for-review --prepare-sources`, then exports `--include-draft` content in the requested format. It does not mutate review item statuses or auto-accept anything.
 
-By default, MVP export fails when no downloaded, provided, or registered real source layer is available. It also fails when included export content contains `test_fixture` provenance. The command may include clearly labeled stubs for missing, manual, gated, failed, or reviewer-needed categories, but those stubs are separated from source-backed evidence in the manifest and exported report.
+By default, MVP export fails when no downloaded, provided, or registered real source layer is available. It also fails when included export content contains `test_fixture` provenance. The command may include clearly labeled stubs for missing, manual, gated, failed, or reviewer-needed categories, but those stubs are separated from source-backed evidence in the manifest and exported report. The deliverable manifest carries `mvp_quality` so reviewers can see real-source counts, source-backed constraint counts, inline-rendered tables/figures, placeholder counts, unresolved source categories, GPT section counts, and warning counts.
 
 ## Narrative Sources
 
@@ -225,7 +225,7 @@ Potential exports:
 - PNG/PDF map figures.
 - GeoPackage review layers.
 
-DOCX is important because the example deliverable is a Word report. The current DOCX baseline proves package assembly and editability, but it is still MVP formatting rather than final template fidelity.
+DOCX is important because the example deliverable is a Word report. The current DOCX baseline proves package assembly and editability, renders referenced evidence more deliberately, and is closer to the example report shape, but it is still MVP formatting rather than final template fidelity.
 
 Exports should compile accepted or explicitly included reviewed content only. Rejected items remain in the review record but should not export.
 

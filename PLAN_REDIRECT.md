@@ -447,8 +447,11 @@ The app should generate these where source data is available and create reviewab
 - [x] Demo deliverable package generation exists through `review-assist build-demo-deliverable`.
 - [x] Demo deliverable manifests are written to `projects/<id>/exports/deliverable_package_manifest.json`.
 - [x] DOCX export renders report sections, tables where practical, map figures when files exist, placeholders when files are missing, source refs, caveats, and generated package contents.
+- [x] DOCX exports now use a more report-like structure with a title page, draft header/footer labels, major-section page breaks, front-matter figure/table/attachment lists, and duplicate section-heading cleanup.
+- [x] Markdown and DOCX exports can render section-referenced tables and figures inline while avoiding duplicate standalone table/figure rendering later in the package.
 - [x] Real-data MVP deliverable generation exists through `review-assist build-mvp-deliverable`.
 - [x] Export and deliverable manifests include `data_lineage` counts for project inputs, real source layers, stubs, and test/mock records.
+- [x] Export and deliverable manifests include `mvp_quality` counts for real sources, source-backed constraints, included sections/tables/figures, inline-rendered evidence, placeholders, unresolved source categories, GPT sections, and validation warnings.
 - [x] MVP deliverables fail when no real source layer is available by default.
 - [x] MVP deliverables fail when test fixture/mock source records are detected.
 - [x] Data lineage now ignores stale downloaded-source records unless the current project registry still enables the matching downloaded local source file.
@@ -462,6 +465,7 @@ The app should generate these where source data is available and create reviewab
 - [x] GPT section drafting stores provider/model/prompt/schema/timestamp/input digest/output digest provenance.
 - [x] GPT guardrails reject or flag unknown cited finding/table/figure/source IDs.
 - [x] GPT guardrails reject or flag recommendation, ranking, scoring, selection, rejection, final-determination, jurisdictional-certainty, or field-verification language.
+- [x] GPT prompt instructions now more explicitly request concise report-section prose without duplicate headings and with only known source/finding/table/figure IDs.
 - [x] GPT-drafted sections remain `report_section` review queue items and are not auto-accepted.
 
 ## Still To Go
@@ -547,8 +551,8 @@ This milestone has started. GPT is implemented only for report-section drafting 
 - [x] Add checks that GPT copy does not recommend, rank, choose, or reject alternatives.
 - [x] Keep deterministic drafting available when GPT is disabled with `GPT_DRAFTING=0` or per-run `--no-gpt-drafting`.
 - [x] Fail clearly when GPT is enabled but `OPENAI_API_KEY` is missing.
-- [ ] Improve prompt quality against the example report template after real MVP smoke runs.
-- [ ] Add stronger unsupported-fact detection beyond ID and prohibited-language guardrails.
+- [x] Improve prompt quality against the example report template after real MVP smoke runs.
+- [x] Add stronger unsupported-fact detection beyond ID and prohibited-language guardrails for final/no-impact/clearance/approval language.
 - [ ] Add reviewer-facing GPT provenance display in the future UI.
 - [ ] Decide whether accepted reviewer edits should suppress GPT regeneration for that section.
 
@@ -557,10 +561,10 @@ This milestone has started. GPT is implemented only for report-section drafting 
 - [x] Make report sections match the `env_constraints_report_20260511_EXAMPLE_ONLY.docx` structure more closely unless another report profile is selected.
 - [x] Add table and map/visual slots to section artifacts for export placeholders.
 - [x] Separate front matter, executive summary, introduction/study area, methodology, constraints inventory, resource sections, conclusion, attachments, and reviewer follow-up more cleanly.
-- [ ] Improve resource-specific section language using constraint summaries and no-overlap/source-gap context.
-- [ ] Add tables/map references into section content more deliberately beyond slot placeholders.
+- [x] Improve resource-specific section language using constraint summaries and no-overlap/source-gap context.
+- [x] Add tables/map references into section content more deliberately beyond slot placeholders.
 - [ ] Keep deterministic narrative available as the fallback path.
-- [ ] Add an explicit "objective constraints only" statement to generated methodology/limitations language.
+- [x] Add an explicit "objective constraints only" statement to generated methodology/limitations language.
 
 ### 7. Review Queue UI Model
 
@@ -589,7 +593,8 @@ This milestone has started. GPT is implemented only for report-section drafting 
 - [x] Add an internal demo deliverable command that runs populate-for-review and preview export without auto-accepting review items.
 - [x] Add a real-data MVP deliverable command that runs source preparation and blocks mock/test-fixture evidence.
 - [x] Add data-lineage summaries to export and deliverable manifests.
-- [ ] Improve DOCX formatting against the example report template after the MVP package path is stable.
+- [x] Improve the MVP DOCX formatting baseline against the example report template after the MVP package path is stable.
+- [ ] Continue improving DOCX fidelity for final template-grade layout, numbering, headers/footers, and polished tables/figures.
 - [ ] Add PDF export only after DOCX layout is acceptable.
 
 ### 9. Map and Figure Improvements
@@ -639,9 +644,8 @@ Move from backend breadth toward a client-showable MVP deliverable package.
 
 The practical next milestones are:
 
-1. Run real-data MVP smoke packages with `build-mvp-deliverable` and inspect downloaded-source/constraint counts.
-2. Improve DOCX package layout against the example report template without bypassing review gates.
-3. Improve section language quality and map/table placement so the generated report reads like a coherent pre-review draft.
-4. Run GPT-assisted MVP smoke packages and inspect whether the copy aligns with the example report template without adding unsupported facts.
-5. Add reviewer-facing UI only after the backend can repeatedly produce a useful draft package.
-6. Resume additional source downloaders only when they directly improve a missing template section needed for the MVP.
+1. Run and inspect real-data deterministic and GPT-assisted MVP smoke packages from `projects/trails` after each report/export change.
+2. Continue tightening DOCX fidelity toward the example report template without bypassing review gates.
+3. Improve vector map usefulness, figure labels, legends, and panel/attachment organization before PDF or UI work.
+4. Add reviewer-facing UI only after the backend can repeatedly produce a useful draft package.
+5. Resume additional source downloaders only when they directly improve a missing template section needed for the MVP.

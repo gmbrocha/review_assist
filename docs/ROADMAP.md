@@ -321,10 +321,12 @@ Status: Markdown, DOCX, internal demo deliverable, and real-data guarded MVP del
 - Generate an export manifest with included/skipped items, status/type counts, warnings, and source-gap caveats.
 - Preserve section order from report section artifacts.
 - Render DOCX report sections, table previews where practical, map figures when files exist, missing visual/table placeholders, source refs, caveats, and generated package contents.
+- Render referenced tables and figures inline inside report sections when those table/figure items are included, and avoid duplicate standalone rendering for those artifacts later in the package.
 - Provide `--include-draft` only for internal preview exports, clearly labeled as not ready for external use.
 - Provide a one-command internal demo package flow that runs populate-for-review and preview export without mutating review statuses.
 - Provide a real-data guarded MVP package flow that runs source preparation first and blocks test fixture/mock source records.
 - Add `data_lineage` summaries to export and deliverable manifests so real source layers, stubs, and test/mock records are visible.
+- Add `mvp_quality` summaries to export and deliverable manifests so real-source counts, source-backed constraints, included report artifacts, inline evidence, placeholders, unresolved source categories, GPT counts, and warnings are visible.
 
 Current baseline:
 
@@ -341,7 +343,7 @@ Current baseline:
 
 Next export milestone:
 
-- Run real-data MVP smoke packages, inspect downloaded source/constraint counts, then improve DOCX layout fidelity against the example report template before adding PDF or final cartographic output.
+- Continue improving DOCX layout fidelity, figure/table polish, and map panel/attachment organization against the example report template before adding PDF or final cartographic output.
 
 ## Phase 8: Optional AI-Assisted Narrative Synthesis
 
@@ -353,7 +355,7 @@ Status: initial section-drafting baseline implemented; broader AI workflows rema
 - [x] Use LLMs for draft language without replacing source-backed analysis.
 - [ ] Add UI controls and reviewer-visible GPT provenance.
 - [ ] Add reviewer-requested rewrites after the review queue UI exists.
-- [ ] Add stronger unsupported-fact checks after MVP smoke review.
+- [x] Add stronger unsupported-fact checks after MVP smoke review for final/no-impact/clearance/approval and field-verification claims.
 
 ## Still Out of Scope
 
