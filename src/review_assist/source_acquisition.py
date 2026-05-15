@@ -168,7 +168,9 @@ def prepare_sources(
 
     final = _resolve_source_gaps(project_dir, preserve_downloads=True)
     existing_downloads = [download for download in final.get("downloads", []) if isinstance(download, dict)]
-    merged_downloads = existing_downloads + [download for download in downloads if _download_key(download) not in {_download_key(item) for item in existing_downloads}]
+    merged_downloads = _latest_downloads_by_source(
+        existing_downloads + [download for download in downloads if _download_key(download) not in {_download_key(item) for item in existing_downloads}]
+    )
     final["downloads"] = merged_downloads
     final["download_count"] = len(merged_downloads)
     final["include_optional_sources"] = include_optional_sources
@@ -208,7 +210,7 @@ def _download_source(project_dir: Path, source_id: str, *, fetch_json: FetchJson
 
     final = _resolve_source_gaps(project_dir, preserve_downloads=True)
     existing_downloads = [item for item in final.get("downloads", []) if isinstance(item, dict)]
-    downloads = existing_downloads + [download]
+    downloads = _latest_downloads_by_source(existing_downloads + [download])
     final["downloads"] = downloads
     final["download_count"] = len(downloads)
     final["validation_issues"] = _merged_validation_issues(initial.get("validation_issues", []), downloads)
@@ -1082,7 +1084,20 @@ def _existing_downloads(project_dir: Path) -> list[dict[str, Any]]:
     downloads = data.get("downloads", []) if isinstance(data, dict) else []
     if not isinstance(downloads, list):
         return []
-    return [download for download in downloads if isinstance(download, dict)]
+    return _latest_downloads_by_source([download for download in downloads if isinstance(download, dict)])
+
+
+def _latest_downloads_by_source(downloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    keyed: dict[str, dict[str, Any]] = {}
+    anonymous_index = 0
+    for download in downloads:
+        source_id = str(download.get("source_id") or "").strip()
+        if source_id:
+            keyed[source_id] = download
+            continue
+        keyed[f"anonymous:{anonymous_index}"] = download
+        anonymous_index += 1
+    return list(keyed.values())
 
 
 def _latest_download_status(downloads: list[dict[str, Any]]) -> dict[str, str]:

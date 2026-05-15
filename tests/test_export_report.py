@@ -9,6 +9,7 @@ import pytest
 
 from review_assist import source_acquisition
 from review_assist import deliverable as deliverable_module
+from review_assist.data_lineage import build_data_lineage
 from review_assist.deliverable import MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from review_assist.cli import main
 from review_assist.export_report import export_report
@@ -217,6 +218,36 @@ def test_export_manifest_filters_reviewed_items_and_uses_edited_content(tmp_path
     assert "report-section-study-area" not in included_ids(manifest)
     assert "Reviewer edited executive summary." in markdown
     assert "INTERNAL PREVIEW EXPORT" not in markdown
+
+
+def test_data_lineage_ignores_stale_download_manifest_without_active_registry_source(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    acquisition_dir = project_dir / "source_acquisition"
+    acquisition_dir.mkdir()
+    (acquisition_dir / "source_acquisition_manifest.json").write_text(
+        json.dumps(
+            {
+                "downloads": [
+                    {
+                        "source_id": "usgs_nhd_hydrography",
+                        "source_name": "National Hydrography Dataset",
+                        "source_category": "hydrography_crossings",
+                        "status": "downloaded",
+                        "data_authenticity": "real",
+                        "output_path": str(project_dir / "source_acquisition" / "downloads" / "usgs_nhd_hydrography.geojson"),
+                        "feature_count": 12,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    lineage = build_data_lineage(project_dir)
+
+    assert lineage["counts"]["downloaded_public_source"] == 0
+    assert lineage["real_source_count"] == 0
+    assert any(issue["code"] == "stale_download_record_ignored" for issue in lineage["validation_issues"])
 
 
 def test_export_includes_unable_to_verify_only_when_export_eligible(tmp_path: Path) -> None:

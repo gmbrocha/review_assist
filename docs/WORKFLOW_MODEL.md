@@ -160,10 +160,11 @@ GPT/LLM calls are acceptable here for draft narrative generation, summarization,
 
 Current baseline:
 
-- `populate-for-review` runs context generation, project geometry normalization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
+- `populate-for-review` runs context generation, project geometry normalization, optional local source materialization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
 - It records `projects/<project_id>/intermediate/project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` in the run manifest when project geometry generation succeeds.
 - It records `projects/<project_id>/constraints/constraint_results.json` in the run manifest when constraint analysis succeeds.
+- It can record `projects/<project_id>/source_materialization/local_source_materialization_manifest.json` in the run manifest when `--materialize-local-sources` is used.
 - It can record `projects/<project_id>/source_acquisition/source_acquisition_manifest.json` in the run manifest when `--prepare-sources` is used.
 - It records `projects/<project_id>/source_inventory/source_inventory.json` and `projects/<project_id>/tables/comparison_tables.json` in the run manifest when those steps succeed.
 - It records `projects/<project_id>/findings/draft_findings.json` in the run manifest when finding generation succeeds.

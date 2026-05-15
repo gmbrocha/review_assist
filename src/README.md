@@ -11,6 +11,7 @@ Current implementation scope:
 - Project context artifact generation.
 - Global source catalog loading.
 - Project source registry loading and local source registration.
+- Local source warehouse materialization into project-ready GeoJSON layers.
 - Source gap resolution and opt-in public source acquisition.
 - USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders with project-local acquisition provenance.
 - Source status set resolution, including failed supported-download caveats.

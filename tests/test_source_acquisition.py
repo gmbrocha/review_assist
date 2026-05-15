@@ -535,6 +535,17 @@ def test_successful_nwi_downloader_writes_geojson_provenance_checksum_and_regist
     assert registry_source.path == "source_acquisition/downloads/usfws_nwi_wetlands.geojson"
 
 
+def test_repeated_download_keeps_latest_manifest_record_per_source(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    first = download_source(project_dir, "usfws_nwi_wetlands", fetch_json=fake_nwi_fetch)
+    second = download_source(project_dir, "usfws_nwi_wetlands", fetch_json=fake_nwi_fetch)
+
+    assert len([item for item in first["downloads"] if item["source_id"] == "usfws_nwi_wetlands"]) == 1
+    assert len([item for item in second["downloads"] if item["source_id"] == "usfws_nwi_wetlands"]) == 1
+    assert second["download_count"] == len(second["downloads"])
+
+
 def test_successful_nhd_downloader_writes_combined_geojson_normalized_fields_and_registry(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 

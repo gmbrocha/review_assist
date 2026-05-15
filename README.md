@@ -24,7 +24,6 @@ Key planning documents live at the repo root and under `docs/`:
 - `OVERALL_CONTEXT.md`: product philosophy and anti-drift context.
 - `WORKFLOW_MODEL.md`: canonical workspace, source-status, review-queue, and export workflow.
 - `ARCHITECTURE.md`: conceptual service/module boundaries.
-- `FIRST_VERSION_PLAN.md`: desktop GUI first-version plan centered on the review queue.
 - `DATA_SOURCES.md`: practical source stack, candidate sources, and source-registry planning.
 - `CODE_AUDIT.md`: latest implementation audit notes, fixes, and known limits.
 - `REPORT_TAXONOMY.md`: expected report structure.
@@ -34,6 +33,7 @@ Key planning documents live at the repo root and under `docs/`:
 - `REPORT_ASSEMBLY.md`: findings-to-report workflow and current Markdown/DOCX export baseline.
 - `IMAGERY_REVIEW.md`: imagery observation philosophy.
 - `LLM_ASSISTED_SYNTHESIS.md`: GPT/LLM section-drafting insertion point and boundaries.
+- `docs/archive/FIRST_VERSION_PLAN.md`: superseded desktop GUI first-version plan retained for history; UI work is deferred behind the backend deliverable pipeline.
 
 ## Directory Notes
 

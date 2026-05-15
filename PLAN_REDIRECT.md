@@ -451,6 +451,8 @@ The app should generate these where source data is available and create reviewab
 - [x] Export and deliverable manifests include `data_lineage` counts for project inputs, real source layers, stubs, and test/mock records.
 - [x] MVP deliverables fail when no real source layer is available by default.
 - [x] MVP deliverables fail when test fixture/mock source records are detected.
+- [x] Data lineage now ignores stale downloaded-source records unless the current project registry still enables the matching downloaded local source file.
+- [x] Source acquisition manifests keep the latest download record per source so repeated runs do not inflate source counts.
 - [x] DOCX exports include `Real Data Used` and `Stubs / Manual Review Needed` sections.
 - [x] Evidence packages are written to `projects/<id>/evidence/evidence_package.json`.
 - [x] Evidence packages classify section evidence as `source_backed`, `source_available_no_overlap`, `stub_or_manual`, `failed_or_missing`, or `test_fixture_blocked`.

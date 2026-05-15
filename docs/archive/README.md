@@ -6,3 +6,7 @@ Use this for superseded planning notes, replaced drafts, old decision records, o
 
 Current docs should stay in `docs/`, not in this folder.
 
+Archived docs currently include:
+
+- `FIRST_VERSION_PLAN.md`: superseded desktop GUI first-version plan retained for history. Current implementation remains backend/CLI-first until the deliverable pipeline is strong enough to justify UI work.
+

@@ -365,7 +365,7 @@ Current implementation:
 - The evidence CLI command is `review-assist build-evidence-package <project_dir>`.
 - Report section IDs are deterministic so review queue regeneration can preserve reviewer status, notes, edits, and export eligibility.
 
-The current report drafting baseline does not produce final conclusions or compile report exports. GPT, when enabled, drafts pre-review section copy only from structured evidence and stores provider/model/prompt/schema/digest provenance.
+The current report drafting baseline feeds the export compiler but does not produce final conclusions or bypass review. GPT, when enabled, drafts pre-review section copy only from structured evidence and stores provider/model/prompt/schema/digest provenance.
 
 ## Compilation/Export Service
 
@@ -430,10 +430,10 @@ Current implementation:
 Purpose:
 
 - Provide the service-level backend for the future desktop `Populate for Review` action.
-- Run current workflow steps in order: project context, project geometry normalization, optional source preparation, source status, source inventory, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, evidence package generation, report section generation, and lean review queue generation.
+- Run current workflow steps in order: project context, project geometry normalization, optional local source materialization, optional source preparation, source status, source inventory, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, evidence package generation, report section generation, and lean review queue generation.
 - Write a run manifest with step statuses, artifact paths, warning records, constraint count, review queue item count for traceability only, and critical error text when a run fails.
 
-Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, project geometry, project features, analysis bounds, optional source acquisition, source status, source inventory, constraint results, draft findings, comparison table, map manifest, evidence package, report section, and review queue artifact paths. It downloads only explicitly requested supported sources through `--prepare-sources`; it does not render basemap/imagery-backed maps, create exports itself, or make recommendations.
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, project geometry, project features, analysis bounds, optional source materialization, optional source acquisition, source status, source inventory, constraint results, draft findings, comparison table, map manifest, evidence package, report section, and review queue artifact paths. It materializes local warehouse data only when `--materialize-local-sources` is used and downloads supported public sources only when `--prepare-sources` is used; it does not render basemap/imagery-backed maps, create exports itself, or make recommendations.
 
 ## LLM Boundary
 

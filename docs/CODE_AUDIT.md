@@ -11,6 +11,7 @@ This document records the latest implementation audit for the current prototype 
 - Phase 1 KMZ/KML ingestion and geometry inspection services.
 - Phase 2A source catalog and project source registry services.
 - Phase 2B local source-layer spatial relationship analysis.
+- Local source warehouse materialization, project-ready GeoJSON registration, and materialization provenance.
 - Phase 3 project context/source status services.
 - Phase 4 review queue generation/update services.
 - Phase 5 populate-for-review orchestration.
@@ -20,7 +21,7 @@ This document records the latest implementation audit for the current prototype 
 - Phase 6D deterministic draft report section generation.
 - Constraint-engine project geometry normalization and constraint overlap/proximity analysis.
 - Markdown/DOCX export package generation, internal demo deliverable packaging, and real-data MVP deliverable guardrails.
-- CLI commands for project inspection, source listing, local source registration, project analysis, project geometry, constraint analysis, review queue operations, Markdown/DOCX report export, demo deliverable export, and populate-for-review.
+- CLI commands for project inspection, source listing, local source registration/copying, local source materialization, project analysis, project geometry, constraint analysis, review queue operations, Markdown/DOCX report export, demo/MVP deliverable export, and populate-for-review.
 - Tests and active documentation.
 
 ## Fixes Made
@@ -103,9 +104,20 @@ This document records the latest implementation audit for the current prototype 
 - Added `build-mvp-deliverable <project_dir>` CLI coverage for real-data guarded MVP preview packages that run source preparation before export.
 - Added MVP guardrails that fail when no real source layer is available by default and fail when included content contains test fixture/mock source provenance.
 - Added tests for data lineage classification, MVP no-real-source blocking, test-fixture blocking, real provided-source success, and MVP CLI JSON output.
+- Added `import-source --copy` for file-based local source copies into ignored project `layers/<source_id>/` folders while preserving original source files.
+- Added local source warehouse materialization from ignored root `sources/` into project-ready GeoJSON layers under ignored project `layers/`.
+- Added configured local materializers for NWI wetlands, USFWS Critical Habitat, SSURGO soils, MDOT/rail transportation context, utility infrastructure, MARIS administrative/boundary context, MARIS public cultural context, MARIS community facilities, and MARIS conservation/recreation lands.
+- Added materialization provenance into source inventory and populate/deliverable manifests.
+- Added county-boundary context extraction so materialized county boundaries can populate `project_context.json` and study-area report text.
+- Hardened GeoJSON writing/materialization to serialize date-like shapefile attributes safely.
+- Added source-data guardrails in `scripts/verify.ps1` so root `sources/`, shapefiles, geodatabases, rasters, zip packages, and other large local source files are not staged accidentally.
+- Added GPT payload safeguards that strip raw geometries/features, local `sources/` paths, shapefile sidecar paths, and other bulk source paths from section-drafting requests.
+- Added two-worker GPT section drafting while preserving final section order.
 - Fixed failed supported source downloads so the source acquisition manifest propagates `failed` status into source status, deterministic findings, report sections, and review queue caveat items instead of falling back to generic `downloadable` language.
 - Carried FEMA flood hazard datum and length-unit fields through the constraint-to-table path for report-ready flood summaries.
 - Updated FEMA date-field fallbacks so effective, panel, and revert dates are considered before generic date fields.
+- Fixed data lineage so stale ignored `source_acquisition` download records no longer count as real downloaded source data unless the current project registry still enables the matching downloaded local file.
+- Dedupe source acquisition manifests to keep the latest download record per source, avoiding inflated download counts across repeated prepare/download runs.
 - Removed an unused source-status review item helper from the lean review queue implementation.
 - Simplified Markdown export item partitioning so inclusion/skipping rules are evaluated once per review queue item.
 - Avoided double-counting existing reviewer-supplied local sources in lineage when a public download is skipped to preserve the local layer.
@@ -114,15 +126,14 @@ This document records the latest implementation audit for the current prototype 
 ## Current Verification
 
 - Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source acquisition failure propagation, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown/DOCX export compilation, demo deliverable package generation, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `187 passed`.
+- Current full test run: `206 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist build-project-geometry projects/trails`
   - `review-assist build-project-geometry projects/conexon_projects`
   - `review-assist analyze-constraints projects/trails`
   - `review-assist analyze-constraints projects/conexon_projects`
-  - `review-assist analyze-project projects/trails`
-  - `review-assist analyze-project projects/conexon_projects`
+  - `review-assist resolve-source-gaps projects/trails`
   - `review-assist generate-source-inventory projects/trails`
   - `review-assist generate-findings projects/trails`
   - `review-assist generate-tables projects/trails`
@@ -131,7 +142,6 @@ This document records the latest implementation audit for the current prototype 
   - `review-assist build-evidence-package projects/trails`
   - `review-assist generate-report-sections projects/trails --no-gpt-drafting`
   - `review-assist generate-report-sections projects/conexon_projects --no-gpt-drafting`
-  - `review-assist resolve-source-gaps projects/trails`
   - `review-assist populate-for-review projects/trails --no-gpt-drafting`
   - `review-assist populate-for-review projects/conexon_projects --no-gpt-drafting`
   - `review-assist export-report projects/trails --include-draft --format both`
@@ -142,14 +152,14 @@ This document records the latest implementation audit for the current prototype 
 
 ## Known Limits
 
-- Local source layers are supported; opt-in USFWS NWI, USGS NHD, USFWS Critical Habitat, and EPA/ECHO regulated facility downloads are implemented, and FEMA NFHL effective flood hazard downloads are implemented as optional explicit context. Other public downloaders are not implemented yet.
+- Local source layers are supported; local Mississippi warehouse materializers are implemented for the configured sources listed in `config/local_source_materializers.json`; opt-in USFWS NWI, USGS NHD, USFWS Critical Habitat, and EPA/ECHO regulated facility downloads are implemented; and FEMA NFHL effective flood hazard downloads are implemented as optional explicit context. Other public downloaders are not implemented yet.
 - Legacy spatial analysis produces relationship records only. The constraint engine now produces first-class constraint result records for the main populate-for-review flow.
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or final report sections.
 - Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, or final report prose until reviewed.
 - The review queue defaults to draft finding, comparison table, map figure, report section, report-relevant missing-data, validation, and no-mapped items. Source inventory/provenance items are opt-in for audit workflows, and legacy spatial relationship items remain available when those artifacts exist. Export compilation now uses review queue status and export eligibility instead of every generated artifact, and MVP deliverable generation additionally checks real-data lineage before packaging.
 - `populate-for-review` orchestrates current services only. It downloads supported sources only when `--prepare-sources` is used; GPT drafting may run only when enabled and only after structured evidence exists. It does not render basemap/imagery-backed maps or create final PDF/template-grade DOCX exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
-- Downloaded NWI, NHD, Critical Habitat, EPA/ECHO, and FEMA layers now receive normalized feature fields, but broader source schema normalization is not implemented for every cataloged source.
+- Downloaded NWI, NHD, Critical Habitat, EPA/ECHO, and FEMA layers plus configured local materialized layers receive normalized feature fields, but broader source schema normalization is not implemented for every cataloged source.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.
 - Raster source analysis is cataloged but not implemented.
 - Basemap/imagery acquisition, panel map sheets, PDF export, template-grade DOCX layout, and final map export packages are not implemented.

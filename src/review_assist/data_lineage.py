@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .projects import ProjectManifestError, load_project_manifest
-from .source_catalog import SourceCatalogError, load_project_source_registry, resolve_project_source_path
+from .source_catalog import ProjectSource, SourceCatalogError, load_project_source_registry, resolve_project_source_path
 
 
 SOURCE_ACQUISITION_PATH = Path("source_acquisition/source_acquisition_manifest.json")
@@ -42,7 +42,8 @@ def build_data_lineage(project_dir: Path, *, included_items: list[dict[str, Any]
     validation_issues: list[dict[str, Any]] = []
 
     records.extend(_project_input_records(project_dir, validation_issues))
-    download_records = _download_records(project_dir, validation_issues)
+    registry_sources = _active_registry_sources(project_dir, validation_issues)
+    download_records = _download_records(project_dir, registry_sources, validation_issues)
     records.extend(download_records)
     records.extend(
         _project_registry_records(
@@ -53,6 +54,7 @@ def build_data_lineage(project_dir: Path, *, included_items: list[dict[str, Any]
                 if item.get("lineage_type") == "downloaded_public_source"
             },
             validation_issues,
+            registry_sources=registry_sources,
         )
     )
     records.extend(_source_status_stub_records(project_dir, validation_issues))
@@ -144,7 +146,11 @@ def _project_input_records(project_dir: Path, validation_issues: list[dict[str, 
     ]
 
 
-def _download_records(project_dir: Path, validation_issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _download_records(
+    project_dir: Path,
+    registry_sources: dict[str, ProjectSource],
+    validation_issues: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     data = _load_json(project_dir / SOURCE_ACQUISITION_PATH, validation_issues, artifact="source_acquisition")
     if not data:
         return []
@@ -152,14 +158,24 @@ def _download_records(project_dir: Path, validation_issues: list[dict[str, Any]]
     for download in _dict_list(data.get("downloads", [])):
         authenticity = _data_authenticity(download.get("data_authenticity"), default="real" if download.get("status") == "downloaded" else "unknown")
         status = str(download.get("status", ""))
-        if authenticity == "test_fixture":
-            lineage_type = "test_or_mock"
-        elif status == "downloaded":
-            lineage_type = "downloaded_public_source"
+        source_id = str(download.get("source_id", ""))
+        if status == "downloaded":
+            if not _download_is_active(project_dir, download, registry_sources):
+                validation_issues.append(
+                    _issue(
+                        "warning",
+                        "stale_download_record_ignored",
+                        f"Ignored stale downloaded-source lineage for {source_id}; the current project registry does not enable that downloaded local file.",
+                    )
+                )
+                continue
+            lineage_type = "test_or_mock" if authenticity == "test_fixture" else "downloaded_public_source"
         elif status == "skipped_existing_local":
             # The registry/local source record is the real lineage record. The
             # download attempt only explains why no public download replaced it.
             continue
+        elif authenticity == "test_fixture":
+            lineage_type = "test_or_mock"
         else:
             lineage_type = "missing_stub"
             authenticity = "stub"
@@ -167,7 +183,7 @@ def _download_records(project_dir: Path, validation_issues: list[dict[str, Any]]
             {
                 "lineage_type": lineage_type,
                 "data_authenticity": authenticity,
-                "source_id": download.get("source_id"),
+                "source_id": source_id,
                 "source_name": download.get("source_name"),
                 "source_category": download.get("source_category"),
                 "status": status,
@@ -187,17 +203,12 @@ def _project_registry_records(
     project_dir: Path,
     downloaded_source_ids: set[str],
     validation_issues: list[dict[str, Any]],
+    *,
+    registry_sources: dict[str, ProjectSource] | None = None,
 ) -> list[dict[str, Any]]:
-    try:
-        registry = load_project_source_registry(project_dir)
-    except SourceCatalogError as exc:
-        validation_issues.append(_issue("warning", "project_source_registry_unavailable", str(exc)))
-        return []
-
     records: list[dict[str, Any]] = []
-    for source in registry.sources:
-        if not source.enabled or not source.path:
-            continue
+    sources = registry_sources if registry_sources is not None else _active_registry_sources(project_dir, validation_issues)
+    for source in sources.values():
         if source.source_id in downloaded_source_ids and source.status == "downloaded":
             continue
         path = resolve_project_source_path(project_dir, source)
@@ -224,6 +235,40 @@ def _project_registry_records(
             }
         )
     return records
+
+
+def _active_registry_sources(project_dir: Path, validation_issues: list[dict[str, Any]]) -> dict[str, ProjectSource]:
+    try:
+        registry = load_project_source_registry(project_dir)
+    except SourceCatalogError as exc:
+        validation_issues.append(_issue("warning", "project_source_registry_unavailable", str(exc)))
+        return {}
+    return {source.source_id: source for source in registry.sources if source.enabled and source.path}
+
+
+def _download_is_active(
+    project_dir: Path,
+    download: dict[str, Any],
+    registry_sources: dict[str, ProjectSource],
+) -> bool:
+    source_id = str(download.get("source_id", ""))
+    source = registry_sources.get(source_id)
+    if source is None or source.status != "downloaded" or source.access_method != "local_file":
+        return False
+    registry_path = resolve_project_source_path(project_dir, source)
+    if registry_path is None or not registry_path.exists():
+        return False
+    output_path = _resolved_output_path(project_dir, download.get("output_path"))
+    return output_path is None or registry_path.resolve() == output_path.resolve()
+
+
+def _resolved_output_path(project_dir: Path, value: Any) -> Path | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return (project_dir / path).resolve()
 
 
 def _source_status_stub_records(project_dir: Path, validation_issues: list[dict[str, Any]]) -> list[dict[str, Any]]:

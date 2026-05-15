@@ -219,7 +219,7 @@ Current baseline:
 - JSON artifact at `projects/<project_id>/findings/draft_findings.json`.
 - `populate-for-review` runs finding generation before review queue generation and records the artifact path in the run manifest.
 
-This baseline does not rank, score, recommend, produce final conclusions, generate final report tables, draft report prose, call LLMs, or compile exports.
+This baseline does not rank, score, recommend, produce final conclusions, or bypass review. Its findings now feed later table, section, GPT drafting, review queue, and export stages.
 
 ## Phase 6B: Source Provenance and Comparison Tables
 
@@ -238,7 +238,7 @@ Current baseline:
 - JSON comparison tables at `projects/<project_id>/tables/comparison_tables.json`.
 - `populate-for-review` records both artifact paths and sends generated records/tables into the review queue.
 
-This baseline now records source acquisition provenance when present and includes report-ready grouped, hydrography, flood hazard, critical habitat, and regulated facility summary tables when source-backed constraints exist. It does not render final map images, draft GPT report prose, compile exports, rank alternatives, or recommend preferred options.
+This baseline now records source acquisition and local materialization provenance when present and includes report-ready grouped, hydrography, flood hazard, critical habitat, regulated facility, and soil map unit summary tables when source-backed constraints exist. It does not render final map images, rank alternatives, or recommend preferred options.
 
 ## Phase 6C: Map/Figure and Imagery Generation
 
@@ -291,7 +291,7 @@ Current baseline:
 
 This baseline now mirrors the example environmental constraints report more closely with front matter, executive summary, introduction/study area, methodology subsections, environmental constraints inventory, resource sections, conclusion/next steps, attachments, visual slots, and table slots.
 
-This baseline does not itself compile exports, generate final conclusions, rank alternatives, or bypass review queue acceptance.
+This baseline feeds export compilation, but does not itself generate final conclusions, rank alternatives, or bypass review queue acceptance.
 
 ## Constraint Core Slice: Geometry, Constraint Results, and Lean Queue
 

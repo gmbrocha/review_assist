@@ -109,7 +109,7 @@ Deterministic draft report sections are generated at:
 
 Current section generation creates no-blank-page draft sections from structured workflow artifacts through a deterministic section-drafting provider. These sections are not final report prose and are not exportable unless they pass through review queue status and export-eligibility rules.
 
-The current baseline does not generate basemap/imagery-backed maps, final report tables, or exports. It does generate descriptive comparison table artifacts, draft PNG map figures, and deterministic draft section artifacts, but it does not compile them into an export package.
+The current baseline does not generate basemap/imagery-backed maps, final report tables, template-grade DOCX layout, or PDF exports. It does generate descriptive comparison table artifacts, draft PNG map figures, deterministic or GPT-assisted draft section artifacts, and Markdown/DOCX export packages. Exported content remains pre-review unless the included queue items have been accepted, edited, or explicitly marked export eligible by a reviewer.
 
 ## Policy Notes
 
