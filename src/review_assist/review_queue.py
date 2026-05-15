@@ -527,7 +527,9 @@ def _map_figure_item(
         export_group="constraints_inventory",
         assumptions={
             "figure_type": figure.get("type"),
+            "figure_group": figure.get("figure_group"),
             "shown_layers": figure.get("shown_layers", []),
+            "map_elements": figure.get("map_elements", []),
             "draft_pre_review": True,
         },
         provenance={
@@ -543,6 +545,12 @@ def _map_figure_item(
             "figure_id": figure_id,
             "image_path": figure.get("image_path"),
             "figure_type": figure.get("type"),
+            "caption": figure.get("caption"),
+            "source_note": figure.get("source_note"),
+            "method_note": figure.get("method_note"),
+            "map_elements": figure.get("map_elements", []),
+            "figure_group": figure.get("figure_group"),
+            "related_resource_categories": figure.get("related_resource_categories", []),
             "shown_layers": figure.get("shown_layers", []),
         },
     )

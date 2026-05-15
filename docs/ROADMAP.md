@@ -258,11 +258,14 @@ Current baseline:
 - PNG draft figures under `projects/<project_id>/maps/figures/`.
 - Generates a project overview figure from normalized project geometry.
 - Generates source-context figures for analyzed local source clipped layers when available.
+- Generates a combined `environmental-constraints-overview` figure when analyzed source layers contain mapped features.
 - Uses GeoPandas and Matplotlib only; maps are vector-only and contain no basemap or imagery.
+- Draft figures include legend, north arrow, scale bar where CRS units allow it, source note, CRS/method note, and visible draft/pre-review labeling.
+- Map figure records include captions, source notes, method notes, figure grouping, and related resource categories.
 - `populate-for-review` runs map generation after comparison table generation and before review queue generation.
 - Review queue generation converts map figures into `map_figure` items with deterministic IDs and preview metadata.
 
-This baseline does not implement basemap tiles, local raster imagery, NAIP/Google/ArcGIS acquisition, panel map sheets, PDF/SVG exports, final cartographic styling, or map package compilation.
+This baseline does not implement basemap tiles, local raster imagery, NAIP/Google/ArcGIS acquisition, panel map sheets, PDF/SVG exports, or final cartographic styling. Report export now copies included PNG figures into the export package, but final map-sheet package compilation remains future work.
 
 ## Phase 6D: Draft Report Sections and Evidence Package
 
@@ -322,11 +325,12 @@ Status: Markdown, DOCX, internal demo deliverable, and real-data guarded MVP del
 - Preserve section order from report section artifacts.
 - Render DOCX report sections, table previews where practical, map figures when files exist, missing visual/table placeholders, source refs, caveats, and generated package contents.
 - Render referenced tables and figures inline inside report sections when those table/figure items are included, and avoid duplicate standalone rendering for those artifacts later in the package.
+- Copy included map PNGs into `projects/<project_id>/exports/assets/figures/` and reference those package-local figure assets from Markdown/DOCX exports.
 - Provide `--include-draft` only for internal preview exports, clearly labeled as not ready for external use.
 - Provide a one-command internal demo package flow that runs populate-for-review and preview export without mutating review statuses.
 - Provide a real-data guarded MVP package flow that runs source preparation first and blocks test fixture/mock source records.
 - Add `data_lineage` summaries to export and deliverable manifests so real source layers, stubs, and test/mock records are visible.
-- Add `mvp_quality` summaries to export and deliverable manifests so real-source counts, source-backed constraints, included report artifacts, inline evidence, placeholders, unresolved source categories, GPT counts, and warnings are visible.
+- Add `mvp_quality` summaries to export and deliverable manifests so real-source counts, source-backed constraints, included report artifacts, copied figure assets, inline evidence, placeholders, unresolved source categories, GPT counts, and warnings are visible.
 
 Current baseline:
 

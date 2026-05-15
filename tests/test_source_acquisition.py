@@ -1060,7 +1060,7 @@ def test_prepare_sources_with_optional_feeds_fema_into_downstream_artifacts(tmp_
     assert "regulated-facility-summary" in regulated_section["related_table_ids"]
     assert "source-context-epa-envirofacts-echo" in regulated_section["related_figure_ids"]
     assert "grouped-constraint-summary" in inventory_section["related_table_ids"]
-    assert "project-overview" in inventory_section["related_figure_ids"]
+    assert "environmental-constraints-overview" in inventory_section["related_figure_ids"]
     assert any(item["type"] == "report_section" and item["source_refs"] == ["fema_nfhl_flood_hazard"] for item in queue["items"])
     assert any(item["type"] == "report_section" and "epa_envirofacts_echo" in item["source_refs"] for item in queue["items"])
 

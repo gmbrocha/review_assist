@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import shutil
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +21,7 @@ EXPORT_DIR = Path("exports")
 EXPORT_MANIFEST_PATH = EXPORT_DIR / "export_manifest.json"
 EXPORT_MARKDOWN_PATH = EXPORT_DIR / "environmental_constraints_report.md"
 EXPORT_DOCX_PATH = EXPORT_DIR / "environmental_constraints_report.docx"
+EXPORT_FIGURE_ASSETS_DIR = EXPORT_DIR / "assets" / "figures"
 SUPPORTED_OUTPUT_FORMATS = {"markdown", "docx", "both"}
 DOCX_TABLE_ROW_LIMIT = 50
 
@@ -82,6 +85,8 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         validation_issues.extend(_dict_list(comparison_tables.get("validation_issues", [])))
     if map_manifest:
         validation_issues.extend(_dict_list(map_manifest.get("validation_issues", [])))
+    figure_assets, figure_asset_issues = _prepare_export_figure_assets(project_dir, included, map_manifest)
+    validation_issues.extend(figure_asset_issues)
 
     mvp_quality = _mvp_quality_summary(
         included=included,
@@ -90,6 +95,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         validation_issues=validation_issues,
         comparison_tables=comparison_tables,
         map_manifest=map_manifest,
+        figure_assets=figure_assets,
     )
     validation_issues.extend(_mvp_quality_validation_issues(mvp_quality, include_draft=include_draft))
     mvp_quality = _mvp_quality_summary(
@@ -99,6 +105,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         validation_issues=validation_issues,
         comparison_tables=comparison_tables,
         map_manifest=map_manifest,
+        figure_assets=figure_assets,
     )
 
     if "markdown" in formats:
@@ -110,6 +117,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
             data_lineage=data_lineage,
             comparison_tables=comparison_tables,
             map_manifest=map_manifest,
+            figure_assets=figure_assets,
         )
         markdown_path.write_text(markdown, encoding="utf-8")
 
@@ -124,6 +132,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
             comparison_tables=comparison_tables,
             map_manifest=map_manifest,
             data_lineage=data_lineage,
+            figure_assets=figure_assets,
             output_paths={
                 "markdown_report": str(markdown_path) if "markdown" in formats else None,
                 "docx_report": str(docx_path),
@@ -153,7 +162,8 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "included_type_counts": dict(Counter(item["type"] for item in included)),
         "skipped_type_counts": dict(Counter(item["type"] for item in skipped)),
         "included_table_ids": sorted({str(item.get("table_id")) for item in included if item.get("table_id")}),
-        "included_map_paths": sorted({str(item.get("image_path")) for item in included if item.get("image_path")}),
+        "included_map_paths": sorted({_export_map_path(item) for item in included if _export_map_path(item)}),
+        "export_figure_assets": figure_assets,
         "included_source_refs": sorted({ref for item in included for ref in _string_list(item.get("source_refs", []))}),
         "unresolved_required_sources": unresolved_required_sources,
         "data_lineage": data_lineage,
@@ -164,7 +174,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
             "markdown_report": str(markdown_path) if "markdown" in formats else None,
             "docx_report": str(docx_path) if "docx" in formats else None,
             "export_manifest": str(manifest_path),
-        }),
+        }, figure_assets=figure_assets),
         "included_items": included,
         "skipped_items": skipped,
         "validation_issues": validation_issues,
@@ -235,6 +245,66 @@ def _load_optional_map_manifest(project_dir: Path) -> dict[str, Any] | None:
         }
 
 
+def _prepare_export_figure_assets(
+    project_dir: Path,
+    included: list[dict[str, Any]],
+    map_manifest: dict[str, Any] | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    figure_lookup = _figures_by_id(map_manifest, included)
+    included_figure_ids = sorted(_included_figure_ids(included))
+    if not included_figure_ids:
+        return [], []
+    output_dir = project_dir / EXPORT_FIGURE_ASSETS_DIR
+    output_dir.mkdir(parents=True, exist_ok=True)
+    assets: list[dict[str, Any]] = []
+    issues: list[dict[str, str]] = []
+    for figure_id in included_figure_ids:
+        figure = figure_lookup.get(figure_id, {})
+        source_value = figure.get("image_path")
+        if not source_value:
+            issues.append(_issue("warning", "missing_export_figure_source", f"Included figure '{figure_id}' has no image path to copy."))
+            continue
+        source_path = _resolve_project_path(project_dir, source_value)
+        if not source_path.exists():
+            issues.append(_issue("warning", "missing_export_figure_asset", f"Included figure '{figure_id}' image file was not found for export asset copy: {source_path}."))
+            continue
+        destination = output_dir / f"{_slug(figure_id)}{source_path.suffix or '.png'}"
+        try:
+            shutil.copy2(source_path, destination)
+        except OSError as exc:
+            issues.append(_issue("warning", "export_figure_asset_copy_failed", f"Included figure '{figure_id}' could not be copied into the export package: {exc}."))
+            continue
+        relative_asset = destination.relative_to(project_dir / EXPORT_DIR).as_posix()
+        asset = {
+            "figure_id": figure_id,
+            "title": figure.get("title") or figure_id,
+            "source_image_path": str(source_path),
+            "export_image_path": str(destination),
+            "export_asset_path": relative_asset,
+        }
+        assets.append(asset)
+        _annotate_figure_asset(included, figure_lookup, figure_id, asset)
+    return assets, issues
+
+
+def _annotate_figure_asset(
+    included: list[dict[str, Any]],
+    figure_lookup: dict[str, dict[str, Any]],
+    figure_id: str,
+    asset: dict[str, Any],
+) -> None:
+    if figure_id in figure_lookup:
+        figure_lookup[figure_id].update(asset)
+    for item in included:
+        if _item_figure_id(item) == figure_id:
+            item.update(asset)
+
+
+def _resolve_project_path(project_dir: Path, value: Any) -> Path:
+    path = Path(str(value))
+    return path if path.is_absolute() else project_dir / path
+
+
 def _output_formats(output_format: str) -> list[str]:
     if output_format not in SUPPORTED_OUTPUT_FORMATS:
         allowed = ", ".join(sorted(SUPPORTED_OUTPUT_FORMATS))
@@ -293,6 +363,12 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "image_path": item.get("image_path"),
         "figure_id": item.get("figure_id"),
         "figure_type": item.get("figure_type"),
+        "caption": item.get("caption"),
+        "source_note": item.get("source_note"),
+        "method_note": item.get("method_note"),
+        "map_elements": _string_list(item.get("map_elements", [])),
+        "figure_group": item.get("figure_group"),
+        "related_resource_categories": _string_list(item.get("related_resource_categories", [])),
         "table_id": item.get("table_id"),
         "columns": _string_list(item.get("columns", [])),
         "rows_preview": _dict_list(item.get("rows_preview", [])),
@@ -381,6 +457,7 @@ def _markdown_report(
     data_lineage: dict[str, Any],
     comparison_tables: dict[str, Any] | None,
     map_manifest: dict[str, Any] | None,
+    figure_assets: list[dict[str, Any]],
 ) -> str:
     lines = [
         f"# {queue.get('project_name', 'Environmental Constraints Report')}",
@@ -440,7 +517,7 @@ def _markdown_report(
                 all_included_items=included,
             )
         )
-    lines.extend(_markdown_package_contents(queue))
+    lines.extend(_markdown_package_contents(queue, figure_assets=figure_assets))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -476,8 +553,8 @@ def _markdown_item(
         )
     if item.get("type") == "report_section" and _is_front_matter_item(item):
         lines.extend(_markdown_front_matter_lists(all_included_items or []))
-    if item.get("type") == "map_figure" and item.get("image_path"):
-        lines.extend([f"Map file: `{item['image_path']}`", ""])
+    if item.get("type") == "map_figure":
+        lines.extend(_markdown_embedded_figure(item))
     if item.get("type") == "comparison_table":
         details = []
         if item.get("table_id"):
@@ -568,10 +645,28 @@ def _markdown_embedded_table(table: dict[str, Any]) -> list[str]:
 def _markdown_embedded_figure(figure: dict[str, Any]) -> list[str]:
     figure_id = str(figure.get("figure_id") or "figure")
     title = str(figure.get("title") or figure_id)
-    image_path = figure.get("image_path")
+    image_path = _markdown_figure_path(figure)
     if image_path:
-        return [f"Figure: {title} (`{figure_id}`)", "", f"Map file: `{image_path}`", ""]
+        lines = [f"Figure: {title} (`{figure_id}`)", "", f"![{_markdown_alt_text(title)}]({image_path})", "", f"Map file: `{image_path}`", ""]
+        caption = str(figure.get("caption") or "").strip()
+        source_note = str(figure.get("source_note") or "").strip()
+        method_note = str(figure.get("method_note") or "").strip()
+        if caption:
+            lines.extend([f"Caption: {caption}", ""])
+        if source_note:
+            lines.extend([f"Source note: {source_note}", ""])
+        if method_note:
+            lines.extend([f"Method note: {method_note}", ""])
+        return lines
     return [f"Figure placeholder: source figure artifact had no image path for `{figure_id}`.", ""]
+
+
+def _markdown_figure_path(figure: dict[str, Any]) -> str:
+    return str(figure.get("export_asset_path") or figure.get("export_image_path") or figure.get("image_path") or "").replace("\\", "/")
+
+
+def _markdown_alt_text(value: str) -> str:
+    return value.replace("[", "(").replace("]", ")")
 
 
 def _markdown_front_matter_lists(included: list[dict[str, Any]]) -> list[str]:
@@ -638,9 +733,9 @@ def _markdown_data_lineage(data_lineage: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _markdown_package_contents(queue: dict[str, Any]) -> list[str]:
+def _markdown_package_contents(queue: dict[str, Any], *, figure_assets: list[dict[str, Any]] | None = None) -> list[str]:
     lines = ["## Generated Package Contents", ""]
-    contents = _package_contents(queue, output_paths={})
+    contents = _package_contents(queue, output_paths={}, figure_assets=figure_assets)
     for label, value in contents.items():
         if isinstance(value, dict):
             if not value:
@@ -649,6 +744,17 @@ def _markdown_package_contents(queue: dict[str, Any]) -> list[str]:
             for nested_label, nested_value in value.items():
                 if nested_value:
                     lines.append(f"  - {nested_label}: `{nested_value}`")
+        elif isinstance(value, list):
+            if not value:
+                continue
+            lines.append(f"- {label}:")
+            for item in value:
+                if isinstance(item, dict):
+                    item_label = item.get("title") or item.get("figure_id") or "asset"
+                    item_path = item.get("export_asset_path") or item.get("export_image_path")
+                    lines.append(f"  - {item_label}: `{item_path}`")
+                else:
+                    lines.append(f"  - `{item}`")
         elif value:
             lines.append(f"- {label}: `{value}`")
     lines.append("")
@@ -666,6 +772,7 @@ def _write_docx_report(
     comparison_tables: dict[str, Any] | None,
     map_manifest: dict[str, Any] | None,
     data_lineage: dict[str, Any],
+    figure_assets: list[dict[str, Any]],
     output_paths: dict[str, str | None],
 ) -> None:
     try:
@@ -725,7 +832,7 @@ def _write_docx_report(
                 all_included_items=included,
             )
 
-    _add_docx_package_contents(document, queue, output_paths)
+    _add_docx_package_contents(document, queue, output_paths, figure_assets=figure_assets)
     docx_path.parent.mkdir(parents=True, exist_ok=True)
     document.save(docx_path)
 
@@ -991,7 +1098,7 @@ def _add_docx_comparison_table(
 
 
 def _add_docx_map_figure(document: Any, item: dict[str, Any], project_dir: Path, image_width: Any) -> None:
-    image_value = item.get("image_path")
+    image_value = item.get("export_image_path") or item.get("image_path")
     if not image_value:
         document.add_paragraph("Figure placeholder: no image path was recorded for this map figure.")
         return
@@ -1007,6 +1114,15 @@ def _add_docx_map_figure(document: Any, item: dict[str, Any], project_dir: Path,
         document.add_paragraph(f"Figure placeholder: figure could not be embedded from {image_path}: {exc}.")
         return
     document.add_paragraph(f"Figure file: {image_path}")
+    caption = str(item.get("caption") or "").strip()
+    source_note = str(item.get("source_note") or "").strip()
+    method_note = str(item.get("method_note") or "").strip()
+    if caption:
+        document.add_paragraph(f"Caption: {caption}")
+    if source_note:
+        document.add_paragraph(f"Source note: {source_note}")
+    if method_note:
+        document.add_paragraph(f"Method note: {method_note}")
 
 
 def _add_docx_missing_slots(document: Any, item: dict[str, Any]) -> None:
@@ -1027,15 +1143,31 @@ def _add_docx_missing_slots(document: Any, item: dict[str, Any]) -> None:
             document.add_paragraph(slot, style="List Bullet")
 
 
-def _add_docx_package_contents(document: Any, queue: dict[str, Any], output_paths: dict[str, str | None]) -> None:
+def _add_docx_package_contents(
+    document: Any,
+    queue: dict[str, Any],
+    output_paths: dict[str, str | None],
+    *,
+    figure_assets: list[dict[str, Any]] | None = None,
+) -> None:
     document.add_heading("Generated Package Contents", level=1)
-    contents = _package_contents(queue, output_paths=output_paths)
+    contents = _package_contents(queue, output_paths=output_paths, figure_assets=figure_assets)
     for label, value in contents.items():
         if isinstance(value, dict):
             document.add_paragraph(f"{label}:")
             for nested_label, nested_value in value.items():
                 if nested_value:
                     document.add_paragraph(f"{nested_label}: {nested_value}", style="List Bullet")
+        elif isinstance(value, list):
+            if value:
+                document.add_paragraph(f"{label}:")
+            for item in value:
+                if isinstance(item, dict):
+                    item_label = item.get("title") or item.get("figure_id") or "asset"
+                    item_path = item.get("export_asset_path") or item.get("export_image_path")
+                    document.add_paragraph(f"{item_label}: {item_path}", style="List Bullet")
+                else:
+                    document.add_paragraph(str(item), style="List Bullet")
         elif value:
             document.add_paragraph(f"{label}: {value}", style="List Bullet")
 
@@ -1069,6 +1201,15 @@ def _figures_by_id(map_manifest: dict[str, Any] | None, included: list[dict[str,
             "title": item.get("title") or figures.get(figure_id, {}).get("title"),
             "image_path": item.get("image_path") or figures.get(figure_id, {}).get("image_path"),
             "source_refs": item.get("source_refs", []),
+            "caption": item.get("caption") or figures.get(figure_id, {}).get("caption"),
+            "source_note": item.get("source_note") or figures.get(figure_id, {}).get("source_note"),
+            "method_note": item.get("method_note") or figures.get(figure_id, {}).get("method_note"),
+            "map_elements": item.get("map_elements") or figures.get(figure_id, {}).get("map_elements", []),
+            "figure_group": item.get("figure_group") or figures.get(figure_id, {}).get("figure_group"),
+            "related_resource_categories": item.get("related_resource_categories")
+            or figures.get(figure_id, {}).get("related_resource_categories", []),
+            "export_image_path": item.get("export_image_path") or figures.get(figure_id, {}).get("export_image_path"),
+            "export_asset_path": item.get("export_asset_path") or figures.get(figure_id, {}).get("export_asset_path"),
         }
     return figures
 
@@ -1079,6 +1220,10 @@ def _included_table_ids(included: list[dict[str, Any]]) -> set[str]:
 
 def _included_figure_ids(included: list[dict[str, Any]]) -> set[str]:
     return {_item_figure_id(item) for item in included if item.get("type") == "map_figure" and _item_figure_id(item)}
+
+
+def _export_map_path(item: dict[str, Any]) -> str:
+    return str(item.get("export_asset_path") or item.get("export_image_path") or item.get("image_path") or "")
 
 
 def _item_figure_id(item: dict[str, Any]) -> str:
@@ -1142,7 +1287,12 @@ def _normalized_heading(value: str) -> str:
     return " ".join(value.strip().lower().split())
 
 
-def _package_contents(queue: dict[str, Any], *, output_paths: dict[str, str | None]) -> dict[str, Any]:
+def _package_contents(
+    queue: dict[str, Any],
+    *,
+    output_paths: dict[str, str | None],
+    figure_assets: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     upstream = queue.get("upstream_artifacts", {}) if isinstance(queue.get("upstream_artifacts"), dict) else {}
     return {
         "project_dir": queue.get("project_dir"),
@@ -1155,6 +1305,7 @@ def _package_contents(queue: dict[str, Any], *, output_paths: dict[str, str | No
         "report_sections": upstream.get("report_sections_path"),
         "evidence_package": upstream.get("evidence_package_path"),
         "exports": {key: value for key, value in output_paths.items() if value},
+        "figure_assets": figure_assets or [],
     }
 
 
@@ -1224,6 +1375,7 @@ def _mvp_quality_summary(
     validation_issues: list[dict[str, Any]],
     comparison_tables: dict[str, Any] | None,
     map_manifest: dict[str, Any] | None,
+    figure_assets: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     included_table_ids = _included_table_ids(included)
     included_figure_ids = _included_figure_ids(included)
@@ -1246,6 +1398,8 @@ def _mvp_quality_summary(
         "included_section_count": sum(1 for item in included if item.get("type") == "report_section"),
         "included_table_count": len(included_table_ids),
         "included_figure_count": len(included_figure_ids),
+        "copied_figure_asset_count": len(figure_assets or []),
+        "copied_figure_asset_ids": sorted(str(asset.get("figure_id")) for asset in (figure_assets or []) if asset.get("figure_id")),
         "inline_rendered_table_count": len(inline_table_ids),
         "inline_rendered_figure_count": len(inline_figure_ids),
         "inline_rendered_table_ids": sorted(inline_table_ids),
@@ -1259,6 +1413,11 @@ def _mvp_quality_summary(
         "gpt_accepted_section_count": int(gpt_summary.get("accepted_section_count", 0)),
         "gpt_rejected_section_count": int(gpt_summary.get("rejected_section_count", 0)),
         "validation_warning_count": sum(1 for issue in validation_issues if str(issue.get("severity", "warning")) == "warning"),
+        "missing_figure_asset_warning_count": sum(
+            1
+            for issue in validation_issues
+            if str(issue.get("code", "")) in {"missing_export_figure_source", "missing_export_figure_asset", "export_figure_asset_copy_failed"}
+        ),
     }
 
 
@@ -1271,6 +1430,8 @@ def _mvp_quality_validation_issues(mvp_quality: dict[str, Any], *, include_draft
         issues.append(_issue("warning", "mvp_no_inline_figures", "MVP preview has real source layers but no figures rendered inline in report sections."))
     if include_draft and real_source_count > 0 and int(mvp_quality.get("inline_rendered_table_count", 0)) == 0:
         issues.append(_issue("warning", "mvp_no_inline_tables", "MVP preview has real source layers but no tables rendered inline in report sections."))
+    if int(mvp_quality.get("included_figure_count", 0)) > int(mvp_quality.get("copied_figure_asset_count", 0)):
+        issues.append(_issue("warning", "mvp_missing_export_figure_assets", "One or more included map figures were not copied into the export figure assets folder."))
     if int(mvp_quality.get("placeholder_resource_section_count", 0)) > 5:
         issues.append(_issue("warning", "mvp_many_placeholder_sections", "MVP preview still has many placeholder-only resource sections."))
     return issues
@@ -1379,3 +1540,8 @@ def _optional_int(value: Any) -> int | None:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower()).strip("-")
+    return slug or "item"

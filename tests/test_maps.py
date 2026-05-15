@@ -125,6 +125,12 @@ def test_generate_maps_writes_overview_manifest_and_png(tmp_path: Path) -> None:
     assert figure["review_status"] == "draft"
     assert figure["source_refs"] == []
     assert "vector_only_no_basemap" in figure["uncertainty_flags"]  # type: ignore[operator]
+    assert figure["caption"]
+    assert figure["source_note"]
+    assert figure["method_note"]
+    assert "north_arrow" in figure["map_elements"]  # type: ignore[operator]
+    assert figure["figure_group"] == "project_overview"
+    assert figure["related_resource_categories"] == []
 
 
 def test_generate_maps_creates_source_context_from_clipped_source(tmp_path: Path) -> None:
@@ -139,10 +145,20 @@ def test_generate_maps_creates_source_context_from_clipped_source(tmp_path: Path
 
     manifest = generate_maps(project_dir)
 
-    assert manifest["figure_count"] == 2
+    assert manifest["figure_count"] == 3
+    overview = figure_by_id(manifest, "environmental-constraints-overview")
+    assert Path(str(overview["image_path"])).exists()
+    assert overview["source_refs"] == ["usfws_nwi_wetlands"]
+    assert "wetlands_waterbodies" in overview["related_resource_categories"]  # type: ignore[operator]
     figure = figure_by_id(manifest, "source-context-usfws-nwi-wetlands")
     assert Path(str(figure["image_path"])).exists()
     assert figure["source_refs"] == ["usfws_nwi_wetlands"]
+    assert figure["caption"]
+    assert figure["source_note"]
+    assert figure["method_note"]
+    assert "scale_bar" in figure["map_elements"]  # type: ignore[operator]
+    assert figure["figure_group"] == "source_context"
+    assert figure["related_resource_categories"] == ["wetlands_waterbodies"]
     assert any(layer["layer_type"] == "source_layer" for layer in figure["shown_layers"])  # type: ignore[index]
 
 
@@ -158,10 +174,27 @@ def test_generate_maps_prefers_constraint_results_for_source_context(tmp_path: P
 
     manifest = generate_maps(project_dir)
 
-    assert manifest["figure_count"] == 2
+    assert manifest["figure_count"] == 3
     assert manifest["upstream_artifacts"]["constraint_results_path"].endswith("constraint_results.json")  # type: ignore[index]
+    assert figure_by_id(manifest, "environmental-constraints-overview")["provenance"]["artifact"] == "constraint_results"  # type: ignore[index]
     figure = figure_by_id(manifest, "source-context-usfws-nwi-wetlands")
     assert figure["provenance"]["artifact"] == "constraint_results"  # type: ignore[index]
+
+
+def test_generate_maps_warns_for_empty_source_context_without_overview(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-91.0, 33.0), (-90.9, 33.0), (-90.9, 33.1), (-91.0, 33.1), (-91.0, 33.0)])],
+        [{"name": "Far Wetland"}],
+    )
+    write_registry(project_dir, "usfws_nwi_wetlands", "wetlands.geojson")
+    analyze_project(project_dir)
+
+    manifest = generate_maps(project_dir)
+
+    assert [figure["figure_id"] for figure in manifest["figures"]] == ["project-overview", "source-context-usfws-nwi-wetlands"]
+    assert any(issue["code"] == "empty_clipped_source_layer" for issue in manifest["validation_issues"])
 
 
 def test_generate_maps_handles_missing_and_malformed_spatial_artifacts(tmp_path: Path) -> None:

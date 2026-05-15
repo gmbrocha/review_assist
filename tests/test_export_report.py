@@ -365,6 +365,8 @@ def test_docx_export_embeds_table_content_and_missing_figure_placeholder(tmp_pat
     assert "category" in text
     assert "wetlands_waterbodies" in text
     assert "Figure placeholder: figure file was not available" in text
+    assert any(issue["code"] == "missing_export_figure_asset" for issue in manifest["validation_issues"])
+    assert manifest["mvp_quality"]["missing_figure_asset_warning_count"] >= 1
 
 
 def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_and_maps(
@@ -376,7 +378,7 @@ def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_an
     populate_for_review(project_dir, prepare_sources=True)
     queue = load_review_queue(project_dir)
     finding_id = next(item["id"] for item in queue["items"] if item["type"] == "draft_finding" and "Wetland" in item["title"])
-    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and item["source_refs"])
+    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and str(item.get("figure_id", "")).startswith("source-context"))
 
     update_review_item(project_dir, finding_id, status="accepted")
     update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted")
@@ -393,6 +395,11 @@ def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_an
     assert manifest["data_lineage"]["counts"]["test_or_mock"] > 0
     assert "Mock NWI Wetland" in markdown
     assert "Map file:" in markdown
+    assert "Caption:" in markdown
+    assert "Source note:" in markdown
+    assert manifest["export_figure_assets"]
+    assert manifest["mvp_quality"]["copied_figure_asset_count"] == 1
+    assert Path(manifest["export_figure_assets"][0]["export_image_path"]).exists()
 
 
 def test_docx_export_with_nwi_backed_constraints_includes_accepted_evidence(
@@ -404,7 +411,7 @@ def test_docx_export_with_nwi_backed_constraints_includes_accepted_evidence(
     populate_for_review(project_dir, prepare_sources=True)
     queue = load_review_queue(project_dir)
     finding_id = next(item["id"] for item in queue["items"] if item["type"] == "draft_finding" and "Wetland" in item["title"])
-    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and item["source_refs"])
+    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and str(item.get("figure_id", "")).startswith("source-context"))
 
     update_review_item(project_dir, finding_id, status="accepted")
     update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted")
@@ -418,8 +425,11 @@ def test_docx_export_with_nwi_backed_constraints_includes_accepted_evidence(
     assert "Mock NWI Wetland" in text
     assert "Constraint Summary" in text
     assert "Figure file:" in text
+    assert "Caption:" in text
+    assert "Source note:" in text
     assert manifest["mvp_quality"]["inline_rendered_table_count"] > 0
     assert manifest["mvp_quality"]["inline_rendered_figure_count"] > 0
+    assert manifest["mvp_quality"]["copied_figure_asset_count"] == 1
     assert text.count("Figure file:") == 1
 
 
@@ -431,7 +441,7 @@ def test_report_sections_render_related_table_and_figure_inline_without_standalo
     monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
     populate_for_review(project_dir, prepare_sources=True)
     queue = load_review_queue(project_dir)
-    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and item["source_refs"])
+    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and str(item.get("figure_id", "")).startswith("source-context"))
 
     update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted")
     update_review_item(project_dir, "comparison-table-constraint-summary", status="accepted")
@@ -445,6 +455,7 @@ def test_report_sections_render_related_table_and_figure_inline_without_standalo
     assert "Generated draft map figure" not in text
     assert manifest["mvp_quality"]["inline_rendered_table_ids"] == ["constraint-summary"]
     assert manifest["mvp_quality"]["inline_rendered_figure_count"] == 1
+    assert manifest["mvp_quality"]["copied_figure_asset_ids"] == ["source-context-usfws-nwi-wetlands"]
 
 
 def test_export_warns_when_existing_map_manifest_cannot_be_loaded(tmp_path: Path) -> None:

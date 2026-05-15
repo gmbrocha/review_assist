@@ -350,6 +350,7 @@ The app should generate these where source data is available and create reviewab
 - [x] Deterministic draft finding generation exists through `review-assist generate-findings`.
 - [x] Comparison table generation exists through `review-assist generate-tables`.
 - [x] Vector-only map generation exists through `review-assist generate-maps`.
+- [x] Generated figures include draft map elements: legend, north arrow, scale bar where CRS units allow it, source notes, CRS/method notes, and visible draft/pre-review labeling.
 - [x] Deterministic report section generation exists through `review-assist generate-report-sections`.
 - [x] Evidence package generation exists through `review-assist build-evidence-package`.
 - [x] Optional GPT-backed report section drafting exists when `GPT_DRAFTING=1`.
@@ -381,6 +382,8 @@ The app should generate these where source data is available and create reviewab
 - [x] `generate-findings` prefers `constraint_results.json` when present.
 - [x] `generate-tables` includes a constraint summary table.
 - [x] `generate-maps` prefers constraint clipped layers when constraint results exist.
+- [x] `generate-maps` creates a combined `environmental-constraints-overview` figure when analyzed source layers have mapped features.
+- [x] Map figure artifacts carry captions, source notes, method notes, figure grouping, related resource categories, shown layers, provenance, and review status.
 - [x] `populate-for-review` now runs project geometry normalization before source/constraint/report/review artifacts.
 - [x] `populate-for-review` now routes through constraint analysis instead of legacy raw spatial analysis.
 - [x] `populate-for-review` records project geometry, project features, analysis bounds, and constraint results in the run manifest.
@@ -449,9 +452,10 @@ The app should generate these where source data is available and create reviewab
 - [x] DOCX export renders report sections, tables where practical, map figures when files exist, placeholders when files are missing, source refs, caveats, and generated package contents.
 - [x] DOCX exports now use a more report-like structure with a title page, draft header/footer labels, major-section page breaks, front-matter figure/table/attachment lists, and duplicate section-heading cleanup.
 - [x] Markdown and DOCX exports can render section-referenced tables and figures inline while avoiding duplicate standalone table/figure rendering later in the package.
+- [x] Markdown and DOCX exports copy included figure PNGs into `exports/assets/figures/` and reference those package-local assets while preserving original map artifact provenance.
 - [x] Real-data MVP deliverable generation exists through `review-assist build-mvp-deliverable`.
 - [x] Export and deliverable manifests include `data_lineage` counts for project inputs, real source layers, stubs, and test/mock records.
-- [x] Export and deliverable manifests include `mvp_quality` counts for real sources, source-backed constraints, included sections/tables/figures, inline-rendered evidence, placeholders, unresolved source categories, GPT sections, and validation warnings.
+- [x] Export and deliverable manifests include `mvp_quality` counts for real sources, source-backed constraints, included sections/tables/figures, copied figure assets, inline-rendered evidence, placeholders, unresolved source categories, GPT sections, and validation warnings.
 - [x] MVP deliverables fail when no real source layer is available by default.
 - [x] MVP deliverables fail when test fixture/mock source records are detected.
 - [x] Data lineage now ignores stale downloaded-source records unless the current project registry still enables the matching downloaded local source file.
@@ -599,9 +603,9 @@ This milestone has started. GPT is implemented only for report-section drafting 
 
 ### 9. Map and Figure Improvements
 
-- [ ] Add constraint-source maps from downloaded and registered layers.
-- [ ] Add better symbology by project feature and source category.
-- [ ] Add legends, scale bars, north arrows, source notes, and draft labels.
+- [x] Add constraint-source maps from downloaded and registered layers.
+- [x] Add better symbology by project feature and source category for the current vector-only baseline.
+- [x] Add legends, scale bars, north arrows, source notes, and draft labels for the current vector-only baseline.
 - [ ] Add panel maps or per-feature maps where needed.
 - [ ] Add optional basemap/imagery only after terms and implementation path are clear.
 - [ ] Keep imagery observations as review items, not authoritative facts.

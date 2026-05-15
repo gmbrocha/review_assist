@@ -15,6 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from pyproj import CRS
 
 from .project_context import ProjectContextError, generate_project_context, load_project_context
 
@@ -35,9 +36,16 @@ SUPPORTED_FIGURE_REVIEW_STATUSES = {
 REQUIRED_FIGURE_FIELDS = {
     "figure_id",
     "type",
+    "figure_type",
     "title",
     "image_path",
     "file_format",
+    "caption",
+    "source_note",
+    "method_note",
+    "map_elements",
+    "figure_group",
+    "related_resource_categories",
     "shown_layers",
     "source_refs",
     "provenance",
@@ -57,6 +65,7 @@ SOURCE_CATEGORY_COLORS = {
     "community_socioeconomic": "#F2994A",
     "transportation_utilities": "#7A6FF0",
 }
+MAP_ELEMENT_BASELINE = ["legend", "north_arrow", "scale_bar", "draft_label", "crs_note", "source_note"]
 
 
 class MapGenerationError(RuntimeError):
@@ -86,12 +95,15 @@ def generate_maps(project_dir: Path) -> dict[str, Any]:
 
     figures: list[dict[str, Any]] = []
     overview_path = figures_dir / "project-overview.png"
+    overview_validation_issues = _map_element_validation_issues(analysis_crs, str(overview_path))
     try:
         _render_map(
             output_path=overview_path,
             title=f"{context['project_name']} - Project Overview",
             project_layers=project_layers,
             analysis_crs=analysis_crs,
+            method_note=_method_note(analysis_crs),
+            source_note=_project_source_note(project_layers),
         )
     except Exception as exc:
         raise MapGenerationError(f"Unable to render project overview map: {exc}") from exc
@@ -101,6 +113,12 @@ def generate_maps(project_dir: Path) -> dict[str, Any]:
             figure_type="project_overview",
             title="Project Overview",
             image_path=overview_path,
+            caption="Project overview showing normalized project input geometry used for desktop screening.",
+            source_note=_project_source_note(project_layers),
+            method_note=_method_note(analysis_crs),
+            map_elements=MAP_ELEMENT_BASELINE,
+            figure_group="project_overview",
+            related_resource_categories=[],
             shown_layers=_project_shown_layers(project_layers),
             source_refs=[],
             provenance={
@@ -110,10 +128,12 @@ def generate_maps(project_dir: Path) -> dict[str, Any]:
                 "analysis_crs": analysis_crs,
             },
             uncertainty_flags=["draft_pre_review", "vector_only_no_basemap"],
-            validation_issues=[],
+            validation_issues=overview_validation_issues,
         )
     )
+    validation_issues.extend(overview_validation_issues)
 
+    overview_source_layers: list[dict[str, Any]] = []
     if source_artifact is not None:
         for source in _dict_list(source_artifact.get("sources", [])):
             if source.get("status") != "analyzed":
@@ -128,7 +148,22 @@ def generate_maps(project_dir: Path) -> dict[str, Any]:
             )
             if source_figure["figure"] is not None:
                 figures.append(source_figure["figure"])
+            if source_figure["source_layer"] is not None:
+                overview_source_layers.append(source_figure["source_layer"])
             validation_issues.extend(source_figure["validation_issues"])
+
+    if overview_source_layers:
+        overview_figure = _constraints_overview_figure(
+            project_layers=project_layers,
+            figures_dir=figures_dir,
+            analysis_crs=analysis_crs,
+            source_layers=overview_source_layers,
+            source_artifact=source_artifact,
+            source_artifact_name=source_artifact_name,
+        )
+        if overview_figure["figure"] is not None:
+            figures.insert(1, overview_figure["figure"])
+        validation_issues.extend(overview_figure["validation_issues"])
 
     output_path = project_dir / MAP_MANIFEST_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -268,7 +303,7 @@ def _source_context_figure(
                 source_id=source_id,
             )
         )
-        return {"figure": None, "validation_issues": validation_issues}
+        return {"figure": None, "source_layer": None, "validation_issues": validation_issues}
 
     clipped_path = Path(str(clipped_value))
     if not clipped_path.exists():
@@ -280,7 +315,7 @@ def _source_context_figure(
                 source_id=source_id,
             )
         )
-        return {"figure": None, "validation_issues": validation_issues}
+        return {"figure": None, "source_layer": None, "validation_issues": validation_issues}
 
     try:
         source_gdf = gpd.read_file(clipped_path)
@@ -293,7 +328,7 @@ def _source_context_figure(
                 source_id=source_id,
             )
         )
-        return {"figure": None, "validation_issues": validation_issues}
+        return {"figure": None, "source_layer": None, "validation_issues": validation_issues}
 
     if source_gdf.crs is None:
         validation_issues.append(
@@ -307,9 +342,21 @@ def _source_context_figure(
         source_gdf = source_gdf.set_crs("EPSG:4326", allow_override=True)
     source_gdf = source_gdf[~source_gdf.geometry.isna()]
     source_gdf = source_gdf[~source_gdf.geometry.is_empty]
+    if source_gdf.empty:
+        validation_issues.append(
+            _issue(
+                code="empty_clipped_source_layer",
+                message=f"Clipped source layer '{source_id}' has no features inside the project analysis bounds; source-context map will show project geometry only.",
+                location=str(clipped_path),
+                source_id=source_id,
+            )
+        )
 
     figure_id = f"source-context-{_slug(source_id)}"
     image_path = figures_dir / f"{figure_id}.png"
+    source_category = str(source.get("source_category") or "")
+    source_note = _source_note([{"source": source, "gdf": source_gdf, "path": clipped_path}])
+    validation_issues.extend(_map_element_validation_issues(analysis_crs, str(image_path), source_id=source_id))
     try:
         _render_map(
             output_path=image_path,
@@ -317,6 +364,8 @@ def _source_context_figure(
             project_layers=project_layers,
             analysis_crs=analysis_crs,
             source_layer={"source": source, "gdf": source_gdf, "path": clipped_path},
+            method_note=_method_note(analysis_crs),
+            source_note=source_note,
         )
     except Exception as exc:
         validation_issues.append(
@@ -327,7 +376,7 @@ def _source_context_figure(
                 source_id=source_id,
             )
         )
-        return {"figure": None, "validation_issues": validation_issues}
+        return {"figure": None, "source_layer": None, "validation_issues": validation_issues}
     uncertainty_flags = ["draft_pre_review", "vector_only_no_basemap"]
     if source_gdf.empty:
         uncertainty_flags.append("empty_clipped_source_layer")
@@ -337,6 +386,12 @@ def _source_context_figure(
             figure_type="source_context",
             title=f"Source Context: {source_name}",
             image_path=image_path,
+            caption=f"Project features shown with {source_name} source features within the analysis bounds.",
+            source_note=source_note,
+            method_note=_method_note(analysis_crs),
+            map_elements=MAP_ELEMENT_BASELINE,
+            figure_group="source_context",
+            related_resource_categories=[source_category] if source_category else [],
             shown_layers=[
                 *_project_shown_layers(project_layers),
                 {
@@ -359,6 +414,88 @@ def _source_context_figure(
             uncertainty_flags=uncertainty_flags,
             validation_issues=validation_issues,
         ),
+        "source_layer": {"source": source, "gdf": source_gdf, "path": clipped_path},
+        "validation_issues": validation_issues,
+    }
+
+
+def _constraints_overview_figure(
+    *,
+    project_layers: list[dict[str, Any]],
+    figures_dir: Path,
+    analysis_crs: str,
+    source_layers: list[dict[str, Any]],
+    source_artifact: dict[str, Any] | None,
+    source_artifact_name: str,
+) -> dict[str, Any]:
+    non_empty_layers = [layer for layer in source_layers if not layer["gdf"].empty]
+    if not non_empty_layers:
+        return {"figure": None, "validation_issues": []}
+    figure_id = "environmental-constraints-overview"
+    image_path = figures_dir / f"{figure_id}.png"
+    source_refs = sorted(
+        {
+            str(layer["source"].get("source_id"))
+            for layer in non_empty_layers
+            if str(layer["source"].get("source_id", "")).strip()
+        }
+    )
+    categories = sorted(
+        {
+            str(layer["source"].get("source_category"))
+            for layer in non_empty_layers
+            if str(layer["source"].get("source_category", "")).strip()
+        }
+    )
+    validation_issues: list[dict[str, Any]] = []
+    source_note = _source_note(non_empty_layers)
+    validation_issues.extend(_map_element_validation_issues(analysis_crs, str(image_path)))
+    try:
+        _render_map(
+            output_path=image_path,
+            title="Environmental Constraints Overview",
+            project_layers=project_layers,
+            analysis_crs=analysis_crs,
+            source_layers=non_empty_layers,
+            method_note=_method_note(analysis_crs),
+            source_note=source_note,
+        )
+    except Exception as exc:
+        validation_issues.append(
+            _issue(
+                code="constraints_overview_map_render_error",
+                message=f"Unable to render environmental constraints overview figure: {exc}",
+                location=str(source_artifact.get("output_path", "")) if source_artifact else "",
+            )
+        )
+        return {"figure": None, "validation_issues": validation_issues}
+
+    return {
+        "figure": _figure_record(
+            figure_id=figure_id,
+            figure_type="constraints_overview",
+            title="Environmental Constraints Overview",
+            image_path=image_path,
+            caption="Overview map showing project features with analyzed source categories that have mapped features inside the analysis bounds.",
+            source_note=source_note,
+            method_note=_method_note(analysis_crs),
+            map_elements=MAP_ELEMENT_BASELINE,
+            figure_group="constraints_inventory",
+            related_resource_categories=categories,
+            shown_layers=[
+                *_project_shown_layers(project_layers),
+                *[_source_shown_layer(layer) for layer in non_empty_layers],
+            ],
+            source_refs=source_refs,
+            provenance={
+                "artifact": source_artifact_name,
+                "artifact_path": source_artifact.get("output_path") if source_artifact else None,
+                "method": "geopandas_matplotlib_vector_static_map",
+                "analysis_crs": analysis_crs,
+            },
+            uncertainty_flags=["draft_pre_review", "vector_only_no_basemap"],
+            validation_issues=validation_issues,
+        ),
         "validation_issues": validation_issues,
     }
 
@@ -370,6 +507,9 @@ def _render_map(
     project_layers: list[dict[str, Any]],
     analysis_crs: str,
     source_layer: dict[str, Any] | None = None,
+    source_layers: list[dict[str, Any]] | None = None,
+    method_note: str = "",
+    source_note: str = "",
 ) -> None:
     fig, ax = plt.subplots(figsize=(10, 7.5), dpi=150)
     try:
@@ -383,9 +523,12 @@ def _render_map(
             handles.extend(_plot_gdf(ax, gdf, color=color, label=label, is_project=True))
             plotted_layers.append(gdf)
 
+        all_source_layers = list(source_layers or [])
         if source_layer is not None:
-            source_gdf = source_layer["gdf"].to_crs(analysis_crs)
-            source_record = source_layer["source"]
+            all_source_layers.insert(0, source_layer)
+        for mapped_source_layer in all_source_layers:
+            source_gdf = mapped_source_layer["gdf"].to_crs(analysis_crs)
+            source_record = mapped_source_layer["source"]
             source_name = str(source_record.get("source_name") or source_record.get("source_id") or "Source layer")
             source_category = str(source_record.get("source_category") or "")
             source_label = f"{source_name} ({source_category})" if source_category else source_name
@@ -397,11 +540,25 @@ def _render_map(
         ax.set_title(title, fontsize=14, pad=12)
         ax.set_axis_off()
         if handles:
-            ax.legend(handles=handles, loc="upper left", frameon=True, framealpha=0.92, fontsize=8)
+            ax.legend(handles=handles, loc="upper left", frameon=True, framealpha=0.94, fontsize=8, title="Mapped layers", title_fontsize=8)
+        _add_north_arrow(ax)
+        _add_scale_bar(ax, analysis_crs)
+        if source_note:
+            ax.text(
+                0.01,
+                0.01,
+                source_note,
+                transform=ax.transAxes,
+                ha="left",
+                va="bottom",
+                fontsize=7,
+                color="#4A4A4A",
+                bbox={"facecolor": "white", "edgecolor": "#D0D0D0", "alpha": 0.9, "pad": 3},
+            )
         ax.text(
             0.99,
             0.01,
-            "Draft / Pre-Review - Vector Only",
+            "Draft / Pre-Review - Vector Only\n" + (method_note or _method_note(analysis_crs)),
             transform=ax.transAxes,
             ha="right",
             va="bottom",
@@ -466,8 +623,116 @@ def _set_extent(ax: Any, layers: list[gpd.GeoDataFrame]) -> None:
     ax.set_aspect("equal", adjustable="box")
 
 
+def _add_north_arrow(ax: Any) -> None:
+    ax.annotate(
+        "N",
+        xy=(0.94, 0.90),
+        xytext=(0.94, 0.79),
+        xycoords="axes fraction",
+        textcoords="axes fraction",
+        ha="center",
+        va="center",
+        fontsize=11,
+        fontweight="bold",
+        arrowprops={"arrowstyle": "-|>", "color": "#2B2B2B", "lw": 1.4},
+        bbox={"facecolor": "white", "edgecolor": "#BDBDBD", "alpha": 0.9, "pad": 2},
+    )
+
+
+def _add_scale_bar(ax: Any, analysis_crs: str) -> None:
+    feet_per_unit = _feet_per_crs_unit(analysis_crs)
+    if feet_per_unit is None:
+        return
+    x_min, x_max = ax.get_xlim()
+    y_min, y_max = ax.get_ylim()
+    width = abs(x_max - x_min)
+    height = abs(y_max - y_min)
+    if width <= 0 or height <= 0:
+        return
+    target_feet = width * feet_per_unit * 0.18
+    scale_feet = _nice_scale_feet(target_feet)
+    if scale_feet <= 0:
+        return
+    scale_units = scale_feet / feet_per_unit
+    x0 = x_min + width * 0.08
+    y0 = y_min + height * 0.08
+    ax.plot([x0, x0 + scale_units], [y0, y0], color="#2B2B2B", linewidth=2.5, solid_capstyle="butt")
+    tick_height = height * 0.012
+    ax.plot([x0, x0], [y0 - tick_height, y0 + tick_height], color="#2B2B2B", linewidth=1.5)
+    ax.plot([x0 + scale_units, x0 + scale_units], [y0 - tick_height, y0 + tick_height], color="#2B2B2B", linewidth=1.5)
+    label = f"{scale_feet / 5280:g} mi" if scale_feet >= 5280 else f"{int(scale_feet):,} ft"
+    ax.text(
+        x0 + scale_units / 2,
+        y0 + height * 0.018,
+        label,
+        ha="center",
+        va="bottom",
+        fontsize=8,
+        color="#2B2B2B",
+        bbox={"facecolor": "white", "edgecolor": "#D0D0D0", "alpha": 0.9, "pad": 2},
+    )
+
+
+def _feet_per_crs_unit(analysis_crs: str) -> float | None:
+    try:
+        crs = CRS.from_user_input(analysis_crs)
+    except Exception:
+        return None
+    if not crs.axis_info:
+        return None
+    unit_name = str(crs.axis_info[0].unit_name or "").lower()
+    if "metre" in unit_name or "meter" in unit_name:
+        return 3.280839895
+    if "foot" in unit_name or "feet" in unit_name:
+        return 1.0
+    return None
+
+
+def _nice_scale_feet(target_feet: float) -> float:
+    candidates = [100, 250, 500, 1000, 2000, 5280, 10000, 26400, 52800, 105600]
+    valid = [candidate for candidate in candidates if candidate <= target_feet]
+    return float(valid[-1] if valid else candidates[0])
+
+
 def _source_color(source_category: str) -> str:
     return SOURCE_CATEGORY_COLORS.get(source_category, SOURCE_COLOR)
+
+
+def _method_note(analysis_crs: str) -> str:
+    return f"Vector-only desktop screening map. Analysis CRS: {analysis_crs}."
+
+
+def _project_source_note(project_layers: list[dict[str, Any]]) -> str:
+    labels = [_project_layer_label(layer) for layer in project_layers]
+    return _compact_note("Project input: " + ", ".join(labels))
+
+
+def _source_note(source_layers: list[dict[str, Any]]) -> str:
+    labels: list[str] = []
+    for layer in source_layers:
+        source = layer["source"]
+        name = str(source.get("source_name") or source.get("source_id") or "Source layer")
+        count = int(len(layer["gdf"]))
+        labels.append(f"{name} ({count} feature{'s' if count != 1 else ''})")
+    return _compact_note("Sources: " + "; ".join(labels))
+
+
+def _compact_note(value: str, *, max_length: int = 190) -> str:
+    text = " ".join(value.split())
+    return text if len(text) <= max_length else text[: max_length - 3].rstrip() + "..."
+
+
+def _map_element_validation_issues(analysis_crs: str, location: str, source_id: str | None = None) -> list[dict[str, Any]]:
+    if _feet_per_crs_unit(analysis_crs) is not None:
+        return []
+    return [
+        _issue(
+            code="scale_bar_unavailable",
+            message=f"Scale bar could not be estimated from analysis CRS '{analysis_crs}'; the draft figure omits a reliable scale bar.",
+            location=location,
+            source_id=source_id,
+        )
+    ]
 
 
 def _figure_record(
@@ -476,6 +741,12 @@ def _figure_record(
     figure_type: str,
     title: str,
     image_path: Path,
+    caption: str,
+    source_note: str,
+    method_note: str,
+    map_elements: list[str],
+    figure_group: str,
+    related_resource_categories: list[str],
     shown_layers: list[dict[str, Any]],
     source_refs: list[str],
     provenance: dict[str, Any],
@@ -485,9 +756,16 @@ def _figure_record(
     return {
         "figure_id": figure_id,
         "type": figure_type,
+        "figure_type": figure_type,
         "title": title,
         "image_path": str(image_path),
         "file_format": "png",
+        "caption": caption,
+        "source_note": source_note,
+        "method_note": method_note,
+        "map_elements": map_elements,
+        "figure_group": figure_group,
+        "related_resource_categories": related_resource_categories,
         "shown_layers": shown_layers,
         "source_refs": source_refs,
         "provenance": provenance,
@@ -509,6 +787,19 @@ def _project_shown_layers(project_layers: list[dict[str, Any]]) -> list[dict[str
         }
         for layer in project_layers
     ]
+
+
+def _source_shown_layer(source_layer: dict[str, Any]) -> dict[str, Any]:
+    source = source_layer["source"]
+    gdf = source_layer["gdf"]
+    return {
+        "layer_type": "source_layer",
+        "source_id": source.get("source_id"),
+        "label": source.get("source_name") or source.get("source_id"),
+        "path": str(source_layer.get("path", "")),
+        "feature_count": int(len(gdf)),
+        "geometry_type_counts": _geometry_type_counts(gdf),
+    }
 
 
 def _project_layer_label(layer: dict[str, Any]) -> str:
@@ -568,9 +859,12 @@ def _validate_map_manifest(data: dict[str, Any], location: str) -> None:
             raise MapGenerationError(f"Map figure '{figure_id}' file_format must be png: {location}")
         if figure["review_status"] not in SUPPORTED_FIGURE_REVIEW_STATUSES:
             raise MapGenerationError(f"Map figure '{figure_id}' has unsupported review_status: {location}")
+        for string_field in ("type", "figure_type", "title", "caption", "source_note", "method_note", "figure_group"):
+            if not isinstance(figure[string_field], str):
+                raise MapGenerationError(f"Map figure '{figure_id}' field '{string_field}' must be a string: {location}")
         if not isinstance(figure["provenance"], dict):
             raise MapGenerationError(f"Map figure '{figure_id}' provenance must be an object: {location}")
-        for list_field in ("shown_layers", "source_refs", "uncertainty_flags", "validation_issues"):
+        for list_field in ("map_elements", "related_resource_categories", "shown_layers", "source_refs", "uncertainty_flags", "validation_issues"):
             if not isinstance(figure[list_field], list):
                 raise MapGenerationError(f"Map figure '{figure_id}' field '{list_field}' must be a list: {location}")
 

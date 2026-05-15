@@ -1085,9 +1085,12 @@ def _figures_for_section(map_manifest: dict[str, Any] | None, source_refs: list[
     if map_manifest is None:
         return []
     figures = _dict_list(map_manifest.get("figures", []))
-    if section_type == "study_area":
+    if section_type in {"introduction", "study_area", "project_overview", "analysis_procedures"}:
         return [figure for figure in figures if str(figure.get("figure_id", "")) == "project-overview"]
-    if section_type in {"maps_and_figures", "constraints_inventory", "attachments"}:
+    if section_type == "constraints_inventory":
+        overview = [figure for figure in figures if str(figure.get("figure_id", "")) == "environmental-constraints-overview"]
+        return overview or [figure for figure in figures if str(figure.get("figure_id", "")) == "project-overview"]
+    if section_type in {"maps_and_figures", "attachments"}:
         return figures
     source_ref_set = set(source_refs)
     if not source_ref_set:
@@ -1095,7 +1098,8 @@ def _figures_for_section(map_manifest: dict[str, Any] | None, source_refs: list[
     return [
         figure
         for figure in figures
-        if source_ref_set.intersection(_string_list(figure.get("source_refs", [])))
+        if str(figure.get("figure_group") or figure.get("type") or "") == "source_context"
+        and source_ref_set.intersection(_string_list(figure.get("source_refs", [])))
     ]
 
 

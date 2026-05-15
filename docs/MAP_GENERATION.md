@@ -1,6 +1,6 @@
 # Map Generation
 
-This document captures current and future map and figure generation workflows. A first vector-only draft map baseline is implemented; production cartography, basemaps, imagery, panel sheets, and export packaging remain future work.
+This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented, including project overview, source-context figures, a combined constraints overview where analyzed source layers exist, report figure metadata, and export-package figure asset copying. Production cartography, basemaps, imagery, panel sheets, PDF/SVG map sheets, and final cartographic styling remain future work.
 
 ## Purpose
 
@@ -35,8 +35,10 @@ Current behavior:
 
 - Generates `project-overview` from normalized project geometry.
 - Generates `source-context-<source_id>` for each analyzed local source clipped layer from `constraints/constraint_results.json` when present, with legacy `spatial_relationships.json` as a fallback.
+- Generates `environmental-constraints-overview` when analyzed source layers have mapped features inside the analysis bounds.
 - Uses GeoPandas and Matplotlib only.
-- Stores figure metadata, source refs, shown layers, provenance, uncertainty flags, validation issues, and review status in the map manifest.
+- Adds draft map elements: legend, north arrow, scale bar when CRS units allow it, source note, CRS/method note, and draft/pre-review label.
+- Stores figure captions, source notes, method notes, figure grouping, related resource categories, source refs, shown layers, provenance, uncertainty flags, validation issues, and review status in the map manifest.
 - Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.
 - Adds review queue validation items for map-generation warnings, including skipped or failed source-context figures.
 - Runs as part of `populate-for-review` after comparison table generation and before review queue generation.
@@ -215,7 +217,7 @@ Potential output formats:
 - SVG for editable vector maps where feasible.
 - GeoPackage/GeoJSON for reviewer GIS layers.
 
-Generated figures should be stored outside Git-tracked source code, likely under project-specific outputs or ignored `outputs/` paths.
+Generated workflow figures are stored under ignored project `maps/figures/`. During report export, included figure PNGs are copied into ignored `projects/<project_id>/exports/assets/figures/` so Markdown/DOCX packages can reference package-local assets while preserving original map artifact provenance.
 
 Only accepted or explicitly included reviewed figures should be compiled into report exports.
 
