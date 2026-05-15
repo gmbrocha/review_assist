@@ -23,6 +23,8 @@ env/
 
 # Local bulk source warehouse
 sources/
+temp_unzips/
+temp_zips/
 
 # Generated outputs
 outputs/*
@@ -32,6 +34,7 @@ projects/*/context/
 projects/*/source_status/
 projects/*/source_inventory/
 projects/*/source_acquisition/
+projects/*/source_materialization/
 projects/*/review_queue/
 projects/*/populate_for_review/
 projects/*/findings/

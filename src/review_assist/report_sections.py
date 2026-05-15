@@ -683,11 +683,43 @@ def _study_area_content(
         f"The study area is represented by the project input geometry with WGS84 extent: {extent_text}.",
         "The project overview map should be reviewed before this study area text is exported.",
     ]
+    county_text = _county_context_text(context)
+    if county_text:
+        lines.insert(1, county_text)
     if related_figures:
         lines.append(f"Related figure references: {', '.join(str(figure.get('figure_id')) for figure in related_figures)}.")
     if validation_issues:
         lines.append(f"{len(validation_issues)} study-area-related validation issue(s) require reviewer attention.")
     return "\n\n".join(lines)
+
+
+def _county_context_text(context: dict[str, Any]) -> str:
+    administrative_areas = context.get("administrative_areas", {})
+    if not isinstance(administrative_areas, dict):
+        return ""
+    counties = administrative_areas.get("counties", [])
+    if not isinstance(counties, list):
+        return ""
+    names: list[str] = []
+    for county in counties:
+        if not isinstance(county, dict):
+            continue
+        name = str(county.get("name", "")).strip()
+        if name and name not in names:
+            names.append(name)
+    if not names:
+        return ""
+    source_id = str(administrative_areas.get("source_id", "")).strip()
+    source_text = f" from {source_id}" if source_id else ""
+    return f"Materialized county-boundary context{source_text} places the analysis bounds in {_format_list(names)}."
+
+
+def _format_list(values: list[str]) -> str:
+    if len(values) == 1:
+        return values[0]
+    if len(values) == 2:
+        return f"{values[0]} and {values[1]}"
+    return f"{', '.join(values[:-1])}, and {values[-1]}"
 
 
 def _methodology_content(

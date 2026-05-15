@@ -75,15 +75,37 @@ Flood hazard is cataloged as a secondary optional source. It is not a core first
 
 ## Phase 2B: Local Layer Clipping and Spatial Relationship Checks
 
-Status: initial baseline complete; retained as a legacy/raw spatial analysis path.
+Status: initial baseline complete; retained as a legacy/raw spatial analysis path. Local warehouse materialization is also implemented for the first Mississippi bulk layers.
 
 - Load enabled project-local source layers.
+- Materialize configured root `sources/` warehouse datasets into ignored project-local GeoJSON layers where available.
 - Clip or filter layers to the project geometry and configured review buffer.
 - Run deterministic spatial checks for `intersects`, `crosses`, and `within_buffer`.
 - Preserve source, method, CRS, buffer, and measurement metadata.
 - Produce `spatial_relationships.json` before findings, narrative, maps, or report drafting.
 
 Phase 2B still does not create findings, review queue records, maps, reports, rankings, recommendations, or final conclusions. The main workflow now routes through project geometry normalization and `analyze-constraints`; `analyze-project` remains available for backward-compatible raw spatial relationship checks.
+
+Current local materialization baseline:
+
+- Config at `config/local_source_materializers.json`.
+- Manifest at `projects/<project_id>/source_materialization/local_source_materialization_manifest.json`.
+- Project-ready GeoJSON outputs under ignored `projects/<project_id>/layers/<source_id>/`.
+- `review-assist materialize-local-source <project_dir> usfws_nwi_wetlands`
+- `review-assist materialize-local-source <project_dir> usfws_critical_habitat`
+- `review-assist materialize-local-source <project_dir> usda_nrcs_ssurgo_soils`
+- `review-assist materialize-local-source <project_dir> mdot_transportation_context`
+- `review-assist materialize-local-source <project_dir> maris_boundary_context`
+- `review-assist materialize-local-source <project_dir> maris_public_cultural_context`
+- `review-assist materialize-local-source <project_dir> maris_community_facilities`
+- `review-assist materialize-local-source <project_dir> maris_conservation_recreation_lands`
+- `review-assist materialize-local-source <project_dir> local_utility_infrastructure`
+- `review-assist materialize-local-sources <project_dir>`
+- Current configured source IDs: `usfws_nwi_wetlands`, `usfws_critical_habitat`, `usda_nrcs_ssurgo_soils`, `mdot_transportation_context`, `local_utility_infrastructure`, `maris_boundary_context`, `maris_public_cultural_context`, `maris_community_facilities`, and `maris_conservation_recreation_lands`.
+- The transportation materializer aggregates road centerlines, designated highways, railroad networks, railroad crossings, railroad bridges, and railroad junctions into one project-ready transportation context layer.
+- The boundary materializer includes county boundaries and feeds county-name context into the study-area report section when available.
+- The public cultural materializer is public-context only; restricted archaeology remains manual/restricted and is not represented as downloadable data.
+- Materializers preserve reviewer-supplied local source registrations unless `--replace` is explicitly used.
 
 ## Phase 2C: Catalog-Driven Source Acquisition
 
@@ -169,10 +191,13 @@ Status: initial orchestration baseline complete.
 Current baseline:
 
 - `review-assist populate-for-review <project_dir>`
+- `review-assist populate-for-review <project_dir> --materialize-local-sources`
 - JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Runs project context generation, project geometry normalization, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, report section generation, and lean review queue generation.
+- Runs project context generation, project geometry normalization, optional local source materialization, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, report section generation, and lean review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict for the legacy raw spatial check path.
+- `--materialize-local-sources` clips configured local warehouse data into project-ready source layers before source status, inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - `--prepare-sources` resolves catalog gaps and runs supported required public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
+- When `--materialize-local-sources` is combined with `--prepare-sources`, materialization runs before public download attempts so local warehouse data can satisfy source gaps.
 - `--include-optional-sources`, when paired with `--prepare-sources`, also downloads supported optional sources such as FEMA NFHL flood hazard.
 
 This baseline now includes vector-only map generation through Phase 6C, report section generation with deterministic and optional GPT drafting through Phase 6D, evidence package generation, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, or render basemap/imagery-backed maps.

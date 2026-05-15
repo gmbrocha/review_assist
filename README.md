@@ -12,9 +12,9 @@ The review queue is the core workflow object. Every generated artifact should be
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, the Phase 2C catalog-driven source acquisition baseline with explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D report sections with deterministic and optional GPT drafting, evidence package generation, the first Markdown/DOCX export compiler, internal demo/MVP deliverable package commands, and the first constraint-engine baseline. The current CLI can inspect project KMZ/KML inputs, normalize project geometry into point/site, line/corridor, polygon/area, or mixed feature artifacts, list the source catalog, register local source layers, resolve source gaps, explicitly download NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL flood hazard, run legacy spatial relationship checks, run constraint overlap/proximity checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section/evidence artifacts, optionally use GPT for source-grounded report section drafting, populate a lean review queue, create/update review queue items, export accepted/edited review items to Markdown/DOCX plus an export manifest, create an internal preview demo deliverable package, and create a real-data guarded MVP deliverable package.
+The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, the Phase 2C catalog-driven source acquisition baseline with explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders, local Mississippi source warehouse materialization for NWI wetlands, USFWS Critical Habitat, SSURGO soils, MDOT/rail transportation, utility infrastructure, county/boundary context, public cultural context, community facilities, and conservation/recreation lands, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D report sections with deterministic and optional GPT drafting, evidence package generation, the first Markdown/DOCX export compiler, internal demo/MVP deliverable package commands, and the first constraint-engine baseline. The current CLI can inspect project KMZ/KML inputs, normalize project geometry into point/site, line/corridor, polygon/area, or mixed feature artifacts, list the source catalog, register local source layers, materialize ignored Mississippi warehouse layers into project-ready GeoJSON, resolve source gaps, explicitly download NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL flood hazard, run legacy spatial relationship checks, run constraint overlap/proximity checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section/evidence artifacts, optionally use GPT for source-grounded report section drafting, populate a lean review queue, create/update review queue items, export accepted/edited review items to Markdown/DOCX plus an export manifest, create an internal preview demo deliverable package, and create a real-data guarded MVP deliverable package.
 
-The implementation surface is reusable Python services plus a CLI. No GUI, broad external API integration, source downloads beyond opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard, scoring, PDF export, basemap/imagery acquisition, or production workflow has been implemented. GPT is limited to report-section copy from structured evidence and never replaces geometry, source acquisition, constraint analysis, measurements, review decisions, or export acceptance.
+The implementation surface is reusable Python services plus a CLI. No GUI, broad external API integration, source downloads beyond opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard, scoring, PDF export, basemap/imagery acquisition, or production workflow has been implemented. GPT is limited to report-section copy from structured evidence and never replaces geometry, local source materialization, source acquisition, constraint analysis, measurements, review decisions, or export acceptance.
 
 ## Planning Docs
 
@@ -68,6 +68,23 @@ List the source catalog, register a local source layer, and run local spatial ch
 ```
 
 Use `--copy` for file-based local source layers that should be copied into the ignored project workspace under `projects/<id>/layers/<source_id>/` before registration. For shapefiles, the CLI copies required sidecars such as `.shp`, `.shx`, `.dbf`, and `.prj`; the original source package under `sources/` is not mutated. Use `--replace` with `--copy` only when intentionally refreshing an existing project-local copy.
+
+Materialize project-ready GeoJSON from the ignored local Mississippi source warehouse:
+
+```powershell
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_critical_habitat
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usda_nrcs_ssurgo_soils
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdot_transportation_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_boundary_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_public_cultural_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_community_facilities
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_conservation_recreation_lands
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails local_utility_infrastructure
+.\.venv\Scripts\review-assist.exe materialize-local-sources projects/trails
+```
+
+Materialization reads configured statewide/local datasets from `sources/`, clips them to `project_analysis_bounds.geojson`, writes small project-ready GeoJSON files under `projects/<id>/layers/<source_id>/`, and registers those files as real `local_file` sources with `status: local_materialized`. Current materializers include NWI wetlands, USFWS Critical Habitat, SSURGO soils, MDOT/rail transportation context, utility infrastructure, county/state/coastline boundary context, public cemetery/National Register/tribal land context, community facilities, and conservation/recreation lands. The county-boundary materializer also feeds project context so study-area sections can cite intersecting Mississippi county names when available. Existing reviewer-supplied local sources are preserved unless `--replace` is explicitly used.
 
 Build normalized project geometry and run the current constraint engine:
 
@@ -146,6 +163,7 @@ Create an internal preview demo deliverable package without changing review item
 ```powershell
 .\.venv\Scripts\review-assist.exe build-demo-deliverable projects/trails
 .\.venv\Scripts\review-assist.exe build-demo-deliverable projects/trails --format both
+.\.venv\Scripts\review-assist.exe build-demo-deliverable projects/trails --materialize-local-sources --format both
 ```
 
 Create a real-data guarded MVP deliverable package. This runs source preparation first and fails by default if no downloaded, provided, or registered source layer is available, or if test fixture/mock source records are detected:
@@ -153,19 +171,22 @@ Create a real-data guarded MVP deliverable package. This runs source preparation
 ```powershell
 .\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails
 .\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --include-optional-sources
+.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --materialize-local-sources --include-optional-sources
 ```
 
 Run the current orchestration behind the future desktop `Populate for Review` action:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-local-sources
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-local-sources --prepare-sources
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources --include-optional-sources
 ```
 
-For `populate-for-review`, `--include-optional-sources` is valid only with `--prepare-sources`; optional source acquisition must be explicit.
+For `populate-for-review`, `--include-optional-sources` is valid only with `--prepare-sources`; optional source acquisition must be explicit. When `--materialize-local-sources` and `--prepare-sources` are both present, local warehouse materialization runs first so project-ready local layers satisfy source gaps before public downloads are attempted.
 
-The CLI writes `geometry_summary.json`, normalized input GeoJSON files, `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under each project's `intermediate/` directory. Constraint artifacts are written under `constraints`, including `constraint_results.json` and clipped source GeoJSON files. Source acquisition manifests and downloads are written under `source_acquisition` when source gap resolution/downloads run. Locally copied source layers are written under `layers`. Evidence packages are written under `evidence`. Markdown/DOCX exports, export manifests, demo/MVP deliverable manifests, and `data_lineage` summaries are written under `exports`. Workflow artifacts are written under project `context`, `source_status`, `source_inventory`, `findings`, `tables`, `maps`, `drafts`, `review_queue`, and `populate_for_review` directories. Project intermediate outputs, source acquisition artifacts/downloads, evidence packages, constraint artifacts, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, exports, and local project layers are generated/project-specific artifacts and are ignored by Git.
+The CLI writes `geometry_summary.json`, normalized input GeoJSON files, `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under each project's `intermediate/` directory. Constraint artifacts are written under `constraints`, including `constraint_results.json` and clipped source GeoJSON files. Source acquisition manifests and downloads are written under `source_acquisition` when source gap resolution/downloads run. Local source materialization manifests are written under `source_materialization`, and locally copied or materialized source layers are written under `layers`. Evidence packages are written under `evidence`. Markdown/DOCX exports, export manifests, demo/MVP deliverable manifests, and `data_lineage` summaries are written under `exports`. Workflow artifacts are written under project `context`, `source_status`, `source_inventory`, `findings`, `tables`, `maps`, `drafts`, `review_queue`, and `populate_for_review` directories. Project intermediate outputs, source acquisition artifacts/downloads, source materialization artifacts, evidence packages, constraint artifacts, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, exports, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Testing
 
@@ -191,8 +212,8 @@ Implementation phases should add or update tests with the behavior they introduc
 2. Add project inputs such as KMZ/KML alternatives, GIS layers, reports, imagery, PDFs, maps, notes, or study documents.
 3. Generate persistent project context: extent, assumptions, detected alternatives, likely report profile, provided sources, missing categories, and reviewer instructions.
 4. Resolve needed source categories into a source status set: provided locally, downloadable, downloaded, failed, gated, stubbed, missing, optional, or needs review.
-5. Resolve source gaps against the source catalog and, when explicitly requested, acquire supported public sources such as NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard.
-6. Populate for review by normalizing project geometry, acquiring/loading registered sources, cropping data to analysis bounds, generating constraint results, findings, tables, maps, evidence packages, narrative drafts, caveats, and provenance notes.
+5. Resolve source gaps against the source catalog and, when explicitly requested, materialize available local warehouse sources or acquire supported public sources such as NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard.
+6. Populate for review by normalizing project geometry, materializing/acquiring/loading registered sources, cropping data to analysis bounds, generating constraint results, findings, tables, maps, evidence packages, narrative drafts, caveats, and provenance notes.
 7. Send every generated artifact into the review queue for human edit/accept/reject/verification.
 8. Compile accepted or explicitly included reviewed content into editable Markdown/DOCX export packages, create a clearly labeled internal preview demo package, or create a real-data guarded MVP package that blocks mock/test fixture source records.
 

@@ -17,6 +17,7 @@ from .report_sections import ReportSectionGenerationError, generate_report_secti
 from .review_queue import ReviewQueueError, generate_review_queue
 from .source_acquisition import SourceAcquisitionError, prepare_sources as prepare_project_sources
 from .source_inventory import SourceInventoryError, generate_source_inventory
+from .source_materialization import SourceMaterializationError, materialize_local_sources as materialize_project_local_sources
 from .source_status import SourceStatusError, resolve_source_status_set
 from .tables import TableGenerationError, generate_comparison_tables
 
@@ -33,6 +34,7 @@ def populate_for_review(
     *,
     prepare_sources: bool = False,
     include_optional_sources: bool = False,
+    materialize_local_sources: bool = False,
     gpt_drafting: bool | None = None,
     gpt_model: str | None = None,
 ) -> dict[str, Any]:
@@ -43,6 +45,7 @@ def populate_for_review(
     critical_error: str | None = None
     context: dict[str, Any] | None = None
     project_geometry: dict[str, Any] | None = None
+    source_materialization: dict[str, Any] | None = None
     source_acquisition: dict[str, Any] | None = None
     source_status: dict[str, Any] | None = None
     source_inventory: dict[str, Any] | None = None
@@ -60,6 +63,13 @@ def populate_for_review(
 
         project_geometry = build_project_geometry(project_dir)
         steps.append(_step("project_geometry", "completed", artifact_path=project_geometry.get("output_path")))
+
+        if materialize_local_sources:
+            source_materialization = materialize_project_local_sources(project_dir)
+            steps.append(_step("source_materialization", "completed", artifact_path=source_materialization.get("output_path")))
+            warnings.extend(_issue_warnings("source_materialization", source_materialization.get("validation_issues", [])))
+            context = generate_project_context(project_dir)
+            steps.append(_step("project_context_refresh", "completed", artifact_path=context.get("context_path")))
 
         if prepare_sources:
             source_acquisition = prepare_project_sources(
@@ -115,6 +125,7 @@ def populate_for_review(
     except (
         ProjectContextError,
         ProjectGeometryError,
+        SourceMaterializationError,
         SourceAcquisitionError,
         SourceStatusError,
         SourceInventoryError,
@@ -132,6 +143,8 @@ def populate_for_review(
                 _failed_step_name(
                     context,
                     project_geometry,
+                    source_materialization,
+                    materialize_local_sources,
                     source_acquisition,
                     prepare_sources,
                     source_status,
@@ -154,6 +167,7 @@ def populate_for_review(
             "project_id",
             context,
             project_geometry,
+            source_materialization,
             source_status,
             source_acquisition,
             source_inventory,
@@ -169,6 +183,7 @@ def populate_for_review(
             "project_name",
             context,
             project_geometry,
+            source_materialization,
             source_status,
             source_acquisition,
             source_inventory,
@@ -190,6 +205,7 @@ def populate_for_review(
             "project_geometry": project_geometry.get("output_path") if project_geometry else None,
             "project_features": project_geometry.get("project_features_path") if project_geometry else None,
             "analysis_bounds": project_geometry.get("analysis_bounds_path") if project_geometry else None,
+            "source_materialization": source_materialization.get("output_path") if source_materialization else None,
             "source_acquisition": source_acquisition.get("output_path") if source_acquisition else None,
             "source_status": source_status.get("output_path") if source_status else None,
             "source_inventory": source_inventory.get("output_path") if source_inventory else None,
@@ -203,6 +219,8 @@ def populate_for_review(
         },
         "gpt_drafting": report_sections.get("gpt_drafting") if report_sections else {},
         "constraint_count": constraints.get("constraint_count") if constraints else 0,
+        "source_materialization_count": source_materialization.get("materialized_count") if source_materialization else 0,
+        "source_materialization_enabled": materialize_local_sources,
         "source_acquisition_download_count": source_acquisition.get("download_count") if source_acquisition else 0,
         "source_acquisition_include_optional_sources": include_optional_sources if prepare_sources else False,
         "review_queue_item_count": review_queue.get("item_count") if review_queue else 0,
@@ -255,6 +273,8 @@ def _issue_warnings(
 def _failed_step_name(
     context: dict[str, Any] | None,
     project_geometry: dict[str, Any] | None,
+    source_materialization: dict[str, Any] | None,
+    source_materialization_expected: bool,
     source_acquisition: dict[str, Any] | None,
     source_acquisition_expected: bool,
     source_status: dict[str, Any] | None,
@@ -271,6 +291,8 @@ def _failed_step_name(
         return "project_context"
     if project_geometry is None:
         return "project_geometry"
+    if source_materialization_expected and source_materialization is None:
+        return "source_materialization"
     if source_acquisition_expected and source_acquisition is None:
         return "source_acquisition"
     if source_status is None:

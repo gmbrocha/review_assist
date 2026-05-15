@@ -330,6 +330,19 @@ The app should generate these where source data is available and create reviewab
 - [x] Local source registration exists through `review-assist import-source`.
 - [x] Local file-based source layers can be copied into ignored project `layers/<source_id>/` folders during import with `review-assist import-source --copy`.
 - [x] The root `sources/` bulk data warehouse is ignored by Git and treated as local-only source storage.
+- [x] Local source materializer config exists at `config/local_source_materializers.json`.
+- [x] Local source materialization writes `projects/<id>/source_materialization/local_source_materialization_manifest.json`.
+- [x] `review-assist materialize-local-source <project_dir> <source_id>` exists.
+- [x] `review-assist materialize-local-sources <project_dir>` exists.
+- [x] Local source materialization clips configured warehouse data to `project_analysis_bounds.geojson` and writes project-ready GeoJSON under ignored `projects/<id>/layers/<source_id>/`.
+- [x] Local source materialization registers outputs as real `local_file` sources with `status: local_materialized`.
+- [x] Local materialization preserves reviewer-supplied local sources unless `--replace` is explicitly used.
+- [x] Local source materialization is wired into `populate-for-review`, `build-demo-deliverable`, and `build-mvp-deliverable` with `--materialize-local-sources`.
+- [x] Configured local materializers exist for Mississippi NWI wetlands, USFWS Critical Habitat line/polygon layers, SSURGO soils, MDOT/rail transportation context, utility infrastructure, administrative/boundary context, public cultural context, community facilities, and conservation/recreation lands.
+- [x] The transportation materializer aggregates road centerlines, designated highways, railroad networks, crossings, bridges, and junctions into one project-ready `mdot_transportation_context` GeoJSON.
+- [x] The boundary materializer includes Mississippi county boundaries and feeds county-name context into `project_context.json` and the study-area report section when available.
+- [x] Public cultural materialization is explicitly limited to public context layers; restricted archaeology remains a manual/restricted source gap and is not represented as automated source data.
+- [x] Local materializer field normalization can be configured in `config/local_source_materializers.json` for future source packages.
 - [x] Legacy raw spatial analysis exists through `review-assist analyze-project`.
 - [x] Project context generation exists through `review-assist generate-context`.
 - [x] Source status resolution exists through `review-assist resolve-sources`.
@@ -395,6 +408,7 @@ The app should generate these where source data is available and create reviewab
 - [x] Successful NWI downloads are registered in the project source registry as normal `local_file` sources with `status: downloaded`.
 - [x] Existing reviewer-supplied local source layers are preserved instead of being overwritten by downloads.
 - [x] Source inventory records include source acquisition/download provenance when an acquisition manifest exists.
+- [x] Source inventory records include local source materialization provenance when a materialization manifest exists.
 - [x] `review-assist download-source <project_dir> usfws_nwi_wetlands` exists.
 - [x] `review-assist download-source <project_dir> usgs_nhd_hydrography` exists.
 - [x] `review-assist download-source <project_dir> fema_nfhl_flood_hazard` exists.
@@ -452,7 +466,7 @@ The app should generate these where source data is available and create reviewab
 
 ### 1. Downloadable Source Layer System
 
-This milestone has started. The implemented baseline exists so the app can compare project inputs/registry against the catalog, acquire NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facilities when explicitly requested, optionally acquire FEMA flood hazard context, and feed those downloaded sources through the same constraint/report/review flow as local source layers.
+This milestone has started. The implemented baseline exists so the app can compare project inputs/registry against the catalog, materialize configured Mississippi warehouse data, acquire NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facilities when explicitly requested, optionally acquire FEMA flood hazard context, and feed those local/downloaded sources through the same constraint/report/review flow.
 
 - [x] Treat the source stack/data source catalog as the comparison baseline for deciding what the project input package does and does not already contain.
 - [x] Add a source gap resolver that compares project inputs, registered local sources, and required report categories against the catalog.

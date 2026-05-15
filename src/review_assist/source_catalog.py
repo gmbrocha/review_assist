@@ -330,6 +330,65 @@ def register_local_source(project_dir: Path, source_id: str, source_path: Path, 
     return saved
 
 
+def register_materialized_source(
+    project_dir: Path,
+    source_id: str,
+    source_path: Path,
+    *,
+    catalog: SourceCatalog | None = None,
+) -> ProjectSourceRegistry:
+    """Register a project-local source materialized from the ignored local source warehouse."""
+
+    project_dir = project_dir.resolve()
+    source_path = source_path.resolve()
+    catalog = catalog or load_source_catalog()
+    if source_id not in catalog.sources:
+        raise SourceCatalogError(f"Unknown source_id '{source_id}'.")
+    if not source_path.exists():
+        raise SourceCatalogError(f"Missing source file: {source_path}")
+
+    source_definition = catalog.sources[source_id]
+    registry = load_project_source_registry(project_dir)
+    existing = registry.by_source_id()
+    old_source = existing.get(source_id)
+    metadata = dict(old_source.metadata) if old_source else {}
+    metadata.update(
+        {
+            "citation": source_definition.name,
+            "attribution": source_definition.publisher,
+            "source_url": source_definition.url,
+            "review_notes": source_definition.known_limitations,
+            "data_authenticity": "real",
+        }
+    )
+    updated = ProjectSource(
+        source_id=source_id,
+        enabled=True,
+        access_method="local_file",
+        path=_display_path(source_path, project_dir),
+        role=old_source.role if old_source else "constraint_screening",
+        buffer_feet=old_source.buffer_feet if old_source else None,
+        notes=old_source.notes if old_source else "Materialized from local source warehouse.",
+        status="local_materialized",
+        metadata=metadata,
+    )
+
+    sources: list[ProjectSource] = []
+    replaced = False
+    for source in registry.sources:
+        if source.source_id == source_id:
+            sources.append(updated)
+            replaced = True
+        else:
+            sources.append(source)
+    if not replaced:
+        sources.append(updated)
+
+    saved = ProjectSourceRegistry(project_id=registry.project_id, sources=sources)
+    save_project_source_registry(project_dir, saved)
+    return saved
+
+
 def copy_and_register_local_source(
     project_dir: Path,
     source_id: str,

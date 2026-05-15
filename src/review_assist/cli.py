@@ -25,6 +25,11 @@ from .review_queue import (
     update_review_item,
 )
 from .source_inventory import SourceInventoryError, generate_source_inventory
+from .source_materialization import (
+    SourceMaterializationError,
+    materialize_local_source,
+    materialize_local_sources,
+)
 from .source_acquisition import (
     SourceAcquisitionError,
     download_source,
@@ -108,6 +113,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prepare_parser.add_argument("--json", action="store_true", help="Print full JSON source acquisition manifest to stdout.")
 
+    materialize_parser = subparsers.add_parser(
+        "materialize-local-source",
+        help="Extract one configured local warehouse source into a project-ready GeoJSON layer.",
+    )
+    materialize_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    materialize_parser.add_argument("source_id", help="Configured local materializer source id.")
+    materialize_parser.add_argument("--replace", action="store_true", help="Replace an existing project-local materialized source.")
+    materialize_parser.add_argument("--json", action="store_true", help="Print full JSON materialization manifest to stdout.")
+
+    materialize_all_parser = subparsers.add_parser(
+        "materialize-local-sources",
+        help="Extract all configured local warehouse sources into project-ready GeoJSON layers.",
+    )
+    materialize_all_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    materialize_all_parser.add_argument("--replace", action="store_true", help="Replace existing project-local materialized sources.")
+    materialize_all_parser.add_argument("--json", action="store_true", help="Print full JSON materialization manifest to stdout.")
+
     inventory_parser = subparsers.add_parser("generate-source-inventory", help="Generate source inventory and provenance records.")
     inventory_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     inventory_parser.add_argument("--json", action="store_true", help="Print full JSON source inventory artifact to stdout.")
@@ -161,6 +183,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resolve source gaps and run supported public downloaders before constraint analysis.",
     )
     demo_parser.add_argument(
+        "--materialize-local-sources",
+        action="store_true",
+        help="Materialize configured local warehouse sources before public source downloads.",
+    )
+    demo_parser.add_argument(
         "--include-optional-sources",
         action="store_true",
         help="When used with --prepare-sources, also download supported optional sources.",
@@ -185,6 +212,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-optional-sources",
         action="store_true",
         help="Also download supported optional sources such as FEMA NFHL flood hazard.",
+    )
+    mvp_parser.add_argument(
+        "--materialize-local-sources",
+        action="store_true",
+        help="Materialize configured local warehouse sources before public source downloads.",
     )
     mvp_parser.add_argument(
         "--fail-on-no-downloaded-sources",
@@ -234,6 +266,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--prepare-sources",
         action="store_true",
         help="Resolve source gaps and run supported public downloaders before constraint analysis.",
+    )
+    populate_parser.add_argument(
+        "--materialize-local-sources",
+        action="store_true",
+        help="Materialize configured local warehouse sources before public source downloads.",
     )
     populate_parser.add_argument(
         "--include-optional-sources",
@@ -486,6 +523,44 @@ def prepare_sources_command(project_dir: Path, print_json: bool, include_optiona
     return 0
 
 
+def materialize_local_source_command(project_dir: Path, source_id: str, replace: bool, print_json: bool) -> int:
+    try:
+        result = materialize_local_source(project_dir, source_id, replace=replace)
+    except SourceMaterializationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    latest = result["sources"][-1] if result.get("sources") else {}
+    print(f"Materialized local source workflow: {result['project_id']} ({result['project_name']})")
+    print(f"Source: {source_id} [{latest.get('status', 'not_attempted')}]")
+    print(f"Features: {latest.get('feature_count', 0)}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def materialize_local_sources_command(project_dir: Path, replace: bool, print_json: bool) -> int:
+    try:
+        result = materialize_local_sources(project_dir, replace=replace)
+    except SourceMaterializationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Materialized local sources: {result['project_id']} ({result['project_name']})")
+    print(f"Statuses: {result['status_counts']}")
+    print(f"Materialized: {result['materialized_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def generate_review_queue_command(project_dir: Path, include_source_inventory: bool, print_json: bool) -> int:
     try:
         queue = generate_review_queue(project_dir, include_source_inventory=include_source_inventory)
@@ -645,6 +720,7 @@ def build_demo_deliverable_command(
     print_json: bool,
     prepare_sources_flag: bool = False,
     include_optional_sources: bool = False,
+    materialize_local_sources_flag: bool = False,
     output_format: str = "both",
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
@@ -654,6 +730,7 @@ def build_demo_deliverable_command(
             project_dir,
             prepare_sources=prepare_sources_flag,
             include_optional_sources=include_optional_sources,
+            materialize_local_sources=materialize_local_sources_flag,
             output_format=output_format,
             gpt_drafting=False if no_gpt_drafting else None,
             gpt_model=gpt_model,
@@ -683,6 +760,7 @@ def build_mvp_deliverable_command(
     print_json: bool,
     include_optional_sources: bool = False,
     fail_on_no_downloaded_sources: bool = True,
+    materialize_local_sources_flag: bool = False,
     output_format: str = "both",
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
@@ -692,6 +770,7 @@ def build_mvp_deliverable_command(
             project_dir,
             include_optional_sources=include_optional_sources,
             fail_on_no_downloaded_sources=fail_on_no_downloaded_sources,
+            materialize_local_sources=materialize_local_sources_flag,
             output_format=output_format,
             gpt_drafting=False if no_gpt_drafting else None,
             gpt_model=gpt_model,
@@ -772,6 +851,7 @@ def populate_for_review_command(
     print_json: bool,
     prepare_sources_flag: bool = False,
     include_optional_sources: bool = False,
+    materialize_local_sources_flag: bool = False,
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
 ) -> int:
@@ -780,6 +860,7 @@ def populate_for_review_command(
             project_dir,
             prepare_sources=prepare_sources_flag,
             include_optional_sources=include_optional_sources,
+            materialize_local_sources=materialize_local_sources_flag,
             gpt_drafting=False if no_gpt_drafting else None,
             gpt_model=gpt_model,
         )
@@ -826,6 +907,10 @@ def main(argv: list[str] | None = None) -> int:
         return download_source_command(args.project_dir, args.source_id, args.json)
     if args.command == "prepare-sources":
         return prepare_sources_command(args.project_dir, args.json, args.include_optional_sources)
+    if args.command == "materialize-local-source":
+        return materialize_local_source_command(args.project_dir, args.source_id, args.replace, args.json)
+    if args.command == "materialize-local-sources":
+        return materialize_local_sources_command(args.project_dir, args.replace, args.json)
     if args.command == "generate-source-inventory":
         return generate_source_inventory_command(args.project_dir, args.json)
     if args.command == "generate-findings":
@@ -848,6 +933,7 @@ def main(argv: list[str] | None = None) -> int:
             args.json,
             args.prepare_sources,
             args.include_optional_sources,
+            args.materialize_local_sources,
             args.output_format,
             args.no_gpt_drafting,
             args.gpt_model,
@@ -858,6 +944,7 @@ def main(argv: list[str] | None = None) -> int:
             args.json,
             args.include_optional_sources,
             args.fail_on_no_downloaded_sources,
+            args.materialize_local_sources,
             args.output_format,
             args.no_gpt_drafting,
             args.gpt_model,
@@ -883,6 +970,7 @@ def main(argv: list[str] | None = None) -> int:
             args.json,
             args.prepare_sources,
             args.include_optional_sources,
+            args.materialize_local_sources,
             args.no_gpt_drafting,
             args.gpt_model,
         )

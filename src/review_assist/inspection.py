@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from .kml import IngestionError, ingest_kml_input
 from .projects import ProjectManifestError, load_project_manifest
 from .summary import input_summary
@@ -17,7 +19,39 @@ class ProjectInspectionError(RuntimeError):
 
 def write_geojson(gdf, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(gdf.to_json(drop_id=True), encoding="utf-8")
+    output_path.write_text(_json_safe_geodataframe(gdf).to_json(drop_id=True), encoding="utf-8")
+
+
+def _json_safe_geodataframe(gdf):
+    result = gdf.copy()
+    geometry_name = getattr(getattr(result, "geometry", None), "name", "geometry")
+    for column in result.columns:
+        if column == geometry_name:
+            continue
+        series = result[column]
+        if pd.api.types.is_datetime64_any_dtype(series):
+            result[column] = series.astype("string").fillna("")
+        elif series.dtype == "object":
+            result[column] = series.map(_json_safe_value)
+    return result
+
+
+def _json_safe_value(value: Any) -> Any:
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if hasattr(value, "isoformat") and callable(value.isoformat):
+        try:
+            return value.isoformat()
+        except TypeError:
+            return str(value)
+    return value
 
 
 def inspect_project(project_dir: Path) -> dict[str, Any]:

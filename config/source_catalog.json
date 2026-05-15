@@ -158,6 +158,21 @@
       "notes": "Useful for developed, forested, impervious, and low-disturbance context."
     },
     {
+      "source_id": "maris_conservation_recreation_lands",
+      "name": "MARIS Conservation and Recreation Lands",
+      "publisher": "Mississippi Automated Resource Information System and source agencies",
+      "category": "land_cover_disturbance",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "first_pass_medium",
+      "access_methods": ["local_file", "manual_download"],
+      "public_or_restricted": "public",
+      "geometry_type": "polygon",
+      "url": "https://maris.mississippi.edu/",
+      "spatial_relationships": ["intersects", "within_buffer"],
+      "known_limitations": "Public conservation, recreation, wildlife management, and easement boundaries are screening context and should be checked against current source-agency records before final use.",
+      "notes": "Local Mississippi warehouse context for parks, wildlife management areas, and easement areas."
+    },
+    {
       "source_id": "usda_nrcs_ssurgo_soils",
       "name": "SSURGO / Web Soil Survey",
       "publisher": "USDA Natural Resources Conservation Service",
@@ -263,6 +278,21 @@
       "notes": "Public cultural/historic context only."
     },
     {
+      "source_id": "maris_public_cultural_context",
+      "name": "MARIS Public Cultural and Tribal Context",
+      "publisher": "Mississippi Automated Resource Information System and source agencies",
+      "category": "cultural_historic",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "first_pass_medium",
+      "access_methods": ["local_file", "manual_download"],
+      "public_or_restricted": "public",
+      "geometry_type": "point_polygon",
+      "url": "https://maris.mississippi.edu/",
+      "spatial_relationships": ["intersects", "within_buffer"],
+      "known_limitations": "Public cultural layers do not include restricted archaeological records and do not replace qualified cultural resources review or agency consultation.",
+      "notes": "Local Mississippi warehouse context for public cemetery, National Register, and tribal land layers."
+    },
+    {
       "source_id": "mdah_restricted_archaeology",
       "name": "MDAH Restricted Archaeological / HSMT Review",
       "publisher": "Mississippi Department of Archives and History",
@@ -341,6 +371,36 @@
       "spatial_relationships": ["intersects"],
       "known_limitations": "Demographic context should not be treated as a final equity determination.",
       "notes": "Community profile and socioeconomic context."
+    },
+    {
+      "source_id": "maris_boundary_context",
+      "name": "MARIS Administrative and Physical Boundary Context",
+      "publisher": "Mississippi Automated Resource Information System",
+      "category": "community_socioeconomic",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "first_pass_medium",
+      "access_methods": ["local_file", "manual_download"],
+      "public_or_restricted": "public",
+      "geometry_type": "mixed",
+      "url": "https://maris.mississippi.edu/",
+      "spatial_relationships": ["intersects"],
+      "known_limitations": "Boundary context is used for project location and report context only; source currency and official boundary use should be checked before final reporting.",
+      "notes": "Local Mississippi warehouse context for county names, state boundary, and coastline/reference boundary layers."
+    },
+    {
+      "source_id": "maris_community_facilities",
+      "name": "MARIS Community Facilities and Places",
+      "publisher": "Mississippi Automated Resource Information System and source agencies",
+      "category": "community_socioeconomic",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "first_pass_medium",
+      "access_methods": ["local_file", "manual_download"],
+      "public_or_restricted": "public",
+      "geometry_type": "point",
+      "url": "https://maris.mississippi.edu/",
+      "spatial_relationships": ["within_buffer", "intersects"],
+      "known_limitations": "Community facility and place layers are screening context and may not reflect current facilities, emergency service coverage, or local planning determinations.",
+      "notes": "Local Mississippi warehouse context for communities, fire stations, and recreational facilities."
     },
     {
       "source_id": "hifld_community_infrastructure",

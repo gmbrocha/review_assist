@@ -20,6 +20,7 @@ from .source_catalog import (
     resolve_project_source_path,
 )
 from .source_acquisition import SOURCE_ACQUISITION_PATH
+from .source_materialization import SOURCE_MATERIALIZATION_PATH
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 
 
@@ -52,11 +53,13 @@ def generate_source_inventory(project_dir: Path) -> dict[str, Any]:
         registry = load_project_source_registry(project_dir)
         source_status = _load_or_generate_source_status(project_dir)
         source_acquisition = _load_optional_source_acquisition(project_dir)
+        source_materialization = _load_optional_source_materialization(project_dir)
     except (ProjectManifestError, SourceCatalogError, SourceStatusError) as exc:
         raise SourceInventoryError(str(exc)) from exc
 
     project_sources = registry.by_source_id()
     acquisition_by_source = _acquisition_by_source_id(source_acquisition)
+    materialization_by_source = _materialization_by_source_id(source_materialization)
     status_by_category = {
         str(item.get("category", "")): item
         for item in source_status.get("statuses", [])
@@ -70,6 +73,7 @@ def generate_source_inventory(project_dir: Path) -> dict[str, Any]:
             source_definition=catalog.sources.get(source_id),
             project_source=project_sources.get(source_id),
             source_acquisition=acquisition_by_source.get(source_id),
+            source_materialization=materialization_by_source.get(source_id),
             status_by_category=status_by_category,
         )
         for source_id in source_ids
@@ -90,6 +94,7 @@ def generate_source_inventory(project_dir: Path) -> dict[str, Any]:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_status_path": source_status.get("output_path"),
         "source_acquisition_path": source_acquisition.get("output_path") if source_acquisition else None,
+        "source_materialization_path": source_materialization.get("output_path") if source_materialization else None,
         "record_count": len(records),
         "records": records,
         "validation_issues": validation_issues,
@@ -145,6 +150,7 @@ def _inventory_record(
     source_definition: SourceDefinition | None,
     project_source: ProjectSource | None,
     source_acquisition: dict[str, Any] | None,
+    source_materialization: dict[str, Any] | None,
     status_by_category: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     category = source_definition.category if source_definition else ""
@@ -169,6 +175,7 @@ def _inventory_record(
         },
         "project_registry": _project_registry_metadata(project_source),
         "acquisition": _acquisition_metadata(source_acquisition),
+        "materialization": _materialization_metadata(source_materialization),
         "source_status": {
             "category_status": status_record.get("status", "not_required_for_profile") if status_record else "not_required_for_profile",
             "requirement": status_record.get("requirement", "") if status_record else "",
@@ -196,6 +203,19 @@ def _load_optional_source_acquisition(project_dir: Path) -> dict[str, Any] | Non
     return data
 
 
+def _load_optional_source_materialization(project_dir: Path) -> dict[str, Any] | None:
+    path = project_dir / SOURCE_MATERIALIZATION_PATH
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SourceCatalogError(f"Invalid source materialization manifest JSON: {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SourceCatalogError(f"Source materialization manifest must be a JSON object: {path}")
+    return data
+
+
 def _acquisition_by_source_id(source_acquisition: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
     if not source_acquisition:
         return {}
@@ -209,6 +229,22 @@ def _acquisition_by_source_id(source_acquisition: dict[str, Any] | None) -> dict
         source_id = str(download.get("source_id") or "")
         if source_id:
             by_source[source_id] = download
+    return by_source
+
+
+def _materialization_by_source_id(source_materialization: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    if not source_materialization:
+        return {}
+    sources = source_materialization.get("sources", [])
+    if not isinstance(sources, list):
+        return {}
+    by_source: dict[str, dict[str, Any]] = {}
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        source_id = str(source.get("source_id") or "")
+        if source_id:
+            by_source[source_id] = source
     return by_source
 
 
@@ -241,6 +277,46 @@ def _acquisition_metadata(source_acquisition: dict[str, Any] | None) -> dict[str
         "warnings": _string_list_of_objects(source_acquisition.get("warnings", []))
         + _string_list_of_objects(source_acquisition.get("validation_issues", [])),
     }
+
+
+def _materialization_metadata(source_materialization: dict[str, Any] | None) -> dict[str, Any]:
+    if not source_materialization:
+        return {
+            "status": "not_materialized",
+            "access_method": "",
+            "output_path": None,
+            "feature_count": 0,
+            "checksum_sha256": "",
+            "layers": [],
+            "warnings": [],
+        }
+    return {
+        "status": source_materialization.get("status", ""),
+        "access_method": source_materialization.get("access_method", ""),
+        "output_path": source_materialization.get("output_path"),
+        "feature_count": source_materialization.get("feature_count", 0),
+        "checksum_sha256": source_materialization.get("checksum_sha256", ""),
+        "layers": _materialization_layer_summaries(source_materialization.get("layers", [])),
+        "warnings": _string_list_of_objects(source_materialization.get("warnings", []))
+        + _string_list_of_objects(source_materialization.get("validation_issues", [])),
+    }
+
+
+def _materialization_layer_summaries(value: Any) -> list[dict[str, Any]]:
+    summaries: list[dict[str, Any]] = []
+    for layer in _string_list_of_objects(value):
+        summaries.append(
+            {
+                "source_layer_id": layer.get("source_layer_id", ""),
+                "source_layer_name": layer.get("source_layer_name", ""),
+                "layer": layer.get("layer"),
+                "status": layer.get("status", ""),
+                "source_feature_count": layer.get("source_feature_count", 0),
+                "clipped_feature_count": layer.get("clipped_feature_count", 0),
+                "crs": layer.get("crs", ""),
+            }
+        )
+    return summaries
 
 
 def _project_registry_metadata(project_source: ProjectSource | None) -> dict[str, Any]:
@@ -355,7 +431,8 @@ def _validate_source_inventory(data: dict[str, Any], location: str) -> None:
         if source_id in seen_ids:
             raise SourceInventoryError(f"Duplicate source inventory record id '{source_id}': {location}")
         seen_ids.add(source_id)
-        for object_field in ("catalog", "project_registry", "acquisition", "source_status", "local_metadata", "metadata"):
+        record.setdefault("materialization", _materialization_metadata(None))
+        for object_field in ("catalog", "project_registry", "acquisition", "materialization", "source_status", "local_metadata", "metadata"):
             if not isinstance(record[object_field], dict):
                 raise SourceInventoryError(f"Source inventory field '{object_field}' must be an object: {location}")
         for list_field in ("validation_issues", "uncertainty_flags"):

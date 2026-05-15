@@ -1,0 +1,234 @@
+{
+  "materializer_version": "0.1",
+  "sources": [
+    {
+      "source_id": "usfws_nwi_wetlands",
+      "output_name": "usfws_nwi_wetlands",
+      "layers": [
+        {
+          "path": "sources/MS_geopackage_wetlands/MS_geopackage_wetlands.gpkg",
+          "layer": "MS_Wetlands",
+          "source_layer_id": "MS_Wetlands",
+          "source_layer_name": "MS Wetlands"
+        }
+      ]
+    },
+    {
+      "source_id": "usfws_critical_habitat",
+      "output_name": "usfws_critical_habitat",
+      "layers": [
+        {
+          "path": "sources/critical_species_habitat_all_layers/CRITHAB_LINE.shp",
+          "source_layer_id": "CRITHAB_LINE",
+          "source_layer_name": "Critical Habitat Lines"
+        },
+        {
+          "path": "sources/critical_species_habitat_all_layers/crithab_poly.shp",
+          "source_layer_id": "crithab_poly",
+          "source_layer_name": "Critical Habitat Polygons"
+        }
+      ]
+    },
+    {
+      "source_id": "usda_nrcs_ssurgo_soils",
+      "output_name": "usda_nrcs_ssurgo_soils",
+      "layers": [
+        {
+          "path": "sources/wss_gsmsoil_MS_10_13_2016/spatial/gsmsoilmu_a_ms.shp",
+          "source_layer_id": "gsmsoilmu_a_ms",
+          "source_layer_name": "SSURGO Soil Map Units Mississippi"
+        }
+      ]
+    },
+    {
+      "source_id": "mdot_transportation_context",
+      "output_name": "mdot_transportation_context",
+      "normalization": {
+        "label_fields": ["ROAD_NAME", "HWYNAME", "RAILWAY_NM", "RR_Name", "RROWNER1", "NAME", "Street", "CrossingID", "SRI"],
+        "feature_type_fields": ["ROUTE_CLAS", "CLASS", "NET", "TypeXing", "FEATURE_TY", "JUNCTION", "FTYPE"],
+        "feature_subtype_fields": ["COUNTY", "COUNTYNAME", "CountyName", "HWYNAME", "SUBDIV", "RR_Name", "RROWNER1", "RAILWAY_NM"],
+        "original_id_fields": ["SRI", "OBJECTID", "CrossingID", "FRAARCID", "NODEID", "ID", "NTAD_ID"],
+        "date_fields": ["WM_VALIDFR", "LastUpdate", "FDATE", "GEODATE", "CONTDATE", "RevisionDa"],
+        "quality_flag_fields": ["MOD_STATUS", "GEOPREC", "QC_QA", "ReportStat"],
+        "source_citation_fields": []
+      },
+      "layers": [
+        {
+          "path": "sources/roads/MS_MDOTCenterlines_Nov2025/MS_MDOTCenterlines_Nov2025/MS_MDOTLRM_Nov25.shp",
+          "source_layer_id": "MS_MDOTLRM_Nov25",
+          "source_layer_name": "MDOT Road Centerlines November 2025"
+        },
+        {
+          "path": "sources/roads/MS_DesignatedHighways_2010/MS_DesignatedHighways_2010.shp",
+          "source_layer_id": "MS_DesignatedHighways_2010",
+          "source_layer_name": "Mississippi Designated Highways 2010"
+        },
+        {
+          "path": "sources/railroads/MS_RailroadNetworks_2018/MS_RailroadNetworks_2018.shp",
+          "source_layer_id": "MS_RailroadNetworks_2018",
+          "source_layer_name": "Mississippi Railroad Networks 2018"
+        },
+        {
+          "path": "sources/railroads/MS_RailroadCrossings_2016/MS_RailroadCrossings_2016.shp",
+          "source_layer_id": "MS_RailroadCrossings_2016",
+          "source_layer_name": "Mississippi Railroad Crossings 2016"
+        },
+        {
+          "path": "sources/railroads/MS_RailroadBridges_2009/MS_RailroadBridges_2009.shp",
+          "source_layer_id": "MS_RailroadBridges_2009",
+          "source_layer_name": "Mississippi Railroad Bridges 2009"
+        },
+        {
+          "path": "sources/railroads/MS_RailroadJunctions_2016/MS_RailroadJunctions_2016.shp",
+          "source_layer_id": "MS_RailroadJunctions_2016",
+          "source_layer_name": "Mississippi Railroad Junctions 2016"
+        }
+      ]
+    },
+    {
+      "source_id": "local_utility_infrastructure",
+      "output_name": "local_utility_infrastructure",
+      "normalization": {
+        "label_fields": ["NAME", "OWNER", "ID"],
+        "feature_type_fields": ["TYPE", "STATUS", "VOLT_CLASS", "MAX_VOLTAG", "MIN_VOLTAG", "NAICS_DESC"],
+        "feature_subtype_fields": ["CITY", "STATE", "OWNER", "VOLTAGE", "LINES"],
+        "original_id_fields": ["OBJECTID", "ID"],
+        "date_fields": ["DATE", "SOURCEDATE", "VAL_DATE"],
+        "quality_flag_fields": ["METHOD", "VAL_METHOD", "INFERRED"],
+        "source_citation_fields": ["SOURCE"]
+      },
+      "layers": [
+        {
+          "path": "sources/cultural_other/MS_ElectricSubstations_2015/MS_ElectricSubstations_2015.shp",
+          "source_layer_id": "MS_ElectricSubstations_2015",
+          "source_layer_name": "Mississippi Electric Substations 2015"
+        },
+        {
+          "path": "sources/cultural_other/MS_TransmissionLines_2021/MS_TransmissionLines_2021.shp",
+          "source_layer_id": "MS_TransmissionLines_2021",
+          "source_layer_name": "Mississippi Transmission Lines 2021"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_boundary_context",
+      "output_name": "maris_boundary_context",
+      "normalization": {
+        "label_fields": ["CONAME", "CO_SEAT", "STBND_ID", "CSTL_ID", "CLASS"],
+        "feature_type_fields": ["CONAME", "CLASS"],
+        "feature_subtype_fields": ["CO_SEAT", "COUNTY", "STBND_ID", "CSTL_ID"],
+        "original_id_fields": ["NEWSTCO_ID", "NEWSTCO_", "COUNTY", "STBND_ID", "CSTL_ID"],
+        "date_fields": [],
+        "quality_flag_fields": [],
+        "source_citation_fields": []
+      },
+      "layers": [
+        {
+          "path": "sources/cultural_other/MS_CountyBoundaries_2015/MS_CountyBoundaries_2015.shp",
+          "source_layer_id": "MS_CountyBoundaries_2015",
+          "source_layer_name": "Mississippi County Boundaries 2015"
+        },
+        {
+          "path": "sources/cultural_other/MS_StateBoundary_2015/MS_StateBoundary_2015.shp",
+          "source_layer_id": "MS_StateBoundary_2015",
+          "source_layer_name": "Mississippi State Boundary 2015"
+        },
+        {
+          "path": "sources/cultural_other/MS_DetailedCoastline_1994/MS_DetailedCoastline_1994.shp",
+          "source_layer_id": "MS_DetailedCoastline_1994",
+          "source_layer_name": "Mississippi Detailed Coastline 1994"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_public_cultural_context",
+      "output_name": "maris_public_cultural_context",
+      "normalization": {
+        "label_fields": ["RESNAME", "Resource_N", "name", "NAME20", "NAMELSAD20"],
+        "feature_type_fields": ["Resource_T", "Status", "ftype", "fcode", "LSAD20", "CLASSFP20"],
+        "feature_subtype_fields": ["County", "City", "city", "NAME20", "NAMELSAD20", "Restricted"],
+        "original_id_fields": ["CR_ID", "GEOM_ID", "NRIS_Refnu", "PropertyID", "permanent_", "GlobalID", "GEOID20", "OBJECTID"],
+        "date_fields": ["SRC_DATE", "CREATEDATE", "EDIT_DATE", "Status_Dat", "Listed_Dat", "NHL_Date", "loaddate"],
+        "quality_flag_fields": ["SRC_ACCU", "Restricted", "data_secur", "distributi"],
+        "source_citation_fields": ["SOURCE", "ORIGINATOR", "source_ori"]
+      },
+      "layers": [
+        {
+          "path": "sources/cultural_other/MS_Cemeteries_2023/MS_Cemeteries_2023.shp",
+          "source_layer_id": "MS_Cemeteries_2023",
+          "source_layer_name": "Mississippi Cemeteries 2023"
+        },
+        {
+          "path": "sources/cultural_other/MS_NationalRegistrySites_2017/MS_NationalRegistrySites_2017.shp",
+          "source_layer_id": "MS_NationalRegistrySites_2017",
+          "source_layer_name": "Mississippi National Register Sites 2017"
+        },
+        {
+          "path": "sources/cultural_other/MS_IndianLands_2020/MS_IndianLands_2020.shp",
+          "source_layer_id": "MS_IndianLands_2020",
+          "source_layer_name": "Mississippi Indian Lands 2020"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_community_facilities",
+      "output_name": "maris_community_facilities",
+      "normalization": {
+        "label_fields": ["NAME", "PARK"],
+        "feature_type_fields": ["CLASS", "FTYPE", "FCODE", "USE"],
+        "feature_subtype_fields": ["CITY", "STATE", "ZIPCODE", "Volunteer", "USE"],
+        "original_id_fields": ["OBJECTID", "PERMANENT_"],
+        "date_fields": ["LOADDATE"],
+        "quality_flag_fields": ["Volunteer"],
+        "source_citation_fields": ["SOURCE_D_1"]
+      },
+      "layers": [
+        {
+          "path": "sources/cultural_other/MS_Communities_2009/MS_Communities_2009.shp",
+          "source_layer_id": "MS_Communities_2009",
+          "source_layer_name": "Mississippi Communities 2009"
+        },
+        {
+          "path": "sources/cultural_other/MS_FireStations_2020/MS_FireStations_2020/MS_FireStations_2020.shp",
+          "source_layer_id": "MS_FireStations_2020",
+          "source_layer_name": "Mississippi Fire Stations 2020"
+        },
+        {
+          "path": "sources/cultural_other/MS_RecreationalFacilities_2017/MS_RecreationalFacilities_2017.shp",
+          "source_layer_id": "MS_RecreationalFacilities_2017",
+          "source_layer_name": "Mississippi Recreational Facilities 2017"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_conservation_recreation_lands",
+      "output_name": "maris_conservation_recreation_lands",
+      "normalization": {
+        "label_fields": ["Name", "NAME", "Admin_Area", "NEST_PROGR"],
+        "feature_type_fields": ["TYPE", "NEST_EASEM", "NEST_PROGR"],
+        "feature_subtype_fields": ["NEST_Count", "ACREAGE", "CalcAcres", "Method"],
+        "original_id_fields": ["OBJECTID", "ID"],
+        "date_fields": ["NEST_C_CLO"],
+        "quality_flag_fields": ["Method", "Scale", "Disclaimer"],
+        "source_citation_fields": ["Disclaimer"]
+      },
+      "layers": [
+        {
+          "path": "sources/cultural_other/MS_EasementAreas_2021/MS_EasementAreas_2021.shp",
+          "source_layer_id": "MS_EasementAreas_2021",
+          "source_layer_name": "Mississippi Easement Areas 2021"
+        },
+        {
+          "path": "sources/cultural_other/MS_StateParks_2019/MS_StateParks_2019.shp",
+          "source_layer_id": "MS_StateParks_2019",
+          "source_layer_name": "Mississippi State Parks 2019"
+        },
+        {
+          "path": "sources/cultural_other/MS_WildlifeManagementAreas_2019/MS_WildlifeManagementAreas_2019.shp",
+          "source_layer_id": "MS_WildlifeManagementAreas_2019",
+          "source_layer_name": "Mississippi Wildlife Management Areas 2019"
+        }
+      ]
+    }
+  ]
+}

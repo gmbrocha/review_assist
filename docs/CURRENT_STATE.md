@@ -2,9 +2,9 @@
 
 ## Phase
 
-Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, and local spatial relationship checks. The Phase 2C catalog-driven source acquisition baseline is implemented with explicit USFWS NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders. Phase 3 project context/source status artifacts, the first Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D report section generation with deterministic and optional GPT drafting, evidence package generation, the first Markdown/DOCX export compiler, the first internal demo deliverable package command, the first real-data MVP deliverable package command, and the first constraint-engine baseline are implemented.
+Phase 0 scaffold/planning is complete. Phase 1 KMZ/KML ingestion and geometry inspection is implemented for the current prototype baseline. The first Phase 2A/2B baseline is also implemented: source catalog, project source registries, local source registration, local Mississippi source warehouse materialization, and local spatial relationship checks. The Phase 2C catalog-driven source acquisition baseline is implemented with explicit USFWS NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders. Local materializers now include NWI wetlands, USFWS Critical Habitat, SSURGO soils, aggregated MDOT/rail transportation context, utilities, administrative/boundary context, public cultural context, community facilities, and conservation/recreation lands. Phase 3 project context/source status artifacts, the first Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D report section generation with deterministic and optional GPT drafting, evidence package generation, the first Markdown/DOCX export compiler, the first internal demo deliverable package command, the first real-data MVP deliverable package command, and the first constraint-engine baseline are implemented.
 
-The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check/source acquisition services, project geometry normalization, constraint overlap/proximity analysis, workflow-native project context/source status services, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts including grouped, hydrography, flood hazard, critical habitat, and regulated facility summaries, vector-only map artifacts, evidence package artifacts, deterministic/GPT draft report section artifacts, JSON review queue services, Markdown/DOCX export services, internal demo deliverable package orchestration, real-data guarded MVP deliverable orchestration, and populate-for-review orchestration. No production workflow has been implemented.
+The repository currently contains documentation, project workspaces, sample KMZ/KML preview utilities, project manifests, project-local input copies, Python service/CLI implementation for Phase 1 inspection, Phase 2 source catalog/spatial check/source acquisition/source materialization services, project geometry normalization, constraint overlap/proximity analysis, workflow-native project context/source status services, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts including grouped, hydrography, flood hazard, critical habitat, and regulated facility summaries, vector-only map artifacts, evidence package artifacts, deterministic/GPT draft report section artifacts, JSON review queue services, Markdown/DOCX export services, internal demo deliverable package orchestration, real-data guarded MVP deliverable orchestration, and populate-for-review orchestration. No production workflow has been implemented.
 
 The current direction is clearer than the initial scaffold: the system should eventually create a comprehensive pre-review draft package so the reviewer does not start from a blank page. The canonical workflow is now workspace driven: open/create workspace, add inputs, generate project context, resolve source status, populate for review, review every generated item, and export accepted content.
 
@@ -82,8 +82,10 @@ The root-level KMZ files are retained as reference originals. Phase 1 project ma
 ## Phase 2A/2B Implementation Defaults
 
 - Source catalog format: JSON at `config/source_catalog.json`.
+- Local source materializer config: JSON at `config/local_source_materializers.json`.
 - Project source registry format: JSON at `projects/<project_id>/config/sources.json`.
 - Source population strategy: local source-layer registration first; live downloads are explicit and opt-in.
+- Local source warehouse strategy: ignored root `sources/` may hold Mississippi-wide/bulk datasets; materialization clips configured warehouse layers to project analysis bounds and registers small project-ready GeoJSON outputs under ignored `projects/<project_id>/layers/`.
 - Source acquisition strategy: compare project inputs and project registry against the catalog, then download only supported public sources when requested.
 - Implemented downloaders: USFWS NWI wetlands through the public Wetlands REST MapServer layer; USGS NHD hydrography through The National Map NHD MapServer large-scale flowline and area layers; USFWS Critical Habitat through the public Critical Habitat FeatureServer final and proposed layers; EPA/ECHO regulated facilities through the public ECHO Facilities MapServer layer 0; FEMA NFHL effective Flood Hazard Zones through public NFHL MapServer layer 28.
 - First spatial-check priority: wetlands/waterbodies, hydrography/crossings, land cover/disturbance, and soils.
@@ -109,6 +111,16 @@ Current CLI commands:
 - `review-assist download-source <project_dir> fema_nfhl_flood_hazard`
 - `review-assist prepare-sources <project_dir>`
 - `review-assist prepare-sources <project_dir> --include-optional-sources`
+- `review-assist materialize-local-source <project_dir> usfws_nwi_wetlands`
+- `review-assist materialize-local-source <project_dir> usfws_critical_habitat`
+- `review-assist materialize-local-source <project_dir> usda_nrcs_ssurgo_soils`
+- `review-assist materialize-local-source <project_dir> mdot_transportation_context`
+- `review-assist materialize-local-source <project_dir> maris_boundary_context`
+- `review-assist materialize-local-source <project_dir> maris_public_cultural_context`
+- `review-assist materialize-local-source <project_dir> maris_community_facilities`
+- `review-assist materialize-local-source <project_dir> maris_conservation_recreation_lands`
+- `review-assist materialize-local-source <project_dir> local_utility_infrastructure`
+- `review-assist materialize-local-sources <project_dir>`
 - `review-assist generate-source-inventory <project_dir>`
 - `review-assist generate-findings <project_dir>`
 - `review-assist generate-tables <project_dir>`
@@ -123,12 +135,16 @@ Current CLI commands:
 - `review-assist export-report <project_dir> --include-draft`
 - `review-assist export-report <project_dir> --format markdown|docx|both`
 - `review-assist build-demo-deliverable <project_dir>`
+- `review-assist build-demo-deliverable <project_dir> --materialize-local-sources`
 - `review-assist build-demo-deliverable <project_dir> --no-gpt-drafting`
 - `review-assist build-mvp-deliverable <project_dir>`
+- `review-assist build-mvp-deliverable <project_dir> --materialize-local-sources`
 - `review-assist build-mvp-deliverable <project_dir> --include-optional-sources`
 - `review-assist build-mvp-deliverable <project_dir> --include-optional-sources --no-gpt-drafting`
 - `review-assist populate-for-review <project_dir>`
+- `review-assist populate-for-review <project_dir> --materialize-local-sources`
 - `review-assist populate-for-review <project_dir> --prepare-sources`
+- `review-assist populate-for-review <project_dir> --materialize-local-sources --prepare-sources`
 - `review-assist populate-for-review <project_dir> --prepare-sources --include-optional-sources`
 - `review-assist populate-for-review <project_dir> --prepare-sources --no-gpt-drafting`
 
@@ -146,6 +162,8 @@ For `populate-for-review`, optional source acquisition is only valid when `--inc
 - Source status output: JSON at `projects/<project_id>/source_status/source_status_set.json`.
 - Source acquisition output: JSON at `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`.
 - Source acquisition downloads: GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
+- Source materialization output: JSON at `projects/<project_id>/source_materialization/local_source_materialization_manifest.json`.
+- Source materialized layers: GeoJSON under `projects/<project_id>/layers/<source_id>/`.
 - Source inventory output: JSON at `projects/<project_id>/source_inventory/source_inventory.json`.
 - Constraint results output: JSON at `projects/<project_id>/constraints/constraint_results.json`.
 - Draft findings output: JSON at `projects/<project_id>/findings/draft_findings.json`.
@@ -162,9 +180,11 @@ For `populate-for-review`, optional source acquisition is only valid when `--inc
 - Real-data MVP deliverable output: same Markdown/DOCX/export manifest paths, plus `deliverable_package_manifest.json` with package status and data lineage.
 - Data lineage output: embedded `data_lineage` objects in export and deliverable manifests.
 - Populate run manifest: JSON at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Generated context, source status, source acquisition, source inventory, constraint results, draft findings, comparison tables, draft maps, evidence packages, draft report sections, review queue, and populate artifacts are ignored by Git.
+- Generated context, source status, source acquisition, source materialization, source inventory, constraint results, draft findings, comparison tables, draft maps, evidence packages, draft report sections, review queue, and populate artifacts are ignored by Git.
 - The current implementation creates normalized project geometry artifacts that classify inputs as point/site, line/corridor, polygon/area, or mixed context.
 - The current implementation creates objective constraint results from registered local source layers, cropped to project analysis bounds and compared to normalized project features.
+- The current implementation can materialize configured root `sources/` warehouse layers for NWI wetlands, USFWS Critical Habitat line/polygon data, SSURGO soil map units, MDOT/rail transportation context, utilities, administrative/boundary context, public cultural context, community facilities, and conservation/recreation lands into project-ready GeoJSON, preserving original attributes plus normalized Review Assist source fields.
+- Materialized county-boundary context is read into `project_context.json` when available, and the study-area report section can cite the intersecting Mississippi county or counties.
 - The current implementation can explicitly prepare sources by resolving catalog gaps, downloading NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facilities when needed, optionally downloading FEMA NFHL flood hazard when requested, preserving acquisition provenance, and registering downloaded layers as normal project sources.
 - Failed supported source downloads are nonfatal and now propagate as `failed` source status, uncertainty, finding, section, and review queue caveat context.
 - The current implementation creates deterministic draft findings from source status records, constraint results, spatial relationships, and no-mapped-relationship checks.
@@ -176,12 +196,12 @@ For `populate-for-review`, optional source acquisition is only valid when `--inc
 - The current implementation can export accepted/edited review queue items into Markdown and DOCX report packages plus an export manifest. The preview option can include unaccepted non-rejected items and is explicitly marked as internal/pre-review.
 - The current implementation can build an internal demo deliverable package with `build-demo-deliverable`, which runs populate-for-review and preview export without changing review queue statuses.
 - The current implementation can build a real-data guarded MVP deliverable package with `build-mvp-deliverable`, which runs source preparation before preview export, records data lineage, fails by default when no real source layer is available, and blocks test fixture/mock source records from MVP outputs.
-- `populate-for-review` runs context generation, project geometry normalization, optional source preparation, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, evidence package generation, report section generation, and lean review queue generation into one inspectable run manifest. Optional source acquisition remains explicit through `--include-optional-sources`.
+- `populate-for-review` runs context generation, project geometry normalization, optional local source materialization, optional source preparation, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, evidence package generation, report section generation, and lean review queue generation into one inspectable run manifest. Optional source acquisition remains explicit through `--include-optional-sources`.
 - GPT drafting uses root `.env` values: `OPENAI_API_KEY`, `OPENAI_INTERPRETER_MODEL`, and `GPT_DRAFTING`. `--no-gpt-drafting` forces deterministic behavior for individual runs.
 
 Current audit status:
 
-- The codebase has passing tests for ingestion, source registry validation, local source registration, source acquisition with mocked NWI, USGS NHD, USFWS Critical Habitat, EPA/ECHO, and FEMA NFHL responses, failed-download propagation, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts including grouped, hydrography crossing, flood hazard, critical habitat, and regulated facility summaries, vector-only map artifacts, evidence package generation, deterministic/GPT draft report section artifacts, Markdown/DOCX export compilation, internal demo deliverable packaging, real-data MVP deliverable guardrails, render-error handling, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
+- The codebase has passing tests for ingestion, source registry validation, local source registration, local source materialization, county-boundary context enrichment, source acquisition with mocked NWI, USGS NHD, USFWS Critical Habitat, EPA/ECHO, and FEMA NFHL responses, failed-download propagation, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts including grouped, hydrography crossing, flood hazard, critical habitat, and regulated facility summaries, vector-only map artifacts, evidence package generation, deterministic/GPT draft report section artifacts, Markdown/DOCX export compilation, internal demo deliverable packaging, real-data MVP deliverable guardrails, render-error handling, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
 - The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, optional source metadata, source inventory record counts, comparison table counts/statuses, and negative buffer values.
 - `scripts/verify.ps1` provides a repeatable local readiness check that creates the virtual environment when needed, installs development dependencies, runs pytest, and smoke-checks the current CLI workflows.
 - See `docs/CODE_AUDIT.md` for latest audit notes.

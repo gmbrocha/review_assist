@@ -30,6 +30,7 @@ def build_demo_deliverable(
     *,
     prepare_sources: bool = False,
     include_optional_sources: bool = False,
+    materialize_local_sources: bool = False,
     output_format: str = "both",
     gpt_drafting: bool | None = None,
     gpt_model: str | None = None,
@@ -42,6 +43,7 @@ def build_demo_deliverable(
             project_dir,
             prepare_sources=prepare_sources,
             include_optional_sources=include_optional_sources,
+            materialize_local_sources=materialize_local_sources,
             gpt_drafting=gpt_drafting,
             gpt_model=gpt_model,
         )
@@ -61,6 +63,11 @@ def build_demo_deliverable(
         "package_status": "internal_preview",
         "prepare_sources": prepare_sources,
         "include_optional_sources": include_optional_sources if prepare_sources else False,
+        "materialize_local_sources": materialize_local_sources,
+        "source_materialization_path": populate_manifest.get("artifact_paths", {}).get("source_materialization")
+        if isinstance(populate_manifest.get("artifact_paths"), dict)
+        else None,
+        "source_materialization_count": populate_manifest.get("source_materialization_count", 0),
         "output_format": output_format,
         "output_formats": export_manifest.get("output_formats", []),
         "populate_manifest_path": populate_manifest.get("output_path"),
@@ -88,6 +95,7 @@ def build_mvp_deliverable(
     *,
     include_optional_sources: bool = False,
     fail_on_no_downloaded_sources: bool = True,
+    materialize_local_sources: bool = False,
     output_format: str = "both",
     gpt_drafting: bool | None = None,
     gpt_model: str | None = None,
@@ -100,6 +108,7 @@ def build_mvp_deliverable(
             project_dir,
             prepare_sources=True,
             include_optional_sources=include_optional_sources,
+            materialize_local_sources=materialize_local_sources,
             gpt_drafting=gpt_drafting,
             gpt_model=gpt_model,
         )
@@ -134,6 +143,11 @@ def build_mvp_deliverable(
         "package_status": "internal_preview_real_data_mvp",
         "prepare_sources": True,
         "include_optional_sources": include_optional_sources,
+        "materialize_local_sources": materialize_local_sources,
+        "source_materialization_path": populate_manifest.get("artifact_paths", {}).get("source_materialization")
+        if isinstance(populate_manifest.get("artifact_paths"), dict)
+        else None,
+        "source_materialization_count": populate_manifest.get("source_materialization_count", 0),
         "fail_on_no_downloaded_sources": fail_on_no_downloaded_sources,
         "output_format": output_format,
         "output_formats": export_manifest.get("output_formats", []),

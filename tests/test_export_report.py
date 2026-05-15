@@ -408,6 +408,7 @@ def test_build_mvp_deliverable_fails_without_real_source_data(
         *,
         prepare_sources: bool,
         include_optional_sources: bool,
+        materialize_local_sources: bool = False,
         gpt_drafting: bool | None = None,
         gpt_model: str | None = None,
     ) -> dict[str, Any]:

@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL effective flood hazard zones are the first implemented public downloaders. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL effective flood hazard zones are the first implemented public downloaders. NWI wetlands, USFWS Critical Habitat, SSURGO soils, MDOT/rail transportation context, utilities, administrative/boundary context, public cultural context, community facilities, and conservation/recreation lands are also configured for local Mississippi source warehouse materialization. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -28,6 +28,7 @@ The system should preserve:
 - Distinguish downloaded local layers from remote services.
 - Distinguish public sources from restricted, authenticated, or reviewer-supplied sources.
 - Track source category status in the workspace source status set.
+- Track local source warehouse materialization where statewide or bulk datasets are clipped into project-ready files.
 - Track source gap/acquisition status in the workspace source acquisition manifest.
 - Preserve source uncertainty and stale-data warnings.
 - Prefer deterministic GIS/source checks before AI narrative synthesis.
@@ -78,8 +79,11 @@ Flood hazard/floodplain data remains a valid optional source category, but it is
 Current local configuration files:
 
 - Global catalog: `config/source_catalog.json`
+- Local source materializer config: `config/local_source_materializers.json`
 - Project source registries: `projects/<project_id>/config/sources.json`
 - Report profile source requirements: `config/report_profiles.json`
+- Generated source materialization manifests: `projects/<project_id>/source_materialization/local_source_materialization_manifest.json`
+- Generated project-ready materialized layers: `projects/<project_id>/layers/<source_id>/<source_id>.geojson`
 - Generated source acquisition manifests: `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`
 - Generated source acquisition downloads: `projects/<project_id>/source_acquisition/downloads/`
 - Generated source status sets: `projects/<project_id>/source_status/source_status_set.json`
@@ -117,6 +121,43 @@ Live downloads are explicit only:
 ```
 
 Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior. Running `prepare-sources` or `populate-for-review --prepare-sources` without `--include-optional-sources` downloads supported required sources only, so FEMA flood hazard remains optional unless directly requested. The `populate-for-review --include-optional-sources` flag is valid only when paired with `--prepare-sources`.
+
+## Local Source Materialization
+
+The local materializer uses ignored root `sources/` storage as a Mississippi source warehouse. It reads configured statewide or bulk datasets, clips them to the project analysis bounds, writes small project-ready GeoJSON files under `projects/<project_id>/layers/<source_id>/`, and registers those files as real `local_file` sources with `status: local_materialized`.
+
+Configured materializers:
+
+- `usfws_nwi_wetlands`: `sources/MS_geopackage_wetlands/MS_geopackage_wetlands.gpkg`, layer `MS_Wetlands`.
+- `usfws_critical_habitat`: `sources/critical_species_habitat_all_layers/CRITHAB_LINE.shp` plus `sources/critical_species_habitat_all_layers/crithab_poly.shp`.
+- `usda_nrcs_ssurgo_soils`: `sources/wss_gsmsoil_MS_10_13_2016/spatial/gsmsoilmu_a_ms.shp`.
+- `mdot_transportation_context`: roads, designated highways, railroad networks, railroad crossings, railroad bridges, and railroad junctions from `sources/roads/` and `sources/railroads/`.
+- `local_utility_infrastructure`: electric substations and transmission lines from `sources/cultural_other/`.
+- `maris_boundary_context`: county boundaries, state boundary, and detailed coastline from `sources/cultural_other/`; county boundaries feed report study-area county names.
+- `maris_public_cultural_context`: public cemeteries, National Register sites, and tribal land context from `sources/cultural_other/`; restricted archaeology remains manual/restricted.
+- `maris_community_facilities`: communities, fire stations, and recreational facilities from `sources/cultural_other/`.
+- `maris_conservation_recreation_lands`: easement areas, state parks, and wildlife management areas from `sources/cultural_other/`.
+
+Commands:
+
+```powershell
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_critical_habitat
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usda_nrcs_ssurgo_soils
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdot_transportation_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_boundary_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_public_cultural_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_community_facilities
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_conservation_recreation_lands
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails local_utility_infrastructure
+.\.venv\Scripts\review-assist.exe materialize-local-sources projects/trails
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-local-sources
+.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --materialize-local-sources
+```
+
+All-source materialization treats missing warehouse files as nonfatal manifest warnings. Single-source materialization fails clearly when the requested warehouse source cannot be read. Existing reviewer-supplied local sources are preserved unless `--replace` is explicitly used. Materialization runs before public source downloads when both `--materialize-local-sources` and `--prepare-sources` are used, so local warehouse data can satisfy source gaps before the app attempts live downloads.
+
+Materialized GeoJSON preserves original source attributes and adds normalized `review_assist_*` fields for source id/name/category, source layer, feature label/type/subtype/original id/date/quality/citation, and data authenticity. GPT drafting still receives only bounded evidence summaries; raw warehouse paths, full features, raw geometries, and root `sources/` paths are withheld from GPT payloads.
 
 ## Source Tiers
 
