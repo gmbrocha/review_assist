@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, load_constraint_results
 from .findings import FINDINGS_PATH, FindingGenerationError, generate_draft_findings, load_draft_findings
 from .project_context import ProjectContextError, generate_project_context, load_project_context
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
@@ -38,15 +39,17 @@ def generate_comparison_tables(project_dir: Path) -> dict[str, Any]:
     try:
         context = _load_or_generate_context(project_dir)
         source_status = _load_or_generate_source_status(project_dir)
+        constraints = _load_optional_constraint_results(project_dir)
         spatial = _load_optional_spatial_relationships(project_dir)
         draft_findings = _load_or_generate_findings(project_dir)
-    except (ProjectContextError, SourceStatusError, FindingGenerationError) as exc:
+    except (ProjectContextError, SourceStatusError, ConstraintAnalysisError, FindingGenerationError) as exc:
         raise TableGenerationError(str(exc)) from exc
 
     output_path = project_dir / TABLES_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tables = [
         _source_status_matrix(source_status),
+        _constraint_summary(constraints),
         _spatial_relationship_summary(spatial),
         _draft_finding_summary(draft_findings),
     ]
@@ -58,6 +61,7 @@ def generate_comparison_tables(project_dir: Path) -> dict[str, Any]:
         "upstream_artifacts": {
             "project_context_path": context.get("context_path"),
             "source_status_path": source_status.get("output_path"),
+            "constraint_results_path": constraints.get("output_path") if constraints else None,
             "spatial_relationships_path": spatial.get("output_path") if spatial else None,
             "draft_findings_path": draft_findings.get("output_path"),
         },
@@ -120,6 +124,13 @@ def _load_optional_spatial_relationships(project_dir: Path) -> dict[str, Any] | 
     return data
 
 
+def _load_optional_constraint_results(project_dir: Path) -> dict[str, Any] | None:
+    constraint_path = project_dir / CONSTRAINT_RESULTS_PATH
+    if not constraint_path.exists():
+        return None
+    return load_constraint_results(project_dir)
+
+
 def _load_or_generate_findings(project_dir: Path) -> dict[str, Any]:
     findings_path = project_dir / FINDINGS_PATH
     if findings_path.exists():
@@ -167,6 +178,57 @@ def _source_status_matrix(source_status: dict[str, Any]) -> dict[str, Any]:
         provenance={"artifact": "source_status_set", "artifact_path": source_status.get("output_path")},
         source_refs=sorted(source_refs),
         uncertainty_flags=[],
+    )
+
+
+def _constraint_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
+    columns = [
+        "constraint_id",
+        "project_feature_id",
+        "project_feature_name",
+        "project_geometry_role",
+        "source_category",
+        "source_id",
+        "source_name",
+        "source_feature_label",
+        "relationship_type",
+        "buffer_feet",
+        "measurements",
+    ]
+    rows: list[dict[str, Any]] = []
+    source_refs: set[str] = set()
+    if constraints is not None:
+        for constraint in constraints.get("constraints", []):
+            if not isinstance(constraint, dict):
+                continue
+            source_id = str(constraint.get("source_id", ""))
+            if source_id:
+                source_refs.add(source_id)
+            rows.append(
+                {
+                    "constraint_id": constraint.get("constraint_id", ""),
+                    "project_feature_id": constraint.get("project_feature_id", ""),
+                    "project_feature_name": constraint.get("project_feature_name", ""),
+                    "project_geometry_role": constraint.get("project_geometry_role", ""),
+                    "source_category": constraint.get("source_category", ""),
+                    "source_id": source_id,
+                    "source_name": constraint.get("source_name", ""),
+                    "source_feature_label": constraint.get("source_feature_label") or constraint.get("source_feature_index", ""),
+                    "relationship_type": constraint.get("relationship_type", ""),
+                    "buffer_feet": constraint.get("buffer_feet"),
+                    "measurements": constraint.get("measurements", {}),
+                }
+            )
+    return _table(
+        table_id="constraint-summary",
+        table_type="constraint_summary",
+        title="Constraint Summary",
+        description="Objective constraint overlap and proximity records by project feature and source category.",
+        columns=columns,
+        rows=rows,
+        provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
+        source_refs=sorted(source_refs),
+        uncertainty_flags=["no_constraint_results_artifact"] if constraints is None else [],
     )
 
 

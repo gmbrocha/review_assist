@@ -110,19 +110,19 @@ Each behavior-changing implementation phase should add or update tests for the s
 
 ### 2026-05-14: Review queue persistence uses JSON for the current baseline
 
-The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI and export workflow are still deferred. The baseline converts source inventory records, deterministic draft findings when present, comparison tables, source status records, spatial relationships, no-mapped checks, and validation issues into reviewable items, but it does not generate final findings or reports.
+The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI and export workflow are still deferred. The baseline now defaults to a lean queue from deterministic draft findings, comparison tables, maps, report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues. Source inventory notes are opt-in for audit workflows. The queue does not generate final findings or reports.
 
 ### 2026-05-14: Populate for Review starts as orchestration, not generation
 
-The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation and Phase 6D adds deterministic report section generation to that orchestration. It deliberately does not download public sources, render basemap/imagery-backed maps, call LLMs, compile exports, or create recommendations.
+The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation, Phase 6D added deterministic report section generation, the constraint-core slice added project geometry normalization plus first-class constraint analysis, and the source-acquisition slice added opt-in NWI downloads through `--prepare-sources`. It deliberately does not download public sources unless explicitly requested, render basemap/imagery-backed maps, call LLMs, compile exports, or create recommendations.
 
 ### 2026-05-14: Deterministic draft findings come before maps, reports, GUI, and LLM work
 
-Phase 6A converts source status records and spatial relationship records into cautious, template-driven draft finding records at `projects/<project_id>/findings/draft_findings.json`. Findings use deterministic IDs so review queue regeneration can preserve reviewer status and notes. These findings are review queue inputs, not final conclusions or report text.
+Phase 6A converts source status records, first-class constraint result records when present, and legacy spatial relationship records when needed into cautious, template-driven draft finding records at `projects/<project_id>/findings/draft_findings.json`. Findings use deterministic IDs so review queue regeneration can preserve reviewer status and notes. These findings are review queue inputs, not final conclusions or report text.
 
 ### 2026-05-14: Source provenance and comparison tables are backend artifacts before maps/exports
 
-Phase 6B adds source inventory/provenance records at `projects/<project_id>/source_inventory/source_inventory.json` and descriptive comparison tables at `projects/<project_id>/tables/comparison_tables.json`. These artifacts feed the review queue and future map/export workflows, but they do not download sources, render final report tables, rank alternatives, or compile report packages.
+Phase 6B adds source inventory/provenance records at `projects/<project_id>/source_inventory/source_inventory.json` and descriptive comparison tables at `projects/<project_id>/tables/comparison_tables.json`. These artifacts feed the review queue and future map/export workflows. Source inventory now includes source acquisition provenance when present, but it does not render final report tables, rank alternatives, or compile report packages.
 
 ### 2026-05-14: Phase 6C map generation starts vector-only
 
@@ -131,6 +131,18 @@ The first map-generation baseline writes `projects/<project_id>/maps/map_manifes
 ### 2026-05-14: Phase 6D report section drafting starts deterministic
 
 The first report section baseline writes `projects/<project_id>/drafts/report_sections.json` using templates from `config/report_section_templates.json`. It creates no-blank-page draft sections from structured workflow artifacts and feeds `report_section` items into the review queue. LLM synthesis, DOCX/PDF export, final report compilation, ranking, recommendations, and unreviewed report output remain deferred.
+
+### 2026-05-14: The product is a constraint overlap engine plus review queue
+
+The core workflow first parses project geometry, derives analysis bounds, crops/loads relevant sources, and identifies objective constraints by project feature and resource category. The review queue is downstream of that engine: findings, maps, tables, caveats, source notes, and draft report sections become small editable review items that a user can accept, edit, reject, or queue for export. Review queue item count is not a readiness metric.
+
+### 2026-05-14: Current projects are examples, not product boundaries
+
+`projects/trails` and `projects/conexon_projects` represent two input shapes: line/corridor alternatives and point-heavy broadband service locations. The system should remain a blank project machine that can accept a new KMZ/KML, infer or ask for the intended geometry role, apply geometry-appropriate buffer/bounds logic, and run the same objective constraint workflow for trails, service points, service areas, routes, corridors, sites, polygons, or mixed project contexts.
+
+### 2026-05-14: The system presents constraints, not choices
+
+The system may compare objective constraints across alternatives, routes, sites, service areas, or project features. It must not choose, reject, recommend, or rank them. The human/client/planning process uses the constraint information to make decisions outside the tool.
 
 ## Future Decision Template
 

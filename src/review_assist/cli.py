@@ -7,10 +7,12 @@ import json
 import sys
 from pathlib import Path
 
+from .constraints import ConstraintAnalysisError, analyze_constraints
 from .findings import FindingGenerationError, generate_draft_findings
 from .inspection import ProjectInspectionError, inspect_project
 from .maps import MapGenerationError, generate_maps
 from .populate_for_review import PopulateForReviewError, populate_for_review
+from .project_geometry import ProjectGeometryError, build_project_geometry
 from .project_context import ProjectContextError, generate_project_context
 from .report_sections import ReportSectionGenerationError, generate_report_sections
 from .review_queue import (
@@ -20,6 +22,12 @@ from .review_queue import (
     update_review_item,
 )
 from .source_inventory import SourceInventoryError, generate_source_inventory
+from .source_acquisition import (
+    SourceAcquisitionError,
+    download_source,
+    prepare_sources,
+    resolve_source_gaps,
+)
 from .source_catalog import (
     SourceCatalogError,
     load_project_source_registry,
@@ -52,6 +60,14 @@ def build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     analyze_parser.add_argument("--json", action="store_true", help="Print full JSON analysis result to stdout.")
 
+    geometry_parser = subparsers.add_parser("build-project-geometry", help="Normalize project geometry for constraint analysis.")
+    geometry_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    geometry_parser.add_argument("--json", action="store_true", help="Print full JSON project geometry artifact to stdout.")
+
+    constraints_parser = subparsers.add_parser("analyze-constraints", help="Run constraint overlap/proximity checks for a project.")
+    constraints_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    constraints_parser.add_argument("--json", action="store_true", help="Print full JSON constraint result to stdout.")
+
     context_parser = subparsers.add_parser("generate-context", help="Generate persistent project context for a workspace.")
     context_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     context_parser.add_argument("--json", action="store_true", help="Print full JSON context artifact to stdout.")
@@ -59,6 +75,19 @@ def build_parser() -> argparse.ArgumentParser:
     sources_parser = subparsers.add_parser("resolve-sources", help="Resolve project source category statuses for a workspace.")
     sources_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     sources_parser.add_argument("--json", action="store_true", help="Print full JSON source status set to stdout.")
+
+    gaps_parser = subparsers.add_parser("resolve-source-gaps", help="Compare project inputs and registry against the source catalog.")
+    gaps_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    gaps_parser.add_argument("--json", action="store_true", help="Print full JSON source acquisition manifest to stdout.")
+
+    download_parser = subparsers.add_parser("download-source", help="Download one supported public source into a project workspace.")
+    download_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    download_parser.add_argument("source_id", help="Supported source id to download.")
+    download_parser.add_argument("--json", action="store_true", help="Print full JSON source acquisition manifest to stdout.")
+
+    prepare_parser = subparsers.add_parser("prepare-sources", help="Resolve gaps and download supported missing required sources.")
+    prepare_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    prepare_parser.add_argument("--json", action="store_true", help="Print full JSON source acquisition manifest to stdout.")
 
     inventory_parser = subparsers.add_parser("generate-source-inventory", help="Generate source inventory and provenance records.")
     inventory_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -82,6 +111,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
     queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    queue_parser.add_argument(
+        "--include-source-inventory",
+        action="store_true",
+        help="Include source inventory note items in addition to the lean review queue.",
+    )
     queue_parser.add_argument("--json", action="store_true", help="Print full JSON review queue to stdout.")
 
     list_queue_parser = subparsers.add_parser("list-review-queue", help="List review queue items and counts.")
@@ -102,6 +136,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     populate_parser = subparsers.add_parser("populate-for-review", help="Run the current workflow into the review queue.")
     populate_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    populate_parser.add_argument(
+        "--prepare-sources",
+        action="store_true",
+        help="Resolve source gaps and run supported public downloaders before constraint analysis.",
+    )
     populate_parser.add_argument("--json", action="store_true", help="Print full JSON populate run manifest to stdout.")
     return parser
 
@@ -209,6 +248,43 @@ def analyze_project_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
+def build_project_geometry_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = build_project_geometry(project_dir)
+    except ProjectGeometryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Built project geometry: {result['project_id']} ({result['project_name']})")
+    print(f"Geometry role: {result['geometry_role']}")
+    print(f"Features: {result['feature_count']}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def analyze_constraints_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = analyze_constraints(project_dir)
+    except ConstraintAnalysisError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    analyzed_count = sum(1 for source in result["sources"] if source["status"] == "analyzed")
+    print(f"Analyzed constraints: {result['project_id']} ({result['project_name']})")
+    print(f"Constraints: {result['constraint_count']}")
+    print(f"Analyzed local sources: {analyzed_count}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def generate_context_command(project_dir: Path, print_json: bool) -> int:
     try:
         context = generate_project_context(project_dir)
@@ -249,9 +325,65 @@ def resolve_sources_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
-def generate_review_queue_command(project_dir: Path, print_json: bool) -> int:
+def resolve_source_gaps_command(project_dir: Path, print_json: bool) -> int:
     try:
-        queue = generate_review_queue(project_dir)
+        result = resolve_source_gaps(project_dir)
+    except SourceAcquisitionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Resolved source gaps: {result['project_id']} ({result['project_name']})")
+    print(f"Gap statuses: {result['gap_status_counts']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def download_source_command(project_dir: Path, source_id: str, print_json: bool) -> int:
+    try:
+        result = download_source(project_dir, source_id)
+    except SourceAcquisitionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    latest = result["downloads"][-1] if result.get("downloads") else {}
+    print(f"Downloaded source workflow: {result['project_id']} ({result['project_name']})")
+    print(f"Source: {source_id} [{latest.get('status', 'not_attempted')}]")
+    print(f"Features: {latest.get('feature_count', 0)}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def prepare_sources_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = prepare_sources(project_dir)
+    except SourceAcquisitionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Prepared sources: {result['project_id']} ({result['project_name']})")
+    print(f"Gap statuses: {result['gap_status_counts']}")
+    print(f"Downloads: {result['download_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def generate_review_queue_command(project_dir: Path, include_source_inventory: bool, print_json: bool) -> int:
+    try:
+        queue = generate_review_queue(project_dir, include_source_inventory=include_source_inventory)
     except ReviewQueueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -402,9 +534,9 @@ def update_review_item_command(
     return 0
 
 
-def populate_for_review_command(project_dir: Path, print_json: bool) -> int:
+def populate_for_review_command(project_dir: Path, print_json: bool, prepare_sources_flag: bool = False) -> int:
     try:
-        result = populate_for_review(project_dir)
+        result = populate_for_review(project_dir, prepare_sources=prepare_sources_flag)
     except PopulateForReviewError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -431,10 +563,20 @@ def main(argv: list[str] | None = None) -> int:
         return import_source_command(args.project_dir, args.source_id, args.path)
     if args.command == "analyze-project":
         return analyze_project_command(args.project_dir, args.json)
+    if args.command == "build-project-geometry":
+        return build_project_geometry_command(args.project_dir, args.json)
+    if args.command == "analyze-constraints":
+        return analyze_constraints_command(args.project_dir, args.json)
     if args.command == "generate-context":
         return generate_context_command(args.project_dir, args.json)
     if args.command == "resolve-sources":
         return resolve_sources_command(args.project_dir, args.json)
+    if args.command == "resolve-source-gaps":
+        return resolve_source_gaps_command(args.project_dir, args.json)
+    if args.command == "download-source":
+        return download_source_command(args.project_dir, args.source_id, args.json)
+    if args.command == "prepare-sources":
+        return prepare_sources_command(args.project_dir, args.json)
     if args.command == "generate-source-inventory":
         return generate_source_inventory_command(args.project_dir, args.json)
     if args.command == "generate-findings":
@@ -446,7 +588,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "generate-report-sections":
         return generate_report_sections_command(args.project_dir, args.json)
     if args.command == "generate-review-queue":
-        return generate_review_queue_command(args.project_dir, args.json)
+        return generate_review_queue_command(args.project_dir, args.include_source_inventory, args.json)
     if args.command == "list-review-queue":
         return list_review_queue_command(args.project_dir, args.json)
     if args.command == "update-review-item":
@@ -459,7 +601,7 @@ def main(argv: list[str] | None = None) -> int:
             args.json,
         )
     if args.command == "populate-for-review":
-        return populate_for_review_command(args.project_dir, args.json)
+        return populate_for_review_command(args.project_dir, args.json, args.prepare_sources)
     parser.error(f"Unknown command: {args.command}")
     return 2
 

@@ -31,11 +31,12 @@ Canonical pipeline:
 2. Add project inputs.
 3. Generate project context.
 4. Resolve source status set.
-5. Populate for review.
-6. Create review queue items for findings, tables, figures, narrative, caveats, source notes, and missing-data placeholders.
-7. Human reviewer edits, accepts, rejects, or marks items for verification.
-8. Compile accepted or explicitly included reviewed items.
-9. Export editable draft package.
+5. Build normalized project geometry and run objective constraint analysis from registered source layers.
+6. Populate for review.
+7. Create review queue items for findings, tables, figures, narrative, caveats, source notes, and missing-data placeholders.
+8. Human reviewer edits, accepts, rejects, or marks items for verification.
+9. Compile accepted or explicitly included reviewed items.
+10. Export editable draft package.
 
 ## Section Assembly Pattern
 
@@ -72,7 +73,7 @@ The generator creates no-blank-page section drafts from existing structured arti
 - Map manifest when available.
 - Validation issues.
 
-Current section drafts include project overview, methodology/data sources, limitations/missing data, resource sections, comparison summary, maps/figures, and reviewer follow-up.
+Current section drafts include project overview, methodology/data sources, limitations/missing data, resource sections, comparison summary, maps/figures, and reviewer follow-up. The active provider is deterministic only; the provider boundary is present so a future GenAI drafting provider can be added without replacing the constraint engine.
 
 These sections are not exports. They become `report_section` review queue items and require human review before any future report compilation.
 
@@ -82,7 +83,7 @@ Draft narrative should be grounded in:
 
 - Structured findings.
 - Source metadata.
-- Spatial relationship records.
+- Constraint result records, with legacy spatial relationship records only as fallback context.
 - Reviewer-supplied notes.
 - Report taxonomy.
 - Approved limitation language.

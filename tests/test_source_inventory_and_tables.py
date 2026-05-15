@@ -294,7 +294,7 @@ def test_review_queue_handles_nonnumeric_spatial_relationship_count(tmp_path: Pa
         encoding="utf-8",
     )
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_source_inventory=True)
 
     assert item_by_id(queue, "no-mapped-relationships-synthetic-source")["type"] == "no_mapped_relationships"
 
@@ -304,7 +304,7 @@ def test_review_queue_includes_inventory_and_table_items_and_preserves_state(tmp
     generate_source_inventory(project_dir)
     generate_comparison_tables(project_dir)
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_source_inventory=True)
 
     assert item_by_id(queue, "source-inventory-usfws-nwi-wetlands")["type"] == "source_inventory_note"
     assert item_by_id(queue, "comparison-table-source-status-matrix")["type"] == "comparison_table"
@@ -313,7 +313,7 @@ def test_review_queue_includes_inventory_and_table_items_and_preserves_state(tmp
     update_review_item(project_dir, "comparison-table-source-status-matrix", status="accepted", note="Table reviewed.")
     generate_source_inventory(project_dir)
     generate_comparison_tables(project_dir)
-    regenerated = generate_review_queue(project_dir)
+    regenerated = generate_review_queue(project_dir, include_source_inventory=True)
 
     source_item = item_by_id(regenerated, "source-inventory-usfws-nwi-wetlands")
     table_item = item_by_id(regenerated, "comparison-table-source-status-matrix")

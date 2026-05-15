@@ -8,11 +8,13 @@ This work can be repetitive, source-heavy, and difficult to keep consistent acro
 
 ## Solution
 
-The alternatives review assistant should automate first-pass compilation and report drafting. It should help gather relevant source context, run repeatable spatial checks, and produce structured draft findings that a human reviewer can inspect, correct, accept, or reject.
+The alternatives review assistant should automate first-pass compilation and report drafting through a constraint overlap engine plus a human review queue. It should help gather relevant source context, run repeatable spatial checks, and produce structured draft findings that a human reviewer can inspect, correct, accept, or reject.
 
 The product direction is "no blank page." The system should eventually attempt to generate a comprehensive pre-review draft package, including findings, draft narrative, maps, comparison tables, contextual implications, and appendices/reference material where useful.
 
 The workflow direction is workspace driven: create/open workspace, add project inputs, generate project context, resolve needed source statuses, populate for review, review queue, and accepted-content export.
+
+The constraint engine should be a blank project machine, not a trails-only workflow. It should accept KMZ/KML or later supported GIS inputs, classify geometry as point/site, line/corridor, polygon/area, or mixed context, derive appropriate bounds and buffers, crop relevant source layers, and report objective constraints by project feature and resource category.
 
 ## Product Boundary
 
@@ -37,7 +39,7 @@ It should:
 
 ## Alternatives Framing
 
-Alternatives may be compared by descriptive impact profiles rather than rankings.
+Alternatives, sites, corridors, routes, service points, service areas, and other project features may be compared by descriptive constraint profiles rather than rankings.
 
 Examples of alternatives include:
 
@@ -47,6 +49,7 @@ Examples of alternatives include:
 - Alignments.
 - Access routes.
 - Infrastructure options.
+- Broadband service points or service areas.
 
 ## Finding Concepts
 

@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, load_constraint_results
 from .findings import FINDINGS_PATH, FindingGenerationError, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
@@ -55,12 +56,13 @@ class ReviewQueueError(RuntimeError):
     """Raised when review queue generation or updates cannot complete."""
 
 
-def generate_review_queue(project_dir: Path) -> dict[str, Any]:
+def generate_review_queue(project_dir: Path, *, include_source_inventory: bool = False) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     now = _utc_now()
     context = _load_or_generate_context(project_dir)
     source_status = _load_or_generate_source_status(project_dir)
     source_inventory = _load_optional_source_inventory(project_dir)
+    constraints = _load_optional_constraint_results(project_dir)
     spatial = _load_optional_spatial_relationships(project_dir)
     draft_findings = _load_optional_draft_findings(project_dir)
     comparison_tables = _load_optional_comparison_tables(project_dir)
@@ -74,11 +76,13 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
         context=context,
         source_status=source_status,
         source_inventory=source_inventory,
+        constraints=constraints,
         spatial=spatial,
         draft_findings=draft_findings,
         comparison_tables=comparison_tables,
         map_manifest=map_manifest,
         report_sections=report_sections,
+        include_source_inventory=include_source_inventory,
     )
     if existing is not None:
         existing_items = {item["id"]: item for item in existing["items"]}
@@ -96,6 +100,7 @@ def generate_review_queue(project_dir: Path) -> dict[str, Any]:
             "project_context_path": context.get("context_path"),
             "source_status_path": source_status.get("output_path"),
             "source_inventory_path": source_inventory.get("output_path") if source_inventory else None,
+            "constraint_results_path": constraints.get("output_path") if constraints else None,
             "spatial_relationships_path": spatial.get("output_path") if spatial else None,
             "draft_findings_path": draft_findings.get("output_path") if draft_findings else None,
             "comparison_tables_path": comparison_tables.get("output_path") if comparison_tables else None,
@@ -230,6 +235,16 @@ def _load_optional_source_inventory(project_dir: Path) -> dict[str, Any] | None:
         raise ReviewQueueError(str(exc)) from exc
 
 
+def _load_optional_constraint_results(project_dir: Path) -> dict[str, Any] | None:
+    constraint_path = project_dir / CONSTRAINT_RESULTS_PATH
+    if not constraint_path.exists():
+        return None
+    try:
+        return load_constraint_results(project_dir)
+    except ConstraintAnalysisError as exc:
+        raise ReviewQueueError(str(exc)) from exc
+
+
 def _load_optional_draft_findings(project_dir: Path) -> dict[str, Any] | None:
     findings_path = project_dir / FINDINGS_PATH
     if not findings_path.exists():
@@ -284,14 +299,16 @@ def _build_review_items(
     context: dict[str, Any],
     source_status: dict[str, Any],
     source_inventory: dict[str, Any] | None,
+    constraints: dict[str, Any] | None,
     spatial: dict[str, Any] | None,
     draft_findings: dict[str, Any] | None,
     comparison_tables: dict[str, Any] | None,
     map_manifest: dict[str, Any] | None,
     report_sections: dict[str, Any] | None,
+    include_source_inventory: bool,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-    if source_inventory is not None:
+    if include_source_inventory and source_inventory is not None:
         for record in _dict_list(source_inventory.get("records", [])):
             items.append(_source_inventory_item(project_id, now, source_inventory, record))
 
@@ -318,7 +335,6 @@ def _build_review_items(
             )
 
     for status_record in _dict_list(source_status.get("statuses", [])):
-        items.append(_source_status_item(project_id, now, source_status, status_record))
         if status_record.get("status") in MISSING_DATA_STATUSES:
             items.append(_missing_data_item(project_id, now, source_status, status_record))
 
@@ -328,7 +344,15 @@ def _build_review_items(
     for issue_index, issue in enumerate(_dict_list(source_status.get("validation_issues", [])), start=1):
         items.append(_validation_issue_item(project_id, now, "source_status", issue_index, source_status.get("output_path"), issue))
 
-    if spatial is not None:
+    if constraints is not None:
+        for source in _dict_list(constraints.get("sources", [])):
+            for issue_index, issue in enumerate(_dict_list(source.get("validation_issues", [])), start=1):
+                origin = f"constraint_source_{_slug(str(source.get('source_id', 'source')))}"
+                items.append(_validation_issue_item(project_id, now, origin, issue_index, constraints.get("output_path"), issue))
+        for issue_index, issue in enumerate(_dict_list(constraints.get("validation_issues", [])), start=1):
+            items.append(_validation_issue_item(project_id, now, "constraint_analysis", issue_index, constraints.get("output_path"), issue))
+
+    if spatial is not None and constraints is None:
         for relationship in _dict_list(spatial.get("relationships", [])):
             items.append(_spatial_relationship_item(project_id, now, spatial, relationship))
         for source in _dict_list(spatial.get("sources", [])):

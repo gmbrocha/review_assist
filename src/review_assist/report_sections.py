@@ -14,6 +14,7 @@ from .project_context import ProjectContextError, generate_project_context, load
 from .source_catalog import repo_root
 from .source_inventory import SOURCE_INVENTORY_PATH, SourceInventoryError, generate_source_inventory, load_source_inventory
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
+from .section_drafting import default_section_draft_provider
 from .tables import TABLES_PATH, TableGenerationError, generate_comparison_tables, load_comparison_tables
 
 
@@ -146,6 +147,7 @@ def generate_report_sections(project_dir: Path) -> dict[str, Any]:
         raise ReportSectionGenerationError(str(exc)) from exc
 
     now = _utc_now()
+    draft_provider = default_section_draft_provider()
     sections = [
         _section_record(
             template=template,
@@ -155,6 +157,7 @@ def generate_report_sections(project_dir: Path) -> dict[str, Any]:
             draft_findings=draft_findings,
             comparison_tables=comparison_tables,
             map_manifest=map_manifest,
+            draft_provider=draft_provider,
         )
         for template in templates.sections
     ]
@@ -256,6 +259,7 @@ def _section_record(
     draft_findings: dict[str, Any],
     comparison_tables: dict[str, Any],
     map_manifest: dict[str, Any] | None,
+    draft_provider: Any,
 ) -> dict[str, Any]:
     category = template.resource_category
     related_findings = _findings_for_category(draft_findings, category)
@@ -291,7 +295,7 @@ def _section_record(
         related_findings,
         map_manifest,
     )
-    content = _section_content(
+    deterministic_content = _section_content(
         template=template,
         context=context,
         source_status=source_status,
@@ -304,6 +308,11 @@ def _section_record(
         related_figures=related_figures,
         source_refs=source_refs,
         validation_issues=validation_issues,
+    )
+    content = draft_provider.draft(
+        section_id=template.section_id,
+        section_type=template.section_type,
+        deterministic_content=deterministic_content,
     )
     return {
         "section_id": template.section_id,
@@ -327,6 +336,7 @@ def _section_record(
             "artifact": "report_sections",
             "template_id": template.section_id,
             "template_type": template.section_type,
+            "draft_provider": getattr(draft_provider, "provider_id", "unknown"),
             "upstream_artifacts": {
                 "project_context_path": context.get("context_path"),
                 "source_status_path": source_status.get("output_path"),

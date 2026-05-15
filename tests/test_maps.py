@@ -9,6 +9,7 @@ import pytest
 from shapely.geometry import Point, Polygon
 
 from review_assist.cli import main
+from review_assist.constraints import analyze_constraints
 import review_assist.maps as maps_module
 from review_assist.maps import MapGenerationError, generate_maps, load_map_manifest
 from review_assist.populate_for_review import populate_for_review
@@ -143,6 +144,24 @@ def test_generate_maps_creates_source_context_from_clipped_source(tmp_path: Path
     assert Path(str(figure["image_path"])).exists()
     assert figure["source_refs"] == ["usfws_nwi_wetlands"]
     assert any(layer["layer_type"] == "source_layer" for layer in figure["shown_layers"])  # type: ignore[index]
+
+
+def test_generate_maps_prefers_constraint_results_for_source_context(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.999, 31.999), (-89.999, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"name": "Wetland A"}],
+    )
+    write_registry(project_dir, "usfws_nwi_wetlands", "wetlands.geojson")
+    analyze_constraints(project_dir)
+
+    manifest = generate_maps(project_dir)
+
+    assert manifest["figure_count"] == 2
+    assert manifest["upstream_artifacts"]["constraint_results_path"].endswith("constraint_results.json")  # type: ignore[index]
+    figure = figure_by_id(manifest, "source-context-usfws-nwi-wetlands")
+    assert figure["provenance"]["artifact"] == "constraint_results"  # type: ignore[index]
 
 
 def test_generate_maps_handles_missing_and_malformed_spatial_artifacts(tmp_path: Path) -> None:

@@ -12,14 +12,15 @@ The review queue is the core workflow object. Every generated artifact should be
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, and Phase 6D deterministic draft report sections. The current CLI can inspect project KMZ/KML inputs, list the source catalog, register local source layers, run early local spatial relationship checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section artifacts, populate the review queue, and create/update review queue items.
+The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, the first Phase 2C catalog-driven source acquisition slice with an explicit NWI downloader, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D deterministic draft report sections, and the first constraint-engine baseline. The current CLI can inspect project KMZ/KML inputs, normalize project geometry into point/site, line/corridor, polygon/area, or mixed feature artifacts, list the source catalog, register local source layers, resolve source gaps, explicitly download NWI wetlands, run legacy spatial relationship checks, run constraint overlap/proximity checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section artifacts, populate a lean review queue, and create/update review queue items.
 
-The implementation surface is reusable Python services plus a CLI. No GUI, external API integration, source downloads, AI narrative generation, scoring, final report export, export compilation, basemap/imagery acquisition, or production workflow has been implemented.
+The implementation surface is reusable Python services plus a CLI. No GUI, broad external API integration, source downloads beyond opt-in NWI, AI narrative generation, scoring, final report export, export compilation, basemap/imagery acquisition, or production workflow has been implemented.
 
 ## Planning Docs
 
 Key planning documents live under `docs/`:
 
+- `PLAN_REDIRECT.md`: root drift-control plan; read before large implementation work. It defines the destination as filling the example environmental constraints report template with source-backed constraints, visuals, reviewable copy, tables, caveats, and accepted export content.
 - `OVERALL_CONTEXT.md`: product philosophy and anti-drift context.
 - `WORKFLOW_MODEL.md`: canonical workspace, source-status, review-queue, and export workflow.
 - `ARCHITECTURE.md`: conceptual service/module boundaries.
@@ -64,12 +65,27 @@ List the source catalog, register a local source layer, and run local spatial ch
 .\.venv\Scripts\review-assist.exe analyze-project projects/trails
 ```
 
+Build normalized project geometry and run the current constraint engine:
+
+```powershell
+.\.venv\Scripts\review-assist.exe build-project-geometry projects/trails
+.\.venv\Scripts\review-assist.exe analyze-constraints projects/trails
+```
+
 Generate workflow-native project context and source status artifacts:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe generate-context projects/trails
 .\.venv\Scripts\review-assist.exe resolve-sources projects/trails
 .\.venv\Scripts\review-assist.exe generate-source-inventory projects/trails
+```
+
+Resolve source gaps and explicitly acquire the first supported public source, USFWS NWI wetlands:
+
+```powershell
+.\.venv\Scripts\review-assist.exe resolve-source-gaps projects/trails
+.\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe prepare-sources projects/trails
 ```
 
 Generate deterministic draft findings, comparison tables, vector-only draft maps, and deterministic draft report sections:
@@ -86,16 +102,17 @@ Generate and update review queue items:
 ```powershell
 .\.venv\Scripts\review-assist.exe generate-review-queue projects/trails
 .\.venv\Scripts\review-assist.exe list-review-queue projects/trails
-.\.venv\Scripts\review-assist.exe update-review-item projects/trails source-status-wetlands-waterbodies --status accepted --note "Reviewed."
+.\.venv\Scripts\review-assist.exe update-review-item projects/trails report-section-wetlands-and-waterbodies --status accepted --note "Reviewed."
 ```
 
 Run the current orchestration behind the future desktop `Populate for Review` action:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources
 ```
 
-The CLI writes `geometry_summary.json`, normalized GeoJSON files, clipped source GeoJSON files, and `spatial_relationships.json` under each project's `intermediate/` directory. Workflow artifacts are written under project `context/`, `source_status/`, `source_inventory/`, `findings/`, `tables/`, `maps/`, `drafts/`, `review_queue/`, and `populate_for_review/` directories. Project intermediate outputs, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, and local project layers are generated/project-specific artifacts and are ignored by Git.
+The CLI writes `geometry_summary.json`, normalized input GeoJSON files, `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under each project's `intermediate/` directory. Constraint artifacts are written under `constraints/`, including `constraint_results.json` and clipped source GeoJSON files. Source acquisition manifests and downloads are written under `source_acquisition/` when source gap resolution/downloads run. Workflow artifacts are written under project `context/`, `source_status/`, `source_inventory/`, `findings/`, `tables/`, `maps/`, `drafts/`, `review_queue/`, and `populate_for_review/` directories. Project intermediate outputs, source acquisition artifacts/downloads, constraint artifacts, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, and local project layers are generated/project-specific artifacts and are ignored by Git.
 
 ## Testing
 
@@ -105,6 +122,14 @@ Run the current suite with:
 .\.venv\Scripts\python.exe -m pytest
 ```
 
+Run the full local readiness check with:
+
+```powershell
+.\scripts\verify.ps1
+```
+
+The readiness script creates `.venv` when needed, installs the package with development dependencies, runs pytest, and smoke-checks the active sample project CLI workflows.
+
 Implementation phases should add or update tests with the behavior they introduce. New service logic, CLI commands, validation rules, geospatial workflows, source status behavior, review queue behavior, and export behavior should not be left untested unless that tradeoff is explicitly approved and documented.
 
 ## Canonical Workflow
@@ -113,9 +138,10 @@ Implementation phases should add or update tests with the behavior they introduc
 2. Add project inputs such as KMZ/KML alternatives, GIS layers, reports, imagery, PDFs, maps, notes, or study documents.
 3. Generate persistent project context: extent, assumptions, detected alternatives, likely report profile, provided sources, missing categories, and reviewer instructions.
 4. Resolve needed source categories into a source status set: provided locally, downloadable, downloaded, gated, stubbed, missing, optional, or needs review.
-5. Populate for review by acquiring/loading sources, clipping data, generating spatial relationships, findings, tables, maps, narrative drafts, caveats, and provenance notes.
-6. Send every generated artifact into the review queue for human edit/accept/reject/verification.
-7. Compile accepted or explicitly included reviewed content into an editable export package.
+5. Resolve source gaps against the source catalog and, when explicitly requested, acquire supported public sources such as NWI.
+6. Populate for review by normalizing project geometry, acquiring/loading registered sources, cropping data to analysis bounds, generating constraint results, findings, tables, maps, narrative drafts, caveats, and provenance notes.
+7. Send every generated artifact into the review queue for human edit/accept/reject/verification.
+8. Compile accepted or explicitly included reviewed content into an editable export package.
 
 ## Core Principles
 

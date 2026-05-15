@@ -9,6 +9,7 @@ import pytest
 from shapely.geometry import Point
 
 from review_assist.cli import main
+from review_assist.constraints import analyze_constraints
 from review_assist.review_queue import (
     REQUIRED_ITEM_FIELDS,
     ReviewQueueError,
@@ -125,8 +126,8 @@ def test_generate_review_queue_writes_artifact_and_source_items(tmp_path: Path) 
     assert queue["item_count"] == len(queue["items"])
     assert all(REQUIRED_ITEM_FIELDS.issubset(item) for item in queue["items"])
 
-    wetlands = item_by_id(queue, "source-status-wetlands-waterbodies")
-    assert wetlands["type"] == "source_status_note"
+    wetlands = item_by_id(queue, "missing-data-wetlands-waterbodies")
+    assert wetlands["type"] == "missing_data_placeholder"
     assert wetlands["status"] == "needs_review"
     assert wetlands["provenance"]["artifact"] == "source_status_set"  # type: ignore[index]
     assert "source_not_downloaded" in wetlands["uncertainty_flags"]  # type: ignore[operator]
@@ -157,6 +158,18 @@ def test_generate_review_queue_creates_spatial_relationship_item(tmp_path: Path)
     assert item["provenance"]["method"] == "geopandas_shapely_local_spatial_check"  # type: ignore[index]
 
 
+def test_generate_review_queue_omits_direct_spatial_items_when_constraints_exist(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_point_layer(project_dir / "wetlands.geojson", Point(-89.995, 32.0))
+    write_registry(project_dir, "usfws_nwi_wetlands", "wetlands.geojson")
+    analyze_project(project_dir)
+    analyze_constraints(project_dir)
+
+    queue = generate_review_queue(project_dir)
+
+    assert not items_by_type(queue, "spatial_relationship")
+
+
 def test_generate_review_queue_creates_no_mapped_relationship_item(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     write_point_layer(project_dir / "far.geojson", Point(-89.0, 33.0))
@@ -175,12 +188,12 @@ def test_update_review_item_validates_status_and_missing_items(tmp_path: Path) -
     project_dir = write_project(tmp_path)
 
     with pytest.raises(ReviewQueueError, match="Missing review queue"):
-        update_review_item(project_dir, "source-status-wetlands-waterbodies", status="accepted")
+        update_review_item(project_dir, "missing-data-wetlands-waterbodies", status="accepted")
 
     generate_review_queue(project_dir)
 
     with pytest.raises(ReviewQueueError, match="Unsupported review status"):
-        update_review_item(project_dir, "source-status-wetlands-waterbodies", status="done")
+        update_review_item(project_dir, "missing-data-wetlands-waterbodies", status="done")
 
     with pytest.raises(ReviewQueueError, match="Review item not found"):
         update_review_item(project_dir, "missing-item", status="accepted")
@@ -189,7 +202,7 @@ def test_update_review_item_validates_status_and_missing_items(tmp_path: Path) -
 def test_update_review_item_appends_notes_and_enforces_export_rules(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     generate_review_queue(project_dir)
-    item_id = "source-status-wetlands-waterbodies"
+    item_id = "missing-data-wetlands-waterbodies"
 
     item = update_review_item(project_dir, item_id, status="accepted", note="Looks usable.")
     assert item["export_eligible"] is True
@@ -211,11 +224,11 @@ def test_update_review_item_appends_notes_and_enforces_export_rules(tmp_path: Pa
 def test_generate_review_queue_preserves_existing_review_state(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     generate_review_queue(project_dir)
-    update_review_item(project_dir, "source-status-wetlands-waterbodies", status="accepted", note="Reviewed.")
+    update_review_item(project_dir, "missing-data-wetlands-waterbodies", status="accepted", note="Reviewed.")
 
     regenerated = generate_review_queue(project_dir)
 
-    item = item_by_id(regenerated, "source-status-wetlands-waterbodies")
+    item = item_by_id(regenerated, "missing-data-wetlands-waterbodies")
     assert item["status"] == "accepted"
     assert item["export_eligible"] is True
     assert len(item["reviewer_notes"]) == 1
@@ -231,7 +244,7 @@ def test_cli_review_queue_commands(tmp_path: Path, capsys: pytest.CaptureFixture
             [
                 "update-review-item",
                 str(project_dir),
-                "source-status-wetlands-waterbodies",
+                "missing-data-wetlands-waterbodies",
                 "--status",
                 "accepted",
                 "--note",
@@ -247,7 +260,7 @@ def test_cli_review_queue_commands(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "Updated review item" in captured.out
 
     queue = load_review_queue(project_dir)
-    item = item_by_id(queue, "source-status-wetlands-waterbodies")
+    item = item_by_id(queue, "missing-data-wetlands-waterbodies")
     assert item["status"] == "accepted"
 
 

@@ -10,7 +10,7 @@ Generated sections should not be blank simply because evidence is limited. The s
 
 The review queue is the core workflow boundary.
 
-Every generated artifact should become a review queue item before export:
+Every generated report-facing artifact should become a review queue item before export:
 
 - Findings.
 - Report paragraphs.
@@ -18,7 +18,7 @@ Every generated artifact should become a review queue item before export:
 - Figures/maps.
 - Caveats.
 - Source notes.
-- Source inventory/provenance notes.
+- Source inventory/provenance notes when included for audit review.
 - Implication notes.
 - Missing-data placeholders.
 - Reviewer-created notes.
@@ -88,13 +88,13 @@ Current commands:
 - `review-assist list-review-queue <project_dir>`
 - `review-assist update-review-item <project_dir> <item_id> --status <status> [--note "..."] [--export-eligible true|false]`
 
-The current generator creates review items from source inventory/provenance records, deterministic draft findings, comparison tables, draft map figures, deterministic draft report sections, source status records, missing-data placeholders, deterministic spatial relationships, no-mapped-relationship checks, and validation issues.
+The current generator defaults to a lean review queue. It creates review items from deterministic draft findings, comparison tables, draft map figures, deterministic draft report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues, including constraint-analysis warnings. Source inventory/provenance records can be included explicitly with `--include-source-inventory`; source status records and generic inventory notes are not default readiness signals.
 
 Deterministic draft findings are generated at:
 
 - `projects/<project_id>/findings/draft_findings.json`
 
-Current finding generation is template-driven and cautious. It can produce draft finding cards for source-unavailable/deferred categories, source-backed spatial relationships, and no-mapped-relationship checks. These findings are not final and are not exportable unless they pass through review queue status and export-eligibility rules.
+Current finding generation is template-driven and cautious. It prefers source-backed constraint results when present, can fall back to legacy spatial relationship records, and can produce draft finding cards for report-relevant source-unavailable/deferred categories and no-mapped-relationship checks. These findings are not final and are not exportable unless they pass through review queue status and export-eligibility rules.
 
 Draft map figures are generated at:
 
@@ -107,7 +107,7 @@ Deterministic draft report sections are generated at:
 
 - `projects/<project_id>/drafts/report_sections.json`
 
-Current section generation creates no-blank-page draft sections from structured workflow artifacts. These sections are not final report prose and are not exportable unless they pass through review queue status and export-eligibility rules.
+Current section generation creates no-blank-page draft sections from structured workflow artifacts through a deterministic section-drafting provider. These sections are not final report prose and are not exportable unless they pass through review queue status and export-eligibility rules.
 
 The current baseline does not generate basemap/imagery-backed maps, final report tables, or exports. It does generate descriptive comparison table artifacts, draft PNG map figures, and deterministic draft section artifacts, but it does not compile them into an export package.
 

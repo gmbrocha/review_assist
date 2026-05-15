@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-No live external-source downloads or restricted integrations are implemented yet. The current baseline includes a local source catalog, project source registries, source status sets, and source inventory/provenance artifacts so reviewer-supplied or manually downloaded layers can be registered, inspected, and checked. All sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands is the first implemented public downloader. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -28,6 +28,7 @@ The system should preserve:
 - Distinguish downloaded local layers from remote services.
 - Distinguish public sources from restricted, authenticated, or reviewer-supplied sources.
 - Track source category status in the workspace source status set.
+- Track source gap/acquisition status in the workspace source acquisition manifest.
 - Preserve source uncertainty and stale-data warnings.
 - Prefer deterministic GIS/source checks before AI narrative synthesis.
 - Do not add paid services, credentials, or restricted integrations without explicit approval.
@@ -78,9 +79,37 @@ Current local configuration files:
 - Global catalog: `config/source_catalog.json`
 - Project source registries: `projects/<project_id>/config/sources.json`
 - Report profile source requirements: `config/report_profiles.json`
+- Generated source acquisition manifests: `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`
+- Generated source acquisition downloads: `projects/<project_id>/source_acquisition/downloads/`
 - Generated source status sets: `projects/<project_id>/source_status/source_status_set.json`
 - Generated source inventories: `projects/<project_id>/source_inventory/source_inventory.json`
 - Generated comparison tables: `projects/<project_id>/tables/comparison_tables.json`
+
+## Source Acquisition Manifest
+
+The source acquisition workflow compares the project input package, project source registry, report profile, and source catalog. It records whether each report-relevant source is:
+
+- `provided_in_input`: tagged project input source layer exists and is registered where possible.
+- `registered_local`: reviewer-supplied or manually registered local layer exists.
+- `downloaded`: public source has been acquired into the workspace.
+- `downloadable`: an implemented downloader can acquire it if the user requests downloads.
+- `unsupported_download`: public data appears downloadable but no downloader exists yet.
+- `gated`: restricted, sensitive, credentialed, or qualified-access source.
+- `manual`: manual lookup/download or reviewer-supplied source.
+- `optional`: not required for the selected report profile.
+- `missing`: no supported source path exists.
+- `failed`: a supported download attempt failed but did not block the rest of the workflow.
+
+Live downloads are explicit only:
+
+```powershell
+.\.venv\Scripts\review-assist.exe resolve-source-gaps projects/trails
+.\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe prepare-sources projects/trails
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources
+```
+
+Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior.
 
 ## Source Tiers
 
@@ -214,10 +243,18 @@ Important caveat:
 
 - NWI data does not define jurisdictional wetland boundaries.
 
+Implementation status:
+
+- `usfws_nwi_wetlands` is the first implemented public downloader.
+- The downloader queries the public Wetlands REST MapServer layer by project analysis bounds and writes GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
+- Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so constraint analysis, findings, maps, tables, report sections, and review queue generation consume them through the existing source path.
+- Existing reviewer-supplied local NWI layers are preserved and not overwritten.
+
 References:
 
 - https://www.fws.gov/program/national-wetlands-inventory/data-download
 - https://www.fws.gov/apps/program/national-wetlands-inventory/wetlands-mapper
+- https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest
 
 ### FEMA National Flood Hazard Layer
 

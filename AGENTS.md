@@ -4,6 +4,9 @@ This repository is an early scaffold for an alternatives review workflow tool. F
 
 ## Project Rules
 
+- Before any large implementation, roadmap change, workflow change, report-generation change, source-acquisition change, review-queue change, export change, or architecture change, read `PLAN_REDIRECT.md` first. Treat it as the drift-control document for this repo.
+- Treat `env_constraints_report_20260511_EXAMPLE_ONLY.docx`, as summarized in `PLAN_REDIRECT.md`, as the structural destination for generated deliverables. The goal is to fill that template with project-specific constraint findings, source-backed copy, visuals, tables, caveats, and reviewed export content.
+- If implementation direction feels ambiguous, return to `PLAN_REDIRECT.md` before coding. Align the change to the constraint engine plus review queue plus export path.
 - Do not implement broad features without explicit confirmation.
 - Keep scope narrow and tied to the requested task.
 - Prefer simple, inspectable code over complex frameworks or premature abstraction.

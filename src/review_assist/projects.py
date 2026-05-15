@@ -20,6 +20,8 @@ class ProjectInput:
     path: str
     role: str
     description: str = ""
+    source_id: str | None = None
+    source_category: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ProjectInput":
@@ -30,7 +32,29 @@ class ProjectInput:
         if not isinstance(role, str) or not role.strip():
             raise ProjectManifestError(f"Input '{path}' requires a non-empty 'role'.")
         description = data.get("description", "")
-        return cls(path=path, role=role, description=str(description))
+        return cls(
+            path=path,
+            role=role,
+            description=str(description),
+            source_id=_optional_string(data.get("source_id"), "source_id"),
+            source_category=_optional_string(data.get("source_category"), "source_category"),
+        )
+
+    @property
+    def is_source_layer(self) -> bool:
+        return bool(self.source_id or self.source_category)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = {
+            "path": self.path,
+            "role": self.role,
+            "description": self.description,
+        }
+        if self.source_id:
+            data["source_id"] = self.source_id
+        if self.source_category:
+            data["source_category"] = self.source_category
+        return data
 
 
 @dataclass(frozen=True)
@@ -81,7 +105,7 @@ class ProjectManifest:
             "name": self.name,
             "description": self.description,
             "project_type": self.project_type,
-            "inputs": [vars(item) for item in self.inputs],
+            "inputs": [item.to_dict() for item in self.inputs],
             "assumptions": self.assumptions,
             "special_reviewer_instructions": self.special_reviewer_instructions,
             "report_profile": self.report_profile,

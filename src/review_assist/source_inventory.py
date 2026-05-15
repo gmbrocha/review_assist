@@ -19,6 +19,7 @@ from .source_catalog import (
     load_source_catalog,
     resolve_project_source_path,
 )
+from .source_acquisition import SOURCE_ACQUISITION_PATH
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 
 
@@ -30,6 +31,7 @@ REQUIRED_INVENTORY_RECORD_FIELDS = {
     "publisher",
     "catalog",
     "project_registry",
+    "acquisition",
     "source_status",
     "local_metadata",
     "metadata",
@@ -49,10 +51,12 @@ def generate_source_inventory(project_dir: Path) -> dict[str, Any]:
         catalog = load_source_catalog()
         registry = load_project_source_registry(project_dir)
         source_status = _load_or_generate_source_status(project_dir)
+        source_acquisition = _load_optional_source_acquisition(project_dir)
     except (ProjectManifestError, SourceCatalogError, SourceStatusError) as exc:
         raise SourceInventoryError(str(exc)) from exc
 
     project_sources = registry.by_source_id()
+    acquisition_by_source = _acquisition_by_source_id(source_acquisition)
     status_by_category = {
         str(item.get("category", "")): item
         for item in source_status.get("statuses", [])
@@ -65,6 +69,7 @@ def generate_source_inventory(project_dir: Path) -> dict[str, Any]:
             source_id=source_id,
             source_definition=catalog.sources.get(source_id),
             project_source=project_sources.get(source_id),
+            source_acquisition=acquisition_by_source.get(source_id),
             status_by_category=status_by_category,
         )
         for source_id in source_ids
@@ -84,6 +89,7 @@ def generate_source_inventory(project_dir: Path) -> dict[str, Any]:
         "project_dir": str(project_dir),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_status_path": source_status.get("output_path"),
+        "source_acquisition_path": source_acquisition.get("output_path") if source_acquisition else None,
         "record_count": len(records),
         "records": records,
         "validation_issues": validation_issues,
@@ -138,6 +144,7 @@ def _inventory_record(
     source_id: str,
     source_definition: SourceDefinition | None,
     project_source: ProjectSource | None,
+    source_acquisition: dict[str, Any] | None,
     status_by_category: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     category = source_definition.category if source_definition else ""
@@ -161,6 +168,7 @@ def _inventory_record(
             "notes": source_definition.notes if source_definition else "",
         },
         "project_registry": _project_registry_metadata(project_source),
+        "acquisition": _acquisition_metadata(source_acquisition),
         "source_status": {
             "category_status": status_record.get("status", "not_required_for_profile") if status_record else "not_required_for_profile",
             "requirement": status_record.get("requirement", "") if status_record else "",
@@ -172,6 +180,64 @@ def _inventory_record(
         "metadata": project_source.metadata if project_source else {},
         "validation_issues": validation_issues,
         "uncertainty_flags": sorted(set(uncertainty_flags)),
+    }
+
+
+def _load_optional_source_acquisition(project_dir: Path) -> dict[str, Any] | None:
+    path = project_dir / SOURCE_ACQUISITION_PATH
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SourceCatalogError(f"Invalid source acquisition manifest JSON: {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SourceCatalogError(f"Source acquisition manifest must be a JSON object: {path}")
+    return data
+
+
+def _acquisition_by_source_id(source_acquisition: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    if not source_acquisition:
+        return {}
+    downloads = source_acquisition.get("downloads", [])
+    if not isinstance(downloads, list):
+        return {}
+    by_source: dict[str, dict[str, Any]] = {}
+    for download in downloads:
+        if not isinstance(download, dict):
+            continue
+        source_id = str(download.get("source_id") or "")
+        if source_id:
+            by_source[source_id] = download
+    return by_source
+
+
+def _acquisition_metadata(source_acquisition: dict[str, Any] | None) -> dict[str, Any]:
+    if not source_acquisition:
+        return {
+            "status": "not_acquired",
+            "source_url": "",
+            "service_url": "",
+            "layer_id": None,
+            "access_date": "",
+            "output_path": None,
+            "feature_count": 0,
+            "checksum_sha256": "",
+            "source_limitations": "",
+            "warnings": [],
+        }
+    return {
+        "status": source_acquisition.get("status", ""),
+        "source_url": source_acquisition.get("source_url", ""),
+        "service_url": source_acquisition.get("service_url", ""),
+        "layer_id": source_acquisition.get("layer_id"),
+        "access_date": source_acquisition.get("access_date", ""),
+        "output_path": source_acquisition.get("output_path"),
+        "feature_count": source_acquisition.get("feature_count", 0),
+        "checksum_sha256": source_acquisition.get("checksum_sha256", ""),
+        "source_limitations": source_acquisition.get("source_limitations", ""),
+        "warnings": _string_list_of_objects(source_acquisition.get("warnings", []))
+        + _string_list_of_objects(source_acquisition.get("validation_issues", [])),
     }
 
 
@@ -287,7 +353,7 @@ def _validate_source_inventory(data: dict[str, Any], location: str) -> None:
         if source_id in seen_ids:
             raise SourceInventoryError(f"Duplicate source inventory record id '{source_id}': {location}")
         seen_ids.add(source_id)
-        for object_field in ("catalog", "project_registry", "source_status", "local_metadata", "metadata"):
+        for object_field in ("catalog", "project_registry", "acquisition", "source_status", "local_metadata", "metadata"):
             if not isinstance(record[object_field], dict):
                 raise SourceInventoryError(f"Source inventory field '{object_field}' must be an object: {location}")
         for list_field in ("validation_issues", "uncertainty_flags"):
@@ -299,3 +365,9 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _string_list_of_objects(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, dict)]

@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, source catalog/registry handling, local source registration, early spatial relationship checks, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or export workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or export workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -14,9 +14,10 @@ The application workflow is stateful and workspace-driven:
 2. Add project inputs.
 3. Generate persistent project context.
 4. Resolve needed data categories into a source status set.
-5. Populate for review.
-6. Review every generated item in the review queue.
-7. Compile accepted content into export packages.
+5. Resolve source gaps and optionally acquire supported public sources.
+6. Populate for review.
+7. Review every generated item in the review queue.
+8. Compile accepted content into export packages.
 
 The review queue is the primary workflow boundary. Generated findings, draft paragraphs, maps, tables, caveats, source notes, and implication notes should become review queue items before they are eligible for export.
 
@@ -27,10 +28,12 @@ Conceptual state objects:
 - Workspace/project manifest.
 - Project context artifact.
 - Source catalog.
+- Source acquisition manifest.
 - Source status set.
 - Source inventory/provenance records.
 - Normalized project geometry.
-- Spatial relationship records.
+- Constraint result records.
+- Legacy spatial relationship records.
 - Draft finding records.
 - Comparison table records.
 - Map/figure records.
@@ -38,7 +41,7 @@ Conceptual state objects:
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, project context artifacts, source status sets, source inventory records, normalized GeoJSON intermediates, spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, and populate run manifests. Export manifests remain future work.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, and populate run manifests. Export manifests remain future work.
 
 ## Project Workspace Layer
 
@@ -56,7 +59,9 @@ Project folders may contain:
 - `inputs/`
 - `layers/`
 - `intermediate/`
+- `constraints/`
 - `context/`
+- `source_acquisition/`
 - `source_status/`
 - `review_queue/`
 - `findings/`
@@ -65,11 +70,11 @@ Project folders may contain:
 - `exports/`
 - `review/`
 
-Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `context/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, generated `maps/`, generated `drafts/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `exports/` and `review/` remain future workflow areas.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `constraints/`, generated `context/`, generated `source_acquisition/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, generated `maps/`, generated `drafts/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `exports/` and `review/` remain future workflow areas.
 
 `populate_for_review/` is also currently used for orchestration run manifests. It is generated workflow state and ignored by Git.
 
-Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`. Phase 2B writes clipped source GeoJSON files and `spatial_relationships.json` under `intermediate/`.
+Phase 1 currently writes generated GeoJSON and geometry summary artifacts under `intermediate/`. Project geometry normalization writes `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under `intermediate/`. Constraint analysis writes `constraint_results.json` and clipped source GeoJSON files under `constraints/`. Legacy Phase 2B spatial analysis still writes `spatial_relationships.json` under `intermediate/`.
 
 ## Ingestion Service
 
@@ -118,6 +123,18 @@ Current buffer assumption:
 - Early trail discussions suggest likely defaults in the 50 to 100 foot range.
 - The default must remain configurable and visible in findings/provenance.
 
+Current implementation:
+
+- CLI command: `review-assist build-project-geometry <project_dir>`.
+- Writes `projects/<project_id>/intermediate/project_geometry.json`.
+- Writes `projects/<project_id>/intermediate/project_features.geojson`.
+- Writes `projects/<project_id>/intermediate/project_analysis_bounds.geojson`.
+- Classifies inputs as `point_site`, `line_corridor`, `polygon_area`, or `mixed`.
+- Groups segmented line features by placemark name, style URL, then candidate label, and merges only connected line pieces.
+- Preserves disconnected line pieces as multipart geometry instead of inventing connections.
+- Keeps point-heavy projects as individual point features while preserving style/color grouping metadata.
+- Derives analysis bounds from normalized project features plus the configured default buffer.
+
 Open questions:
 
 - What CRS should be used for Mississippi project measurements?
@@ -138,7 +155,9 @@ Current implementation:
 - A global JSON source catalog lives at `config/source_catalog.json`.
 - Project JSON source registries live at `projects/<project_id>/config/sources.json`.
 - The CLI can list catalog entries and register a local source layer for a project.
-- Local-file registration is the default Phase 2 path; live downloads are deferred.
+- Local-file registration remains the default Phase 2 path; live downloads are explicit and opt-in.
+- The source acquisition service writes `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`.
+- The first implemented public downloader is `usfws_nwi_wetlands`; successful downloads are stored under ignored `source_acquisition/downloads/` and registered as normal local-file sources.
 - Registry loading validates project IDs, duplicate source IDs, boolean enabled flags, and non-negative source buffer overrides.
 
 This service should not silently call paid services, use credentials, or access restricted systems without explicit approval.
@@ -185,12 +204,12 @@ Current implementation:
 - Project source registry entries support an optional `metadata` object for citation/provenance fields.
 - Missing or unreadable local source files create validation issues instead of invented provenance.
 
-## Spatial Analysis Service
+## Constraint Analysis Service
 
 Purpose:
 
 - Run deterministic GIS checks such as intersections, overlays, buffers, nearest-neighbor checks, crossing counts, and length/area summaries.
-- Return structured spatial relationships, not narrative.
+- Return structured objective constraint results, not narrative.
 
 Examples:
 
@@ -202,13 +221,31 @@ Examples:
 
 Current implementation:
 
+- CLI command: `review-assist analyze-constraints <project_dir>`.
+- Loads normalized project features and analysis bounds, building them first when needed.
+- Loads enabled registered local source layers, including downloaded public sources that source acquisition registered as local files.
+- Crops source layers to project analysis bounds and writes clipped layers under `projects/<project_id>/constraints/clipped_layers/`.
+- Emits `intersects`, `crosses`, `contains`, `overlaps`, and `nearest_within_buffer` relationship records.
+- Preserves project feature id/name/group/geometry role, source id/name/category, source feature labels, provenance, and length/area/distance measurements where available.
+- Writes `projects/<project_id>/constraints/constraint_results.json`.
+- Does not rank, score, recommend, choose, or reject project features.
+
+## Legacy Spatial Analysis Service
+
+Purpose:
+
+- Keep the earlier raw spatial relationship command available for backward-compatible checks.
+- Return structured spatial relationships, not narrative.
+
+Current implementation:
+
 - Loads enabled project-local source layers.
 - Clips/filter-checks sources against project geometry plus configurable buffer.
 - Emits `intersects`, `crosses`, and `within_buffer` relationship records.
 - Preserves source id, source category, method, CRS, buffer, feature labels, and basic length/area/distance measurements where available.
 - Validates non-negative project default buffers before analysis.
 
-The service currently produces spatial relationship records only. It does not generate findings or report language.
+The service currently produces spatial relationship records only. It does not generate findings or report language, and it is no longer the primary populate-for-review path.
 
 The standalone `analyze-project` command remains strict for missing local source files. The populate-for-review orchestration uses a tolerant analysis mode that records missing or unreadable local source layers as validation issues and continues when possible.
 
@@ -222,7 +259,7 @@ Open questions:
 
 Purpose:
 
-- Convert deterministic spatial relationships and reviewer-supplied context into structured draft findings.
+- Convert deterministic constraint results, legacy spatial relationships, source status records, and reviewer-supplied context into structured draft findings.
 - Attach implication candidates such as permitting coordination, field verification, or utility coordination.
 - Preserve evidence type, source, method, geometry assumptions, and uncertainty.
 
@@ -233,9 +270,9 @@ See `docs/FINDING_TYPES.md` and `docs/UNCERTAINTY_AND_PROVENANCE.md`.
 Current implementation:
 
 - Template config lives at `config/finding_templates.json`.
-- The service reads project context, source status, optional spatial relationships, and finding templates.
+- The service reads project context, source status, optional constraint results, optional legacy spatial relationships, and finding templates.
 - It writes `projects/<project_id>/findings/draft_findings.json`.
-- It creates deterministic draft finding records for source-unavailable/deferred categories, source-backed spatial relationships, and analyzed local sources with no mapped relationships.
+- It creates deterministic draft finding records for report-relevant source-unavailable/deferred categories, source-backed constraint results when present, legacy spatial relationships when needed, and analyzed local sources with no mapped relationships.
 - The CLI command is `review-assist generate-findings <project_dir>`.
 - Finding IDs are deterministic so review queue regeneration can preserve reviewer status and notes.
 
@@ -245,7 +282,7 @@ Findings are emitted as review queue items, not direct report content.
 
 Purpose:
 
-- Convert source status, spatial relationship, and draft finding artifacts into descriptive table artifacts.
+- Convert source status, constraint result, legacy spatial relationship, and draft finding artifacts into descriptive table artifacts.
 - Prepare structured table data for future maps, report exports, and GUI previews without producing final report content.
 - Avoid ranking, scoring, or preferred-alternative language.
 
@@ -253,7 +290,7 @@ Current implementation:
 
 - Writes `projects/<project_id>/tables/comparison_tables.json`.
 - CLI command: `review-assist generate-tables <project_dir>`.
-- Generates source status, spatial relationship, and draft finding summary tables.
+- Generates source status, constraint result, legacy spatial relationship, and draft finding summary tables.
 - Tables become review queue items with preview metadata before export.
 
 ## Imagery/Context Service
@@ -284,7 +321,7 @@ Current implementation:
 - Writes PNG draft figures under `projects/<project_id>/maps/figures/`.
 - CLI command: `review-assist generate-maps <project_dir>`.
 - Renders a project overview from normalized project geometry.
-- Renders source-context maps for analyzed local source clipped layers when available.
+- Renders source-context maps for analyzed local source clipped layers from constraint results when available, with legacy spatial relationship artifacts as fallback.
 - Uses GeoPandas and Matplotlib only; no basemap, raster, imagery, Contextily, or Rasterio path exists yet.
 - Map figures become review queue items with preview metadata before export.
 
@@ -319,6 +356,7 @@ Current implementation:
 - The service reads project context, source status, source inventory, deterministic draft findings, comparison tables, optional map manifests, and validation issues.
 - It writes `projects/<project_id>/drafts/report_sections.json`.
 - It creates deterministic no-blank-page draft sections for project overview, methodology/data sources, limitations/missing data, resource categories, comparison summary, maps/figures, and reviewer follow-up.
+- It uses a deterministic section-drafting provider interface; no LLM/GenAI provider is active in the current slice.
 - The CLI command is `review-assist generate-report-sections <project_dir>`.
 - Report section IDs are deterministic so review queue regeneration can preserve reviewer status, notes, edits, and export eligibility.
 
@@ -362,7 +400,8 @@ Review statuses are defined in `docs/REVIEW_POLICY.md`.
 Current implementation:
 
 - Writes `projects/<project_id>/review_queue/review_queue.json`.
-- Converts source inventory records, deterministic draft findings, comparison tables, map figures, deterministic report sections, source status records, missing-data placeholders, spatial relationships, no-mapped checks, and validation issues into review queue items.
+- Converts deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues into a lean review queue by default.
+- Source inventory/provenance records can be included explicitly for audit workflows with the `--include-source-inventory` flag.
 - Supports CLI listing and status/note/export-eligibility updates.
 - Does not yet provide GUI review screens, report drafting, or export compilation.
 
@@ -371,10 +410,10 @@ Current implementation:
 Purpose:
 
 - Provide the service-level backend for the future desktop `Populate for Review` action.
-- Run current workflow steps in order: project context, source status, source inventory, tolerant spatial analysis, deterministic draft finding generation, comparison table generation, map generation, deterministic report section generation, and review queue generation.
-- Write a run manifest with step statuses, artifact paths, warning records, review queue item count, and critical error text when a run fails.
+- Run current workflow steps in order: project context, project geometry normalization, optional source preparation, source status, source inventory, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, deterministic report section generation, and lean review queue generation.
+- Write a run manifest with step statuses, artifact paths, warning records, constraint count, review queue item count for traceability only, and critical error text when a run fails.
 
-Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, source status, source inventory, spatial relationship, draft findings, comparison table, map manifest, report section, and review queue artifact paths. It does not download public sources, render basemap/imagery-backed maps, call LLMs, compile exports, or make recommendations.
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, project geometry, project features, analysis bounds, optional source acquisition, source status, source inventory, constraint results, draft findings, comparison table, map manifest, report section, and review queue artifact paths. It downloads only explicitly requested supported sources through `--prepare-sources`; it does not render basemap/imagery-backed maps, call LLMs, compile exports, or make recommendations.
 
 ## LLM Boundary
 

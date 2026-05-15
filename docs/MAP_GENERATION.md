@@ -34,7 +34,7 @@ Current artifacts:
 Current behavior:
 
 - Generates `project-overview` from normalized project geometry.
-- Generates `source-context-<source_id>` for each analyzed local source clipped layer from `spatial_relationships.json`.
+- Generates `source-context-<source_id>` for each analyzed local source clipped layer from `constraints/constraint_results.json` when present, with legacy `spatial_relationships.json` as a fallback.
 - Uses GeoPandas and Matplotlib only.
 - Stores figure metadata, source refs, shown layers, provenance, uncertainty flags, validation issues, and review status in the map manifest.
 - Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.

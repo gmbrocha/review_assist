@@ -10,12 +10,12 @@ A finding should connect:
 
 - A project or alternative.
 - A source or observation.
-- A spatial relationship.
+- A constraint result or other spatial relationship.
 - A reviewable implication.
 - Uncertainty and provenance.
 - A reviewer status.
 
-The system should transform a spatial relationship into a contextual implication without selecting a preferred alternative.
+The system should transform an objective constraint relationship into a contextual implication without selecting a preferred alternative.
 
 Findings should not bypass the review queue or flow directly into export.
 
@@ -88,10 +88,11 @@ The first deterministic template set covers:
 The implemented generator currently creates findings from:
 
 - Source status records with `missing`, `gated`, `stubbed`, `downloadable`, or `needs_review` status.
-- Deterministic spatial relationship records for supported source categories.
+- Constraint result records for supported source categories when `constraints/constraint_results.json` exists.
+- Legacy deterministic spatial relationship records for supported source categories when constraint results are not available.
 - Analyzed local sources with zero mapped relationships.
 
-The finding generator does not generate imagery observations, report paragraphs, maps, LLM-assisted synthesis, or final report sections. Comparison tables and vector-only draft maps are generated as separate descriptive workflow artifacts.
+The finding generator does not generate imagery observations, report paragraphs, maps, LLM-assisted synthesis, or final report sections. Comparison tables, vector-only draft maps, and deterministic report sections are generated as separate descriptive workflow artifacts.
 
 ## Spatial Relationship Types
 
@@ -100,11 +101,12 @@ Common spatial relationships:
 - `intersects`
 - `crosses`
 - `overlaps`
-- `touches`
 - `within_buffer`
+- `contains`
+- `nearest_within_buffer`
+- `touches`
 - `adjacent`
 - `nearby`
-- `contains`
 - `downstream_context`
 - `upstream_context`
 - `visible_in_imagery`

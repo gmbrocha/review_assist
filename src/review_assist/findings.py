@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, load_constraint_results
 from .project_context import ProjectContextError, generate_project_context, load_project_context
 from .source_catalog import repo_root
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
@@ -142,15 +143,19 @@ def generate_draft_findings(project_dir: Path) -> dict[str, Any]:
     try:
         context = _load_or_generate_context(project_dir)
         source_status = _load_or_generate_source_status(project_dir)
+        constraints = _load_optional_constraint_results(project_dir)
         spatial = _load_optional_spatial_relationships(project_dir)
         templates = load_finding_template_config()
-    except (ProjectContextError, SourceStatusError, FindingTemplateError) as exc:
+    except (ProjectContextError, SourceStatusError, ConstraintAnalysisError, FindingTemplateError) as exc:
         raise FindingGenerationError(str(exc)) from exc
 
     now = _utc_now()
     findings: list[dict[str, Any]] = []
     findings.extend(_source_status_findings(context, source_status, templates))
-    if spatial is not None:
+    if constraints is not None:
+        findings.extend(_constraint_findings(context, constraints, templates))
+        findings.extend(_no_mapped_constraint_findings(context, constraints, templates))
+    elif spatial is not None:
         findings.extend(_spatial_relationship_findings(context, spatial, templates))
         findings.extend(_no_mapped_relationship_findings(context, spatial, templates))
 
@@ -165,6 +170,7 @@ def generate_draft_findings(project_dir: Path) -> dict[str, Any]:
         "upstream_artifacts": {
             "project_context_path": context.get("context_path"),
             "source_status_path": source_status.get("output_path"),
+            "constraint_results_path": constraints.get("output_path") if constraints else None,
             "spatial_relationships_path": spatial.get("output_path") if spatial else None,
         },
         "finding_count": len(findings),
@@ -209,6 +215,13 @@ def _load_or_generate_source_status(project_dir: Path) -> dict[str, Any]:
             return data
         raise SourceStatusError(f"Source status artifact must be a JSON object: {source_status_path}")
     return resolve_source_status_set(project_dir)
+
+
+def _load_optional_constraint_results(project_dir: Path) -> dict[str, Any] | None:
+    constraint_path = project_dir / CONSTRAINT_RESULTS_PATH
+    if not constraint_path.exists():
+        return None
+    return load_constraint_results(project_dir)
 
 
 def _load_optional_spatial_relationships(project_dir: Path) -> dict[str, Any] | None:
@@ -277,6 +290,54 @@ def _source_status_findings(
     return findings
 
 
+def _constraint_findings(
+    context: dict[str, Any],
+    constraints: dict[str, Any],
+    templates: FindingTemplateConfig,
+) -> list[dict[str, Any]]:
+    findings: list[dict[str, Any]] = []
+    for constraint in constraints.get("constraints", []):
+        if not isinstance(constraint, dict):
+            continue
+        category = str(constraint.get("source_category", ""))
+        finding_type = CATEGORY_FINDING_TYPES.get(category)
+        if finding_type is None:
+            continue
+        template = templates.require(finding_type)
+        constraint_id = str(constraint.get("constraint_id", "constraint"))
+        values = _constraint_values(context, constraint)
+        findings.append(
+            _finding_record(
+                project_id=str(context["project_id"]),
+                finding_id=f"finding-{_slug(finding_type)}-{_slug(constraint_id)}",
+                finding_type=finding_type,
+                resource_category=category,
+                template=template,
+                values=values,
+                source_ids=[str(constraint["source_id"])] if constraint.get("source_id") else [],
+                related_record_ids=[constraint_id],
+                assumptions={
+                    "project_feature_id": constraint.get("project_feature_id"),
+                    "project_geometry_role": constraint.get("project_geometry_role"),
+                    "buffer_feet": constraint.get("buffer_feet"),
+                    "measurements": constraint.get("measurements", {}),
+                    "desktop_screening_only": True,
+                },
+                provenance={
+                    "artifact": "constraint_results",
+                    "artifact_path": constraints.get("output_path"),
+                    "constraint_id": constraint_id,
+                    "method": constraint.get("method"),
+                    "analysis_crs": constraint.get("analysis_crs"),
+                    "relationship_type": constraint.get("relationship_type"),
+                },
+                uncertainty_flags=["desktop_screening_only"],
+                review_status="draft",
+            )
+        )
+    return findings
+
+
 def _spatial_relationship_findings(
     context: dict[str, Any],
     spatial: dict[str, Any],
@@ -317,6 +378,58 @@ def _spatial_relationship_findings(
                     "spatial_relationship": relationship.get("spatial_relationship"),
                 },
                 uncertainty_flags=["desktop_screening_only"],
+                review_status="draft",
+            )
+        )
+    return findings
+
+
+def _no_mapped_constraint_findings(
+    context: dict[str, Any],
+    constraints: dict[str, Any],
+    templates: FindingTemplateConfig,
+) -> list[dict[str, Any]]:
+    template = templates.require("no_mapped_conflict_identified")
+    findings: list[dict[str, Any]] = []
+    for source in constraints.get("sources", []):
+        if not isinstance(source, dict):
+            continue
+        if source.get("status") != "analyzed" or _int_count(source.get("constraint_count", 0)) != 0:
+            continue
+        source_id = str(source.get("source_id", "unknown_source"))
+        category = str(source.get("source_category", "constraints"))
+        values = {
+            "resource_category": category,
+            "source_status": str(source.get("status", "analyzed")),
+            "source_name": str(source.get("source_name") or source_id),
+            "feature_label": str(source.get("source_name") or source_id),
+            "source_feature_label": str(source.get("source_name") or source_id),
+            "project_feature_label": str(context.get("project_name", "")),
+            "spatial_relationship": "no_mapped_constraint",
+        }
+        findings.append(
+            _finding_record(
+                project_id=str(context["project_id"]),
+                finding_id=f"finding-no-mapped-conflict-identified-{_slug(source_id)}",
+                finding_type=template.finding_type,
+                resource_category=category,
+                template=template,
+                values=values,
+                source_ids=[source_id],
+                related_record_ids=[f"source:{source_id}"],
+                assumptions={
+                    "buffer_feet": source.get("buffer_feet"),
+                    "desktop_screening_only": True,
+                    "source_layer_screening_only": True,
+                },
+                provenance={
+                    "artifact": "constraint_results",
+                    "artifact_path": constraints.get("output_path"),
+                    "source_id": source_id,
+                    "method": "geopandas_shapely_constraint_overlap_check",
+                    "analysis_crs": source.get("analysis_crs"),
+                },
+                uncertainty_flags=["desktop_screening_only", "source_layer_screening_only"],
                 review_status="draft",
             )
         )
@@ -422,6 +535,22 @@ def _relationship_values(context: dict[str, Any], relationship: dict[str, Any]) 
         "source_feature_label": source_label,
         "project_feature_label": project_label or str(context.get("project_name", "")),
         "spatial_relationship": str(relationship.get("spatial_relationship", "relationship")),
+    }
+
+
+def _constraint_values(context: dict[str, Any], constraint: dict[str, Any]) -> dict[str, Any]:
+    source_name = str(constraint.get("source_name") or constraint.get("source_id") or "source layer")
+    project_label = str(constraint.get("project_feature_name") or constraint.get("project_feature_id") or "project feature")
+    source_label = str(constraint.get("source_feature_label") or constraint.get("source_feature_index") or "source feature")
+    feature_label = source_label if source_label and source_label != "source feature" else source_name
+    return {
+        "resource_category": str(constraint.get("source_category", "")),
+        "source_status": "provided_locally",
+        "source_name": source_name,
+        "feature_label": feature_label,
+        "source_feature_label": source_label,
+        "project_feature_label": project_label or str(context.get("project_name", "")),
+        "spatial_relationship": str(constraint.get("relationship_type", "relationship")),
     }
 
 

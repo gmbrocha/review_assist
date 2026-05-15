@@ -50,8 +50,9 @@ def generate_project_context(project_dir: Path) -> dict[str, Any]:
         "project_extent_wgs84": _combined_bounds(inspection["inputs"]),
         "input_roles": sorted({item["role"] for item in inspection["inputs"]}),
         "detected_inputs": inspection["inputs"],
+        "provided_source_inputs": inspection.get("source_inputs", []),
         "detected_alternatives": _detected_alternatives(inspection["inputs"]),
-        "validation_issues": _validation_issues(inspection["inputs"]),
+        "validation_issues": _validation_issues(inspection["inputs"]) + _validation_issues(inspection.get("source_inputs", [])),
         "geometry_summary_path": inspection["summary_path"],
     }
     context_path.write_text(json.dumps(context, indent=2) + "\n", encoding="utf-8")

@@ -21,6 +21,7 @@ from .project_context import ProjectContextError, generate_project_context, load
 
 MAP_MANIFEST_PATH = Path("maps/map_manifest.json")
 FIGURES_DIR = Path("maps/figures")
+CONSTRAINT_RESULTS_PATH = Path("constraints/constraint_results.json")
 SPATIAL_RELATIONSHIPS_PATH = Path("intermediate/spatial_relationships.json")
 SUPPORTED_FIGURE_REVIEW_STATUSES = {
     "draft",
@@ -61,7 +62,15 @@ def generate_maps(project_dir: Path) -> dict[str, Any]:
 
     project_layers = _load_project_layers(context)
     analysis_crs = _analysis_crs(project_layers)
-    spatial, validation_issues = _load_optional_spatial_relationships(project_dir)
+    constraints, validation_issues = _load_optional_constraint_results(project_dir)
+    spatial: dict[str, Any] | None = None
+    source_artifact = constraints
+    source_artifact_name = "constraint_results"
+    if source_artifact is None:
+        spatial, spatial_issues = _load_optional_spatial_relationships(project_dir)
+        validation_issues.extend(spatial_issues)
+        source_artifact = spatial
+        source_artifact_name = "spatial_relationships"
     figures_dir = project_dir / FIGURES_DIR
     figures_dir.mkdir(parents=True, exist_ok=True)
 
@@ -95,15 +104,16 @@ def generate_maps(project_dir: Path) -> dict[str, Any]:
         )
     )
 
-    if spatial is not None:
-        for source in _dict_list(spatial.get("sources", [])):
+    if source_artifact is not None:
+        for source in _dict_list(source_artifact.get("sources", [])):
             if source.get("status") != "analyzed":
                 continue
             source_figure = _source_context_figure(
                 project_layers=project_layers,
                 figures_dir=figures_dir,
                 analysis_crs=analysis_crs,
-                spatial=spatial,
+                source_artifact=source_artifact,
+                source_artifact_name=source_artifact_name,
                 source=source,
             )
             if source_figure["figure"] is not None:
@@ -120,6 +130,7 @@ def generate_maps(project_dir: Path) -> dict[str, Any]:
         "map_generation_policy": "vector_only_no_basemap",
         "upstream_artifacts": {
             "project_context_path": context.get("context_path"),
+            "constraint_results_path": constraints.get("output_path") if constraints else None,
             "spatial_relationships_path": spatial.get("output_path") if spatial else None,
         },
         "figure_count": len(figures),
@@ -200,12 +211,38 @@ def _load_optional_spatial_relationships(project_dir: Path) -> tuple[dict[str, A
     return data, []
 
 
+def _load_optional_constraint_results(project_dir: Path) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    constraint_path = project_dir / CONSTRAINT_RESULTS_PATH
+    if not constraint_path.exists():
+        return None, []
+    try:
+        data = json.loads(constraint_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return None, [
+            _issue(
+                code="invalid_constraint_results_json",
+                message=f"Constraint results JSON could not be parsed for map generation: {exc}",
+                location=str(constraint_path),
+            )
+        ]
+    if not isinstance(data, dict) or not isinstance(data.get("sources", []), list):
+        return None, [
+            _issue(
+                code="invalid_constraint_results_artifact",
+                message="Constraint results artifact must be an object with a sources list for source-context maps.",
+                location=str(constraint_path),
+            )
+        ]
+    return data, []
+
+
 def _source_context_figure(
     *,
     project_layers: list[dict[str, Any]],
     figures_dir: Path,
     analysis_crs: str,
-    spatial: dict[str, Any],
+    source_artifact: dict[str, Any],
+    source_artifact_name: str,
     source: dict[str, Any],
 ) -> dict[str, Any]:
     source_id = str(source.get("source_id", "unknown_source"))
@@ -217,7 +254,7 @@ def _source_context_figure(
             _issue(
                 code="missing_clipped_source_layer",
                 message=f"Analyzed source '{source_id}' does not reference a clipped layer for mapping.",
-                location=str(spatial.get("output_path", "")),
+                location=str(source_artifact.get("output_path", "")),
                 source_id=source_id,
             )
         )
@@ -303,8 +340,8 @@ def _source_context_figure(
             ],
             source_refs=[source_id],
             provenance={
-                "artifact": "spatial_relationships",
-                "artifact_path": spatial.get("output_path"),
+                "artifact": source_artifact_name,
+                "artifact_path": source_artifact.get("output_path"),
                 "clipped_geojson": str(clipped_path),
                 "method": "geopandas_matplotlib_vector_static_map",
                 "analysis_crs": analysis_crs,

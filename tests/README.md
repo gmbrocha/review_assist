@@ -6,6 +6,9 @@ Current focus:
 
 - KMZ/KML parsing.
 - Geometry summary generation.
+- Project geometry normalization.
+- Constraint overlap/proximity analysis.
+- Smoke coverage for active sample project workspaces.
 - Validation and CLI error handling.
 - Source catalog and project source registry handling.
 - Local source registration.
@@ -31,6 +34,12 @@ Use the local virtual environment:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
+```
+
+For full local readiness verification, including environment setup and CLI smoke checks, run:
+
+```powershell
+.\scripts\verify.ps1
 ```
 
 Minimum expectations:

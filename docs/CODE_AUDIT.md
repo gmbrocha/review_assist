@@ -18,7 +18,8 @@ This document records the latest implementation audit for the current prototype 
 - Phase 6B source inventory/provenance and comparison table generation.
 - Phase 6C vector-only map/figure generation.
 - Phase 6D deterministic draft report section generation.
-- CLI commands for project inspection, source listing, local source registration, project analysis, review queue operations, and populate-for-review.
+- Constraint-engine project geometry normalization and constraint overlap/proximity analysis.
+- CLI commands for project inspection, source listing, local source registration, project analysis, project geometry, constraint analysis, review queue operations, and populate-for-review.
 - Tests and active documentation.
 
 ## Fixes Made
@@ -65,14 +66,34 @@ This document records the latest implementation audit for the current prototype 
 - Tightened limitations and reviewer follow-up section statuses so unresolved missing/gated/stubbed source categories require review or verification instead of remaining draft.
 - Hardened review queue regeneration so accepted/edited/rejected/noted reviewer state is preserved, while untouched stale generated `draft` statuses can be upgraded by stricter regenerated defaults.
 - Removed an unused report-section slug helper/import during the interim audit.
+- Added active sample workspace smoke tests for `projects/trails` and `projects/conexon_projects`.
+- Added `scripts/verify.ps1` as a repeatable local readiness check that installs dependencies, runs pytest, and smoke-checks current CLI workflows.
+- Added normalized project geometry artifacts for point/site, line/corridor, polygon/area, and mixed project contexts.
+- Added constraint result artifacts based on registered local source layers cropped to project analysis bounds.
+- Added `build-project-geometry` and `analyze-constraints` CLI commands.
+- Wired constraint results into draft findings, comparison tables, populate-for-review manifests, and lean review queue validation handling.
+- Changed review queue generation to default to a lean queue; source inventory review items are now opt-in with `include_source_inventory` or `--include-source-inventory`.
+- Added a deterministic section-drafting provider interface as the future GenAI insertion point.
 - Added tests for the validation and orchestration cases above.
+- Added catalog-driven source gap resolution and acquisition manifests under `projects/<project_id>/source_acquisition/`.
+- Added opt-in USFWS NWI wetlands downloader using the public Wetlands REST MapServer layer.
+- Added `resolve-source-gaps`, `download-source`, and `prepare-sources` CLI commands.
+- Added `populate-for-review --prepare-sources` so supported public downloads can run before source status, inventory, constraints, findings, tables, maps, sections, and review queue generation.
+- Preserved reviewer-supplied local source layers so downloads do not overwrite them.
+- Added support for project inputs tagged with `source_id` or unambiguous `source_category` as provided source layers.
+- Added source acquisition provenance into source inventory records when an acquisition manifest exists.
+- Added tests for mocked NWI download success/failure, non-overwrite behavior, prepare-sources integration, CLI commands, and populate-for-review opt-in download behavior.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `111 passed`.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
+- Current full test run: `137 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
+  - `review-assist build-project-geometry projects/trails`
+  - `review-assist build-project-geometry projects/conexon_projects`
+  - `review-assist analyze-constraints projects/trails`
+  - `review-assist analyze-constraints projects/conexon_projects`
   - `review-assist analyze-project projects/trails`
   - `review-assist analyze-project projects/conexon_projects`
   - `review-assist generate-source-inventory projects/trails`
@@ -82,6 +103,7 @@ This document records the latest implementation audit for the current prototype 
   - `review-assist generate-maps projects/conexon_projects`
   - `review-assist generate-report-sections projects/trails`
   - `review-assist generate-report-sections projects/conexon_projects`
+  - `review-assist resolve-source-gaps projects/trails`
   - `review-assist populate-for-review projects/trails`
   - `review-assist populate-for-review projects/conexon_projects`
   - `review-assist list-review-queue projects/trails`
@@ -89,12 +111,12 @@ This document records the latest implementation audit for the current prototype 
 
 ## Known Limits
 
-- Local source layers are supported; live public downloads are not implemented.
-- Spatial analysis produces relationship records only. Deterministic draft finding generation is a separate service.
+- Local source layers are supported; opt-in USFWS NWI public downloads are implemented. Other public downloaders are not implemented yet.
+- Legacy spatial analysis produces relationship records only. The constraint engine now produces first-class constraint result records for the main populate-for-review flow.
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or final report sections.
 - Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, final report prose, or export packages until reviewed.
-- The review queue stores source inventory, draft finding, comparison table, map figure, report section, source status, missing-data, validation, no-mapped, and spatial relationship items. It does not yet compile export packages.
-- `populate-for-review` orchestrates current services only. It does not download sources, call LLMs, render basemap/imagery-backed maps, or compile exports.
+- The review queue defaults to draft finding, comparison table, map figure, report section, report-relevant missing-data, validation, and no-mapped items. Source inventory/provenance items are opt-in for audit workflows, and legacy spatial relationship items remain available when those artifacts exist. It does not yet compile export packages.
+- `populate-for-review` orchestrates current services only. It downloads supported sources only when `--prepare-sources` is used; it does not call LLMs, render basemap/imagery-backed maps, or compile exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.
