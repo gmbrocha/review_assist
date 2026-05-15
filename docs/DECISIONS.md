@@ -144,6 +144,10 @@ The MVP export slice adds DOCX generation through `review-assist export-report -
 
 The real-data MVP path adds `review-assist build-mvp-deliverable`, which runs source preparation before preview export and records `data_lineage` in export/deliverable manifests. MVP packages may contain clearly labeled stubs for missing, manual, gated, failed, or reviewer-needed categories, but they must not present mock/test fixture source records as evidence. The command fails by default when no real downloaded, provided, or registered source layer is available and fails when included content contains test fixture provenance.
 
+### 2026-05-15: MVP packages should render evidence inside the report body
+
+The MVP report package now treats tables and figures as report evidence, not only attachments. Export builds table/figure lookups from included review items and upstream artifacts, renders referenced tables and figures inline in their related report sections, tracks which artifacts were rendered to avoid duplicate full renderings, and records `mvp_quality` counts in export and deliverable manifests. Missing or unreadable table/map artifacts must create visible placeholders or validation warnings instead of silent omissions. This improves the client-showable preview package while leaving final template-grade DOCX layout, basemaps, PDF export, and UI review screens deferred.
+
 ### 2026-05-15: Failed source downloads must remain visible downstream
 
 Supported public downloader failures are nonfatal, but they must not disappear as generic `downloadable` source gaps. Source status, draft findings, report sections, and review queue missing-data/caveat items should carry `failed` and `source_download_failed` when the acquisition manifest records a failed latest attempt.

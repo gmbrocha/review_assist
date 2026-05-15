@@ -121,32 +121,27 @@ This document records the latest implementation audit for the current prototype 
 - Removed an unused source-status review item helper from the lean review queue implementation.
 - Simplified Markdown export item partitioning so inclusion/skipping rules are evaluated once per review queue item.
 - Avoided double-counting existing reviewer-supplied local sources in lineage when a public download is skipped to preserve the local layer.
+- Hardened export map-artifact handling so an existing but unreadable `maps/map_manifest.json` produces a validation warning instead of silently dropping figure evidence from the report package.
 - Reviewed active documentation for stale export/source-status language and updated architecture, workflow, data-source, review-policy, roadmap, current-state, product, README, and agent guidance docs.
 
 ## Current Verification
 
 - Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source acquisition failure propagation, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown/DOCX export compilation, demo deliverable package generation, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `209 passed`.
+- Current full test run: `210 passed`.
 - CLI smoke checks pass for:
-  - `review-assist list-sources projects/trails`
+  - `review-assist inspect-project projects/trails`
+  - `review-assist inspect-project projects/conexon_projects`
   - `review-assist build-project-geometry projects/trails`
   - `review-assist build-project-geometry projects/conexon_projects`
+  - `review-assist list-sources projects/trails`
+  - `review-assist resolve-source-gaps projects/trails`
   - `review-assist analyze-constraints projects/trails`
   - `review-assist analyze-constraints projects/conexon_projects`
-  - `review-assist resolve-source-gaps projects/trails`
-  - `review-assist generate-source-inventory projects/trails`
-  - `review-assist generate-findings projects/trails`
-  - `review-assist generate-tables projects/trails`
-  - `review-assist generate-maps projects/trails`
-  - `review-assist generate-maps projects/conexon_projects`
   - `review-assist build-evidence-package projects/trails`
-  - `review-assist generate-report-sections projects/trails --no-gpt-drafting`
-  - `review-assist generate-report-sections projects/conexon_projects --no-gpt-drafting`
   - `review-assist populate-for-review projects/trails --no-gpt-drafting`
   - `review-assist populate-for-review projects/conexon_projects --no-gpt-drafting`
   - `review-assist export-report projects/trails --include-draft --format both`
   - `review-assist build-demo-deliverable projects/trails --format both --no-gpt-drafting`
-  - `review-assist build-mvp-deliverable projects/trails --include-optional-sources`
   - `review-assist list-review-queue projects/trails`
   - `review-assist list-review-queue projects/conexon_projects`
 

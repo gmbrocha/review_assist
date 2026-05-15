@@ -66,7 +66,7 @@ Implemented and future draft findings may include:
 - Visible pond or lake in imagery not present in available wetland data.
 - Recent clearing or land disturbance visible in imagery.
 
-The current backend baseline implements a subset through template-driven draft findings, comparison tables, vector-only maps, evidence packages, deterministic or optional GPT draft report sections, accepted-content Markdown/DOCX export, and internal preview/real-data MVP packages. Imagery observations, richer map/table findings, reviewer-facing GPT controls, PDF export, template-grade DOCX layout, and final report package assembly remain future work.
+The current backend baseline implements a subset through template-driven draft findings, comparison tables, vector-only maps, evidence packages, deterministic or optional GPT draft report sections, accepted-content Markdown/DOCX export, inline table/figure rendering for preview reports, `mvp_quality` metadata, and internal preview/real-data MVP packages. Imagery observations, richer map/table interpretation, reviewer-facing GPT controls, PDF export, template-grade DOCX layout, and final professional report package assembly remain future work.
 
 ## Current Example Projects
 

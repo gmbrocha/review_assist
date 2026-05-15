@@ -447,6 +447,19 @@ def test_report_sections_render_related_table_and_figure_inline_without_standalo
     assert manifest["mvp_quality"]["inline_rendered_figure_count"] == 1
 
 
+def test_export_warns_when_existing_map_manifest_cannot_be_loaded(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    manifest_path = project_dir / "maps" / "map_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text("{not-json", encoding="utf-8")
+
+    manifest = export_report(project_dir, include_draft=True)
+
+    assert any(issue["code"] == "map_manifest_unavailable" for issue in manifest["validation_issues"])
+    assert manifest["mvp_quality"]["validation_warning_count"] >= 1
+
+
 def test_export_preserves_reviewer_edit_after_regeneration(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)

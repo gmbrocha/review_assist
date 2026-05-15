@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .data_lineage import build_data_lineage
-from .maps import MapGenerationError, load_map_manifest
+from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .review_queue import ReviewQueueError, generate_review_queue, load_review_queue
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 from .tables import TABLES_PATH, TableGenerationError, load_comparison_tables
@@ -215,10 +215,24 @@ def _load_optional_comparison_tables(project_dir: Path) -> dict[str, Any] | None
 
 
 def _load_optional_map_manifest(project_dir: Path) -> dict[str, Any] | None:
+    manifest_path = project_dir / MAP_MANIFEST_PATH
+    if not manifest_path.exists():
+        return None
     try:
         return load_map_manifest(project_dir)
-    except MapGenerationError:
-        return None
+    except MapGenerationError as exc:
+        return {
+            "figures": [],
+            "figure_count": 0,
+            "output_path": str(manifest_path),
+            "validation_issues": [
+                _issue(
+                    "warning",
+                    "map_manifest_unavailable",
+                    f"Map manifest artifact could not be loaded for export figure rendering: {exc}",
+                )
+            ],
+        }
 
 
 def _output_formats(output_format: str) -> list[str]:
