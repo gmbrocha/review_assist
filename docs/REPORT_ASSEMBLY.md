@@ -1,8 +1,8 @@
 # Report Assembly
 
-This document captures the likely future pipeline for assembling editable pre-review report packages.
+This document captures the pipeline for assembling editable pre-review report packages.
 
-A deterministic draft section baseline now exists, but accepted-content export compilation is still future work.
+A deterministic draft section baseline exists, and the first accepted-content export compiler now writes Markdown plus an export manifest. DOCX remains the next export target after the Markdown path proves ordering, filtering, provenance, and reviewer-state behavior.
 
 ## Goal
 
@@ -73,9 +73,24 @@ The generator creates no-blank-page section drafts from existing structured arti
 - Map manifest when available.
 - Validation issues.
 
-Current section drafts include project overview, methodology/data sources, limitations/missing data, resource sections, comparison summary, maps/figures, and reviewer follow-up. The active provider is deterministic only; the provider boundary is present so a future GenAI drafting provider can be added without replacing the constraint engine.
+Current section drafts follow the example report structure more closely: front matter, executive summary, introduction/study area, methodology/data sources, mapping and analysis procedures, limitations/data gaps, environmental constraints inventory, resource sections, comparison/maps, conclusion/next steps, attachments, and reviewer follow-up. The active provider is deterministic only; the provider boundary is present so a future GenAI drafting provider can be added without replacing the constraint engine.
 
-These sections are not exports. They become `report_section` review queue items and require human review before any future report compilation.
+These sections are not final exports. They become `report_section` review queue items and require human review before reviewed-content export.
+
+## Current Markdown Export Baseline
+
+The current CLI can compile reviewed queue items into an editable Markdown package:
+
+- Command: `review-assist export-report <project_dir>`
+- Preview command: `review-assist export-report <project_dir> --include-draft`
+- Manifest: `projects/<project_id>/exports/export_manifest.json`
+- Markdown: `projects/<project_id>/exports/environmental_constraints_report.md`
+
+Default export includes only queue items with `accepted` or `edited` status and export eligibility. `unable_to_verify` items export only when explicitly marked export eligible. Draft, needs-review, needs-verification, and rejected items are skipped.
+
+The `--include-draft` option is for internal preview only. It includes unaccepted non-rejected items and marks the Markdown output as an internal preview, not an external report.
+
+The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, and missing accepted maps. Maps and tables are referenced by path/artifact metadata in this slice; binary embedding and DOCX formatting are deferred.
 
 ## Narrative Sources
 
@@ -146,14 +161,14 @@ Possible citation strategy:
 
 Potential exports:
 
-- DOCX draft report.
 - Markdown report package.
+- DOCX draft report.
 - HTML review package.
 - XLSX comparison tables.
 - PNG/PDF map figures.
 - GeoPackage review layers.
 
-DOCX is likely important because the example deliverable is a Word report, but the first implementation path is not decided.
+DOCX is important because the example deliverable is a Word report. The first implementation path is Markdown plus JSON manifest so the accepted-content assembly rules are testable before adding DOCX dependencies and layout concerns.
 
 Exports should compile accepted or explicitly included reviewed content only. Rejected items remain in the review record but should not export.
 
@@ -172,7 +187,7 @@ LLM calls should receive structured inputs and produce editable outputs. They sh
 
 ## Package Manifest
 
-A future compiled package should include a manifest describing:
+The compiled package manifest includes or should continue to include:
 
 - Project.
 - Inputs.
@@ -181,8 +196,9 @@ A future compiled package should include a manifest describing:
 - Findings generated.
 - Tables generated.
 - Figures generated.
-- Draft report path.
+- Markdown report path.
 - Review status summary.
+- Included/skipped queue item summaries.
 - Known missing data.
 - Generation timestamp.
 
@@ -190,7 +206,6 @@ This manifest should support reproducibility and review.
 
 ## Open Questions
 
-- Should the first formal report export be DOCX, Markdown, or HTML?
 - How much formatting must match the example report?
 - Should figures be embedded automatically or linked for manual insertion?
 - How should reviewer edits round-trip back into structured findings?

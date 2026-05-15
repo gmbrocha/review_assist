@@ -4,7 +4,7 @@ This document records the latest implementation audit for the current prototype 
 
 ## Audit Date
 
-2026-05-14
+2026-05-15
 
 ## Scope Reviewed
 
@@ -19,7 +19,8 @@ This document records the latest implementation audit for the current prototype 
 - Phase 6C vector-only map/figure generation.
 - Phase 6D deterministic draft report section generation.
 - Constraint-engine project geometry normalization and constraint overlap/proximity analysis.
-- CLI commands for project inspection, source listing, local source registration, project analysis, project geometry, constraint analysis, review queue operations, and populate-for-review.
+- Markdown export package generation.
+- CLI commands for project inspection, source listing, local source registration, project analysis, project geometry, constraint analysis, review queue operations, Markdown report export, and populate-for-review.
 - Tests and active documentation.
 
 ## Fixes Made
@@ -83,11 +84,18 @@ This document records the latest implementation audit for the current prototype 
 - Added support for project inputs tagged with `source_id` or unambiguous `source_category` as provided source layers.
 - Added source acquisition provenance into source inventory records when an acquisition manifest exists.
 - Added tests for mocked NWI download success/failure, non-overwrite behavior, prepare-sources integration, CLI commands, and populate-for-review opt-in download behavior.
+- Expanded report section templates to mirror the environmental constraints report destination more closely, including front matter, executive summary, study area, methodology, constraints inventory, resource sections, conclusion/next steps, attachments, and reviewer follow-up.
+- Added report section export grouping plus explicit visual/table slots so generated section artifacts can carry map, figure, and table needs into review and export.
+- Added review queue export grouping metadata while preserving reviewer state across regeneration, including backward-compatible normalization for older generated queue files.
+- Added Markdown export package generation under `projects/<project_id>/exports/`, including `environmental_constraints_report.md` and `export_manifest.json`.
+- Added `export-report <project_dir>` and `export-report <project_dir> --include-draft` CLI coverage. Default exports include accepted/edited review items plus explicitly export-eligible unable-to-verify items; preview exports are clearly marked non-final.
+- Added export validation warnings for missing accepted sections, missing accepted maps, and unresolved required source gaps.
+- Added tests for export filtering, edited-content precedence, unable-to-verify eligibility, section ordering, preview export mode, reviewer edit preservation, and NWI-backed export flow.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `137 passed`.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown export compilation, malformed artifact handling, and populate-for-review orchestration.
+- Current full test run: `144 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist build-project-geometry projects/trails`
@@ -106,6 +114,7 @@ This document records the latest implementation audit for the current prototype 
   - `review-assist resolve-source-gaps projects/trails`
   - `review-assist populate-for-review projects/trails`
   - `review-assist populate-for-review projects/conexon_projects`
+  - `review-assist export-report projects/trails --include-draft`
   - `review-assist list-review-queue projects/trails`
   - `review-assist list-review-queue projects/conexon_projects`
 
@@ -114,14 +123,14 @@ This document records the latest implementation audit for the current prototype 
 - Local source layers are supported; opt-in USFWS NWI public downloads are implemented. Other public downloaders are not implemented yet.
 - Legacy spatial analysis produces relationship records only. The constraint engine now produces first-class constraint result records for the main populate-for-review flow.
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or final report sections.
-- Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, final report prose, or export packages until reviewed.
-- The review queue defaults to draft finding, comparison table, map figure, report section, report-relevant missing-data, validation, and no-mapped items. Source inventory/provenance items are opt-in for audit workflows, and legacy spatial relationship items remain available when those artifacts exist. It does not yet compile export packages.
-- `populate-for-review` orchestrates current services only. It downloads supported sources only when `--prepare-sources` is used; it does not call LLMs, render basemap/imagery-backed maps, or compile exports.
+- Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, or final report prose until reviewed.
+- The review queue defaults to draft finding, comparison table, map figure, report section, report-relevant missing-data, validation, and no-mapped items. Source inventory/provenance items are opt-in for audit workflows, and legacy spatial relationship items remain available when those artifacts exist. Export compilation now uses review queue status and export eligibility instead of every generated artifact.
+- `populate-for-review` orchestrates current services only. It downloads supported sources only when `--prepare-sources` is used; it does not call LLMs, render basemap/imagery-backed maps, or create final DOCX/PDF exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
 - Source layer schemas are not normalized yet; feature labels are inferred from a small set of common name/label fields.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.
 - Raster source analysis is cataloged but not implemented.
-- Basemap/imagery acquisition, panel map sheets, and final map export packages are not implemented.
+- Basemap/imagery acquisition, panel map sheets, DOCX/PDF export, and final map export packages are not implemented.
 - Large local source layers should remain outside Git under ignored project `layers/` folders.
 
 ## Archive Review

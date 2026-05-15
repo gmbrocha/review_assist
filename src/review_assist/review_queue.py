@@ -42,6 +42,7 @@ REQUIRED_ITEM_FIELDS = {
     "status",
     "export_eligible",
     "export_section",
+    "export_group",
     "assumptions",
     "provenance",
     "source_refs",
@@ -124,6 +125,7 @@ def load_review_queue(project_dir: Path) -> dict[str, Any]:
         queue = json.loads(queue_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ReviewQueueError(f"Invalid review queue JSON: {queue_path}: {exc}") from exc
+    _normalize_queue_compat(queue)
     _validate_queue(queue)
     return queue
 
@@ -393,6 +395,7 @@ def _source_inventory_item(
         ),
         status=status,
         export_section="source_inventory",
+        export_group="methodology",
         assumptions={
             "category_status": category_status,
             "project_registry": record.get("project_registry", {}),
@@ -433,6 +436,7 @@ def _draft_finding_item(
         generated_content="\n\n".join(content_parts),
         status=status,
         export_section=str(finding.get("resource_category", "findings")),
+        export_group="constraints_inventory",
         assumptions=dict(finding.get("assumptions", {})) if isinstance(finding.get("assumptions"), dict) else {},
         provenance={
             "artifact": "draft_findings",
@@ -475,6 +479,7 @@ def _comparison_table_item(
         ),
         status=status,
         export_section="tables",
+        export_group="constraints_inventory",
         assumptions={"description": table.get("description", "")},
         provenance={
             "artifact": "comparison_tables",
@@ -517,6 +522,7 @@ def _map_figure_item(
         ),
         status=status,
         export_section="maps",
+        export_group="constraints_inventory",
         assumptions={
             "figure_type": figure.get("type"),
             "shown_layers": figure.get("shown_layers", []),
@@ -559,9 +565,13 @@ def _report_section_item(
         generated_content=str(section.get("generated_content", "")),
         status=status,
         export_section="report_sections",
+        export_group=str(section.get("export_group") or _default_export_group("report_section", str(section.get("resource_category", "")))),
         assumptions={
             "section_order": section.get("section_order"),
+            "export_group": section.get("export_group"),
             "resource_category": section.get("resource_category"),
+            "visual_slots": section.get("visual_slots", []),
+            "table_slots": section.get("table_slots", []),
             "section_assumptions": section.get("assumptions", {}),
         },
         provenance={
@@ -607,6 +617,7 @@ def _source_status_item(
         ),
         status=status,
         export_section="source_status",
+        export_group="methodology",
         assumptions={"requirement": requirement},
         provenance={
             "artifact": "source_status_set",
@@ -641,6 +652,7 @@ def _missing_data_item(
         ),
         status=item_status,
         export_section="assumptions_caveats",
+        export_group="methodology",
         assumptions={"source_status": source_state, "requirement": status_record.get("requirement")},
         provenance={
             "artifact": "source_status_set",
@@ -676,6 +688,7 @@ def _spatial_relationship_item(
         ),
         status="draft",
         export_section=str(relationship.get("source_category", "spatial_relationships")),
+        export_group="constraints_inventory",
         assumptions={
             "buffer_feet": relationship.get("buffer_feet"),
             "measurements": relationship.get("measurements", {}),
@@ -713,6 +726,7 @@ def _no_mapped_relationships_item(
         ),
         status="draft",
         export_section=str(source.get("source_category", "spatial_relationships")),
+        export_group="constraints_inventory",
         assumptions={"buffer_feet": source.get("buffer_feet")},
         provenance={
             "artifact": "spatial_relationships",
@@ -745,6 +759,7 @@ def _validation_issue_item(
         generated_content=message,
         status="needs_review",
         export_section="review_notes",
+        export_group="attachments",
         assumptions={},
         provenance={
             "artifact": origin,
@@ -766,6 +781,7 @@ def _review_item(
     generated_content: str,
     status: str,
     export_section: str,
+    export_group: str | None,
     assumptions: dict[str, Any],
     provenance: dict[str, Any],
     source_refs: list[str],
@@ -783,6 +799,7 @@ def _review_item(
         "status": status,
         "export_eligible": _default_export_eligible(status),
         "export_section": export_section,
+        "export_group": export_group or _default_export_group(item_type, export_section),
         "assumptions": assumptions,
         "provenance": provenance,
         "source_refs": source_refs,
@@ -861,12 +878,48 @@ def _validate_queue(queue: dict[str, Any]) -> None:
             raise ReviewQueueError(f"Review item '{item_id}' export_eligible must be true or false.")
         if item["export_eligible"] and status not in EXPORT_TRUE_STATUSES:
             raise ReviewQueueError(f"Review item '{item_id}' cannot be export eligible with status '{status}'.")
+        if not isinstance(item["export_group"], str) or not item["export_group"].strip():
+            raise ReviewQueueError(f"Review item '{item_id}' export_group must be a non-empty string.")
         if not isinstance(item["reviewer_notes"], list):
             raise ReviewQueueError(f"Review item '{item_id}' reviewer_notes must be a list.")
 
 
+def _normalize_queue_compat(queue: Any) -> None:
+    if not isinstance(queue, dict):
+        return
+    items = queue.get("items")
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if not isinstance(item.get("export_group"), str) or not str(item.get("export_group")).strip():
+            item["export_group"] = _default_export_group(str(item.get("type", "")), str(item.get("export_section", "")))
+
+
 def _default_export_eligible(status: str) -> bool:
-    return status == "accepted"
+    return status in {"accepted", "edited"}
+
+
+def _default_export_group(item_type: str, export_section: str) -> str:
+    if export_section in {
+        "front_matter",
+        "executive_summary",
+        "introduction",
+        "methodology",
+        "constraints_inventory",
+        "resource_sections",
+        "conclusion",
+        "attachments",
+    }:
+        return export_section
+    if item_type in {"map_figure", "comparison_table", "draft_finding", "spatial_relationship", "no_mapped_relationships"}:
+        return "constraints_inventory"
+    if item_type in {"source_inventory_note", "source_status_note", "missing_data_placeholder"}:
+        return "methodology"
+    if item_type == "validation_issue":
+        return "attachments"
+    return "resource_sections"
 
 
 def _string_list(value: Any) -> list[str]:

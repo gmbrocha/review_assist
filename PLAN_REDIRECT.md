@@ -390,6 +390,14 @@ The app should generate these where source data is available and create reviewab
 - [x] `review-assist prepare-sources <project_dir>` exists.
 - [x] `populate-for-review --prepare-sources` can resolve gaps and run supported source downloads before constraint analysis.
 - [x] `populate-for-review` without `--prepare-sources` keeps the previous no-live-download behavior.
+- [x] Report section templates now include front matter, executive summary, introduction/study area, methodology subsections, environmental constraints inventory, conclusion/next steps, and attachment placeholders.
+- [x] Report section artifacts include export group metadata plus visual and table slots.
+- [x] Review queue items include export group metadata for report assembly.
+- [x] Markdown export compilation exists through `review-assist export-report`.
+- [x] Export manifests are written to `projects/<id>/exports/export_manifest.json`.
+- [x] Editable Markdown reports are written to `projects/<id>/exports/environmental_constraints_report.md`.
+- [x] Default export includes accepted/edited review queue items and explicitly export-eligible unable-to-verify items only.
+- [x] Preview export exists through `review-assist export-report --include-draft` and is clearly labeled as internal/pre-review.
 
 ## Still To Go
 
@@ -473,10 +481,11 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 
 ### 6. Report Section Quality
 
-- [ ] Make report sections match the `env_constraints_report_20260511_EXAMPLE_ONLY.docx` structure unless another report profile is selected.
+- [x] Make report sections match the `env_constraints_report_20260511_EXAMPLE_ONLY.docx` structure more closely unless another report profile is selected.
+- [x] Add table and map/visual slots to section artifacts for export placeholders.
+- [x] Separate front matter, executive summary, introduction/study area, methodology, constraints inventory, resource sections, conclusion, attachments, and reviewer follow-up more cleanly.
 - [ ] Improve resource-specific section language using constraint summaries and no-overlap/source-gap context.
-- [ ] Add tables/map references into section content more deliberately.
-- [ ] Separate project overview, methodology, constraints inventory, limitations, and reviewer follow-up more cleanly.
+- [ ] Add tables/map references into section content more deliberately beyond slot placeholders.
 - [ ] Keep deterministic narrative available as the fallback path.
 - [ ] Add an explicit "objective constraints only" statement to generated methodology/limitations language.
 
@@ -492,17 +501,18 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 
 ### 8. Export Compiler
 
-- [ ] Define export package manifest.
-- [ ] Export accepted/explicitly included report sections.
-- [ ] Export accepted findings.
-- [ ] Export accepted tables.
-- [ ] Export accepted map figures.
-- [ ] Include source/provenance references.
-- [ ] Include known limitations and unresolved source gaps.
-- [ ] Exclude rejected items.
-- [ ] Include needs-verification/unable-to-verify items only when explicitly included with caveat language.
-- [ ] Decide first export target: DOCX, Markdown/HTML, or a hybrid package.
-- [ ] Preserve editability in the exported report.
+- [x] Define export package manifest.
+- [x] Export accepted/explicitly included report sections.
+- [x] Export accepted findings.
+- [x] Export accepted tables.
+- [x] Export accepted map figures.
+- [x] Include source/provenance references.
+- [x] Include known limitations and unresolved source gaps as export warnings.
+- [x] Exclude rejected items.
+- [x] Include unable-to-verify items only when explicitly export eligible.
+- [x] Decide first export target: Markdown plus JSON manifest.
+- [x] Preserve editability in the exported report.
+- [ ] Add DOCX export once Markdown assembly proves ordering, filtering, source refs, caveats, and map/table reference behavior.
 
 ### 9. Map and Figure Improvements
 

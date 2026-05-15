@@ -1,149 +1,291 @@
 {
-  "template_version": "2026-05-14",
+  "template_version": "2026-05-15",
   "sections": [
+    {
+      "section_id": "front-matter",
+      "type": "front_matter",
+      "title": "Front Matter",
+      "section_order": 0,
+      "export_group": "front_matter",
+      "resource_category": "front_matter",
+      "purpose": "Create editable cover/title, project identifiers, and list placeholders for the environmental constraints report.",
+      "visual_slots": [],
+      "table_slots": ["List of figures", "List of tables", "List of attachments"]
+    },
+    {
+      "section_id": "executive-summary",
+      "type": "executive_summary",
+      "title": "Executive Summary",
+      "section_order": 5,
+      "export_group": "executive_summary",
+      "resource_category": "executive_summary",
+      "purpose": "Summarize reviewed project features, source stack status, main objective constraints, source gaps, and follow-up needs.",
+      "visual_slots": [],
+      "table_slots": []
+    },
+    {
+      "section_id": "introduction",
+      "type": "introduction",
+      "title": "Introduction",
+      "section_order": 10,
+      "export_group": "introduction",
+      "resource_category": "introduction",
+      "purpose": "Introduce the project and state that the report presents objective constraints only.",
+      "visual_slots": ["Project Overview Map"],
+      "table_slots": []
+    },
+    {
+      "section_id": "study-area",
+      "type": "study_area",
+      "title": "Study Area",
+      "section_order": 15,
+      "export_group": "introduction",
+      "resource_category": "study_area",
+      "purpose": "Describe the project study area from normalized project inputs and reference the project overview map.",
+      "visual_slots": ["Project Overview Map"],
+      "table_slots": []
+    },
     {
       "section_id": "project-overview",
       "type": "project_overview",
       "title": "Project Overview",
-      "section_order": 10,
+      "section_order": 18,
+      "export_group": "introduction",
       "resource_category": "project_overview",
-      "purpose": "Introduce the workspace, project inputs, detected alternatives or locations, and review assumptions."
+      "purpose": "Summarize workspace inputs, detected alternatives or locations, and review assumptions.",
+      "visual_slots": ["Project Overview Map"],
+      "table_slots": []
     },
     {
       "section_id": "methodology-and-data-sources",
       "type": "methodology",
-      "title": "Methodology and Data Sources",
+      "title": "Data Collection and Sources",
       "section_order": 20,
+      "export_group": "methodology",
       "resource_category": "methodology",
-      "purpose": "Describe the desktop screening workflow, source status resolution, and review limitations."
+      "purpose": "Describe source status resolution, source acquisition/registration, and source provenance.",
+      "visual_slots": [],
+      "table_slots": ["Source Status Matrix"]
+    },
+    {
+      "section_id": "mapping-and-analysis-procedures",
+      "type": "analysis_procedures",
+      "title": "Mapping and Analysis Procedures",
+      "section_order": 25,
+      "export_group": "methodology",
+      "resource_category": "methodology",
+      "purpose": "Describe normalized project geometry, analysis bounds, source clipping, maps, and deterministic constraint checks.",
+      "visual_slots": ["Project Overview Map", "Generated Constraint Maps"],
+      "table_slots": ["Constraint Summary"]
     },
     {
       "section_id": "limitations-and-missing-data",
       "type": "limitations",
-      "title": "Limitations and Missing Data",
+      "title": "Limitations and Data Gaps",
       "section_order": 30,
+      "export_group": "methodology",
       "resource_category": "assumptions_caveats",
-      "purpose": "Summarize unavailable, restricted, deferred, or uncertain source categories for reviewer attention."
+      "purpose": "Summarize unavailable, restricted, failed, deferred, or uncertain source categories for reviewer attention.",
+      "visual_slots": [],
+      "table_slots": ["Source Status Matrix"]
+    },
+    {
+      "section_id": "environmental-constraints-inventory",
+      "type": "constraints_inventory",
+      "title": "Environmental Constraints Inventory",
+      "section_order": 90,
+      "export_group": "constraints_inventory",
+      "resource_category": "constraints_inventory",
+      "purpose": "Introduce the objective constraints inventory by project feature and resource category.",
+      "visual_slots": ["Overall Environmental Constraints Inventory Map", "Panel Index Map", "Panel Maps"],
+      "table_slots": ["Constraint Summary"]
     },
     {
       "section_id": "wetlands-and-waterbodies",
       "type": "resource_section",
       "title": "Wetlands and Waterbodies",
       "section_order": 100,
+      "export_group": "resource_sections",
       "resource_category": "wetlands_waterbodies",
-      "purpose": "Summarize mapped wetland and waterbody context and associated review implications."
+      "purpose": "Summarize mapped wetland and waterbody context and associated review implications.",
+      "visual_slots": ["Wetlands and Waterbodies in and near the project area"],
+      "table_slots": ["Descriptions of wetlands and waterbodies present within or near project features"]
     },
     {
       "section_id": "streams-hydrography-crossings",
       "type": "resource_section",
       "title": "Streams, Hydrography, and Crossings",
       "section_order": 110,
+      "export_group": "resource_sections",
       "resource_category": "hydrography_crossings",
-      "purpose": "Summarize mapped streams, rivers, ditches, hydrography, and crossing-related implications."
+      "purpose": "Summarize mapped streams, rivers, ditches, hydrography, and crossing-related implications.",
+      "visual_slots": ["Streams and impaired waters within relevant subwatersheds"],
+      "table_slots": []
     },
     {
       "section_id": "land-cover-disturbance",
       "type": "resource_section",
       "title": "Land Cover and Disturbance",
       "section_order": 120,
+      "export_group": "resource_sections",
       "resource_category": "land_cover_disturbance",
-      "purpose": "Summarize land cover, impervious surface, forested area, and disturbed-corridor context."
+      "purpose": "Summarize land cover, impervious surface, forested area, and disturbed-corridor context.",
+      "visual_slots": [],
+      "table_slots": []
     },
     {
       "section_id": "soils",
       "type": "resource_section",
       "title": "Soils",
       "section_order": 130,
+      "export_group": "resource_sections",
       "resource_category": "soils",
-      "purpose": "Summarize hydric soils, prime farmland, and other soil-related screening context."
+      "purpose": "Summarize hydric soils, prime farmland, and other soil-related screening context.",
+      "visual_slots": [],
+      "table_slots": []
     },
     {
       "section_id": "species-and-habitat",
       "type": "resource_section",
-      "title": "Species and Habitat",
+      "title": "Protected Species and Critical Habitat",
       "section_order": 140,
+      "export_group": "resource_sections",
       "resource_category": "species_habitat",
-      "purpose": "Summarize listed species, critical habitat, and state heritage review status."
+      "purpose": "Summarize listed species, critical habitat, IPaC, and state heritage review status.",
+      "visual_slots": ["Species, habitat, or critical habitat resources when GIS layers are available"],
+      "table_slots": []
     },
     {
       "section_id": "cultural-and-historic",
       "type": "resource_section",
       "title": "Cultural and Historic Resources",
       "section_order": 150,
+      "export_group": "resource_sections",
       "resource_category": "cultural_historic",
-      "purpose": "Summarize public cultural/historic context and restricted-resource review status."
+      "purpose": "Summarize public cultural/historic context and restricted-resource review status.",
+      "visual_slots": ["Cultural Resources Sites in or near the project area"],
+      "table_slots": []
     },
     {
       "section_id": "regulated-facilities",
       "type": "resource_section",
-      "title": "Regulated Facilities",
+      "title": "Contamination Risks",
       "section_order": 160,
+      "export_group": "resource_sections",
       "resource_category": "regulated_facilities",
-      "purpose": "Summarize hazardous materials, regulated facility, cleanup, or environmental due diligence context."
+      "purpose": "Summarize hazardous materials, regulated facility, cleanup, or environmental due diligence context.",
+      "visual_slots": ["Hazardous Waste or regulated facility sites near the project area", "Oil wells near the project area when available"],
+      "table_slots": []
     },
     {
       "section_id": "transportation-utilities",
       "type": "resource_section",
-      "title": "Transportation and Utilities",
+      "title": "Utility and Infrastructure Considerations",
       "section_order": 170,
+      "export_group": "resource_sections",
       "resource_category": "transportation_utilities",
-      "purpose": "Summarize roadway, utility, corridor, right-of-way, and coordination context."
+      "purpose": "Summarize roadway, utility, corridor, right-of-way, and coordination context.",
+      "visual_slots": ["Public Water Supply Wells near the project area", "Energy Infrastructure near the project area"],
+      "table_slots": []
     },
     {
       "section_id": "community-socioeconomic",
       "type": "resource_section",
       "title": "Community and Socioeconomic Context",
       "section_order": 180,
+      "export_group": "resource_sections",
       "resource_category": "community_socioeconomic",
-      "purpose": "Summarize community resources, access-sensitive uses, and socioeconomic screening context."
+      "purpose": "Summarize community resources, access-sensitive uses, and socioeconomic screening context.",
+      "visual_slots": ["Fire Stations in or near the project area", "Government Offices near the project area", "Schools and Childcare Facilities in or near the project area", "Health Care Facilities near the project area", "Places of Worship in or near the project area", "Census Tracts along or near the project area"],
+      "table_slots": ["Income demographics table", "Demographic composition table"]
     },
     {
       "section_id": "parcels-property",
       "type": "resource_section",
       "title": "Parcels and Property",
       "section_order": 190,
+      "export_group": "resource_sections",
       "resource_category": "parcels_property",
-      "purpose": "Summarize parcel, property, ownership, or age-of-structure review context where available."
+      "purpose": "Summarize parcel, property, ownership, or age-of-structure review context where available.",
+      "visual_slots": [],
+      "table_slots": []
     },
     {
       "section_id": "imagery-basemaps",
       "type": "resource_section",
       "title": "Imagery and Basemaps",
       "section_order": 200,
+      "export_group": "resource_sections",
       "resource_category": "imagery_basemaps",
-      "purpose": "Summarize imagery/basemap review status and note that visible conditions require reviewer confirmation."
+      "purpose": "Summarize imagery/basemap review status and note that visible conditions require reviewer confirmation.",
+      "visual_slots": ["Draft basemap or imagery context when terms and source path are approved"],
+      "table_slots": []
     },
     {
       "section_id": "flood-hazard",
       "type": "resource_section",
-      "title": "Flood Hazard",
+      "title": "Floodplains and Floodways",
       "section_order": 210,
+      "export_group": "resource_sections",
       "resource_category": "flood_hazard",
-      "purpose": "Summarize floodplain/floodway screening context when relevant and available."
+      "purpose": "Summarize floodplain/floodway screening context when relevant and available.",
+      "visual_slots": ["FEMA Flood Zones in and near the project area"],
+      "table_slots": ["FEMA Flood Zones within or near project features"]
     },
     {
       "section_id": "comparison-summary",
       "type": "comparison_summary",
       "title": "Comparison Summary",
       "section_order": 300,
+      "export_group": "constraints_inventory",
       "resource_category": "comparison_summary",
-      "purpose": "Summarize descriptive comparison tables without ranking or identifying a preferred alternative."
+      "purpose": "Summarize descriptive comparison tables without ranking or identifying a preferred alternative.",
+      "visual_slots": [],
+      "table_slots": ["Source Status Matrix", "Constraint Summary", "Draft Finding Summary"]
     },
     {
       "section_id": "maps-and-figures",
       "type": "maps_and_figures",
       "title": "Maps and Figures",
       "section_order": 310,
+      "export_group": "constraints_inventory",
       "resource_category": "maps",
-      "purpose": "Summarize generated draft map figures and their review limitations."
+      "purpose": "Summarize generated draft map figures and their review limitations.",
+      "visual_slots": ["Overall Environmental Constraints Inventory Map", "Panel Index Map", "Panel Maps"],
+      "table_slots": []
+    },
+    {
+      "section_id": "conclusion-and-next-steps",
+      "type": "conclusion",
+      "title": "Conclusion and Next Steps",
+      "section_order": 390,
+      "export_group": "conclusion",
+      "resource_category": "conclusion",
+      "purpose": "Summarize objective constraint themes and identify source gaps, review needs, and coordination needs without choosing a project feature.",
+      "visual_slots": [],
+      "table_slots": []
+    },
+    {
+      "section_id": "attachments",
+      "type": "attachments",
+      "title": "Attachments",
+      "section_order": 410,
+      "export_group": "attachments",
+      "resource_category": "attachments",
+      "purpose": "Provide placeholders for project maps, hazardous materials support, and agency consultation records.",
+      "visual_slots": ["Attachment A: Project Maps", "Attachment B: Hazardous Materials Report", "Attachment C: Agency Consultation Letters"],
+      "table_slots": []
     },
     {
       "section_id": "reviewer-follow-up",
       "type": "reviewer_follow_up",
       "title": "Reviewer Follow-Up",
-      "section_order": 400,
+      "section_order": 420,
+      "export_group": "attachments",
       "resource_category": "review_notes",
-      "purpose": "List validation issues, source gaps, and reviewer actions needed before export or final use."
+      "purpose": "List validation issues, source gaps, and reviewer actions needed before export or final use.",
+      "visual_slots": [],
+      "table_slots": []
     }
   ]
 }

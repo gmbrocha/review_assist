@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .constraints import ConstraintAnalysisError, analyze_constraints
+from .export_report import ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
 from .inspection import ProjectInspectionError, inspect_project
 from .maps import MapGenerationError, generate_maps
@@ -108,6 +109,15 @@ def build_parser() -> argparse.ArgumentParser:
     sections_parser = subparsers.add_parser("generate-report-sections", help="Generate deterministic draft report section artifacts.")
     sections_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     sections_parser.add_argument("--json", action="store_true", help="Print full JSON report sections artifact to stdout.")
+
+    export_parser = subparsers.add_parser("export-report", help="Export reviewed queue items into an editable Markdown report package.")
+    export_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    export_parser.add_argument(
+        "--include-draft",
+        action="store_true",
+        help="Create an internal preview export that includes unaccepted draft items except rejected items.",
+    )
+    export_parser.add_argument("--json", action="store_true", help="Print full JSON export manifest to stdout.")
 
     queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
     queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -486,6 +496,27 @@ def generate_report_sections_command(project_dir: Path, print_json: bool) -> int
     return 0
 
 
+def export_report_command(project_dir: Path, include_draft: bool, print_json: bool) -> int:
+    try:
+        result = export_report(project_dir, include_draft=include_draft)
+    except ExportReportError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    label = "preview export" if include_draft else "reviewed-content export"
+    print(f"Generated {label}: {result['project_id']} ({result['project_name']})")
+    print(f"Included items: {result['included_count']}")
+    print(f"Skipped items: {result['skipped_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Markdown: {result['markdown_path']}")
+    print(f"Manifest: {result['output_path']}")
+    return 0
+
+
 def list_review_queue_command(project_dir: Path, print_json: bool) -> int:
     try:
         summary = summarize_review_queue(project_dir)
@@ -587,6 +618,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_maps_command(args.project_dir, args.json)
     if args.command == "generate-report-sections":
         return generate_report_sections_command(args.project_dir, args.json)
+    if args.command == "export-report":
+        return export_report_command(args.project_dir, args.include_draft, args.json)
     if args.command == "generate-review-queue":
         return generate_review_queue_command(args.project_dir, args.include_source_inventory, args.json)
     if args.command == "list-review-queue":

@@ -35,8 +35,11 @@ REQUIRED_SECTION_FIELDS = {
     "type",
     "title",
     "section_order",
+    "export_group",
     "resource_category",
     "generated_content",
+    "visual_slots",
+    "table_slots",
     "related_finding_ids",
     "related_table_ids",
     "related_figure_ids",
@@ -66,8 +69,11 @@ class ReportSectionTemplate:
     section_type: str
     title: str
     section_order: int
+    export_group: str
     resource_category: str
     purpose: str
+    visual_slots: list[str]
+    table_slots: list[str]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ReportSectionTemplate":
@@ -80,8 +86,11 @@ class ReportSectionTemplate:
             section_type=_required_string(data, "type", section_id),
             title=_required_string(data, "title", section_id),
             section_order=raw_order,
+            export_group=str(data.get("export_group") or _default_export_group(str(data.get("type", "")))),
             resource_category=_required_string(data, "resource_category", section_id),
             purpose=_required_string(data, "purpose", section_id),
+            visual_slots=_optional_string_list(data.get("visual_slots", []), "visual_slots", section_id),
+            table_slots=_optional_string_list(data.get("table_slots", []), "table_slots", section_id),
         )
 
 
@@ -320,8 +329,11 @@ def _section_record(
         "type": template.section_type,
         "title": template.title,
         "section_order": template.section_order,
+        "export_group": template.export_group,
         "resource_category": category,
         "generated_content": content,
+        "visual_slots": list(template.visual_slots),
+        "table_slots": list(template.table_slots),
         "related_finding_ids": [str(finding.get("finding_id")) for finding in related_findings if finding.get("finding_id")],
         "related_table_ids": [str(table.get("table_id")) for table in related_tables if table.get("table_id")],
         "related_figure_ids": [str(figure.get("figure_id")) for figure in related_figures if figure.get("figure_id")],
@@ -336,6 +348,7 @@ def _section_record(
             "artifact": "report_sections",
             "template_id": template.section_id,
             "template_type": template.section_type,
+            "export_group": template.export_group,
             "draft_provider": getattr(draft_provider, "provider_id", "unknown"),
             "upstream_artifacts": {
                 "project_context_path": context.get("context_path"),
@@ -367,12 +380,24 @@ def _section_content(
     source_refs: list[str],
     validation_issues: list[dict[str, Any]],
 ) -> str:
+    if template.section_type == "front_matter":
+        return _front_matter_content(template, context)
+    if template.section_type == "executive_summary":
+        return _executive_summary_content(context, source_status, draft_findings, comparison_tables, map_manifest)
+    if template.section_type == "introduction":
+        return _introduction_content(context, validation_issues)
+    if template.section_type == "study_area":
+        return _study_area_content(context, related_figures, validation_issues)
     if template.section_type == "project_overview":
         return _project_overview_content(context, validation_issues)
     if template.section_type == "methodology":
         return _methodology_content(context, source_status, source_inventory, draft_findings, comparison_tables, map_manifest)
+    if template.section_type == "analysis_procedures":
+        return _analysis_procedures_content(context, map_manifest)
     if template.section_type == "limitations":
         return _limitations_content(source_status, validation_issues)
+    if template.section_type == "constraints_inventory":
+        return _constraints_inventory_content(draft_findings, comparison_tables, map_manifest)
     if template.section_type in RESOURCE_SECTION_TYPES:
         return _resource_content(template, source_status, related_findings, related_tables, related_figures, source_refs, validation_issues)
     if template.section_type == "comparison_summary":
@@ -381,6 +406,10 @@ def _section_content(
         return _maps_content(map_manifest)
     if template.section_type == "reviewer_follow_up":
         return _reviewer_follow_up_content(source_status, validation_issues)
+    if template.section_type == "conclusion":
+        return _conclusion_content(source_status, draft_findings, map_manifest)
+    if template.section_type == "attachments":
+        return _attachments_content(template, map_manifest)
     return _generic_content(template, related_findings, related_tables, related_figures, source_refs)
 
 
@@ -413,6 +442,94 @@ def _project_overview_content(context: dict[str, Any], validation_issues: list[d
     if validation_issues:
         lines.append(f"{len(validation_issues)} input validation issue(s) require reviewer attention before this overview is used.")
     lines.append("This section is draft/pre-review language and should not be treated as a final project description.")
+    return "\n\n".join(lines)
+
+
+def _front_matter_content(template: ReportSectionTemplate, context: dict[str, Any]) -> str:
+    profile = context.get("report_profile", {}) if isinstance(context.get("report_profile"), dict) else {}
+    lines = [
+        f"# {context.get('project_name', 'Project')}",
+        "",
+        "Environmental Constraints Report",
+        "",
+        f"Project type: {context.get('project_type', 'not specified')}",
+        f"Report profile: {profile.get('name', 'not specified')}",
+        "Date: [Reviewer to confirm]",
+        "Project/client identifiers: [Reviewer to add if applicable]",
+        "",
+        "This front matter is a draft placeholder for the editable export package.",
+    ]
+    if template.visual_slots:
+        lines.append(f"Visual slots expected later in report: {', '.join(template.visual_slots)}.")
+    if template.table_slots:
+        lines.append(f"Table slots expected later in report: {', '.join(template.table_slots)}.")
+    return "\n".join(lines)
+
+
+def _executive_summary_content(
+    context: dict[str, Any],
+    source_status: dict[str, Any],
+    draft_findings: dict[str, Any],
+    comparison_tables: dict[str, Any],
+    map_manifest: dict[str, Any] | None,
+) -> str:
+    required_gaps = [
+        item
+        for item in _dict_list(source_status.get("statuses", []))
+        if item.get("requirement") == "required" and str(item.get("status")) in DEFERRED_SOURCE_STATUSES.union(VERIFICATION_SOURCE_STATUSES)
+    ]
+    return "\n\n".join(
+        [
+            f"This draft executive summary covers {context.get('project_name', 'the project')} as a desktop environmental constraints screening package.",
+            (
+                f"The current artifact set includes {draft_findings.get('finding_count', 0)} draft finding(s), "
+                f"{comparison_tables.get('table_count', 0)} table artifact(s), and "
+                f"{map_manifest.get('figure_count', 0) if map_manifest else 0} draft map figure(s)."
+            ),
+            (
+                f"{len(required_gaps)} required source categor(ies) remain unavailable, gated, deferred, or needing review."
+                if required_gaps
+                else "No unresolved required source category was identified in the current source status set."
+            ),
+            "This summary must remain objective: it presents constraints and follow-up needs only, without choosing, ranking, or rejecting any project feature.",
+        ]
+    )
+
+
+def _introduction_content(context: dict[str, Any], validation_issues: list[dict[str, Any]]) -> str:
+    lines = [
+        f"This report supports early constraints review for {context.get('project_name', 'the project')}.",
+        "The report presents objective desktop-screening constraints only and does not choose, rank, reject, or recommend project features.",
+        f"The workspace project type is {context.get('project_type', 'not specified')}.",
+    ]
+    instructions = str(context.get("special_reviewer_instructions", "")).strip()
+    if instructions:
+        lines.append(f"Special reviewer instructions: {instructions}")
+    if validation_issues:
+        lines.append(f"{len(validation_issues)} project input validation issue(s) should be resolved or acknowledged by the reviewer.")
+    return "\n\n".join(lines)
+
+
+def _study_area_content(
+    context: dict[str, Any],
+    related_figures: list[dict[str, Any]],
+    validation_issues: list[dict[str, Any]],
+) -> str:
+    extent = context.get("project_extent_wgs84")
+    extent_text = "not available"
+    if isinstance(extent, dict):
+        extent_text = (
+            f"west {extent.get('west')}, south {extent.get('south')}, "
+            f"east {extent.get('east')}, north {extent.get('north')}"
+        )
+    lines = [
+        f"The study area is represented by the project input geometry with WGS84 extent: {extent_text}.",
+        "The project overview map should be reviewed before this study area text is exported.",
+    ]
+    if related_figures:
+        lines.append(f"Related figure references: {', '.join(str(figure.get('figure_id')) for figure in related_figures)}.")
+    if validation_issues:
+        lines.append(f"{len(validation_issues)} study-area-related validation issue(s) require reviewer attention.")
     return "\n\n".join(lines)
 
 
@@ -449,6 +566,34 @@ def _methodology_content(
     )
 
 
+def _analysis_procedures_content(
+    context: dict[str, Any],
+    map_manifest: dict[str, Any] | None,
+) -> str:
+    geometry_role = "not available"
+    detected_inputs = _dict_list(context.get("detected_inputs", []))
+    if detected_inputs:
+        geometry_types: set[str] = set()
+        for item in detected_inputs:
+            counts = item.get("geometry_type_counts", {})
+            if isinstance(counts, dict):
+                geometry_types.update(str(key) for key in counts)
+        if geometry_types:
+            geometry_role = ", ".join(sorted(geometry_types))
+    return "\n\n".join(
+        [
+            "Mapping and analysis procedures use normalized project geometry, project analysis bounds, registered or downloaded source layers, and deterministic spatial relationships.",
+            f"Input geometry types detected for mapping context: {geometry_role}.",
+            (
+                f"{map_manifest.get('figure_count', 0)} draft figure artifact(s) are currently available for analysis review."
+                if map_manifest
+                else "No map manifest was available when this section was generated."
+            ),
+            "All procedures are desktop-screening methods and do not replace field delineation, agency consultation, engineering design, or professional judgment.",
+        ]
+    )
+
+
 def _limitations_content(
     source_status: dict[str, Any],
     validation_issues: list[dict[str, Any]],
@@ -475,6 +620,28 @@ def _limitations_content(
         lines.append(f"{issue_count} validation issue(s) should be checked before any report export.")
     lines.append("Unavailable or restricted data should create caveat language rather than unsupported conclusions.")
     return "\n".join(lines)
+
+
+def _constraints_inventory_content(
+    draft_findings: dict[str, Any],
+    comparison_tables: dict[str, Any],
+    map_manifest: dict[str, Any] | None,
+) -> str:
+    categories = sorted(
+        {
+            str(finding.get("resource_category"))
+            for finding in _dict_list(draft_findings.get("findings", []))
+            if str(finding.get("resource_category", "")).strip()
+        }
+    )
+    lines = [
+        "The environmental constraints inventory summarizes source-backed and source-gap findings by resource category.",
+        f"Draft finding categories represented: {', '.join(categories) if categories else 'none'}."
+    ]
+    lines.append(f"Comparison table artifacts available: {comparison_tables.get('table_count', 0)}.")
+    lines.append(f"Draft map figures available: {map_manifest.get('figure_count', 0) if map_manifest else 0}.")
+    lines.append("Inventory text should remain objective and should not identify a preferred project feature.")
+    return "\n\n".join(lines)
 
 
 def _resource_content(
@@ -513,6 +680,42 @@ def _resource_content(
     if validation_issues:
         lines.append(f"{len(validation_issues)} validation issue(s) require reviewer attention for this section.")
     lines.append("This language is draft/pre-review only; final determinations may require field verification, agency coordination, or reviewer edits.")
+    return "\n".join(lines)
+
+
+def _conclusion_content(
+    source_status: dict[str, Any],
+    draft_findings: dict[str, Any],
+    map_manifest: dict[str, Any] | None,
+) -> str:
+    unresolved = [
+        item
+        for item in _dict_list(source_status.get("statuses", []))
+        if item.get("requirement") == "required" and str(item.get("status")) in DEFERRED_SOURCE_STATUSES.union(VERIFICATION_SOURCE_STATUSES)
+    ]
+    lines = [
+        "This draft conclusion summarizes objective constraints and follow-up needs only.",
+        f"The current package includes {draft_findings.get('finding_count', 0)} draft finding(s) and {map_manifest.get('figure_count', 0) if map_manifest else 0} draft figure(s).",
+    ]
+    if unresolved:
+        lines.append(f"{len(unresolved)} required source categor(ies) require additional review, source acquisition, or caveat language.")
+    lines.append("Future planning, design, agency coordination, field verification, and human decision-making occur outside the automated tool.")
+    return "\n\n".join(lines)
+
+
+def _attachments_content(template: ReportSectionTemplate, map_manifest: dict[str, Any] | None) -> str:
+    lines = [
+        "Attachment placeholders for the editable export package:",
+        "- Attachment A: Project Maps.",
+        "- Attachment B: Hazardous Materials Report, when available or reviewer-provided.",
+        "- Attachment C: Agency Consultation Letters or reviewer-provided coordination records.",
+    ]
+    if map_manifest:
+        lines.append(f"Map figure artifacts currently available for Attachment A: {map_manifest.get('figure_count', 0)}.")
+    if template.visual_slots:
+        lines.append(f"Expected visual attachment slots: {', '.join(template.visual_slots)}.")
+    if template.table_slots:
+        lines.append(f"Expected table attachment slots: {', '.join(template.table_slots)}.")
     return "\n".join(lines)
 
 
@@ -598,7 +801,21 @@ def _source_status_sentence(category: str, status_record: dict[str, Any] | None)
 
 
 def _findings_for_category(draft_findings: dict[str, Any], category: str) -> list[dict[str, Any]]:
-    if category in {"comparison_summary", "maps", "methodology", "project_overview", "review_notes", "assumptions_caveats"}:
+    if category in {
+        "comparison_summary",
+        "maps",
+        "methodology",
+        "project_overview",
+        "front_matter",
+        "executive_summary",
+        "introduction",
+        "study_area",
+        "constraints_inventory",
+        "conclusion",
+        "attachments",
+        "review_notes",
+        "assumptions_caveats",
+    }:
         return []
     return [
         finding
@@ -611,7 +828,21 @@ def _tables_for_category(comparison_tables: dict[str, Any], category: str, secti
     tables = _dict_list(comparison_tables.get("tables", []))
     if section_type == "comparison_summary":
         return tables
-    if section_type in {"project_overview", "methodology", "limitations", "maps_and_figures", "reviewer_follow_up"}:
+    if section_type in {
+        "front_matter",
+        "executive_summary",
+        "introduction",
+        "study_area",
+        "project_overview",
+        "methodology",
+        "analysis_procedures",
+        "limitations",
+        "constraints_inventory",
+        "maps_and_figures",
+        "conclusion",
+        "attachments",
+        "reviewer_follow_up",
+    }:
         return []
     related: list[dict[str, Any]] = []
     for table in tables:
@@ -626,7 +857,7 @@ def _figures_for_section(map_manifest: dict[str, Any] | None, source_refs: list[
     if map_manifest is None:
         return []
     figures = _dict_list(map_manifest.get("figures", []))
-    if section_type == "maps_and_figures":
+    if section_type in {"maps_and_figures", "study_area", "attachments"}:
         return figures
     source_ref_set = set(source_refs)
     if not source_ref_set:
@@ -682,9 +913,9 @@ def _validation_issues_for_section(
     source_refs: list[str],
 ) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
-    if template.section_type == "project_overview":
+    if template.section_type in {"front_matter", "executive_summary", "introduction", "study_area", "project_overview"}:
         issues.extend(_dict_list(context.get("validation_issues", [])))
-    if template.section_type in {"limitations", "reviewer_follow_up"}:
+    if template.section_type in {"limitations", "conclusion", "reviewer_follow_up"}:
         issues.extend(_dict_list(context.get("validation_issues", [])))
         issues.extend(_dict_list(source_status.get("validation_issues", [])))
         issues.extend(_dict_list(source_inventory.get("validation_issues", [])))
@@ -702,7 +933,7 @@ def _validation_issues_for_section(
                 if not refs or str(issue.get("source_id", "")) in refs:
                     if template.section_type == "maps_and_figures" or str(issue.get("source_id", "")) in refs:
                         issues.append(issue)
-    if template.section_type == "maps_and_figures" and map_manifest is None:
+    if template.section_type in {"maps_and_figures", "attachments"} and map_manifest is None:
         issues.append(
             {
                 "severity": "warning",
@@ -731,7 +962,7 @@ def _uncertainty_flags_for_section(
         source_state = str(status_record.get("status", ""))
         if source_state in DEFERRED_SOURCE_STATUSES.union(VERIFICATION_SOURCE_STATUSES):
             flags.add(source_state)
-    if template.section_type in {"limitations", "reviewer_follow_up"}:
+    if template.section_type in {"limitations", "conclusion", "reviewer_follow_up"}:
         for item in _dict_list(source_status.get("statuses", [])):
             source_state = str(item.get("status", ""))
             if source_state in DEFERRED_SOURCE_STATUSES.union(VERIFICATION_SOURCE_STATUSES):
@@ -746,7 +977,7 @@ def _uncertainty_flags_for_section(
     for figure in figures:
         flags.update(_string_list(figure.get("uncertainty_flags", [])))
     flags.update(str(issue.get("code")) for issue in validation_issues if issue.get("code"))
-    if template.section_type == "maps_and_figures" and map_manifest is None:
+    if template.section_type in {"maps_and_figures", "attachments"} and map_manifest is None:
         flags.add("missing_map_manifest")
     return sorted(flag for flag in flags if flag)
 
@@ -761,7 +992,7 @@ def _section_review_status(
     map_manifest: dict[str, Any] | None,
 ) -> str:
     source_state = str(status_record.get("status", "")) if status_record else ""
-    if template.section_type in {"limitations", "reviewer_follow_up"}:
+    if template.section_type in {"limitations", "conclusion", "reviewer_follow_up"}:
         states = {str(item.get("status", "")) for item in _dict_list(source_status.get("statuses", []))}
         if states.intersection(VERIFICATION_SOURCE_STATUSES):
             return "needs_verification"
@@ -776,7 +1007,7 @@ def _section_review_status(
         return "needs_verification"
     if validation_issues or source_state in DEFERRED_SOURCE_STATUSES or "needs_review" in finding_statuses:
         return "needs_review"
-    if template.section_type == "maps_and_figures" and map_manifest is None:
+    if template.section_type in {"maps_and_figures", "attachments"} and map_manifest is None:
         return "needs_review"
     return "draft"
 
@@ -808,6 +1039,8 @@ def _validate_report_sections_artifact(data: dict[str, Any], location: str) -> N
         if section["review_status"] not in SUPPORTED_SECTION_REVIEW_STATUSES:
             raise ReportSectionGenerationError(f"Report section '{section_id}' has unsupported review_status: {location}")
         for list_field in (
+            "visual_slots",
+            "table_slots",
             "related_finding_ids",
             "related_table_ids",
             "related_figure_ids",
@@ -839,6 +1072,34 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _optional_string_list(value: Any, field_name: str, context: str) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
+        raise ReportSectionTemplateError(f"Report section template '{context}' field '{field_name}' must be a list of strings.")
+    return list(value)
+
+
+def _default_export_group(section_type: str) -> str:
+    if section_type == "front_matter":
+        return "front_matter"
+    if section_type == "executive_summary":
+        return "executive_summary"
+    if section_type in {"introduction", "study_area", "project_overview"}:
+        return "introduction"
+    if section_type in {"methodology", "analysis_procedures", "limitations"}:
+        return "methodology"
+    if section_type in {"constraints_inventory", "comparison_summary", "maps_and_figures"}:
+        return "constraints_inventory"
+    if section_type == "resource_section":
+        return "resource_sections"
+    if section_type == "conclusion":
+        return "conclusion"
+    if section_type in {"attachments", "reviewer_follow_up"}:
+        return "attachments"
+    return "resource_sections"
 
 
 def _is_integer(value: Any) -> bool:

@@ -125,8 +125,12 @@ def item_by_id(queue: dict[str, object], item_id: str) -> dict[str, object]:
 def test_report_section_template_config_loads() -> None:
     config = load_report_section_template_config()
 
-    assert config.sections[0].section_id == "project-overview"
+    assert config.sections[0].section_id == "front-matter"
+    assert any(section.section_id == "executive-summary" for section in config.sections)
     assert any(section.section_id == "wetlands-and-waterbodies" for section in config.sections)
+    wetlands = next(section for section in config.sections if section.section_id == "wetlands-and-waterbodies")
+    assert wetlands.export_group == "resource_sections"
+    assert wetlands.visual_slots
 
 
 def test_report_section_template_config_rejects_invalid_templates(tmp_path: Path) -> None:
@@ -187,7 +191,13 @@ def test_generate_report_sections_writes_no_blank_page_artifact(tmp_path: Path) 
     section_ids = [section["section_id"] for section in result["sections"]]
     assert section_ids == sorted(section_ids, key=lambda section_id: section_by_id(result, section_id)["section_order"])
     assert "project-overview" in section_ids
+    assert "front-matter" in section_ids
+    assert "conclusion-and-next-steps" in section_ids
     assert "maps-and-figures" in section_ids
+    wetlands = section_by_id(result, "wetlands-and-waterbodies")
+    assert wetlands["export_group"] == "resource_sections"
+    assert wetlands["visual_slots"]
+    assert wetlands["table_slots"]
 
     overview = section_by_id(result, "project-overview")
     assert "desktop screening" in str(overview["generated_content"]).lower()

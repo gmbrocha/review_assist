@@ -142,7 +142,7 @@ Current baseline:
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
 - JSON artifact at `projects/<project_id>/review_queue/review_queue.json`.
 
-The baseline defaults to a lean queue from deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues. Source inventory/provenance notes are opt-in for audit workflows. It does not yet compile exports, provide GUI review screens, or use LLM-assisted narrative.
+The baseline defaults to a lean queue from deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues. Source inventory/provenance notes are opt-in for audit workflows. Queue items now carry export-group metadata for report assembly. It does not yet provide GUI review screens or use LLM-assisted narrative.
 
 ## Phase 5: Populate for Review
 
@@ -245,6 +245,8 @@ Current baseline:
 - `populate-for-review` runs report section generation after map generation and before review queue generation.
 - Review queue generation converts report sections into `report_section` items with section metadata and related artifact IDs.
 
+This baseline now mirrors the example environmental constraints report more closely with front matter, executive summary, introduction/study area, methodology subsections, environmental constraints inventory, resource sections, conclusion/next steps, attachments, visual slots, and table slots.
+
 This baseline does not create DOCX/PDF exports, call LLMs, generate final conclusions, rank alternatives, or bypass review queue acceptance.
 
 ## Constraint Core Slice: Geometry, Constraint Results, and Lean Queue
@@ -266,12 +268,27 @@ This slice uses deterministic drafting only. The section-drafting provider inter
 
 ## Phase 7: Export Compilation
 
-- Compile accepted and explicitly included reviewed items only.
-- Generate editable draft report packages.
-- Include maps, tables, findings, source notes, review status, assumptions, and caveats.
-- Keep generated reports clearly labeled as pre-review drafts.
-- Compile appendices/reference materials where available.
-- Generate a package manifest for traceability.
+Status: first Markdown export baseline complete.
+
+- Compile accepted and edited review queue items by default.
+- Include `unable_to_verify` items only when explicitly export eligible.
+- Exclude draft, needs-review, needs-verification, and rejected items from default exports.
+- Generate editable Markdown report packages.
+- Generate an export manifest with included/skipped items, status/type counts, warnings, and source-gap caveats.
+- Preserve section order from report section artifacts.
+- Reference accepted/edited maps and tables by artifact path rather than embedding binaries.
+- Provide `--include-draft` only for internal preview exports, clearly labeled as not ready for external use.
+
+Current baseline:
+
+- `review-assist export-report <project_dir>`
+- `review-assist export-report <project_dir> --include-draft`
+- JSON manifest at `projects/<project_id>/exports/export_manifest.json`
+- Markdown report at `projects/<project_id>/exports/environmental_constraints_report.md`
+
+Next export milestone:
+
+- Add DOCX export after Markdown proves accepted-content assembly, ordering, provenance, figure/table references, caveat handling, and reviewer-state behavior.
 
 ## Phase 8: Optional AI-Assisted Narrative Synthesis
 

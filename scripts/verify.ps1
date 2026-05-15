@@ -37,6 +37,7 @@ if (-not $SkipSmoke) {
     & $ReviewAssist analyze-constraints projects/conexon_projects
     & $ReviewAssist populate-for-review projects/trails
     & $ReviewAssist populate-for-review projects/conexon_projects
+    & $ReviewAssist export-report projects/trails --include-draft
     & $ReviewAssist list-review-queue projects/trails
     & $ReviewAssist list-review-queue projects/conexon_projects
 }

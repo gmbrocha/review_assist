@@ -1,6 +1,6 @@
 # Source Directory
 
-This directory contains the Python package for local project ingestion, geometry inspection, project geometry normalization, source registry handling, source gap/acquisition handling, project context/source status artifacts, source inventory/provenance artifacts, legacy spatial relationship checks, constraint overlap/proximity analysis, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, and populate-for-review orchestration.
+This directory contains the Python package for local project ingestion, geometry inspection, project geometry normalization, source registry handling, source gap/acquisition handling, project context/source status artifacts, source inventory/provenance artifacts, legacy spatial relationship checks, constraint overlap/proximity analysis, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown export package generation, and populate-for-review orchestration.
 
 Current implementation scope:
 
@@ -23,6 +23,7 @@ Current implementation scope:
 - Vector-only PNG map/figure generation and map manifest validation.
 - Deterministic draft report section generation and report section artifact validation.
 - Lean review queue generation, listing, and item status updates.
+- Editable Markdown report export and export manifest generation.
 - Populate-for-review orchestration and run manifest generation.
 - CLI entrypoints for project inspection and workflow artifact generation.
 
