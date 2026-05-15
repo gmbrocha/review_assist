@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, and populate-for-review orchestration. No production desktop app or export workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown export packages, and populate-for-review orchestration. No production desktop app, final DOCX/PDF export, or production workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -41,7 +41,7 @@ Conceptual state objects:
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, and populate run manifests. Export manifests remain future work.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, Markdown export manifests/reports, and populate run manifests.
 
 ## Project Workspace Layer
 
@@ -70,7 +70,7 @@ Project folders may contain:
 - `exports/`
 - `review/`
 
-Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `constraints/`, generated `context/`, generated `source_acquisition/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, generated `maps/`, generated `drafts/`, and generated `review_queue/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `exports/` and `review/` remain future workflow areas.
+Some folders are current, while others remain future placeholders. `inputs/`, `config/`, generated `intermediate/`, generated `constraints/`, generated `context/`, generated `source_acquisition/`, generated `source_status/`, generated `source_inventory/`, generated `findings/`, generated `tables/`, generated `maps/`, generated `drafts/`, generated `review_queue/`, generated `exports/`, and generated `populate_for_review/` outputs are currently used. `layers/` is reserved for local source layers and is ignored by Git. `review/` remains a future workflow area.
 
 `populate_for_review/` is also currently used for orchestration run manifests. It is generated workflow state and ignored by Git.
 
@@ -172,22 +172,23 @@ Open questions:
 
 Purpose:
 
-- Compare required source categories for the report profile against local, downloadable, restricted, missing, stubbed, and optional sources.
+- Compare required source categories for the report profile against local, downloadable, downloaded, failed, restricted, missing, stubbed, and optional sources.
 - Produce and maintain the `SOURCE_STATUS_SET`.
-- Create placeholders and review requirements for missing/gated data instead of failing the workflow.
+- Create placeholders and review requirements for missing/failed/gated data instead of failing the workflow.
 
 Suggested statuses are defined in `docs/WORKFLOW_MODEL.md`:
 
 - `provided_locally`
 - `downloadable`
 - `downloaded`
+- `failed`
 - `gated`
 - `stubbed`
 - `missing`
 - `optional`
 - `needs_review`
 
-Current implementation writes `projects/<project_id>/source_status/source_status_set.json` through the `resolve-sources` CLI command. Current project source registries are an early foundation.
+Current implementation writes `projects/<project_id>/source_status/source_status_set.json` through the `resolve-sources` CLI command. Current project source registries are an early foundation. When a source acquisition manifest records a failed supported download, the matching required source category remains visible as `failed` instead of reverting to generic `downloadable`.
 
 ## Source Inventory Service
 
@@ -369,10 +370,20 @@ Purpose:
 - Compile accepted or explicitly included reviewed findings, maps, tables, narrative, appendices, source notes, assumptions, and caveats into one editable package.
 - Track what files were generated and what source evidence supports them.
 
-Possible future outputs:
+Current implementation:
+
+- The CLI command is `review-assist export-report <project_dir>`.
+- The preview command is `review-assist export-report <project_dir> --include-draft`.
+- The service writes `projects/<project_id>/exports/environmental_constraints_report.md`.
+- The service writes `projects/<project_id>/exports/export_manifest.json`.
+- Default exports include accepted or edited queue items only, plus explicitly export-eligible `unable_to_verify` items.
+- Preview exports include non-rejected draft/unaccepted items and mark the Markdown as internal/pre-review.
+- Maps and tables are referenced by artifact/file path in this slice, not embedded as binary content.
+
+Future outputs:
 
 - DOCX draft report.
-- Markdown review package.
+- DOCX/PDF report packages.
 - Excel/CSV comparison tables.
 - PNG/PDF figures.
 - GeoPackage or GeoJSON review layers.
@@ -380,9 +391,9 @@ Possible future outputs:
 
 Open questions:
 
-- Should DOCX be the first formal export?
+- What exact DOCX library/template strategy should follow the Markdown proof?
 - How should map figures be embedded and refreshed?
-- What package manifest is needed for traceability?
+- Which companion table/map files should be copied into a final export bundle instead of referenced in place?
 
 ## Review Workflow Service
 
@@ -403,7 +414,8 @@ Current implementation:
 - Converts deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues into a lean review queue by default.
 - Source inventory/provenance records can be included explicitly for audit workflows with the `--include-source-inventory` flag.
 - Supports CLI listing and status/note/export-eligibility updates.
-- Does not yet provide GUI review screens, report drafting, or export compilation.
+- Supports downstream Markdown export through review status and export eligibility.
+- Does not yet provide GUI review screens or LLM-assisted report drafting.
 
 ## Populate For Review Service
 
@@ -413,7 +425,7 @@ Purpose:
 - Run current workflow steps in order: project context, project geometry normalization, optional source preparation, source status, source inventory, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, deterministic report section generation, and lean review queue generation.
 - Write a run manifest with step statuses, artifact paths, warning records, constraint count, review queue item count for traceability only, and critical error text when a run fails.
 
-Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, project geometry, project features, analysis bounds, optional source acquisition, source status, source inventory, constraint results, draft findings, comparison table, map manifest, report section, and review queue artifact paths. It downloads only explicitly requested supported sources through `--prepare-sources`; it does not render basemap/imagery-backed maps, call LLMs, compile exports, or make recommendations.
+Current implementation writes `projects/<project_id>/populate_for_review/populate_for_review_run.json` through the `populate-for-review` CLI command. It records context, project geometry, project features, analysis bounds, optional source acquisition, source status, source inventory, constraint results, draft findings, comparison table, map manifest, report section, and review queue artifact paths. It downloads only explicitly requested supported sources through `--prepare-sources`; it does not render basemap/imagery-backed maps, call LLMs, create exports itself, or make recommendations.
 
 ## LLM Boundary
 
@@ -435,5 +447,5 @@ LLM calls must not:
 - How should large source layers and generated raster outputs be stored outside Git?
 - What review UI is needed before report export is useful?
 - What exact rules make an item export eligible?
-- What first export format should Phase 7 target: DOCX, Markdown/HTML, or a hybrid package?
+- What DOCX/PDF export format should follow the current Markdown package?
 - How should restricted cultural resource information be represented without exposing sensitive data?

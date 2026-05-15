@@ -113,7 +113,7 @@ Status: initial baseline complete.
 
 - Create a persistent project context artifact derived from project inputs, geometry summaries, assumptions, report profile, source inventory, and reviewer instructions.
 - Define the source status set for required report categories.
-- Compare needed sources against locally provided, downloadable, downloaded, gated, stubbed, missing, optional, and needs-review sources.
+- Compare needed sources against locally provided, downloadable, downloaded, failed, gated, stubbed, missing, optional, and needs-review sources.
 - Generate placeholders and uncertainty flags for missing/gated data instead of failing the workflow.
 - Keep buffer/corridor assumptions configurable and visible.
 
@@ -163,7 +163,7 @@ Current baseline:
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict for the legacy raw spatial check path.
 - `--prepare-sources` resolves catalog gaps and runs supported public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
 
-This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, and explicit NWI source acquisition through Phase 2C, but it does not compile exports, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
+This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, and explicit NWI source acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
 
 ## Phase 6A: Deterministic Finding Templates
 

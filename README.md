@@ -18,7 +18,7 @@ The implementation surface is reusable Python services plus a CLI. No GUI, broad
 
 ## Planning Docs
 
-Key planning documents live under `docs/`:
+Key planning documents live at the repo root and under `docs/`:
 
 - `PLAN_REDIRECT.md`: root drift-control plan; read before large implementation work. It defines the destination as filling the example environmental constraints report template with source-backed constraints, visuals, reviewable copy, tables, caveats, and accepted export content.
 - `OVERALL_CONTEXT.md`: product philosophy and anti-drift context.
@@ -31,7 +31,7 @@ Key planning documents live under `docs/`:
 - `FINDING_TYPES.md`: implemented baseline and future finding/implication types.
 - `UNCERTAINTY_AND_PROVENANCE.md`: source traceability and uncertainty policy.
 - `MAP_GENERATION.md`: current vector-only map baseline and future map/figure direction.
-- `REPORT_ASSEMBLY.md`: future findings-to-report workflow.
+- `REPORT_ASSEMBLY.md`: findings-to-report workflow and current Markdown export baseline.
 - `IMAGERY_REVIEW.md`: imagery observation philosophy.
 - `LLM_ASSISTED_SYNTHESIS.md`: future GPT/LLM insertion points and boundaries.
 
@@ -144,7 +144,7 @@ Implementation phases should add or update tests with the behavior they introduc
 1. Open or create a local workspace.
 2. Add project inputs such as KMZ/KML alternatives, GIS layers, reports, imagery, PDFs, maps, notes, or study documents.
 3. Generate persistent project context: extent, assumptions, detected alternatives, likely report profile, provided sources, missing categories, and reviewer instructions.
-4. Resolve needed source categories into a source status set: provided locally, downloadable, downloaded, gated, stubbed, missing, optional, or needs review.
+4. Resolve needed source categories into a source status set: provided locally, downloadable, downloaded, failed, gated, stubbed, missing, optional, or needs review.
 5. Resolve source gaps against the source catalog and, when explicitly requested, acquire supported public sources such as NWI.
 6. Populate for review by normalizing project geometry, acquiring/loading registered sources, cropping data to analysis bounds, generating constraint results, findings, tables, maps, narrative drafts, caveats, and provenance notes.
 7. Send every generated artifact into the review queue for human edit/accept/reject/verification.

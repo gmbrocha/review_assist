@@ -86,7 +86,7 @@ Detected project extent, alternatives, assumptions, likely report profile, provi
 
 ### 2026-05-14: Source status is first-class workflow state
 
-Needed data categories should resolve to explicit statuses such as provided locally, downloadable, downloaded, gated, stubbed, missing, optional, or needs review. Missing/gated data should create placeholders, uncertainty flags, and review requirements rather than failing the workflow by default.
+Needed data categories should resolve to explicit statuses such as provided locally, downloadable, downloaded, failed, gated, stubbed, missing, optional, or needs review. Missing, failed, gated, and stubbed data should create placeholders, uncertainty flags, and review requirements rather than failing the workflow by default.
 
 ### 2026-05-14: Populate for Review is the main generation action
 
@@ -110,11 +110,11 @@ Each behavior-changing implementation phase should add or update tests for the s
 
 ### 2026-05-14: Review queue persistence uses JSON for the current baseline
 
-The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI and export workflow are still deferred. The baseline now defaults to a lean queue from deterministic draft findings, comparison tables, maps, report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues. Source inventory notes are opt-in for audit workflows. The queue does not generate final findings or reports.
+The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI is still deferred. The baseline now defaults to a lean queue from deterministic draft findings, comparison tables, maps, report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues. Source inventory notes are opt-in for audit workflows. Queue items now carry export grouping metadata for Markdown assembly, but the queue itself does not generate final findings or reports.
 
 ### 2026-05-14: Populate for Review starts as orchestration, not generation
 
-The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation, Phase 6D added deterministic report section generation, the constraint-core slice added project geometry normalization plus first-class constraint analysis, and the source-acquisition slice added opt-in NWI downloads through `--prepare-sources`. It deliberately does not download public sources unless explicitly requested, render basemap/imagery-backed maps, call LLMs, compile exports, or create recommendations.
+The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation, Phase 6D added deterministic report section generation, the constraint-core slice added project geometry normalization plus first-class constraint analysis, and the source-acquisition slice added opt-in NWI downloads through `--prepare-sources`. It deliberately does not download public sources unless explicitly requested, render basemap/imagery-backed maps, call LLMs, create exports itself, or create recommendations.
 
 ### 2026-05-14: Deterministic draft findings come before maps, reports, GUI, and LLM work
 
@@ -122,7 +122,7 @@ Phase 6A converts source status records, first-class constraint result records w
 
 ### 2026-05-14: Source provenance and comparison tables are backend artifacts before maps/exports
 
-Phase 6B adds source inventory/provenance records at `projects/<project_id>/source_inventory/source_inventory.json` and descriptive comparison tables at `projects/<project_id>/tables/comparison_tables.json`. These artifacts feed the review queue and future map/export workflows. Source inventory now includes source acquisition provenance when present, but it does not render final report tables, rank alternatives, or compile report packages.
+Phase 6B adds source inventory/provenance records at `projects/<project_id>/source_inventory/source_inventory.json` and descriptive comparison tables at `projects/<project_id>/tables/comparison_tables.json`. These artifacts feed the review queue and map/export workflows. Source inventory now includes source acquisition provenance when present, but it does not render final report tables, rank alternatives, or compile report packages.
 
 ### 2026-05-14: Phase 6C map generation starts vector-only
 
@@ -131,6 +131,14 @@ The first map-generation baseline writes `projects/<project_id>/maps/map_manifes
 ### 2026-05-14: Phase 6D report section drafting starts deterministic
 
 The first report section baseline writes `projects/<project_id>/drafts/report_sections.json` using templates from `config/report_section_templates.json`. It creates no-blank-page draft sections from structured workflow artifacts and feeds `report_section` items into the review queue. LLM synthesis, DOCX/PDF export, final report compilation, ranking, recommendations, and unreviewed report output remain deferred.
+
+### 2026-05-15: Markdown export proves accepted-content assembly before DOCX
+
+The first export compiler writes `projects/<project_id>/exports/environmental_constraints_report.md` and `projects/<project_id>/exports/export_manifest.json` through `review-assist export-report`. It compiles accepted or edited review queue items by default, includes `unable_to_verify` items only when explicitly export eligible, and provides `--include-draft` only for internal preview exports. DOCX/PDF export remains deferred until Markdown proves ordering, filtering, provenance, caveat, and map/table reference behavior.
+
+### 2026-05-15: Failed source downloads must remain visible downstream
+
+Supported public downloader failures are nonfatal, but they must not disappear as generic `downloadable` source gaps. Source status, draft findings, report sections, and review queue missing-data/caveat items should carry `failed` and `source_download_failed` when the acquisition manifest records a failed latest attempt.
 
 ### 2026-05-14: The product is a constraint overlap engine plus review queue
 

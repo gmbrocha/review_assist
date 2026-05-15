@@ -91,10 +91,14 @@ This document records the latest implementation audit for the current prototype 
 - Added `export-report <project_dir>` and `export-report <project_dir> --include-draft` CLI coverage. Default exports include accepted/edited review items plus explicitly export-eligible unable-to-verify items; preview exports are clearly marked non-final.
 - Added export validation warnings for missing accepted sections, missing accepted maps, and unresolved required source gaps.
 - Added tests for export filtering, edited-content precedence, unable-to-verify eligibility, section ordering, preview export mode, reviewer edit preservation, and NWI-backed export flow.
+- Fixed failed supported source downloads so the source acquisition manifest propagates `failed` status into source status, deterministic findings, report sections, and review queue caveat items instead of falling back to generic `downloadable` language.
+- Removed an unused source-status review item helper from the lean review queue implementation.
+- Simplified Markdown export item partitioning so inclusion/skipping rules are evaluated once per review queue item.
+- Reviewed active documentation for stale export/source-status language and updated architecture, workflow, data-source, review-policy, roadmap, current-state, product, README, and agent guidance docs.
 
 ## Current Verification
 
-- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown export compilation, malformed artifact handling, and populate-for-review orchestration.
+- Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source acquisition failure propagation, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown export compilation, malformed artifact handling, and populate-for-review orchestration.
 - Current full test run: `144 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`

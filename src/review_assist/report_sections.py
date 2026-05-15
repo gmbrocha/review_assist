@@ -50,7 +50,7 @@ REQUIRED_SECTION_FIELDS = {
     "review_status",
     "validation_issues",
 }
-DEFERRED_SOURCE_STATUSES = {"missing", "downloadable", "needs_review"}
+DEFERRED_SOURCE_STATUSES = {"missing", "downloadable", "needs_review", "failed"}
 VERIFICATION_SOURCE_STATUSES = {"gated", "stubbed"}
 RESOURCE_SECTION_TYPES = {"resource_section"}
 

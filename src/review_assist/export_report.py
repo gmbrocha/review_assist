@@ -58,8 +58,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False) -> dict[str
     now = _utc_now()
 
     items = _dict_list(queue.get("items", []))
-    included = [_export_item(item) for item in items if _include_item(item, include_draft=include_draft)]
-    skipped = [_skipped_item(item, include_draft=include_draft) for item in items if not _include_item(item, include_draft=include_draft)]
+    included, skipped = _partition_export_items(items, include_draft=include_draft)
     included = sorted(included, key=_export_sort_key)
     validation_issues = _export_validation_issues(included, source_status, include_draft=include_draft)
 
@@ -125,6 +124,21 @@ def _include_item(item: dict[str, Any], *, include_draft: bool) -> bool:
     if status == "unable_to_verify":
         return bool(item.get("export_eligible", False))
     return False
+
+
+def _partition_export_items(
+    items: list[dict[str, Any]],
+    *,
+    include_draft: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    included: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    for item in items:
+        if _include_item(item, include_draft=include_draft):
+            included.append(_export_item(item))
+        else:
+            skipped.append(_skipped_item(item, include_draft=include_draft))
+    return included, skipped
 
 
 def _export_item(item: dict[str, Any]) -> dict[str, Any]:

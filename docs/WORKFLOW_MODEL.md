@@ -119,13 +119,14 @@ Suggested statuses:
 - `provided_locally`: user supplied a local source file or document.
 - `downloadable`: public data appears available but is not downloaded yet.
 - `downloaded`: public data has been acquired for the workspace.
+- `failed`: a supported source acquisition attempt failed and should create caveat/review handling.
 - `gated`: access requires credentials, qualified access, agency request, or restricted handling.
 - `stubbed`: a placeholder exists so reports can include a review requirement or caveat.
 - `missing`: expected source material is not available.
 - `optional`: useful context but not required for the selected report profile.
 - `needs_review`: source status or fitness for use needs reviewer confirmation.
 
-Missing, gated, and stubbed datasets should generate placeholders, uncertainty flags, and review requirements rather than causing the workflow to fail. The goal is useful pre-review report generation, not perfect data completeness.
+Missing, failed, gated, and stubbed datasets should generate placeholders, uncertainty flags, and review requirements rather than causing the workflow to fail. The goal is useful pre-review report generation, not perfect data completeness.
 
 ## Populate for Review
 
@@ -156,7 +157,7 @@ GPT/LLM calls are acceptable here for draft narrative generation, summarization,
 
 Current baseline:
 
-- `populate-for-review` runs context generation, project geometry normalization, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, and lean review queue generation.
+- `populate-for-review` runs context generation, project geometry normalization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, and lean review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
 - It records `projects/<project_id>/intermediate/project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` in the run manifest when project geometry generation succeeds.
 - It records `projects/<project_id>/constraints/constraint_results.json` in the run manifest when constraint analysis succeeds.
@@ -166,7 +167,7 @@ Current baseline:
 - It records `projects/<project_id>/maps/map_manifest.json` in the run manifest when map generation succeeds.
 - It records `projects/<project_id>/drafts/report_sections.json` in the run manifest when report section generation succeeds.
 - Missing or unreadable local source layers become warnings and reviewable validation/caveat items rather than blocking review queue generation.
-- It downloads only explicitly requested supported sources. It does not render basemap/imagery-backed maps, call LLMs, or compile exports.
+- It downloads only explicitly requested supported sources. It does not render basemap/imagery-backed maps, call LLMs, or create exports itself.
 
 ## Review Queue
 
@@ -202,6 +203,7 @@ Conceptual review item fields:
 - `reviewer_notes`
 - `export_eligible`
 - `export_section`
+- `export_group`
 
 Suggested statuses:
 
@@ -230,7 +232,7 @@ Current baseline:
 - `generate-review-queue` creates a lean JSON review queue from deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, and validation issues. Source inventory notes can still be included explicitly for audit/review workflows.
 - `list-review-queue` summarizes item status/type counts and item eligibility.
 - `update-review-item` supports status changes, reviewer notes, and export eligibility flags.
-- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, LLM-assisted report drafting, and export compilation remain future work.
+- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, LLM-assisted report drafting, and DOCX/PDF export remain future work.
 
 ## Export Compilation
 
@@ -254,6 +256,13 @@ Target exports may eventually include:
 - Map packages.
 
 The system should compile accepted content only. Rejected items remain in the review record but do not export. Items needing verification or unable to verify may export only if the reviewer explicitly includes them with caveat language.
+
+Current baseline:
+
+- `export-report <project_dir>` writes `projects/<project_id>/exports/environmental_constraints_report.md` and `projects/<project_id>/exports/export_manifest.json`.
+- Default exports include accepted or edited queue items only, plus `unable_to_verify` items only when explicitly export eligible.
+- `--include-draft` creates an internal preview export that includes non-rejected draft/unaccepted items and marks the Markdown as non-final/pre-review.
+- Maps and tables are referenced by artifact path in this slice; binary embedding and DOCX formatting are deferred.
 
 ## Conceptual Service Boundaries
 

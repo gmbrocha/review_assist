@@ -31,7 +31,7 @@ SUPPORTED_STATUSES = {
     "unable_to_verify",
 }
 EXPORT_TRUE_STATUSES = {"accepted", "edited", "unable_to_verify"}
-MISSING_DATA_STATUSES = {"missing", "gated", "stubbed", "needs_review", "downloadable"}
+MISSING_DATA_STATUSES = {"missing", "gated", "stubbed", "needs_review", "downloadable", "failed"}
 REQUIRED_ITEM_FIELDS = {
     "id",
     "project_id",
@@ -592,43 +592,6 @@ def _report_section_item(
             "related_table_ids": _string_list(section.get("related_table_ids", [])),
             "related_figure_ids": _string_list(section.get("related_figure_ids", [])),
         },
-    )
-
-
-def _source_status_item(
-    project_id: str,
-    now: str,
-    source_status: dict[str, Any],
-    status_record: dict[str, Any],
-) -> dict[str, Any]:
-    category = str(status_record.get("category", "unknown_category"))
-    source_state = str(status_record.get("status", "needs_review"))
-    requirement = str(status_record.get("requirement", "required"))
-    source_names = _string_list(status_record.get("source_names", []))
-    status = "needs_review" if source_state in MISSING_DATA_STATUSES else "draft"
-    return _review_item(
-        item_id=f"source-status-{_slug(category)}",
-        project_id=project_id,
-        item_type="source_status_note",
-        title=f"Source status: {category}",
-        generated_content=(
-            f"Source category '{category}' is {requirement} and currently has status '{source_state}'. "
-            f"{status_record.get('notes', '')}".strip()
-        ),
-        status=status,
-        export_section="source_status",
-        export_group="methodology",
-        assumptions={"requirement": requirement},
-        provenance={
-            "artifact": "source_status_set",
-            "artifact_path": source_status.get("output_path"),
-            "category": category,
-            "source_status": source_state,
-        },
-        source_refs=_string_list(status_record.get("source_ids", [])),
-        uncertainty_flags=_string_list(status_record.get("uncertainty_flags", [])),
-        now=now,
-        extra={"source_names": source_names},
     )
 
 

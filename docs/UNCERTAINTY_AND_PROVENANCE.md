@@ -162,13 +162,14 @@ Suggested source statuses:
 - `provided_locally`
 - `downloadable`
 - `downloaded`
+- `failed`
 - `gated`
 - `stubbed`
 - `missing`
 - `optional`
 - `needs_review`
 
-Missing, gated, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default.
+Missing, failed, gated, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default.
 
 ## Confidence Language
 

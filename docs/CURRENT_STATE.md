@@ -144,6 +144,7 @@ Current CLI commands:
 - The current implementation creates normalized project geometry artifacts that classify inputs as point/site, line/corridor, polygon/area, or mixed context.
 - The current implementation creates objective constraint results from registered local source layers, cropped to project analysis bounds and compared to normalized project features.
 - The current implementation can explicitly prepare sources by resolving catalog gaps, downloading NWI when needed, preserving acquisition provenance, and registering the downloaded layer as a normal project source.
+- Failed supported source downloads are nonfatal and now propagate as `failed` source status, uncertainty, finding, section, and review queue caveat context.
 - The current implementation creates deterministic draft findings from source status records, constraint results, spatial relationships, and no-mapped-relationship checks.
 - The current implementation creates descriptive comparison tables from source status, constraint result, spatial relationship, and draft finding artifacts.
 - The current implementation creates vector-only draft map figures from normalized project geometry and analyzed local source clipped layers.
@@ -154,7 +155,7 @@ Current CLI commands:
 
 Current audit status:
 
-- The codebase has passing tests for ingestion, source registry validation, local source registration, source acquisition with mocked NWI responses, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts, vector-only map artifacts, draft report section artifacts, Markdown export compilation, render-error handling, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
+- The codebase has passing tests for ingestion, source registry validation, local source registration, source acquisition with mocked NWI responses and failed-download propagation, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source inventory/provenance artifacts, draft finding generation, comparison table artifacts, vector-only map artifacts, draft report section artifacts, Markdown export compilation, render-error handling, review queue generation/update behavior, malformed optional artifact handling, and populate-for-review orchestration.
 - The implementation validates source registry booleans, duplicate source IDs, project/source registry ID mismatches, non-object manifest entries, optional source metadata, source inventory record counts, comparison table counts/statuses, and negative buffer values.
 - `scripts/verify.ps1` provides a repeatable local readiness check that creates the virtual environment when needed, installs development dependencies, runs pytest, and smoke-checks the current CLI workflows.
 - See `docs/CODE_AUDIT.md` for latest audit notes.

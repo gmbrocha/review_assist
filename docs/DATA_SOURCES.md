@@ -44,13 +44,14 @@ Suggested statuses:
 - `provided_locally`: user supplied a local layer, document, report, or map.
 - `downloadable`: public data appears available but is not downloaded yet.
 - `downloaded`: public data has been acquired for the workspace.
+- `failed`: a supported acquisition attempt failed and should remain visible as a caveat/review item.
 - `gated`: access requires credentials, qualified access, agency request, or restricted handling.
 - `stubbed`: a placeholder exists so report sections can include a review requirement or caveat.
 - `missing`: expected source material is not available.
 - `optional`: useful context but not required for the selected report profile.
 - `needs_review`: source status or fitness for use requires reviewer confirmation.
 
-Missing, gated, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, and report caveats so the reviewer can decide how to proceed.
+Missing, failed, gated, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, and report caveats so the reviewer can decide how to proceed.
 
 ## Phase 2A/2B Source Priority
 
@@ -248,6 +249,7 @@ Implementation status:
 - `usfws_nwi_wetlands` is the first implemented public downloader.
 - The downloader queries the public Wetlands REST MapServer layer by project analysis bounds and writes GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
 - Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so constraint analysis, findings, maps, tables, report sections, and review queue generation consume them through the existing source path.
+- Failed downloads remain nonfatal and propagate into source status, draft findings, report sections, and review queue caveat items.
 - Existing reviewer-supplied local NWI layers are preserved and not overwritten.
 
 References:

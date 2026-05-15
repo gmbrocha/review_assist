@@ -18,7 +18,7 @@ from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source
 FINDING_TEMPLATES_PATH = Path("config/finding_templates.json")
 FINDINGS_PATH = Path("findings/draft_findings.json")
 SPATIAL_RELATIONSHIPS_PATH = Path("intermediate/spatial_relationships.json")
-DEFERRED_SOURCE_STATUSES = {"missing", "gated", "stubbed", "needs_review", "downloadable"}
+DEFERRED_SOURCE_STATUSES = {"missing", "gated", "stubbed", "needs_review", "downloadable", "failed"}
 SOURCE_REVIEW_STATUSES_REQUIRING_VERIFICATION = {"gated", "stubbed"}
 SUPPORTED_FINDING_REVIEW_STATUSES = {
     "draft",

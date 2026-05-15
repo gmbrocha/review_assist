@@ -88,7 +88,7 @@ Current commands:
 - `review-assist list-review-queue <project_dir>`
 - `review-assist update-review-item <project_dir> <item_id> --status <status> [--note "..."] [--export-eligible true|false]`
 
-The current generator defaults to a lean review queue. It creates review items from deterministic draft findings, comparison tables, draft map figures, deterministic draft report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues, including constraint-analysis warnings. Source inventory/provenance records can be included explicitly with `--include-source-inventory`; source status records and generic inventory notes are not default readiness signals.
+The current generator defaults to a lean review queue. It creates review items from deterministic draft findings, comparison tables, draft map figures, deterministic draft report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues, including constraint-analysis warnings and failed source-acquisition caveats propagated through source status. Source inventory/provenance records can be included explicitly with `--include-source-inventory`; source status records and generic inventory notes are not default readiness signals.
 
 Deterministic draft findings are generated at:
 

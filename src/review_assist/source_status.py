@@ -23,6 +23,7 @@ from .source_catalog import (
 
 
 SOURCE_STATUS_PATH = Path("source_status/source_status_set.json")
+SOURCE_ACQUISITION_PATH = Path("source_acquisition/source_acquisition_manifest.json")
 
 
 class SourceStatusError(RuntimeError):
@@ -48,6 +49,7 @@ def resolve_source_status_set(project_dir: Path) -> dict[str, Any]:
     ]
     catalog_by_category = _catalog_by_category(catalog)
     project_sources = registry.by_source_id()
+    latest_download_status = _latest_download_status(_load_download_records(project_dir))
     validation_issues = _unknown_project_sources(project_sources, catalog)
 
     statuses = [
@@ -57,6 +59,7 @@ def resolve_source_status_set(project_dir: Path) -> dict[str, Any]:
             requirement="required" if category in report_profile.required_categories else "optional",
             catalog_sources=catalog_by_category.get(category, []),
             project_sources=project_sources,
+            latest_download_status=latest_download_status,
         )
         for category in categories
     ]
@@ -86,8 +89,10 @@ def _category_status(
     requirement: str,
     catalog_sources: list[SourceDefinition],
     project_sources: dict[str, ProjectSource],
+    latest_download_status: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     source_ids = [source.source_id for source in catalog_sources]
+    download_status = latest_download_status or {}
     registered = [project_sources[source_id] for source_id in source_ids if source_id in project_sources]
     local_ready = [source for source in registered if _has_existing_local_path(project_dir, source)]
     downloaded = [source for source in local_ready if source.status == "downloaded" or source.access_method == "downloaded"]
@@ -105,6 +110,10 @@ def _category_status(
         status = "needs_review"
         flags = ["local_source_missing"]
         notes = "A local source is configured but the referenced path is unavailable."
+    elif any(download_status.get(source_id) == "failed" for source_id in source_ids):
+        status = "failed"
+        flags = ["source_download_failed", "source_unavailable"]
+        notes = "The latest supported public download attempt failed; the workflow can continue with a caveat."
     elif requirement == "optional":
         status = "optional"
         flags = []
@@ -159,6 +168,29 @@ def _unknown_project_sources(project_sources: dict[str, ProjectSource], catalog:
                 }
             )
     return issues
+
+
+def _load_download_records(project_dir: Path) -> list[dict[str, Any]]:
+    manifest_path = project_dir / SOURCE_ACQUISITION_PATH
+    if not manifest_path.exists():
+        return []
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, dict) or not isinstance(data.get("downloads", []), list):
+        return []
+    return [item for item in data["downloads"] if isinstance(item, dict)]
+
+
+def _latest_download_status(downloads: list[dict[str, Any]]) -> dict[str, str]:
+    statuses: dict[str, str] = {}
+    for download in downloads:
+        source_id = str(download.get("source_id") or "")
+        status = str(download.get("status") or "")
+        if source_id and status:
+            statuses[source_id] = status
+    return statuses
 
 
 def _is_enabled_local_source(source: ProjectSource) -> bool:

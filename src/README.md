@@ -13,7 +13,7 @@ Current implementation scope:
 - Project source registry loading and local source registration.
 - Source gap resolution and opt-in public source acquisition.
 - USFWS NWI wetlands downloader with project-local acquisition provenance.
-- Source status set resolution.
+- Source status set resolution, including failed supported-download caveats.
 - Source inventory and provenance artifact generation.
 - Local source-layer clipping and legacy spatial relationship checks.
 - Project geometry normalization for point/site, line/corridor, polygon/area, and mixed inputs.

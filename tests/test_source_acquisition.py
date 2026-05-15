@@ -15,8 +15,10 @@ from review_assist.constraints import analyze_constraints
 from review_assist.findings import generate_draft_findings
 from review_assist.maps import generate_maps
 from review_assist.populate_for_review import populate_for_review
+from review_assist.review_queue import generate_review_queue
 from review_assist.source_acquisition import download_source, prepare_sources, resolve_source_gaps
 from review_assist.source_catalog import load_project_source_registry
+from review_assist.source_status import resolve_source_status_set
 
 
 def kml_document(body: str) -> bytes:
@@ -200,6 +202,19 @@ def test_failed_nwi_downloader_records_nonfatal_failed_status(tmp_path: Path) ->
     assert download["status"] == "failed"
     assert download["validation_issues"][0]["code"] == "source_download_failed"
     assert source_gap(result, "usfws_nwi_wetlands")["status"] == "failed"
+
+    source_status = resolve_source_status_set(project_dir)
+    wetlands_status = next(item for item in source_status["statuses"] if item["category"] == "wetlands_waterbodies")
+    assert wetlands_status["status"] == "failed"
+    assert "source_download_failed" in wetlands_status["uncertainty_flags"]
+
+    findings = generate_draft_findings(project_dir)
+    failed_finding = next(item for item in findings["findings"] if item["resource_category"] == "wetlands_waterbodies")
+    assert failed_finding["assumptions"]["source_status"] == "failed"
+
+    queue = generate_review_queue(project_dir)
+    missing_item = next(item for item in queue["items"] if item["id"] == "missing-data-wetlands-waterbodies")
+    assert missing_item["assumptions"]["source_status"] == "failed"
 
 
 def test_existing_local_registered_source_is_not_overwritten_by_download(tmp_path: Path) -> None:

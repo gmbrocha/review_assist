@@ -29,7 +29,7 @@ This repository is an early scaffold for an alternatives review workflow tool. F
 
 ## Current Phase
 
-The project has Phase 1 ingestion, an initial Phase 2 source/spatial-check baseline, Phase 3 project context/source status artifacts, a Phase 4 JSON-backed review queue baseline, and a Phase 5 populate-for-review orchestration baseline. Do not build the full desktop application, wire external integrations, add authentication, implement ML/CV workflows, generate reports, or compile exports unless the user explicitly changes the scope.
+The project has Phase 1 ingestion, Phase 2 source/spatial-check/source-acquisition baselines, Phase 3 project context/source status artifacts, a Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, deterministic findings/tables/maps/report sections, a constraint-engine baseline, and a first Markdown export compiler. Do not build the full desktop application, wire broad external integrations, add authentication, implement ML/CV workflows, call LLMs, or create final DOCX/PDF exports unless the user explicitly changes the scope.
 
 ## Directory Conventions
 

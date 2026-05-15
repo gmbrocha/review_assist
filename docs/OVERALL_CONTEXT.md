@@ -71,6 +71,7 @@ The stable workflow pattern is:
    - provided locally
    - downloadable
    - downloaded
+   - failed
    - gated
    - stubbed
    - missing

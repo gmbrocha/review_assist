@@ -16,6 +16,7 @@ Current focus:
 - Project context generation.
 - Source status set resolution.
 - Source inventory/provenance generation and source registry metadata validation.
+- Source acquisition failure propagation into source status, findings, and review queue caveats.
 - Synthetic local source-layer spatial checks.
 - Finding template validation, deterministic draft finding generation, and finding-to-review-queue integration.
 - Comparison table generation and table-to-review-queue integration.
