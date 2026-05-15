@@ -533,6 +533,7 @@ def _download_layers(config: dict[str, Any]) -> list[dict[str, Any]]:
                 "label_fields": _string_list(raw_layer.get("label_fields", [])),
                 "feature_type_fields": _string_list(raw_layer.get("feature_type_fields", [])),
                 "feature_subtype_fields": _string_list(raw_layer.get("feature_subtype_fields", [])),
+                "program_flag_fields": _string_list(raw_layer.get("program_flag_fields", [])),
                 "original_id_fields": _string_list(raw_layer.get("original_id_fields", [])),
                 "date_fields": _string_list(raw_layer.get("date_fields", [])),
                 "quality_flag_fields": _string_list(raw_layer.get("quality_flag_fields", [])),
@@ -564,6 +565,9 @@ def _normalized_download_feature(feature: dict[str, Any], *, source: SourceDefin
     label = _first_property_value(properties, layer.get("label_fields", []))
     feature_type = _first_property_value(properties, layer.get("feature_type_fields", []))
     feature_subtype = _first_property_value(properties, layer.get("feature_subtype_fields", []))
+    program_flags = _program_flags_value(properties, layer.get("program_flag_fields", []))
+    if program_flags:
+        feature_type = _combine_values(feature_type, program_flags)
     original_id = _first_property_value(properties, layer.get("original_id_fields", []))
     feature_date = _first_property_value(properties, layer.get("date_fields", []))
     quality_flag = _first_property_value(properties, layer.get("quality_flag_fields", []))
@@ -588,6 +592,34 @@ def _normalized_download_feature(feature: dict[str, Any], *, source: SourceDefin
     )
     normalized["properties"] = properties
     return normalized
+
+
+def _program_flags_value(properties: dict[str, Any], fields: list[str]) -> str:
+    labels: list[str] = []
+    by_lower = {str(key).lower(): key for key in properties}
+    for field in fields:
+        key = field if field in properties else by_lower.get(str(field).lower())
+        if key is None:
+            continue
+        value = properties.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text.upper() in {"Y", "YES", "TRUE", "T", "1"}:
+            labels.append(_program_flag_label(field))
+    return ", ".join(labels)
+
+
+def _program_flag_label(field: str) -> str:
+    label = str(field).upper().removesuffix("_FLAG")
+    if label == "SDWIS":
+        return "SDWA"
+    return label
+
+
+def _combine_values(primary: str, secondary: str) -> str:
+    values = [value for value in (primary, secondary) if value]
+    return "; ".join(dict.fromkeys(values))
 
 
 def _first_property_value(properties: dict[str, Any], fields: list[str]) -> str:

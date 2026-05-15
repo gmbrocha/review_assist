@@ -106,7 +106,7 @@ This document records the latest implementation audit for the current prototype 
 ## Current Verification
 
 - Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source acquisition failure propagation, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown export compilation, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `163 passed`.
+- Current full test run: `169 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist build-project-geometry projects/trails`
@@ -131,7 +131,7 @@ This document records the latest implementation audit for the current prototype 
 
 ## Known Limits
 
-- Local source layers are supported; opt-in USFWS NWI, USGS NHD, and USFWS Critical Habitat downloads are implemented, and FEMA NFHL effective flood hazard downloads are implemented as optional explicit context. Other public downloaders are not implemented yet.
+- Local source layers are supported; opt-in USFWS NWI, USGS NHD, USFWS Critical Habitat, and EPA/ECHO regulated facility downloads are implemented, and FEMA NFHL effective flood hazard downloads are implemented as optional explicit context. Other public downloaders are not implemented yet.
 - Legacy spatial analysis produces relationship records only. The constraint engine now produces first-class constraint result records for the main populate-for-review flow.
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or final report sections.
 - Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, or final report prose until reviewed.

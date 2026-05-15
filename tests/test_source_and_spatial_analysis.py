@@ -121,6 +121,7 @@ def test_source_catalog_loads_broad_categories() -> None:
     assert catalog.sources["usfws_nwi_wetlands"].download["downloader"] == "arcgis_rest_geojson"
     assert [layer["layer_id"] for layer in catalog.sources["usgs_nhd_hydrography"].download["layers"]] == [6, 9]
     assert [layer["layer_id"] for layer in catalog.sources["usfws_critical_habitat"].download["layers"]] == [0, 2]
+    assert [layer["layer_id"] for layer in catalog.sources["epa_envirofacts_echo"].download["layers"]] == [0]
 
 
 def test_invalid_source_catalog_requires_sources_list(tmp_path: Path) -> None:

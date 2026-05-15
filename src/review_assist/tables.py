@@ -54,6 +54,7 @@ def generate_comparison_tables(project_dir: Path) -> dict[str, Any]:
         _hydrography_crossing_summary(constraints),
         _flood_hazard_summary(constraints),
         _critical_habitat_summary(constraints),
+        _regulated_facility_summary(constraints),
         _spatial_relationship_summary(spatial),
         _draft_finding_summary(draft_findings),
     ]
@@ -518,6 +519,91 @@ def _critical_habitat_summary(constraints: dict[str, Any] | None) -> dict[str, A
         table_type="critical_habitat_summary",
         title="USFWS Critical Habitat Summary",
         description="USFWS final and proposed critical habitat relationships by project feature.",
+        columns=columns,
+        rows=rows,
+        provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
+        source_refs=sorted(source_refs),
+        uncertainty_flags=["no_constraint_results_artifact"] if constraints is None else [],
+    )
+
+
+def _regulated_facility_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
+    columns = [
+        "project_feature_id",
+        "project_feature_name",
+        "source_category",
+        "source_id",
+        "facility_name",
+        "registry_id",
+        "address",
+        "city",
+        "state",
+        "program_flags",
+        "active_flag",
+        "major_flag",
+        "current_compliance_status",
+        "current_snc_flag",
+        "inspection_count",
+        "last_inspection_date",
+        "formal_action_count",
+        "informal_action_count",
+        "total_penalties",
+        "relationship_type",
+        "distance_feet",
+        "buffer_feet",
+        "dfr_url",
+        "collection_method",
+        "accuracy_meters",
+    ]
+    rows: list[dict[str, Any]] = []
+    source_refs: set[str] = set()
+    if constraints is not None:
+        for constraint in constraints.get("constraints", []):
+            if not isinstance(constraint, dict) or constraint.get("source_category") != "regulated_facilities":
+                continue
+            source_id = str(constraint.get("source_id", ""))
+            if source_id:
+                source_refs.add(source_id)
+            measurements = constraint.get("measurements", {})
+            if not isinstance(measurements, dict):
+                measurements = {}
+            values = constraint.get("source_feature_values", {})
+            if not isinstance(values, dict):
+                values = {}
+            rows.append(
+                {
+                    "project_feature_id": constraint.get("project_feature_id", ""),
+                    "project_feature_name": constraint.get("project_feature_name", ""),
+                    "source_category": constraint.get("source_category", ""),
+                    "source_id": source_id,
+                    "facility_name": values.get("facility_name") or constraint.get("source_feature_label", ""),
+                    "registry_id": values.get("facility_registry_id") or constraint.get("source_feature_original_id", ""),
+                    "address": values.get("facility_street", ""),
+                    "city": values.get("facility_city", ""),
+                    "state": values.get("facility_state", ""),
+                    "program_flags": values.get("facility_programs") or constraint.get("source_feature_type", ""),
+                    "active_flag": values.get("facility_active_flag", ""),
+                    "major_flag": values.get("facility_major_flag", ""),
+                    "current_compliance_status": values.get("facility_current_compliance_status", ""),
+                    "current_snc_flag": values.get("facility_current_snc_flag", ""),
+                    "inspection_count": values.get("facility_inspection_count", ""),
+                    "last_inspection_date": values.get("facility_last_inspection_date") or constraint.get("source_feature_date", ""),
+                    "formal_action_count": values.get("facility_formal_action_count", ""),
+                    "informal_action_count": values.get("facility_informal_action_count", ""),
+                    "total_penalties": values.get("facility_total_penalties", ""),
+                    "relationship_type": constraint.get("relationship_type", ""),
+                    "distance_feet": measurements.get("distance_feet"),
+                    "buffer_feet": constraint.get("buffer_feet"),
+                    "dfr_url": values.get("facility_dfr_url") or constraint.get("source_feature_source_citation", ""),
+                    "collection_method": values.get("facility_collection_method", ""),
+                    "accuracy_meters": values.get("facility_accuracy_meters", ""),
+                }
+            )
+    return _table(
+        table_id="regulated-facility-summary",
+        table_type="regulated_facility_summary",
+        title="EPA ECHO Regulated Facility Summary",
+        description="EPA ECHO regulated facility proximity records by project feature.",
         columns=columns,
         rows=rows,
         provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},

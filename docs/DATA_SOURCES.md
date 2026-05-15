@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, and optional FEMA NFHL effective flood hazard zones are the first implemented public downloaders. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL effective flood hazard zones are the first implemented public downloaders. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -108,6 +108,7 @@ Live downloads are explicit only:
 .\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
 .\.venv\Scripts\review-assist.exe download-source projects/trails usgs_nhd_hydrography
 .\.venv\Scripts\review-assist.exe download-source projects/trails usfws_critical_habitat
+.\.venv\Scripts\review-assist.exe download-source projects/trails epa_envirofacts_echo
 .\.venv\Scripts\review-assist.exe download-source projects/trails fema_nfhl_flood_hazard
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails --include-optional-sources
@@ -682,6 +683,16 @@ Potential findings:
 Reference:
 
 - https://echo.epa.gov/tools/data-downloads
+- https://echo.epa.gov/tools/map-service
+- https://echogeo.epa.gov/arcgis/rest/services/ECHO/Facilities/MapServer
+
+Implementation status:
+
+- `epa_envirofacts_echo` is implemented as an explicit public downloader.
+- The downloader queries the public ECHO Facilities MapServer `All ECHO Facilities` layer `0` by project analysis bounds and writes GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
+- Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so constraint analysis, findings, regulated facility summary tables, source-context maps, report sections, and review queue generation consume them through the same path as reviewer-supplied data.
+- Downloaded records preserve original ECHO attributes and add normalized Review Assist source/layer/label/type/subtype/original-id/date/quality/citation fields where available.
+- ECHO context is screening-level only. Facility locations, program flags, compliance status, and Detailed Facility Report links require reviewer QC and do not replace environmental due diligence, hazardous materials review, field verification, or professional judgment.
 
 ### Mississippi State Oil and Gas Board
 

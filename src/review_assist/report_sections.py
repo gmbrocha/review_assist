@@ -855,6 +855,7 @@ def _tables_for_category(comparison_tables: dict[str, Any], category: str, secti
             "hydrography-crossing-summary",
             "flood-hazard-summary",
             "critical-habitat-summary",
+            "regulated-facility-summary",
             "spatial-relationship-summary",
             "draft-finding-summary",
         }

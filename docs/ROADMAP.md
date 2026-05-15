@@ -87,7 +87,7 @@ Phase 2B still does not create findings, review queue records, maps, reports, ra
 
 ## Phase 2C: Catalog-Driven Source Acquisition
 
-Status: NWI, USGS NHD hydrography, and USFWS Critical Habitat downloader baseline complete; FEMA NFHL effective flood hazard downloader implemented as optional context.
+Status: NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facilities downloader baseline complete; FEMA NFHL effective flood hazard downloader implemented as optional context.
 
 - Compare project inputs, project source registries, and report-profile source needs against the source catalog.
 - Treat project inputs tagged with `source_id` or unambiguous `source_category` as provided source layers and register them for analysis.
@@ -97,6 +97,7 @@ Status: NWI, USGS NHD hydrography, and USFWS Critical Habitat downloader baselin
 - Download USFWS National Wetlands Inventory wetlands through the public Wetlands REST MapServer layer when explicitly requested.
 - Download USGS National Hydrography Dataset hydrography through The National Map NHD MapServer large-scale flowline and area layers when explicitly requested.
 - Download USFWS Critical Habitat final and proposed polygon features through the public Critical Habitat FeatureServer when explicitly requested.
+- Download EPA/ECHO regulated facilities through the public ECHO Facilities MapServer layer 0 when explicitly requested.
 - Download FEMA National Flood Hazard Layer effective Flood Hazard Zones through public NFHL MapServer layer 28 when explicitly requested.
 - Record source URL, service URL/layer, access date, requested bounds, output path, feature count, checksum, limitations, warnings, per-layer provenance, and failures.
 - Add normalized Review Assist source/layer/label/type/subtype/original-id/date/quality/source-citation fields to downloaded layers where available while preserving original source attributes.
@@ -108,6 +109,7 @@ Current baseline:
 - `review-assist download-source <project_dir> usfws_nwi_wetlands`
 - `review-assist download-source <project_dir> usgs_nhd_hydrography`
 - `review-assist download-source <project_dir> usfws_critical_habitat`
+- `review-assist download-source <project_dir> epa_envirofacts_echo`
 - `review-assist download-source <project_dir> fema_nfhl_flood_hazard`
 - `review-assist prepare-sources <project_dir>`
 - `review-assist prepare-sources <project_dir> --include-optional-sources`
@@ -173,7 +175,7 @@ Current baseline:
 - `--prepare-sources` resolves catalog gaps and runs supported required public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - `--include-optional-sources`, when paired with `--prepare-sources`, also downloads supported optional sources such as FEMA NFHL flood hazard.
 
-This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, explicit NWI, USGS NHD hydrography, and USFWS Critical Habitat source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
+This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
 
 ## Phase 6A: Deterministic Finding Templates
 
@@ -200,7 +202,7 @@ Status: initial baseline complete.
 
 - Generate a source inventory artifact with catalog, registry, source status, local file metadata, optional project-supplied source metadata, and validation issues.
 - Support optional per-source registry metadata for citations, attribution, source URL, access date, publication/metadata dates, license/terms, and reviewer notes.
-- Generate descriptive comparison table artifacts for source status, constraint results, grouped feature/category constraints, hydrography crossings, FEMA flood hazard, USFWS critical habitat, spatial relationships, and draft findings.
+- Generate descriptive comparison table artifacts for source status, constraint results, grouped feature/category constraints, hydrography crossings, FEMA flood hazard, USFWS critical habitat, EPA/ECHO regulated facilities, spatial relationships, and draft findings.
 - Feed comparison tables into the review queue with deterministic item IDs, with source inventory records available as opt-in audit review items.
 
 Current baseline:
@@ -211,7 +213,7 @@ Current baseline:
 - JSON comparison tables at `projects/<project_id>/tables/comparison_tables.json`.
 - `populate-for-review` records both artifact paths and sends generated records/tables into the review queue.
 
-This baseline now records source acquisition provenance when present and includes report-ready grouped, hydrography, flood hazard, and critical habitat summary tables when source-backed constraints exist. It does not render final map images, draft GPT report prose, compile exports, rank alternatives, or recommend preferred options.
+This baseline now records source acquisition provenance when present and includes report-ready grouped, hydrography, flood hazard, critical habitat, and regulated facility summary tables when source-backed constraints exist. It does not render final map images, draft GPT report prose, compile exports, rank alternatives, or recommend preferred options.
 
 ## Phase 6C: Map/Figure and Imagery Generation
 
@@ -270,7 +272,7 @@ Status: initial baseline complete.
 - `review-assist analyze-constraints <project_dir>` uses registered local source layers only, crops them to project analysis bounds, and writes `projects/<project_id>/constraints/constraint_results.json`.
 - Constraint results preserve project feature identity, source identity/category, relationship type, source feature labels, provenance, and available length/area/distance measurements.
 - `generate-findings` prefers constraint results when present.
-- `generate-tables` adds constraint summary, grouped constraint summary, hydrography crossing summary, FEMA flood hazard summary, and USFWS critical habitat summary tables when relevant constraint results exist.
+- `generate-tables` adds constraint summary, grouped constraint summary, hydrography crossing summary, FEMA flood hazard summary, USFWS critical habitat summary, and EPA/ECHO regulated facility summary tables when relevant constraint results exist.
 - `populate-for-review` now routes through constraint analysis before findings/tables/maps/sections/queue generation.
 - `generate-review-queue` defaults to useful report-facing items instead of source-inventory/source-status volume; source inventory notes are available with `--include-source-inventory`.
 

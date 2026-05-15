@@ -304,8 +304,28 @@
       "geometry_type": "point",
       "url": "https://echo.epa.gov/tools/data-downloads",
       "spatial_relationships": ["within_buffer"],
-      "known_limitations": "Facility records may require address/location QC and environmental professional interpretation.",
-      "notes": "Regulated facility and compliance context."
+      "download": {
+        "supported": true,
+        "downloader": "arcgis_rest_geojson",
+        "service_url": "https://echogeo.epa.gov/arcgis/rest/services/ECHO/Facilities/MapServer",
+        "output_name": "epa_envirofacts_echo",
+        "layers": [
+          {
+            "layer_id": 0,
+            "layer_name": "All ECHO Facilities",
+            "label_fields": ["FAC_NAME", "fac_name"],
+            "feature_type_fields": ["FAC_MAP_ICON", "FAC_CURR_COMPLIANCE_STATUS", "FAC_ACTIVE_FLAG", "FAC_MAJOR_FLAG"],
+            "feature_subtype_fields": ["FAC_CURR_SNC_FLG", "FAC_MAJOR_FLAG", "FAC_ACTIVE_FLAG"],
+            "program_flag_fields": ["AIR_FLAG", "NPDES_FLAG", "RCRA_FLAG", "TRI_FLAG", "SDWIS_FLAG", "SDWA_FLAG", "GHG_FLAG"],
+            "original_id_fields": ["REGISTRY_ID", "GLOBALID", "OBJECTID"],
+            "date_fields": ["FAC_DATE_LAST_INSPECTION", "FAC_DATE_LAST_FORMAL_ACTION", "FAC_DATE_LAST_INFORMAL_ACTION", "FAC_DATE_LAST_PENALTY"],
+            "quality_flag_fields": ["FAC_ACTIVE_FLAG", "FAC_MAJOR_FLAG", "FAC_CURR_COMPLIANCE_STATUS", "FAC_CURR_SNC_FLG", "FAC_COLLECTION_METHOD", "FAC_ACCURACY_METERS"],
+            "source_citation_fields": ["DFR_URL"]
+          }
+        ]
+      },
+      "known_limitations": "ECHO facility records are screening-level regulatory context. Locations, program flags, compliance fields, and facility status require reviewer QC and do not replace environmental due diligence, hazardous materials review, field verification, or professional judgment.",
+      "notes": "Regulated facility and compliance context from the ECHO Facilities map service."
     },
     {
       "source_id": "census_tiger_acs",
