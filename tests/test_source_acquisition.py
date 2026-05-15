@@ -525,11 +525,13 @@ def test_successful_nwi_downloader_writes_geojson_provenance_checksum_and_regist
     registry_source = load_project_source_registry(project_dir).by_source_id()["usfws_nwi_wetlands"]
 
     assert download["status"] == "downloaded"
+    assert download["data_authenticity"] == "test_fixture"
     assert download["feature_count"] == 1
     assert download["checksum_sha256"]
     assert Path(download["output_path"]).exists()
     assert registry_source.access_method == "local_file"
     assert registry_source.status == "downloaded"
+    assert registry_source.metadata["data_authenticity"] == "test_fixture"
     assert registry_source.path == "source_acquisition/downloads/usfws_nwi_wetlands.geojson"
 
 

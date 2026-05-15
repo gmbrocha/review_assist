@@ -302,11 +302,14 @@ def _download_arcgis_geojson_source(project_dir: Path, source: SourceDefinition,
     output_path = project_dir / SOURCE_DOWNLOADS_DIR / f"{output_name}.geojson"
     single_layer = layers[0] if len(layers) == 1 else None
     query_url = _layer_query_url(service_url, single_layer["layer_id"]) if single_layer else None
+    fetcher = fetch_json or _fetch_json
+    data_authenticity = _download_data_authenticity(fetch_json, fetcher)
     base_record = {
         "source_id": source.source_id,
         "source_name": source.name,
         "source_category": source.category,
         "status": "failed",
+        "data_authenticity": data_authenticity,
         "downloader": str(config.get("downloader") or "arcgis_rest_geojson"),
         "service_url": service_url,
         "layer_id": single_layer["layer_id"] if single_layer else None,
@@ -345,19 +348,19 @@ def _download_arcgis_geojson_source(project_dir: Path, source: SourceDefinition,
 
     try:
         bounds = _project_analysis_bounds_wgs84(project_dir)
-        fetcher = fetch_json or _fetch_json
         feature_collection, layer_records = _query_arcgis_geojson_layers(
             source=source,
             config=config,
             layers=layers,
             bounds=bounds,
             fetch_json=fetcher,
+            data_authenticity=data_authenticity,
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(feature_collection, indent=2).encode("utf-8")
         output_path.write_bytes(payload)
         checksum = hashlib.sha256(payload).hexdigest()
-        _register_downloaded_source(project_dir, source, output_path, access_date)
+        _register_downloaded_source(project_dir, source, output_path, access_date, data_authenticity)
         feature_count = len(feature_collection.get("features", []))
         record = dict(base_record)
         record.update(
@@ -403,6 +406,7 @@ def _query_arcgis_geojson_layers(
     layers: list[dict[str, Any]],
     bounds: dict[str, float],
     fetch_json: FetchJson,
+    data_authenticity: str,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     service_url = str(config["service_url"])
     features: list[dict[str, Any]] = []
@@ -416,7 +420,7 @@ def _query_arcgis_geojson_layers(
             fetch_json=fetch_json,
         )
         normalized_features = [
-            _normalized_download_feature(feature, source=source, layer=layer)
+            _normalized_download_feature(feature, source=source, layer=layer, data_authenticity=data_authenticity)
             for feature in layer_features
             if isinstance(feature, dict)
         ]
@@ -558,7 +562,13 @@ def _layer_manifest_records(service_url: str, layers: list[dict[str, Any]]) -> l
     ]
 
 
-def _normalized_download_feature(feature: dict[str, Any], *, source: SourceDefinition, layer: dict[str, Any]) -> dict[str, Any]:
+def _normalized_download_feature(
+    feature: dict[str, Any],
+    *,
+    source: SourceDefinition,
+    layer: dict[str, Any],
+    data_authenticity: str,
+) -> dict[str, Any]:
     normalized = dict(feature)
     raw_properties = feature.get("properties", {})
     properties = dict(raw_properties) if isinstance(raw_properties, dict) else {}
@@ -588,6 +598,7 @@ def _normalized_download_feature(feature: dict[str, Any], *, source: SourceDefin
             "review_assist_feature_date": feature_date,
             "review_assist_quality_flag": quality_flag,
             "review_assist_source_citation": source_citation,
+            "review_assist_data_authenticity": data_authenticity,
         }
     )
     normalized["properties"] = properties
@@ -662,6 +673,18 @@ def _fetch_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _download_data_authenticity(fetch_json: FetchJson | None, fetcher: FetchJson) -> str:
+    if fetch_json is not None:
+        return "test_fixture"
+    module = str(getattr(fetcher, "__module__", ""))
+    name = str(getattr(fetcher, "__name__", ""))
+    qualified_name = str(getattr(fetcher, "__qualname__", ""))
+    marker_text = f"{module}.{qualified_name}.{name}".lower()
+    if module.startswith("tests") or any(marker in marker_text for marker in ("fake", "mock", "fixture")):
+        return "test_fixture"
+    return "real"
+
+
 def _service_record_limit(metadata: dict[str, Any]) -> int:
     raw_limit = metadata.get("maxRecordCount", 1000)
     try:
@@ -692,7 +715,13 @@ def _project_analysis_bounds_wgs84(project_dir: Path) -> dict[str, float]:
     }
 
 
-def _register_downloaded_source(project_dir: Path, source: SourceDefinition, output_path: Path, access_date: str) -> None:
+def _register_downloaded_source(
+    project_dir: Path,
+    source: SourceDefinition,
+    output_path: Path,
+    access_date: str,
+    data_authenticity: str,
+) -> None:
     registry = load_project_source_registry(project_dir)
     existing = registry.by_source_id()
     old_source = existing.get(source.source_id)
@@ -707,6 +736,7 @@ def _register_downloaded_source(project_dir: Path, source: SourceDefinition, out
             "citation": source.name,
             "attribution": source.publisher,
             "review_notes": source.known_limitations,
+            "data_authenticity": data_authenticity,
         }
     )
     updated = ProjectSource(
@@ -752,6 +782,8 @@ def _register_tagged_source_inputs(
         existing = current.by_source_id().get(source.source_id)
         if existing is not None and _has_existing_local_path(project_dir, existing) and existing.status not in {"downloaded", "provided_in_input"}:
             continue
+        metadata = dict(existing.metadata) if existing else {}
+        metadata["data_authenticity"] = "real"
         updated = ProjectSource(
             source_id=source.source_id,
             enabled=True,
@@ -761,7 +793,7 @@ def _register_tagged_source_inputs(
             buffer_feet=existing.buffer_feet if existing else None,
             notes=existing.notes if existing else "Provided in project input package.",
             status="provided_in_input",
-            metadata=existing.metadata if existing else {},
+            metadata=metadata,
         )
         current = _save_updated_source(project_dir, current, updated)
         update_count += 1

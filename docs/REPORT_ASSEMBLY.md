@@ -2,7 +2,7 @@
 
 This document captures the pipeline for assembling editable pre-review report packages.
 
-A deterministic draft section baseline exists, and the accepted-content export compiler now writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items.
+A deterministic draft section baseline exists, and the accepted-content export compiler now writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first and blocks client-facing packages that contain mock/test fixture source evidence or no real source layers.
 
 ## Goal
 
@@ -96,6 +96,10 @@ The `--include-draft` option is for internal preview only. It includes unaccepte
 
 The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included table ids, included map paths, and generated package contents. DOCX export renders report sections, table previews where practical, map figures when files exist, placeholders when files are missing, source refs, uncertainty flags, caveats, and package contents.
 
+Export and deliverable manifests include `data_lineage` counts and records. The lineage model distinguishes project input geometry, registered local layers, user-provided input layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records. Generated source-gap caveats are stubs, not source-backed records.
+
+DOCX and Markdown exports include `Real Data Used` and `Stubs / Manual Review Needed` sections. These sections exist so a reviewer can tell which content came from real project/source material and which content is an honest placeholder for unavailable, manual, gated, failed, or reviewer-needed data.
+
 ## Demo Deliverable Package
 
 The current CLI can create a client-showable internal preview package without touching the UI:
@@ -107,6 +111,20 @@ The current CLI can create a client-showable internal preview package without to
 - Manifest: `projects/<project_id>/exports/deliverable_package_manifest.json`
 
 This command runs `populate-for-review`, then exports `--include-draft` content in the requested format. It does not accept, edit, or otherwise mutate review item statuses. The output exists to demonstrate the report shape and should not be treated as reviewed deliverable content.
+
+## Real-Data MVP Deliverable Package
+
+The current CLI can create a stricter MVP package intended to prove that the deliverable can be populated by real available data rather than mock records:
+
+- Command: `review-assist build-mvp-deliverable <project_dir>`
+- Optional source inclusion: `--include-optional-sources`
+- Format option: `--format markdown|docx|both`
+- Guardrail option: `--fail-on-no-downloaded-sources` / `--no-fail-on-no-downloaded-sources`
+- Manifest: `projects/<project_id>/exports/deliverable_package_manifest.json`
+
+This command runs `populate-for-review --prepare-sources`, then exports `--include-draft` content in the requested format. It does not mutate review item statuses or auto-accept anything.
+
+By default, MVP export fails when no downloaded, provided, or registered real source layer is available. It also fails when included export content contains `test_fixture` provenance. The command may include clearly labeled stubs for missing, manual, gated, failed, or reviewer-needed categories, but those stubs are separated from source-backed evidence in the manifest and exported report.
 
 ## Narrative Sources
 
@@ -218,6 +236,7 @@ The compiled package manifest includes or should continue to include:
 - Review status summary.
 - Included/skipped queue item summaries.
 - Known missing data.
+- Data lineage and authenticity counts.
 - Generation timestamp.
 
 This manifest should support reproducibility and review.

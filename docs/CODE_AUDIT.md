@@ -19,7 +19,7 @@ This document records the latest implementation audit for the current prototype 
 - Phase 6C vector-only map/figure generation.
 - Phase 6D deterministic draft report section generation.
 - Constraint-engine project geometry normalization and constraint overlap/proximity analysis.
-- Markdown/DOCX export package generation and internal demo deliverable packaging.
+- Markdown/DOCX export package generation, internal demo deliverable packaging, and real-data MVP deliverable guardrails.
 - CLI commands for project inspection, source listing, local source registration, project analysis, project geometry, constraint analysis, review queue operations, Markdown/DOCX report export, demo deliverable export, and populate-for-review.
 - Tests and active documentation.
 
@@ -97,17 +97,24 @@ This document records the latest implementation audit for the current prototype 
 - Added `export-report --format markdown|docx|both` and `build-demo-deliverable <project_dir>` CLI coverage for internal preview deliverable packages that do not auto-accept review items.
 - Added export validation warnings for missing accepted sections, missing accepted maps, and unresolved required source gaps.
 - Added tests for export filtering, edited-content precedence, unable-to-verify eligibility, section ordering, preview export mode, reviewer edit preservation, and NWI-backed export flow.
+- Added `data_lineage` summaries to export and deliverable manifests so real project inputs, registered local sources, provided-in-input sources, downloaded public sources, stubs, and test/mock records are visible.
+- Added `data_authenticity` metadata for registered/provided/downloaded source layers, deterministic missing-source stubs, and test fixture download paths.
+- Added `Real Data Used` and `Stubs / Manual Review Needed` sections to Markdown/DOCX exports.
+- Added `build-mvp-deliverable <project_dir>` CLI coverage for real-data guarded MVP preview packages that run source preparation before export.
+- Added MVP guardrails that fail when no real source layer is available by default and fail when included content contains test fixture/mock source provenance.
+- Added tests for data lineage classification, MVP no-real-source blocking, test-fixture blocking, real provided-source success, and MVP CLI JSON output.
 - Fixed failed supported source downloads so the source acquisition manifest propagates `failed` status into source status, deterministic findings, report sections, and review queue caveat items instead of falling back to generic `downloadable` language.
 - Carried FEMA flood hazard datum and length-unit fields through the constraint-to-table path for report-ready flood summaries.
 - Updated FEMA date-field fallbacks so effective, panel, and revert dates are considered before generic date fields.
 - Removed an unused source-status review item helper from the lean review queue implementation.
 - Simplified Markdown export item partitioning so inclusion/skipping rules are evaluated once per review queue item.
+- Avoided double-counting existing reviewer-supplied local sources in lineage when a public download is skipped to preserve the local layer.
 - Reviewed active documentation for stale export/source-status language and updated architecture, workflow, data-source, review-policy, roadmap, current-state, product, README, and agent guidance docs.
 
 ## Current Verification
 
 - Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source acquisition failure propagation, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown/DOCX export compilation, demo deliverable package generation, malformed artifact handling, and populate-for-review orchestration.
-- Current full test run: `175 passed`.
+- Current full test run: `179 passed`.
 - CLI smoke checks pass for:
   - `review-assist list-sources projects/trails`
   - `review-assist build-project-geometry projects/trails`
@@ -128,6 +135,7 @@ This document records the latest implementation audit for the current prototype 
   - `review-assist populate-for-review projects/conexon_projects`
   - `review-assist export-report projects/trails --include-draft --format both`
   - `review-assist build-demo-deliverable projects/trails --format both`
+  - `review-assist build-mvp-deliverable projects/trails --include-optional-sources`
   - `review-assist list-review-queue projects/trails`
   - `review-assist list-review-queue projects/conexon_projects`
 
@@ -137,10 +145,10 @@ This document records the latest implementation audit for the current prototype 
 - Legacy spatial analysis produces relationship records only. The constraint engine now produces first-class constraint result records for the main populate-for-review flow.
 - Draft findings are template-driven and cautious, but they are still report-shaped screening records. They are not final findings, field verification, recommendations, or final report sections.
 - Source inventory, comparison table, map figure, and report section artifacts are descriptive workflow state. They are not final citations, final report tables, final report maps, or final report prose until reviewed.
-- The review queue defaults to draft finding, comparison table, map figure, report section, report-relevant missing-data, validation, and no-mapped items. Source inventory/provenance items are opt-in for audit workflows, and legacy spatial relationship items remain available when those artifacts exist. Export compilation now uses review queue status and export eligibility instead of every generated artifact.
+- The review queue defaults to draft finding, comparison table, map figure, report section, report-relevant missing-data, validation, and no-mapped items. Source inventory/provenance items are opt-in for audit workflows, and legacy spatial relationship items remain available when those artifacts exist. Export compilation now uses review queue status and export eligibility instead of every generated artifact, and MVP deliverable generation additionally checks real-data lineage before packaging.
 - `populate-for-review` orchestrates current services only. It downloads supported sources only when `--prepare-sources` is used; it does not call LLMs, render basemap/imagery-backed maps, or create final PDF/template-grade DOCX exports.
 - KMZ/KML ingestion supports Point, LineString, and Polygon parsing only.
-- Downloaded NWI, NHD, Critical Habitat, and FEMA layers now receive normalized feature fields, but broader source schema normalization is not implemented for every cataloged source.
+- Downloaded NWI, NHD, Critical Habitat, EPA/ECHO, and FEMA layers now receive normalized feature fields, but broader source schema normalization is not implemented for every cataloged source.
 - Geometry repair is not implemented yet. Invalid source geometries may require cleanup before reliable analysis.
 - Raster source analysis is cataloged but not implemented.
 - Basemap/imagery acquisition, panel map sheets, PDF export, template-grade DOCX layout, and final map export packages are not implemented.

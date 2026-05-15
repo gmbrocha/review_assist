@@ -261,9 +261,12 @@ Current baseline:
 
 - `export-report <project_dir>` writes Markdown and/or DOCX report packages plus `projects/<project_id>/exports/export_manifest.json`.
 - `build-demo-deliverable <project_dir>` runs populate-for-review and preview export into an internal demo package manifest without accepting review items.
+- `build-mvp-deliverable <project_dir>` runs `populate-for-review --prepare-sources` and preview export into a real-data guarded MVP package manifest without accepting review items.
 - Default exports include accepted or edited queue items only, plus `unable_to_verify` items only when explicitly export eligible.
 - `--include-draft` creates an internal preview export that includes non-rejected draft/unaccepted items and marks the Markdown/DOCX as non-final/pre-review.
 - DOCX export renders table previews and embeds map figures when figure files are present; missing visuals/tables remain explicit placeholders.
+- Export and deliverable manifests include `data_lineage` so reviewers can distinguish real project inputs, registered/provided/downloaded source layers, manual/gated/missing stubs, and test/mock records.
+- MVP deliverable builds fail by default when no real source layer is available and always fail when included content contains test fixture/mock source evidence.
 
 ## Conceptual Service Boundaries
 
@@ -295,4 +298,5 @@ The current CLI services are early building blocks. `generate-context` and `reso
 - Do not treat desktop review as field verification.
 - Do not let AI create unsupported facts.
 - Do not export unreviewed generated content as final.
+- Do not include mock or test fixture source records in MVP/client-facing deliverables.
 - Do not automate restricted access workflows without explicit approval.

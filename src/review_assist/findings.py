@@ -281,6 +281,7 @@ def _source_status_findings(
                     "artifact_path": source_status.get("output_path"),
                     "category": category,
                     "source_status": source_state,
+                    "data_authenticity": "stub",
                 },
                 uncertainty_flags=_with_default_flag(status_record.get("uncertainty_flags", []), "desktop_screening_only"),
                 review_status="needs_verification"
@@ -331,6 +332,7 @@ def _constraint_findings(
                     "method": constraint.get("method"),
                     "analysis_crs": constraint.get("analysis_crs"),
                     "relationship_type": constraint.get("relationship_type"),
+                    "data_authenticity": constraint.get("data_authenticity", "real"),
                 },
                 uncertainty_flags=["desktop_screening_only"],
                 review_status="draft",

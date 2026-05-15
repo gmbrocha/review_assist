@@ -140,6 +140,10 @@ The first export compiler writes `projects/<project_id>/exports/environmental_co
 
 The MVP export slice adds DOCX generation through `review-assist export-report --format docx|both` and an internal preview package command through `review-assist build-demo-deliverable`. Default export remains review-gated. The demo command uses `--include-draft` preview semantics, visibly labels output as not reviewed, and does not auto-accept or mutate review item statuses. PDF export, final template fidelity, UI review screens, and GPT drafting remain deferred.
 
+### 2026-05-15: MVP deliverables must prove real-data lineage
+
+The real-data MVP path adds `review-assist build-mvp-deliverable`, which runs source preparation before preview export and records `data_lineage` in export/deliverable manifests. MVP packages may contain clearly labeled stubs for missing, manual, gated, failed, or reviewer-needed categories, but they must not present mock/test fixture source records as evidence. The command fails by default when no real downloaded, provided, or registered source layer is available and fails when included content contains test fixture provenance.
+
 ### 2026-05-15: Failed source downloads must remain visible downstream
 
 Supported public downloader failures are nonfatal, but they must not disappear as generic `downloadable` source gaps. Source status, draft findings, report sections, and review queue missing-data/caveat items should carry `failed` and `source_download_failed` when the acquisition manifest records a failed latest attempt.

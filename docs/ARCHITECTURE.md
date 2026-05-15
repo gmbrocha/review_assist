@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export packages, internal demo deliverable packages, and populate-for-review orchestration. No production desktop app, final PDF export, template-grade DOCX layout, or production workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export packages, internal demo deliverable packages, real-data MVP deliverable guardrails, and populate-for-review orchestration. No production desktop app, final PDF export, template-grade DOCX layout, or production workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -40,8 +40,9 @@ Conceptual state objects:
 - Draft report section records.
 - Review queue items.
 - Export manifest.
+- Data lineage records.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, Markdown/DOCX export manifests/reports, demo deliverable package manifests, and populate run manifests.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, Markdown/DOCX export manifests/reports, demo/MVP deliverable package manifests, data lineage summaries, and populate run manifests.
 
 ## Project Workspace Layer
 
@@ -157,7 +158,7 @@ Current implementation:
 - The CLI can list catalog entries and register a local source layer for a project.
 - Local-file registration remains the default Phase 2 path; live downloads are explicit and opt-in.
 - The source acquisition service writes `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`.
-- The first implemented public downloader is `usfws_nwi_wetlands`; successful downloads are stored under ignored `source_acquisition/downloads/` and registered as normal local-file sources.
+- Implemented public downloaders include `usfws_nwi_wetlands`, `usgs_nhd_hydrography`, `usfws_critical_habitat`, `epa_envirofacts_echo`, and optional `fema_nfhl_flood_hazard`; successful downloads are stored under ignored `source_acquisition/downloads/` and registered as normal local-file sources.
 - Registry loading validates project IDs, duplicate source IDs, boolean enabled flags, and non-negative source buffer overrides.
 
 This service should not silently call paid services, use credentials, or access restricted systems without explicit approval.
@@ -378,9 +379,11 @@ Current implementation:
 - The service writes `projects/<project_id>/exports/environmental_constraints_report.docx` when DOCX output is requested.
 - The service writes `projects/<project_id>/exports/export_manifest.json`.
 - The demo package command writes `projects/<project_id>/exports/deliverable_package_manifest.json`.
+- The MVP package command writes `projects/<project_id>/exports/deliverable_package_manifest.json` with a real-data package status and `data_lineage`.
 - Default exports include accepted or edited queue items only, plus explicitly export-eligible `unable_to_verify` items.
 - Preview exports include non-rejected draft/unaccepted items and mark the Markdown/DOCX as internal/pre-review.
 - DOCX export embeds map figures when files are present, renders table previews where practical, and leaves explicit placeholders when visual/table artifacts are missing.
+- Data lineage distinguishes project inputs, registered/provided/downloaded real source layers, manual/gated/missing stubs, and test/mock records. MVP deliverables fail by default when no real source layer is available and always fail when test fixture source records are included.
 
 Future outputs:
 

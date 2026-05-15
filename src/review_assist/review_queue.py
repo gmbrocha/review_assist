@@ -444,6 +444,7 @@ def _draft_finding_item(
             "finding_id": finding_id,
             "finding_type": finding.get("type"),
             "evidence_class": finding.get("evidence_class"),
+            "data_authenticity": _nested_string(finding.get("provenance", {}), "data_authenticity") or _finding_data_authenticity(finding),
             "finding_provenance": finding.get("provenance", {}),
         },
         source_refs=_string_list(finding.get("source_ids", [])),
@@ -622,6 +623,7 @@ def _missing_data_item(
             "artifact_path": source_status.get("output_path"),
             "category": category,
             "source_status": source_state,
+            "data_authenticity": "stub",
         },
         source_refs=_string_list(status_record.get("source_ids", [])),
         uncertainty_flags=_string_list(status_record.get("uncertainty_flags", [])),
@@ -889,6 +891,21 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _nested_string(value: Any, key: str) -> str:
+    if not isinstance(value, dict):
+        return ""
+    item = value.get(key)
+    return str(item) if isinstance(item, str) and item.strip() else ""
+
+
+def _finding_data_authenticity(finding: dict[str, Any]) -> str:
+    if str(finding.get("type", "")) == "source_unavailable_or_deferred":
+        return "stub"
+    if finding.get("source_ids"):
+        return "real"
+    return "unknown"
 
 
 def _int_count(value: Any) -> int:

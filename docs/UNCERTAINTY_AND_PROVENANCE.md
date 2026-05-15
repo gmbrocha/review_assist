@@ -11,8 +11,11 @@ Every generated review item should eventually be traceable to:
 - Geometry assumptions.
 - Review status.
 - Uncertainty flags.
+- Data authenticity.
 
 Generated findings, maps, tables, narrative, caveats, source notes, and reports are pre-review drafts until a human reviewer accepts, edits, rejects, marks them for verification, or marks them unable to verify.
+
+MVP/client-facing deliverables must distinguish real source-backed evidence from stubs and test fixtures. Mock or test fixture source records must not be included as client-facing evidence.
 
 ## Source Reliability Tiers
 
@@ -119,6 +122,7 @@ Future source records may include:
 - `geometry_type`
 - `coverage_area`
 - `known_limitations`
+- `data_authenticity`: `real`, `stub`, `test_fixture`, or `unknown`
 
 Future method records may include:
 
@@ -170,6 +174,19 @@ Suggested source statuses:
 - `needs_review`
 
 Missing, failed, gated, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default.
+
+## Data Authenticity and Lineage
+
+Export and deliverable manifests include a `data_lineage` summary. It counts project inputs, registered local source layers, provided-in-input source layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records.
+
+The current convention is:
+
+- `real`: project inputs, reviewer-registered local sources, provided-in-input source layers, and live downloaded public sources.
+- `stub`: source-gap caveats, manual/restricted placeholders, failed downloads, and missing-source placeholders.
+- `test_fixture`: mocked downloader responses or test-only source records.
+- `unknown`: legacy or malformed provenance that cannot be classified.
+
+The real-data MVP command fails by default if no real source layer is available and always fails if included export content contains `test_fixture` provenance. Stubs may remain in an MVP package only when clearly labeled as unavailable, manual, gated, failed, or reviewer-needed.
 
 ## Confidence Language
 

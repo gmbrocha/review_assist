@@ -8,6 +8,8 @@ The app is a constraint engine plus a review queue plus an export compiler.
 
 Internal MVP/demo packages may include unaccepted draft content only when explicitly generated as an internal preview and visibly labeled as not reviewed. That preview path exists to show the deliverable shape; it must not be treated as final reviewed export content.
 
+MVP deliverables must be real-data guarded. They may include clearly labeled stubs for missing, manual, gated, failed, or reviewer-needed sources, but they must not include mock or test fixture source records as client-facing evidence.
+
 The app is not a recommendation engine. It must not choose, reject, rank, score, or recommend a trail, route, site, service location, service area, corridor, alternative, or project feature. It presents objective constraints so someone else can make decisions outside the tool.
 
 The app is not trails-specific. Trails and Conexon are sample workspaces only. The system must work as a blank project machine that can accept point, line, polygon, or mixed project inputs.
@@ -425,6 +427,11 @@ The app should generate these where source data is available and create reviewab
 - [x] Demo deliverable package generation exists through `review-assist build-demo-deliverable`.
 - [x] Demo deliverable manifests are written to `projects/<id>/exports/deliverable_package_manifest.json`.
 - [x] DOCX export renders report sections, tables where practical, map figures when files exist, placeholders when files are missing, source refs, caveats, and generated package contents.
+- [x] Real-data MVP deliverable generation exists through `review-assist build-mvp-deliverable`.
+- [x] Export and deliverable manifests include `data_lineage` counts for project inputs, real source layers, stubs, and test/mock records.
+- [x] MVP deliverables fail when no real source layer is available by default.
+- [x] MVP deliverables fail when test fixture/mock source records are detected.
+- [x] DOCX exports include `Real Data Used` and `Stubs / Manual Review Needed` sections.
 
 ## Still To Go
 
@@ -542,6 +549,8 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 - [x] Preserve editability in the exported report.
 - [x] Add DOCX export once Markdown assembly proves ordering, filtering, source refs, caveats, and map/table reference behavior.
 - [x] Add an internal demo deliverable command that runs populate-for-review and preview export without auto-accepting review items.
+- [x] Add a real-data MVP deliverable command that runs source preparation and blocks mock/test-fixture evidence.
+- [x] Add data-lineage summaries to export and deliverable manifests.
 - [ ] Improve DOCX formatting against the example report template after the MVP package path is stable.
 - [ ] Add PDF export only after DOCX layout is acceptable.
 
@@ -581,6 +590,7 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 - The app must not hide missing or gated data.
 - The app must not invent source-backed evidence.
 - The app must not present unreviewed generated content as reviewed, final, or externally ready content.
+- The app must not include mock or test fixture source records in MVP/client-facing deliverables.
 - The app must not automate restricted data access without explicit approval.
 - The app must stay project-type agnostic.
 - The app must keep deterministic constraint analysis separate from narrative drafting.
@@ -591,8 +601,9 @@ Move from backend breadth toward a client-showable MVP deliverable package.
 
 The practical next milestones are:
 
-1. Improve the DOCX package layout against the example report template without bypassing review gates.
-2. Improve section language quality and map/table placement so the generated report reads like a coherent pre-review draft.
-3. Add GPT-assisted section drafting from structured artifacts only after deterministic DOCX assembly remains stable.
-4. Add reviewer-facing UI only after the backend can repeatedly produce a useful draft package.
-5. Resume additional source downloaders only when they directly improve a missing template section needed for the MVP.
+1. Run real-data MVP smoke packages with `build-mvp-deliverable` and inspect downloaded-source/constraint counts.
+2. Improve DOCX package layout against the example report template without bypassing review gates.
+3. Improve section language quality and map/table placement so the generated report reads like a coherent pre-review draft.
+4. Add GPT-assisted section drafting from structured artifacts only after deterministic DOCX assembly remains stable.
+5. Add reviewer-facing UI only after the backend can repeatedly produce a useful draft package.
+6. Resume additional source downloaders only when they directly improve a missing template section needed for the MVP.

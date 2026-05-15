@@ -8,7 +8,8 @@ from typing import Any
 import pytest
 
 from review_assist import source_acquisition
-from review_assist.deliverable import build_demo_deliverable
+from review_assist import deliverable as deliverable_module
+from review_assist.deliverable import MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from review_assist.cli import main
 from review_assist.export_report import export_report
 from review_assist.populate_for_review import populate_for_review
@@ -96,6 +97,81 @@ def fake_nwi_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
             }
         ],
     }
+
+
+def fake_empty_public_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    if params.get("f") == "pjson":
+        return {"maxRecordCount": 100}
+    return {"type": "FeatureCollection", "features": []}
+
+
+def add_source_input(project_dir: Path, source_id: str, filename: str, geometry: dict[str, Any]) -> None:
+    input_path = project_dir / "inputs" / filename
+    input_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"name": source_id},
+                        "geometry": geometry,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest_path = project_dir / "config" / "project.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["inputs"].append(
+        {
+            "path": f"inputs/{filename}",
+            "role": "source_layer",
+            "description": f"Provided source layer for {source_id}",
+            "source_id": source_id,
+        }
+    )
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
+def add_supported_real_source_inputs(project_dir: Path) -> None:
+    add_source_input(
+        project_dir,
+        "usfws_nwi_wetlands",
+        "provided_nwi.geojson",
+        {
+            "type": "Polygon",
+            "coordinates": [[[-90.001, 31.999], [-89.998, 31.999], [-89.998, 32.001], [-90.001, 32.001], [-90.001, 31.999]]],
+        },
+    )
+    add_source_input(
+        project_dir,
+        "usgs_nhd_hydrography",
+        "provided_nhd.geojson",
+        {
+            "type": "LineString",
+            "coordinates": [[-90.001, 32.0], [-89.998, 32.0]],
+        },
+    )
+    add_source_input(
+        project_dir,
+        "usfws_critical_habitat",
+        "provided_critical_habitat.geojson",
+        {
+            "type": "Polygon",
+            "coordinates": [[[-90.002, 31.998], [-89.997, 31.998], [-89.997, 32.002], [-90.002, 32.002], [-90.002, 31.998]]],
+        },
+    )
+    add_source_input(
+        project_dir,
+        "epa_envirofacts_echo",
+        "provided_echo.geojson",
+        {
+            "type": "Point",
+            "coordinates": [-89.999, 32.0],
+        },
+    )
 
 
 def set_queue_item(project_dir: Path, item_id: str, **updates: Any) -> None:
@@ -193,6 +269,11 @@ def test_export_docx_preview_includes_drafts_and_marks_output(tmp_path: Path) ->
     assert Path(manifest["docx_path"]).exists()
     assert "docx" in manifest["output_formats"]
     assert "INTERNAL PREVIEW / NOT REVIEWED" in text
+    assert "Real Data Used" in text
+    assert "Stubs / Manual Review Needed" in text
+    assert manifest["data_lineage"]["counts"]["project_input"] == 1
+    assert manifest["data_lineage"]["counts"]["missing_stub"] > 0
+    assert any(issue["code"] == "no_real_source_layers" for issue in manifest["validation_issues"])
     assert "Study Area" in text
     assert "Generated Package Contents" in text
 
@@ -244,6 +325,7 @@ def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_an
     assert "report-section-wetlands-and-waterbodies" in included_ids(manifest)
     assert "comparison-table-constraint-summary" in included_ids(manifest)
     assert map_id in included_ids(manifest)
+    assert manifest["data_lineage"]["counts"]["test_or_mock"] > 0
     assert "Mock NWI Wetland" in markdown
     assert "Map file:" in markdown
 
@@ -311,7 +393,64 @@ def test_build_demo_deliverable_writes_package_manifest_without_accepting_items(
     assert Path(manifest["output_path"]).exists()
     assert Path(manifest["markdown_path"]).exists()
     assert Path(manifest["docx_path"]).exists()
+    assert "data_lineage" in manifest
     assert not any(item["status"] in {"accepted", "edited"} for item in queue["items"])
+
+
+def test_build_mvp_deliverable_fails_without_real_source_data(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+
+    def populate_without_source_preparation(project_dir: Path, *, prepare_sources: bool, include_optional_sources: bool) -> dict[str, Any]:
+        return populate_for_review(project_dir, prepare_sources=False, include_optional_sources=False)
+
+    monkeypatch.setattr(deliverable_module, "populate_for_review", populate_without_source_preparation)
+
+    with pytest.raises(MvpDeliverableError, match="MVP deliverables require"):
+        build_mvp_deliverable(project_dir)
+
+
+def test_build_mvp_deliverable_fails_with_test_fixture_downloads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    monkeypatch.setattr(source_acquisition, "_fetch_json", fake_empty_public_fetch)
+
+    with pytest.raises(MvpDeliverableError, match="test fixture"):
+        build_mvp_deliverable(project_dir, fail_on_no_downloaded_sources=False)
+
+
+def test_build_mvp_deliverable_succeeds_with_real_provided_source_layers(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    add_supported_real_source_inputs(project_dir)
+
+    manifest = build_mvp_deliverable(project_dir, output_format="docx")
+    text = docx_text(manifest["docx_path"])
+
+    assert manifest["package_status"] == "internal_preview_real_data_mvp"
+    assert manifest["data_lineage"]["counts"]["provided_in_input"] >= 4
+    assert manifest["data_lineage"]["counts"]["test_or_mock"] == 0
+    assert "Real Data Used" in text
+    assert "provided_in_input" in json.dumps(manifest["data_lineage"])
+
+
+def test_cli_build_mvp_deliverable_json_with_real_provided_sources(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = write_project(tmp_path)
+    add_supported_real_source_inputs(project_dir)
+
+    assert main(["build-mvp-deliverable", str(project_dir), "--format", "docx", "--json"]) == 0
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert payload["project_id"] == "test_project"
+    assert payload["data_lineage"]["real_source_count"] >= 4
+    assert Path(payload["docx_path"]).exists()
 
 
 def test_cli_build_demo_deliverable_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

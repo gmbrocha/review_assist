@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from .constraints import ConstraintAnalysisError, analyze_constraints
-from .deliverable import DemoDeliverableError, build_demo_deliverable
+from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from .export_report import ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
 from .inspection import ProjectInspectionError, inspect_project
@@ -155,6 +155,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Editable export format to generate for the demo package.",
     )
     demo_parser.add_argument("--json", action="store_true", help="Print full JSON demo deliverable manifest to stdout.")
+
+    mvp_parser = subparsers.add_parser(
+        "build-mvp-deliverable",
+        help="Run source-backed populate-for-review and export an internal real-data MVP deliverable package.",
+    )
+    mvp_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    mvp_parser.add_argument(
+        "--include-optional-sources",
+        action="store_true",
+        help="Also download supported optional sources such as FEMA NFHL flood hazard.",
+    )
+    mvp_parser.add_argument(
+        "--fail-on-no-downloaded-sources",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Fail when no downloaded, provided-in-input, or registered local source layer is available.",
+    )
+    mvp_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=("markdown", "docx", "both"),
+        default="both",
+        help="Editable export format to generate for the MVP package.",
+    )
+    mvp_parser.add_argument("--json", action="store_true", help="Print full JSON MVP deliverable manifest to stdout.")
 
     queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
     queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -595,6 +620,42 @@ def build_demo_deliverable_command(
     return 0
 
 
+def build_mvp_deliverable_command(
+    project_dir: Path,
+    print_json: bool,
+    include_optional_sources: bool = False,
+    fail_on_no_downloaded_sources: bool = True,
+    output_format: str = "both",
+) -> int:
+    try:
+        result = build_mvp_deliverable(
+            project_dir,
+            include_optional_sources=include_optional_sources,
+            fail_on_no_downloaded_sources=fail_on_no_downloaded_sources,
+            output_format=output_format,
+        )
+    except MvpDeliverableError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated MVP deliverable: {result['project_id']} ({result['project_name']})")
+    print(f"Included items: {result['included_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    lineage = result.get("data_lineage", {}) if isinstance(result.get("data_lineage"), dict) else {}
+    print(f"Real source records: {lineage.get('real_source_count', 0)}")
+    print(f"Source-backed constraints: {lineage.get('source_backed_constraint_count', 0)}")
+    if result.get("markdown_path"):
+        print(f"Markdown: {result['markdown_path']}")
+    if result.get("docx_path"):
+        print(f"DOCX: {result['docx_path']}")
+    print(f"Manifest: {result['output_path']}")
+    return 0
+
+
 def list_review_queue_command(project_dir: Path, print_json: bool) -> int:
     try:
         summary = summarize_review_queue(project_dir)
@@ -715,6 +776,14 @@ def main(argv: list[str] | None = None) -> int:
             args.json,
             args.prepare_sources,
             args.include_optional_sources,
+            args.output_format,
+        )
+    if args.command == "build-mvp-deliverable":
+        return build_mvp_deliverable_command(
+            args.project_dir,
+            args.json,
+            args.include_optional_sources,
+            args.fail_on_no_downloaded_sources,
             args.output_format,
         )
     if args.command == "generate-review-queue":

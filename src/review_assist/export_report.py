@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .data_lineage import build_data_lineage
 from .review_queue import ReviewQueueError, generate_review_queue, load_review_queue
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 from .tables import TABLES_PATH, TableGenerationError, load_comparison_tables
@@ -67,12 +68,14 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
     items = _dict_list(queue.get("items", []))
     included, skipped = _partition_export_items(items, include_draft=include_draft)
     included = sorted(included, key=_export_sort_key)
+    data_lineage = build_data_lineage(project_dir, included_items=included)
     unresolved_required_sources = _unresolved_required_sources(source_status)
     validation_issues = _export_validation_issues(
         included,
         unresolved_required_sources,
         include_draft=include_draft,
     )
+    validation_issues.extend(_dict_list(data_lineage.get("validation_issues", [])))
     if comparison_tables:
         validation_issues.extend(_dict_list(comparison_tables.get("validation_issues", [])))
 
@@ -82,6 +85,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
             included=included,
             validation_issues=validation_issues,
             include_draft=include_draft,
+            data_lineage=data_lineage,
         )
         markdown_path.write_text(markdown, encoding="utf-8")
 
@@ -94,6 +98,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
             validation_issues=validation_issues,
             include_draft=include_draft,
             comparison_tables=comparison_tables,
+            data_lineage=data_lineage,
             output_paths={
                 "markdown_report": str(markdown_path) if "markdown" in formats else None,
                 "docx_report": str(docx_path),
@@ -126,6 +131,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "included_map_paths": sorted({str(item.get("image_path")) for item in included if item.get("image_path")}),
         "included_source_refs": sorted({ref for item in included for ref in _string_list(item.get("source_refs", []))}),
         "unresolved_required_sources": unresolved_required_sources,
+        "data_lineage": data_lineage,
         "package_contents": _package_contents(queue, output_paths={
             "markdown_report": str(markdown_path) if "markdown" in formats else None,
             "docx_report": str(docx_path) if "docx" in formats else None,
@@ -321,6 +327,7 @@ def _markdown_report(
     included: list[dict[str, Any]],
     validation_issues: list[dict[str, Any]],
     include_draft: bool,
+    data_lineage: dict[str, Any],
 ) -> str:
     lines = [
         f"# {queue.get('project_name', 'Environmental Constraints Report')}",
@@ -346,6 +353,7 @@ def _markdown_report(
         lines.append("## Export Caveats")
         lines.extend(f"- {issue.get('code')}: {issue.get('message')}" for issue in validation_issues)
         lines.append("")
+    lines.extend(_markdown_data_lineage(data_lineage))
     if not included:
         lines.extend(["## No Exported Content", "", "No review queue items met the export criteria.", ""])
         return "\n".join(lines)
@@ -395,6 +403,43 @@ def _markdown_item(item: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _markdown_data_lineage(data_lineage: dict[str, Any]) -> list[str]:
+    lines = ["## Real Data Used", ""]
+    real_records = [
+        record
+        for record in _dict_list(data_lineage.get("records", []))
+        if record.get("lineage_type") in {"downloaded_public_source", "registered_local", "provided_in_input"}
+    ]
+    if real_records:
+        for record in real_records:
+            label = record.get("source_name") or record.get("source_id") or record.get("path") or "Real data source"
+            details = []
+            if record.get("status"):
+                details.append(f"status `{record.get('status')}`")
+            if record.get("feature_count") is not None:
+                details.append(f"{record.get('feature_count')} feature(s)")
+            if record.get("access_date"):
+                details.append(f"accessed {record.get('access_date')}")
+            lines.append(f"- {label}: {', '.join(details) if details else record.get('lineage_type')}.")
+    else:
+        lines.append("- No downloaded, provided-in-input, or registered local source layers were available.")
+    lines.append("")
+    stub_records = [
+        record
+        for record in _dict_list(data_lineage.get("records", []))
+        if record.get("lineage_type") in {"manual_stub", "gated_stub", "missing_stub"}
+    ]
+    lines.extend(["## Stubs / Manual Review Needed", ""])
+    if stub_records:
+        for record in stub_records:
+            label = record.get("category") or record.get("source_id") or "source category"
+            lines.append(f"- {label}: {record.get('status', 'stub')} ({record.get('lineage_type')}).")
+    else:
+        lines.append("- No source stubs were recorded for this export.")
+    lines.append("")
+    return lines
+
+
 def _markdown_package_contents(queue: dict[str, Any]) -> list[str]:
     lines = ["## Generated Package Contents", ""]
     contents = _package_contents(queue, output_paths={})
@@ -421,6 +466,7 @@ def _write_docx_report(
     validation_issues: list[dict[str, Any]],
     include_draft: bool,
     comparison_tables: dict[str, Any] | None,
+    data_lineage: dict[str, Any],
     output_paths: dict[str, str | None],
 ) -> None:
     try:
@@ -453,6 +499,8 @@ def _write_docx_report(
         for issue in validation_issues:
             document.add_paragraph(f"{issue.get('code')}: {issue.get('message')}", style="List Bullet")
 
+    _add_docx_data_lineage(document, data_lineage)
+
     if not included:
         document.add_heading("No Exported Content", level=1)
         document.add_paragraph("No review queue items met the export criteria.")
@@ -474,6 +522,47 @@ def _write_docx_report(
     _add_docx_package_contents(document, queue, output_paths)
     docx_path.parent.mkdir(parents=True, exist_ok=True)
     document.save(docx_path)
+
+
+def _add_docx_data_lineage(document: Any, data_lineage: dict[str, Any]) -> None:
+    document.add_heading("Real Data Used", level=1)
+    real_records = [
+        record
+        for record in _dict_list(data_lineage.get("records", []))
+        if record.get("lineage_type") in {"downloaded_public_source", "registered_local", "provided_in_input"}
+    ]
+    if real_records:
+        for record in real_records:
+            label = record.get("source_name") or record.get("source_id") or record.get("path") or "Real data source"
+            details = []
+            if record.get("status"):
+                details.append(f"status {record.get('status')}")
+            if record.get("feature_count") is not None:
+                details.append(f"{record.get('feature_count')} feature(s)")
+            if record.get("access_date"):
+                details.append(f"accessed {record.get('access_date')}")
+            if record.get("checksum_sha256"):
+                details.append(f"checksum {record.get('checksum_sha256')}")
+            if record.get("source_limitations"):
+                details.append(f"limitations: {record.get('source_limitations')}")
+            document.add_paragraph(f"{label}: {'; '.join(details) if details else record.get('lineage_type')}.", style="List Bullet")
+    else:
+        document.add_paragraph("No downloaded, provided-in-input, or registered local source layers were available.", style="List Bullet")
+
+    document.add_heading("Stubs / Manual Review Needed", level=1)
+    stub_records = [
+        record
+        for record in _dict_list(data_lineage.get("records", []))
+        if record.get("lineage_type") in {"manual_stub", "gated_stub", "missing_stub"}
+    ]
+    if stub_records:
+        for record in stub_records:
+            label = record.get("category") or record.get("source_id") or "source category"
+            notes = str(record.get("notes") or "").strip()
+            suffix = f" {notes}" if notes else ""
+            document.add_paragraph(f"{label}: {record.get('status', 'stub')} ({record.get('lineage_type')}).{suffix}", style="List Bullet")
+    else:
+        document.add_paragraph("No source stubs were recorded for this export.", style="List Bullet")
 
 
 def _add_docx_item(

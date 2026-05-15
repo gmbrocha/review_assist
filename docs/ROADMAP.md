@@ -280,7 +280,7 @@ This slice uses deterministic drafting only. The section-drafting provider inter
 
 ## Phase 7: Export Compilation
 
-Status: Markdown, DOCX, and internal demo deliverable package baseline complete.
+Status: Markdown, DOCX, internal demo deliverable, and real-data guarded MVP deliverable package baseline complete.
 
 - Compile accepted and edited review queue items by default.
 - Include `unable_to_verify` items only when explicitly export eligible.
@@ -291,6 +291,8 @@ Status: Markdown, DOCX, and internal demo deliverable package baseline complete.
 - Render DOCX report sections, table previews where practical, map figures when files exist, missing visual/table placeholders, source refs, caveats, and generated package contents.
 - Provide `--include-draft` only for internal preview exports, clearly labeled as not ready for external use.
 - Provide a one-command internal demo package flow that runs populate-for-review and preview export without mutating review statuses.
+- Provide a real-data guarded MVP package flow that runs source preparation first and blocks test fixture/mock source records.
+- Add `data_lineage` summaries to export and deliverable manifests so real source layers, stubs, and test/mock records are visible.
 
 Current baseline:
 
@@ -298,6 +300,8 @@ Current baseline:
 - `review-assist export-report <project_dir> --include-draft`
 - `review-assist export-report <project_dir> --format markdown|docx|both`
 - `review-assist build-demo-deliverable <project_dir>`
+- `review-assist build-mvp-deliverable <project_dir>`
+- `review-assist build-mvp-deliverable <project_dir> --include-optional-sources`
 - JSON manifest at `projects/<project_id>/exports/export_manifest.json`
 - Markdown report at `projects/<project_id>/exports/environmental_constraints_report.md`
 - DOCX report at `projects/<project_id>/exports/environmental_constraints_report.docx`
@@ -305,7 +309,7 @@ Current baseline:
 
 Next export milestone:
 
-- Improve DOCX layout fidelity against the example report template and package figures/tables more deliberately before adding PDF or final cartographic output.
+- Run real-data MVP smoke packages, inspect downloaded source/constraint counts, then improve DOCX layout fidelity against the example report template before adding PDF or final cartographic output.
 
 ## Phase 8: Optional AI-Assisted Narrative Synthesis
 

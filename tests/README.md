@@ -1,6 +1,6 @@
 # Tests Directory
 
-This directory contains tests for ingestion, inspection, source registry, project context/source status artifacts, source inventory/provenance artifacts, local spatial analysis services, deterministic finding generation, comparison table generation, vector-only map generation, deterministic report section generation, review queue behavior, Markdown/DOCX export compilation, internal demo deliverable package generation, and populate-for-review orchestration.
+This directory contains tests for ingestion, inspection, source registry, project context/source status artifacts, source inventory/provenance artifacts, local spatial analysis services, deterministic finding generation, comparison table generation, vector-only map generation, deterministic report section generation, review queue behavior, Markdown/DOCX export compilation, internal demo deliverable package generation, real-data MVP deliverable guardrails, and populate-for-review orchestration.
 
 Current focus:
 
@@ -25,6 +25,8 @@ Current focus:
 - Review queue generation, item status updates, reviewer notes, export eligibility, and CLI commands.
 - Markdown/DOCX export filtering, manifest generation, edited-content precedence, preview mode, and export CLI commands.
 - Internal demo deliverable package generation and CLI commands.
+- Data lineage classification for real source layers, stubs, and test fixture/mock source records.
+- Real-data MVP deliverable guardrails and CLI commands.
 - Populate-for-review run manifests, tolerant missing-source handling, and CLI commands.
 
 Future tests should add coverage for basemap/imagery rendering, richer report draft safety boundaries, final PDF export, and final map package assembly as those features are implemented.

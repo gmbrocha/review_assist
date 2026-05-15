@@ -1,6 +1,6 @@
 # Source Directory
 
-This directory contains the Python package for local project ingestion, geometry inspection, project geometry normalization, source registry handling, source gap/acquisition handling, project context/source status artifacts, source inventory/provenance artifacts, legacy spatial relationship checks, constraint overlap/proximity analysis, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export package generation, internal demo deliverable package orchestration, and populate-for-review orchestration.
+This directory contains the Python package for local project ingestion, geometry inspection, project geometry normalization, source registry handling, source gap/acquisition handling, project context/source status artifacts, source inventory/provenance artifacts, legacy spatial relationship checks, constraint overlap/proximity analysis, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export package generation, internal demo deliverable package orchestration, real-data MVP deliverable guardrails, and populate-for-review orchestration.
 
 Current implementation scope:
 
@@ -12,7 +12,7 @@ Current implementation scope:
 - Global source catalog loading.
 - Project source registry loading and local source registration.
 - Source gap resolution and opt-in public source acquisition.
-- USFWS NWI wetlands downloader with project-local acquisition provenance.
+- USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders with project-local acquisition provenance.
 - Source status set resolution, including failed supported-download caveats.
 - Source inventory and provenance artifact generation.
 - Local source-layer clipping and legacy spatial relationship checks.
@@ -25,6 +25,8 @@ Current implementation scope:
 - Lean review queue generation, listing, and item status updates.
 - Editable Markdown/DOCX report export and export manifest generation.
 - Internal demo deliverable package generation.
+- Data lineage classification for real project/source data, stubs, and test fixture/mock records.
+- Real-data MVP deliverable package generation.
 - Populate-for-review orchestration and run manifest generation.
 - CLI entrypoints for project inspection and workflow artifact generation.
 

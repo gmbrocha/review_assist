@@ -21,6 +21,7 @@ ALLOWED_SOURCE_METADATA_KEYS = {
     "access_date",
     "source_url",
     "review_notes",
+    "data_authenticity",
 }
 
 
@@ -307,7 +308,7 @@ def register_local_source(project_dir: Path, source_id: str, source_path: Path, 
         buffer_feet=old_source.buffer_feet if old_source else None,
         notes=old_source.notes if old_source else "Registered local source layer.",
         status="local_registered",
-        metadata=old_source.metadata if old_source else {},
+        metadata={**(old_source.metadata if old_source else {}), "data_authenticity": "real"},
     )
 
     sources: list[ProjectSource] = []
