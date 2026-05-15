@@ -118,6 +118,8 @@ def test_source_catalog_loads_broad_categories() -> None:
     assert "mrlc_nlcd_land_cover" in catalog.sources
     assert "usda_nrcs_ssurgo_soils" in catalog.sources
     assert catalog.sources["fema_nfhl_flood_hazard"].priority == "secondary_optional"
+    assert catalog.sources["usfws_nwi_wetlands"].download["downloader"] == "arcgis_rest_geojson"
+    assert [layer["layer_id"] for layer in catalog.sources["usgs_nhd_hydrography"].download["layers"]] == [6, 9]
 
 
 def test_invalid_source_catalog_requires_sources_list(tmp_path: Path) -> None:

@@ -87,7 +87,7 @@ Phase 2B still does not create findings, review queue records, maps, reports, ra
 
 ## Phase 2C: Catalog-Driven Source Acquisition
 
-Status: first NWI downloader slice complete.
+Status: NWI plus USGS NHD hydrography downloader baseline complete.
 
 - Compare project inputs, project source registries, and report-profile source needs against the source catalog.
 - Treat project inputs tagged with `source_id` or unambiguous `source_category` as provided source layers and register them for analysis.
@@ -95,13 +95,16 @@ Status: first NWI downloader slice complete.
 - Store downloaded public source layers under ignored `projects/<project_id>/source_acquisition/downloads/`.
 - Preserve local/reviewer-supplied source layers; downloads do not overwrite them.
 - Download USFWS National Wetlands Inventory wetlands through the public Wetlands REST MapServer layer when explicitly requested.
-- Record source URL, service URL/layer, access date, requested bounds, output path, feature count, checksum, limitations, warnings, and failures.
+- Download USGS National Hydrography Dataset hydrography through The National Map NHD MapServer large-scale flowline and area layers when explicitly requested.
+- Record source URL, service URL/layer, access date, requested bounds, output path, feature count, checksum, limitations, warnings, per-layer provenance, and failures.
+- Add lightweight normalized source fields to downloaded layers while preserving original source attributes.
 - Register successful downloads as normal project `local_file` sources with `status: downloaded` so the constraint engine consumes them without a special case.
 
 Current baseline:
 
 - `review-assist resolve-source-gaps <project_dir>`
 - `review-assist download-source <project_dir> usfws_nwi_wetlands`
+- `review-assist download-source <project_dir> usgs_nhd_hydrography`
 - `review-assist prepare-sources <project_dir>`
 - `review-assist populate-for-review <project_dir> --prepare-sources`
 
@@ -163,7 +166,7 @@ Current baseline:
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict for the legacy raw spatial check path.
 - `--prepare-sources` resolves catalog gaps and runs supported public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
 
-This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, and explicit NWI source acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
+This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, and explicit NWI plus USGS NHD hydrography source acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
 
 ## Phase 6A: Deterministic Finding Templates
 

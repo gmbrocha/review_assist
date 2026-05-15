@@ -50,6 +50,7 @@ def generate_comparison_tables(project_dir: Path) -> dict[str, Any]:
     tables = [
         _source_status_matrix(source_status),
         _constraint_summary(constraints),
+        _hydrography_crossing_summary(constraints),
         _spatial_relationship_summary(spatial),
         _draft_finding_summary(draft_findings),
     ]
@@ -224,6 +225,60 @@ def _constraint_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
         table_type="constraint_summary",
         title="Constraint Summary",
         description="Objective constraint overlap and proximity records by project feature and source category.",
+        columns=columns,
+        rows=rows,
+        provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
+        source_refs=sorted(source_refs),
+        uncertainty_flags=["no_constraint_results_artifact"] if constraints is None else [],
+    )
+
+
+def _hydrography_crossing_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
+    columns = [
+        "project_feature_id",
+        "project_feature_name",
+        "source_category",
+        "source_id",
+        "source_feature_label",
+        "source_feature_type",
+        "relationship_type",
+        "intersection_length_feet",
+        "intersection_area_acres",
+        "distance_feet",
+        "buffer_feet",
+    ]
+    rows: list[dict[str, Any]] = []
+    source_refs: set[str] = set()
+    if constraints is not None:
+        for constraint in constraints.get("constraints", []):
+            if not isinstance(constraint, dict) or constraint.get("source_category") != "hydrography_crossings":
+                continue
+            source_id = str(constraint.get("source_id", ""))
+            if source_id:
+                source_refs.add(source_id)
+            measurements = constraint.get("measurements", {})
+            if not isinstance(measurements, dict):
+                measurements = {}
+            rows.append(
+                {
+                    "project_feature_id": constraint.get("project_feature_id", ""),
+                    "project_feature_name": constraint.get("project_feature_name", ""),
+                    "source_category": constraint.get("source_category", ""),
+                    "source_id": source_id,
+                    "source_feature_label": constraint.get("source_feature_label") or constraint.get("source_feature_index", ""),
+                    "source_feature_type": constraint.get("source_feature_type", ""),
+                    "relationship_type": constraint.get("relationship_type", ""),
+                    "intersection_length_feet": measurements.get("intersection_length_feet"),
+                    "intersection_area_acres": measurements.get("intersection_area_acres"),
+                    "distance_feet": measurements.get("distance_feet"),
+                    "buffer_feet": constraint.get("buffer_feet"),
+                }
+            )
+    return _table(
+        table_id="hydrography-crossing-summary",
+        table_type="hydrography_crossing_summary",
+        title="Hydrography Crossing Summary",
+        description="Objective stream, river, ditch, waterbody, and hydrography relationships by project feature.",
         columns=columns,
         rows=rows,
         provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},

@@ -43,6 +43,7 @@ class SourceDefinition:
     known_limitations: str = ""
     notes: str = ""
     spatial_relationships: list[str] = field(default_factory=list)
+    download: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "SourceDefinition":
@@ -58,6 +59,12 @@ class SourceDefinition:
         if not isinstance(relationships, list) or not all(isinstance(item, str) for item in relationships):
             raise SourceCatalogError(f"Source '{source_id}' requires string list 'spatial_relationships'.")
 
+        download = data.get("download", {})
+        if download is None:
+            download = {}
+        if not isinstance(download, dict):
+            raise SourceCatalogError(f"Source '{source_id}' download metadata must be an object when present.")
+
         return cls(
             source_id=source_id,
             name=name,
@@ -72,6 +79,7 @@ class SourceDefinition:
             known_limitations=str(data.get("known_limitations", "")),
             notes=str(data.get("notes", "")),
             spatial_relationships=relationships,
+            download=dict(download),
         )
 
 

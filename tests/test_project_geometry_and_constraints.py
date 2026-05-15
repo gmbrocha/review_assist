@@ -203,12 +203,14 @@ def test_constraint_analysis_reports_line_line_stream_crossing(tmp_path: Path) -
         <Placemark><name>Route A</name><LineString><coordinates>-90.0000,32.0000,0 -89.9900,32.0000,0</coordinates></LineString></Placemark>
         """,
     )
-    write_layer(project_dir / "streams.geojson", [LineString([(-89.995, 31.999), (-89.995, 32.001)])], [{"name": "Stream A"}])
+    write_layer(project_dir / "streams.geojson", [LineString([(-89.995, 31.999), (-89.995, 32.001)])], [{"gnis_name": "Stream A", "ftype": 460}])
     write_registry(project_dir, "usgs_nhd_hydrography", "streams.geojson")
 
     result = analyze_constraints(project_dir)
 
     assert result["constraints"][0]["relationship_type"] == "crosses"
+    assert result["constraints"][0]["source_feature_label"] == "Stream A"
+    assert result["constraints"][0]["source_feature_type"] == "460"
 
 
 def test_constraint_analysis_reports_point_polygon_and_nearby_line_constraints(tmp_path: Path) -> None:

@@ -37,15 +37,44 @@ NWI_SOURCE_ID = "usfws_nwi_wetlands"
 NWI_SERVICE_ROOT = "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest"
 NWI_SERVICE_URL = f"{NWI_SERVICE_ROOT}/services/Wetlands/MapServer"
 NWI_LAYER_ID = 0
-NWI_LAYER_URL = f"{NWI_SERVICE_URL}/{NWI_LAYER_ID}"
-NWI_QUERY_URL = f"{NWI_LAYER_URL}/query"
+
+NHD_SOURCE_ID = "usgs_nhd_hydrography"
+NHD_SERVICE_URL = "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer"
+NHD_FLOWLINE_LAYER_ID = 6
+NHD_AREA_LAYER_ID = 9
 
 SUPPORTED_DOWNLOADERS = {
     NWI_SOURCE_ID: {
-        "downloader": "usfws_nwi_rest_query",
+        "downloader": "arcgis_rest_geojson",
         "service_url": NWI_SERVICE_URL,
-        "layer_id": NWI_LAYER_ID,
-        "query_url": NWI_QUERY_URL,
+        "output_name": NWI_SOURCE_ID,
+        "layers": [
+            {
+                "layer_id": NWI_LAYER_ID,
+                "layer_name": "Wetlands",
+                "label_fields": ["name", "Name", "ATTRIBUTE", "WETLAND_TYPE"],
+                "feature_type_fields": ["ATTRIBUTE", "WETLAND_TYPE"],
+            }
+        ],
+    },
+    NHD_SOURCE_ID: {
+        "downloader": "arcgis_rest_geojson",
+        "service_url": NHD_SERVICE_URL,
+        "output_name": NHD_SOURCE_ID,
+        "layers": [
+            {
+                "layer_id": NHD_FLOWLINE_LAYER_ID,
+                "layer_name": "Flowline - Large Scale",
+                "label_fields": ["gnis_name", "GNIS_NAME", "ftype", "FTYPE", "fcode", "FCODE"],
+                "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"],
+            },
+            {
+                "layer_id": NHD_AREA_LAYER_ID,
+                "layer_name": "Area - Large Scale",
+                "label_fields": ["gnis_name", "GNIS_NAME", "ftype", "FTYPE", "fcode", "FCODE"],
+                "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"],
+            },
+        ],
     }
 }
 
@@ -127,10 +156,11 @@ def _download_source(project_dir: Path, source_id: str, *, fetch_json: FetchJson
         raise SourceAcquisitionError(f"Unsupported source downloader: {source_id}")
 
     initial = _resolve_source_gaps(project_dir, preserve_downloads=True)
-    if source_id == NWI_SOURCE_ID:
-        download = _download_nwi_wetlands(project_dir, fetch_json=fetch_json)
-    else:  # pragma: no cover - guarded by SUPPORTED_DOWNLOADERS.
-        raise SourceAcquisitionError(f"Unsupported source downloader: {source_id}")
+    try:
+        source = load_source_catalog().sources[source_id]
+    except SourceCatalogError as exc:
+        raise SourceAcquisitionError(str(exc)) from exc
+    download = _download_arcgis_geojson_source(project_dir, source, fetch_json=fetch_json)
 
     final = _resolve_source_gaps(project_dir, preserve_downloads=True)
     existing_downloads = [item for item in final.get("downloads", []) if isinstance(item, dict)]
@@ -219,20 +249,25 @@ def _resolve_source_gaps(project_dir: Path, *, preserve_downloads: bool) -> dict
     }
 
 
-def _download_nwi_wetlands(project_dir: Path, *, fetch_json: FetchJson | None) -> dict[str, Any]:
+def _download_arcgis_geojson_source(project_dir: Path, source: SourceDefinition, *, fetch_json: FetchJson | None) -> dict[str, Any]:
     access_date = _utc_now()
-    catalog = load_source_catalog()
-    source = catalog.sources[NWI_SOURCE_ID]
-    output_path = project_dir / SOURCE_DOWNLOADS_DIR / "usfws_nwi_wetlands.geojson"
+    config = _download_config(source)
+    service_url = str(config["service_url"])
+    layers = _download_layers(config)
+    output_name = str(config.get("output_name") or source.source_id)
+    output_path = project_dir / SOURCE_DOWNLOADS_DIR / f"{output_name}.geojson"
+    single_layer = layers[0] if len(layers) == 1 else None
+    query_url = _layer_query_url(service_url, single_layer["layer_id"]) if single_layer else None
     base_record = {
-        "source_id": NWI_SOURCE_ID,
+        "source_id": source.source_id,
         "source_name": source.name,
         "source_category": source.category,
         "status": "failed",
-        "downloader": SUPPORTED_DOWNLOADERS[NWI_SOURCE_ID]["downloader"],
-        "service_url": NWI_SERVICE_URL,
-        "layer_id": NWI_LAYER_ID,
-        "query_url": NWI_QUERY_URL,
+        "downloader": str(config.get("downloader") or "arcgis_rest_geojson"),
+        "service_url": service_url,
+        "layer_id": single_layer["layer_id"] if single_layer else None,
+        "query_url": query_url,
+        "layers": _layer_manifest_records(service_url, layers),
         "source_url": source.url,
         "access_date": access_date,
         "output_path": str(output_path),
@@ -244,7 +279,7 @@ def _download_nwi_wetlands(project_dir: Path, *, fetch_json: FetchJson | None) -
         "warnings": [],
     }
 
-    existing = _existing_local_project_source(project_dir, NWI_SOURCE_ID)
+    existing = _existing_local_project_source(project_dir, source.source_id)
     if existing is not None and existing.status != "downloaded":
         record = dict(base_record)
         record.update(
@@ -256,8 +291,8 @@ def _download_nwi_wetlands(project_dir: Path, *, fetch_json: FetchJson | None) -
                         "info",
                         "existing_local_source_preserved",
                         "Existing reviewer-supplied local source was preserved instead of being replaced by a download.",
-                        existing.path or NWI_SOURCE_ID,
-                        source_id=NWI_SOURCE_ID,
+                        existing.path or source.source_id,
+                        source_id=source.source_id,
                     )
                 ],
             }
@@ -267,21 +302,29 @@ def _download_nwi_wetlands(project_dir: Path, *, fetch_json: FetchJson | None) -
     try:
         bounds = _project_analysis_bounds_wgs84(project_dir)
         fetcher = fetch_json or _fetch_json
-        feature_collection, service_limit = _query_nwi_geojson(bounds, fetcher)
+        feature_collection, layer_records = _query_arcgis_geojson_layers(
+            source=source,
+            config=config,
+            layers=layers,
+            bounds=bounds,
+            fetch_json=fetcher,
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(feature_collection, indent=2).encode("utf-8")
         output_path.write_bytes(payload)
         checksum = hashlib.sha256(payload).hexdigest()
         _register_downloaded_source(project_dir, source, output_path, access_date)
+        feature_count = len(feature_collection.get("features", []))
         record = dict(base_record)
         record.update(
             {
                 "status": "downloaded",
                 "output_path": str(output_path),
-                "feature_count": len(feature_collection.get("features", [])),
+                "feature_count": feature_count,
                 "checksum_sha256": checksum,
                 "requested_bounds_wgs84": bounds,
-                "service_record_limit": service_limit,
+                "layers": layer_records,
+                "service_record_limit": layer_records[0]["service_record_limit"] if len(layer_records) == 1 else None,
             }
         )
         if record["feature_count"] == 0:
@@ -289,9 +332,9 @@ def _download_nwi_wetlands(project_dir: Path, *, fetch_json: FetchJson | None) -
                 _issue(
                     "info",
                     "downloaded_source_empty",
-                    "NWI returned no features inside the project analysis bounds.",
+                    f"{source.name} returned no features inside the project analysis bounds.",
                     str(output_path),
-                    source_id=NWI_SOURCE_ID,
+                    source_id=source.source_id,
                 )
             ]
         return record
@@ -300,17 +343,69 @@ def _download_nwi_wetlands(project_dir: Path, *, fetch_json: FetchJson | None) -
         issue = _issue(
             "warning",
             "source_download_failed",
-            f"Unable to download NWI wetlands source: {exc}",
-            NWI_QUERY_URL,
-            source_id=NWI_SOURCE_ID,
+            f"Unable to download {source.name} source: {exc}",
+            query_url or service_url,
+            source_id=source.source_id,
         )
         record["validation_issues"] = [issue]
         record["warnings"] = [issue]
         return record
 
 
-def _query_nwi_geojson(bounds: dict[str, float], fetch_json: FetchJson) -> tuple[dict[str, Any], int]:
-    metadata = fetch_json(NWI_LAYER_URL, {"f": "pjson"})
+def _query_arcgis_geojson_layers(
+    *,
+    source: SourceDefinition,
+    config: dict[str, Any],
+    layers: list[dict[str, Any]],
+    bounds: dict[str, float],
+    fetch_json: FetchJson,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    service_url = str(config["service_url"])
+    features: list[dict[str, Any]] = []
+    layer_records: list[dict[str, Any]] = []
+    for layer in layers:
+        layer_features, service_limit = _query_arcgis_geojson_layer(
+            source=source,
+            service_url=service_url,
+            layer=layer,
+            bounds=bounds,
+            fetch_json=fetch_json,
+        )
+        normalized_features = [
+            _normalized_download_feature(feature, source=source, layer=layer)
+            for feature in layer_features
+            if isinstance(feature, dict)
+        ]
+        features.extend(normalized_features)
+        layer_records.append(
+            {
+                "layer_id": layer["layer_id"],
+                "layer_name": layer["layer_name"],
+                "service_url": service_url,
+                "layer_url": _layer_url(service_url, layer["layer_id"]),
+                "query_url": _layer_query_url(service_url, layer["layer_id"]),
+                "feature_count": len(normalized_features),
+                "service_record_limit": service_limit,
+            }
+        )
+    return {
+        "type": "FeatureCollection",
+        "name": str(config.get("output_name") or source.source_id),
+        "features": features,
+    }, layer_records
+
+
+def _query_arcgis_geojson_layer(
+    *,
+    source: SourceDefinition,
+    service_url: str,
+    layer: dict[str, Any],
+    bounds: dict[str, float],
+    fetch_json: FetchJson,
+) -> tuple[list[dict[str, Any]], int]:
+    layer_url = _layer_url(service_url, layer["layer_id"])
+    query_url = _layer_query_url(service_url, layer["layer_id"])
+    metadata = fetch_json(layer_url, {"f": "pjson"})
     page_size = _service_record_limit(metadata)
     features: list[dict[str, Any]] = []
     offset = 0
@@ -323,7 +418,7 @@ def _query_nwi_geojson(bounds: dict[str, float], fetch_json: FetchJson) -> tuple
     }
     while True:
         page = fetch_json(
-            NWI_QUERY_URL,
+            query_url,
             {
                 "f": "geojson",
                 "where": "1=1",
@@ -340,10 +435,10 @@ def _query_nwi_geojson(bounds: dict[str, float], fetch_json: FetchJson) -> tuple
         )
         if isinstance(page.get("error"), dict):
             message = page["error"].get("message") or page["error"]
-            raise SourceAcquisitionError(f"NWI service returned an error: {message}")
+            raise SourceAcquisitionError(f"{source.source_id} layer {layer['layer_id']} service returned an error: {message}")
         page_features = page.get("features", [])
         if not isinstance(page_features, list):
-            raise SourceAcquisitionError("NWI GeoJSON response did not include a feature list.")
+            raise SourceAcquisitionError(f"{source.source_id} layer {layer['layer_id']} GeoJSON response did not include a feature list.")
         features.extend(page_features)
         if not page_features:
             break
@@ -351,11 +446,104 @@ def _query_nwi_geojson(bounds: dict[str, float], fetch_json: FetchJson) -> tuple
             break
         offset += len(page_features)
 
-    return {
-        "type": "FeatureCollection",
-        "name": "usfws_nwi_wetlands",
-        "features": features,
-    }, page_size
+    return features, page_size
+
+
+def _download_config(source: SourceDefinition) -> dict[str, Any]:
+    config = dict(SUPPORTED_DOWNLOADERS.get(source.source_id, {}))
+    catalog_config = source.download if isinstance(source.download, dict) else {}
+    if catalog_config.get("supported"):
+        config.update(catalog_config)
+    if str(config.get("downloader") or "") != "arcgis_rest_geojson":
+        raise SourceAcquisitionError(f"Unsupported downloader type for source '{source.source_id}'.")
+    if not str(config.get("service_url") or "").strip():
+        raise SourceAcquisitionError(f"Source '{source.source_id}' download metadata requires a service_url.")
+    return config
+
+
+def _download_layers(config: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_layers = config.get("layers", [])
+    if not isinstance(raw_layers, list) or not raw_layers:
+        raise SourceAcquisitionError("ArcGIS REST download metadata requires a non-empty layers list.")
+    layers: list[dict[str, Any]] = []
+    for raw_layer in raw_layers:
+        if not isinstance(raw_layer, dict):
+            raise SourceAcquisitionError("Each ArcGIS REST download layer must be an object.")
+        try:
+            layer_id = int(raw_layer["layer_id"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SourceAcquisitionError("Each ArcGIS REST download layer requires integer layer_id.") from exc
+        layer_name = str(raw_layer.get("layer_name") or f"Layer {layer_id}")
+        layers.append(
+            {
+                "layer_id": layer_id,
+                "layer_name": layer_name,
+                "label_fields": _string_list(raw_layer.get("label_fields", [])),
+                "feature_type_fields": _string_list(raw_layer.get("feature_type_fields", [])),
+            }
+        )
+    return layers
+
+
+def _layer_manifest_records(service_url: str, layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "layer_id": layer["layer_id"],
+            "layer_name": layer["layer_name"],
+            "service_url": service_url,
+            "layer_url": _layer_url(service_url, layer["layer_id"]),
+            "query_url": _layer_query_url(service_url, layer["layer_id"]),
+            "feature_count": 0,
+            "service_record_limit": None,
+        }
+        for layer in layers
+    ]
+
+
+def _normalized_download_feature(feature: dict[str, Any], *, source: SourceDefinition, layer: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(feature)
+    raw_properties = feature.get("properties", {})
+    properties = dict(raw_properties) if isinstance(raw_properties, dict) else {}
+    label = _first_property_value(properties, layer.get("label_fields", []))
+    feature_type = _first_property_value(properties, layer.get("feature_type_fields", []))
+    if not label:
+        label = feature_type or layer["layer_name"]
+    properties.update(
+        {
+            "review_assist_source_id": source.source_id,
+            "review_assist_source_name": source.name,
+            "review_assist_source_category": source.category,
+            "review_assist_layer_id": layer["layer_id"],
+            "review_assist_layer_name": layer["layer_name"],
+            "review_assist_feature_label": label,
+            "review_assist_feature_type": feature_type,
+        }
+    )
+    normalized["properties"] = properties
+    return normalized
+
+
+def _first_property_value(properties: dict[str, Any], fields: list[str]) -> str:
+    by_lower = {str(key).lower(): key for key in properties}
+    for field in fields:
+        key = field if field in properties else by_lower.get(str(field).lower())
+        if key is None:
+            continue
+        value = properties.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text and text.lower() != "nan":
+            return text
+    return ""
+
+
+def _layer_url(service_url: str, layer_id: int) -> str:
+    return f"{service_url.rstrip('/')}/{layer_id}"
+
+
+def _layer_query_url(service_url: str, layer_id: int) -> str:
+    return f"{_layer_url(service_url, layer_id)}/query"
 
 
 def _fetch_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -851,6 +1039,12 @@ def _display_path(path: Path, project_dir: Path) -> str:
         return path.resolve().relative_to(project_dir.resolve()).as_posix()
     except ValueError:
         return str(path.resolve())
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
 
 
 def _issue(severity: str, code: str, message: str, location: str, *, source_id: str | None = None) -> dict[str, Any]:

@@ -387,6 +387,11 @@ The app should generate these where source data is available and create reviewab
 - [x] Existing reviewer-supplied local source layers are preserved instead of being overwritten by downloads.
 - [x] Source inventory records include source acquisition/download provenance when an acquisition manifest exists.
 - [x] `review-assist download-source <project_dir> usfws_nwi_wetlands` exists.
+- [x] `review-assist download-source <project_dir> usgs_nhd_hydrography` exists.
+- [x] USGS NHD hydrography downloads query The National Map NHD MapServer large-scale flowline and area layers by project analysis bounds.
+- [x] Downloaded NHD hydrography is combined into a project-local GeoJSON source layer and registered as a normal `local_file` source with `status: downloaded`.
+- [x] Downloaded source layers preserve original attributes while adding lightweight normalized Review Assist source, layer, label, and type fields.
+- [x] Hydrography constraints now feed stream/crossing findings, a hydrography crossing summary table, source-context maps, report sections, and review queue items.
 - [x] `review-assist prepare-sources <project_dir>` exists.
 - [x] `populate-for-review --prepare-sources` can resolve gaps and run supported source downloads before constraint analysis.
 - [x] `populate-for-review` without `--prepare-sources` keeps the previous no-live-download behavior.
@@ -403,7 +408,7 @@ The app should generate these where source data is available and create reviewab
 
 ### 1. Downloadable Source Layer System
 
-This milestone has started. The first implemented slice exists so the app can compare project inputs/registry against the catalog, acquire NWI when explicitly requested, and feed that downloaded source through the same constraint/report/review flow as local source layers.
+This milestone has started. The implemented baseline exists so the app can compare project inputs/registry against the catalog, acquire NWI and USGS NHD hydrography when explicitly requested, and feed those downloaded sources through the same constraint/report/review flow as local source layers.
 
 - [x] Treat the source stack/data source catalog as the comparison baseline for deciding what the project input package does and does not already contain.
 - [x] Add a source gap resolver that compares project inputs, registered local sources, and required report categories against the catalog.
@@ -414,17 +419,18 @@ This milestone has started. The first implemented slice exists so the app can co
 - [x] Add a per-source download/cache directory under ignored project folders.
 - [x] Add CLI commands for `resolve-source-gaps`, `download-source`, and `prepare-sources`.
 - [x] Make `populate-for-review` optionally acquire downloadable sources before constraint analysis through `--prepare-sources`.
-- [x] Record URL, access date, cache path, checksum where practical, and limitations for the NWI downloaded source.
+- [x] Record URL, access date, cache path, checksum where practical, per-layer provenance, and limitations for implemented downloaded sources.
 - [x] Treat failed downloads as nonfatal source status/review caveats when the rest of the workflow can continue.
-- [ ] Extend source catalog entries with downloader metadata: endpoint, format, query method, clip strategy, attribution, license/terms, update date handling, and expected schema.
+- [x] Extend implemented source catalog entries with basic downloader metadata: endpoint, format, query method, source layers, and expected label/type fields.
+- [ ] Extend source catalog entries with complete attribution, license/terms, update date handling, refresh cadence, and full expected schema details.
 - [ ] Do not silently call paid services.
 - [ ] Do not use credentials or restricted systems without explicit approval.
-- [ ] Record source date, terms/licensing, expected refresh cadence, and schema normalization details for every downloaded source as each downloader is added.
+- [ ] Record source date, terms/licensing, expected refresh cadence, and full schema normalization details for every downloaded source as each downloader is added.
 
 First downloader candidates:
 
 - [x] USFWS NWI wetlands/waterbodies.
-- [ ] USGS hydrography/stream data.
+- [x] USGS hydrography/stream data.
 - [ ] FEMA NFHL flood hazard data where relevant.
 - [ ] EPA regulated facility data where a stable public download path is practical.
 - [ ] Census TIGER/ACS community context.
@@ -436,9 +442,9 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 
 ### 2. Source Schema Normalization
 
-- [ ] Define normalized source feature fields: label, category, subtype, source date, confidence/quality flags, and original feature id.
-- [ ] Preserve original source attributes while adding normalized fields.
-- [ ] Add source-specific label extraction rules.
+- [x] Preserve original source attributes while adding lightweight normalized source/layer/label/type fields for downloaded sources.
+- [x] Add source-specific label extraction rules for implemented NWI and NHD downloaders.
+- [ ] Define the full normalized source feature contract: label, category, subtype, source date, confidence/quality flags, and original feature id.
 - [ ] Add source-specific category/subtype mapping for wetlands, streams, flood zones, soils, facilities, parcels, utilities, and community resources.
 - [ ] Add validation warnings for missing CRS, unknown schema, empty layers, invalid geometries, and stale source dates.
 
@@ -556,14 +562,14 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 
 ## Immediate Next Move
 
-Implement downloadable source layers after the local constraint core, not after export.
+Continue evidence depth after the NWI/NHD acquisition baseline, not review-queue volume for its own sake.
 
 The practical next source milestone is:
 
-1. Define the source acquisition artifact and downloader interface.
-2. Add one real public downloader, preferably NWI wetlands if the access path is stable enough.
-3. Record provenance and cache the downloaded layer.
-4. Route downloaded layers through the same constraint engine as registered local layers.
-5. Prove the full workflow on a synthetic test and one sample workspace.
+1. Add the next highest-value public downloader one source at a time, likely FEMA NFHL, NLCD, soils, or critical habitat depending on report need.
+2. Expand source schema normalization beyond lightweight label/type fields into a clear source-feature contract.
+3. Improve constraint summaries by feature/category so report sections can cite counts, lengths, areas, and caveats cleanly.
+4. Improve maps/figures toward template-ready visuals while preserving source provenance.
+5. Keep every generated finding, table, map, caveat, and section behind the review queue before export.
 
-Only after that should we add more downloaders, improve report sections, and move toward export compilation.
+GPT drafting and DOCX export come after the source-backed evidence and review-gated assembly path remain stable.

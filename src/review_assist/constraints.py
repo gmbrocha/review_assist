@@ -327,6 +327,7 @@ def _constraint_record(
         "source_category": source_definition.category,
         "source_feature_index": _json_value(source_index),
         "source_feature_label": _feature_label(source_row),
+        "source_feature_type": _feature_type(source_row),
         "relationship_type": relationship,
         "buffer_feet": buffer_feet,
         "measurements": measurements,
@@ -363,7 +364,44 @@ def _measure_relationship(project_geometry: BaseGeometry, source_geometry: BaseG
 
 
 def _feature_label(row: Any) -> str:
-    for column in ("candidate_label", "placemark_name", "name", "Name", "NAME", "label", "Label", "LABEL"):
+    for column in (
+        "review_assist_feature_label",
+        "candidate_label",
+        "placemark_name",
+        "gnis_name",
+        "GNIS_NAME",
+        "name",
+        "Name",
+        "NAME",
+        "label",
+        "Label",
+        "LABEL",
+        "ATTRIBUTE",
+        "WETLAND_TYPE",
+        "featuretypelabel",
+        "ftype",
+        "FTYPE",
+        "fcode",
+        "FCODE",
+    ):
+        if column in row.index:
+            value = row[column]
+            if value is not None and str(value).strip() and str(value).lower() != "nan":
+                return str(value).strip()
+    return ""
+
+
+def _feature_type(row: Any) -> str:
+    for column in (
+        "review_assist_feature_type",
+        "featuretypelabel",
+        "ATTRIBUTE",
+        "WETLAND_TYPE",
+        "ftype",
+        "FTYPE",
+        "fcode",
+        "FCODE",
+    ):
         if column in row.index:
             value = row[column]
             if value is not None and str(value).strip() and str(value).lower() != "nan":

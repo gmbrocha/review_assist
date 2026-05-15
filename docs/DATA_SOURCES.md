@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands is the first implemented public downloader. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands and USGS NHD hydrography are the first implemented public downloaders. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -106,6 +106,7 @@ Live downloads are explicit only:
 ```powershell
 .\.venv\Scripts\review-assist.exe resolve-source-gaps projects/trails
 .\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe download-source projects/trails usgs_nhd_hydrography
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources
 ```
@@ -225,6 +226,15 @@ References:
 - https://www.usgs.gov/the-national-map-data-delivery/gis-data-download
 - https://www.usgs.gov/faqs/what-are-base-map-services-or-urls-used-national-map
 
+Implementation status:
+
+- `usgs_nhd_hydrography` is implemented as an explicit public downloader.
+- The downloader queries The National Map NHD MapServer by project analysis bounds, using large-scale Flowline layer `6` and large-scale Area layer `9`.
+- Downloaded hydrography is written as a combined GeoJSON under `projects/<project_id>/source_acquisition/downloads/` with normalized Review Assist source fields added while preserving original attributes.
+- Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so the constraint engine, findings, hydrography crossing summary table, maps, report sections, and review queue consume the layer through the same path as reviewer-supplied data.
+- Failed downloads remain nonfatal and propagate into source status, draft findings, report sections, and review queue caveat items.
+- Existing reviewer-supplied local hydrography layers are preserved and not overwritten.
+
 ### USFWS National Wetlands Inventory
 
 Likely uses:
@@ -246,7 +256,7 @@ Important caveat:
 
 Implementation status:
 
-- `usfws_nwi_wetlands` is the first implemented public downloader.
+- `usfws_nwi_wetlands` is implemented as an explicit public downloader.
 - The downloader queries the public Wetlands REST MapServer layer by project analysis bounds and writes GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
 - Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so constraint analysis, findings, maps, tables, report sections, and review queue generation consume them through the existing source path.
 - Failed downloads remain nonfatal and propagate into source status, draft findings, report sections, and review queue caveat items.

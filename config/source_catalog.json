@@ -75,6 +75,20 @@
       "geometry_type": "polygon",
       "url": "https://www.fws.gov/program/national-wetlands-inventory/data-download",
       "spatial_relationships": ["intersects", "within_buffer"],
+      "download": {
+        "supported": true,
+        "downloader": "arcgis_rest_geojson",
+        "service_url": "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer",
+        "output_name": "usfws_nwi_wetlands",
+        "layers": [
+          {
+            "layer_id": 0,
+            "layer_name": "Wetlands",
+            "label_fields": ["name", "Name", "ATTRIBUTE", "WETLAND_TYPE"],
+            "feature_type_fields": ["ATTRIBUTE", "WETLAND_TYPE"]
+          }
+        ]
+      },
       "known_limitations": "NWI is screening-level data and does not define jurisdictional wetland boundaries.",
       "notes": "Primary first-pass wetland and mapped waterbody source."
     },
@@ -90,6 +104,26 @@
       "geometry_type": "line_polygon",
       "url": "https://www.usgs.gov/the-national-map-data-delivery/gis-data-download",
       "spatial_relationships": ["intersects", "crosses", "within_buffer"],
+      "download": {
+        "supported": true,
+        "downloader": "arcgis_rest_geojson",
+        "service_url": "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer",
+        "output_name": "usgs_nhd_hydrography",
+        "layers": [
+          {
+            "layer_id": 6,
+            "layer_name": "Flowline - Large Scale",
+            "label_fields": ["gnis_name", "GNIS_NAME", "ftype", "FTYPE", "fcode", "FCODE"],
+            "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"]
+          },
+          {
+            "layer_id": 9,
+            "layer_name": "Area - Large Scale",
+            "label_fields": ["gnis_name", "GNIS_NAME", "ftype", "FTYPE", "fcode", "FCODE"],
+            "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"]
+          }
+        ]
+      },
       "known_limitations": "Hydrography may miss local ditches, altered drainage, or recent changes visible in imagery.",
       "notes": "Primary first-pass stream, river, ditch, and crossing context source."
     },
