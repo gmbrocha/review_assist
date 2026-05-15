@@ -130,11 +130,15 @@ The first map-generation baseline writes `projects/<project_id>/maps/map_manifes
 
 ### 2026-05-14: Phase 6D report section drafting starts deterministic
 
-The first report section baseline writes `projects/<project_id>/drafts/report_sections.json` using templates from `config/report_section_templates.json`. It creates no-blank-page draft sections from structured workflow artifacts and feeds `report_section` items into the review queue. LLM synthesis, DOCX/PDF export, final report compilation, ranking, recommendations, and unreviewed report output remain deferred.
+The first report section baseline writes `projects/<project_id>/drafts/report_sections.json` using templates from `config/report_section_templates.json`. It creates no-blank-page draft sections from structured workflow artifacts and feeds `report_section` items into the review queue. LLM synthesis, final PDF/report compilation, ranking, recommendations, and unreviewed external-ready report output remain deferred.
 
 ### 2026-05-15: Markdown export proves accepted-content assembly before DOCX
 
-The first export compiler writes `projects/<project_id>/exports/environmental_constraints_report.md` and `projects/<project_id>/exports/export_manifest.json` through `review-assist export-report`. It compiles accepted or edited review queue items by default, includes `unable_to_verify` items only when explicitly export eligible, and provides `--include-draft` only for internal preview exports. DOCX/PDF export remains deferred until Markdown proves ordering, filtering, provenance, caveat, and map/table reference behavior.
+The first export compiler writes `projects/<project_id>/exports/environmental_constraints_report.md` and `projects/<project_id>/exports/export_manifest.json` through `review-assist export-report`. It compiles accepted or edited review queue items by default, includes `unable_to_verify` items only when explicitly export eligible, and provides `--include-draft` only for internal preview exports. This decision established the Markdown proof before adding DOCX/PDF layout concerns.
+
+### 2026-05-15: MVP demo deliverable moves export from Markdown to DOCX package assembly
+
+The MVP export slice adds DOCX generation through `review-assist export-report --format docx|both` and an internal preview package command through `review-assist build-demo-deliverable`. Default export remains review-gated. The demo command uses `--include-draft` preview semantics, visibly labels output as not reviewed, and does not auto-accept or mutate review item statuses. PDF export, final template fidelity, UI review screens, and GPT drafting remain deferred.
 
 ### 2026-05-15: Failed source downloads must remain visible downstream
 

@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown export packages, and populate-for-review orchestration. No production desktop app, final DOCX/PDF export, or production workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export packages, internal demo deliverable packages, and populate-for-review orchestration. No production desktop app, final PDF export, template-grade DOCX layout, or production workflow exists yet.
 
 The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
 
@@ -41,7 +41,7 @@ Conceptual state objects:
 - Review queue items.
 - Export manifest.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, Markdown export manifests/reports, and populate run manifests.
+The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, Markdown/DOCX export manifests/reports, demo deliverable package manifests, and populate run manifests.
 
 ## Project Workspace Layer
 
@@ -374,16 +374,18 @@ Current implementation:
 
 - The CLI command is `review-assist export-report <project_dir>`.
 - The preview command is `review-assist export-report <project_dir> --include-draft`.
-- The service writes `projects/<project_id>/exports/environmental_constraints_report.md`.
+- The service writes `projects/<project_id>/exports/environmental_constraints_report.md` when Markdown output is requested.
+- The service writes `projects/<project_id>/exports/environmental_constraints_report.docx` when DOCX output is requested.
 - The service writes `projects/<project_id>/exports/export_manifest.json`.
+- The demo package command writes `projects/<project_id>/exports/deliverable_package_manifest.json`.
 - Default exports include accepted or edited queue items only, plus explicitly export-eligible `unable_to_verify` items.
-- Preview exports include non-rejected draft/unaccepted items and mark the Markdown as internal/pre-review.
-- Maps and tables are referenced by artifact/file path in this slice, not embedded as binary content.
+- Preview exports include non-rejected draft/unaccepted items and mark the Markdown/DOCX as internal/pre-review.
+- DOCX export embeds map figures when files are present, renders table previews where practical, and leaves explicit placeholders when visual/table artifacts are missing.
 
 Future outputs:
 
-- DOCX draft report.
-- DOCX/PDF report packages.
+- PDF report packages.
+- Template-grade DOCX layout refinement.
 - Excel/CSV comparison tables.
 - PNG/PDF figures.
 - GeoPackage or GeoJSON review layers.
@@ -391,7 +393,7 @@ Future outputs:
 
 Open questions:
 
-- What exact DOCX library/template strategy should follow the Markdown proof?
+- How should the current DOCX compiler evolve toward the example report template?
 - How should map figures be embedded and refreshed?
 - Which companion table/map files should be copied into a final export bundle instead of referenced in place?
 
@@ -414,7 +416,7 @@ Current implementation:
 - Converts deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues into a lean review queue by default.
 - Source inventory/provenance records can be included explicitly for audit workflows with the `--include-source-inventory` flag.
 - Supports CLI listing and status/note/export-eligibility updates.
-- Supports downstream Markdown export through review status and export eligibility.
+- Supports downstream Markdown/DOCX export through review status and export eligibility.
 - Does not yet provide GUI review screens or LLM-assisted report drafting.
 
 ## Populate For Review Service
@@ -447,5 +449,5 @@ LLM calls must not:
 - How should large source layers and generated raster outputs be stored outside Git?
 - What review UI is needed before report export is useful?
 - What exact rules make an item export eligible?
-- What DOCX/PDF export format should follow the current Markdown package?
+- What final PDF/export package format should follow the current DOCX package?
 - How should restricted cultural resource information be represented without exposing sensitive data?

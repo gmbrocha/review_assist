@@ -223,7 +223,7 @@ Only accepted or explicitly included reviewed figures should be compiled into re
 
 - Which basemap should be the default for internal draft reports?
 - Do report maps need to match an existing client/agency map style?
-- What DPI/page size is expected for DOCX/PDF output?
+- What DPI/page size is expected for template-grade DOCX and future PDF output?
 - Should map generation run entirely offline after sources are cached?
 - What is the first acceptable source for current aerial imagery?
 - Are Google Earth screenshots permissible in internal drafts, final appendices, or only manual review?

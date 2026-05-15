@@ -6,6 +6,8 @@ Build a local, workspace-based app that accepts a project input package, normali
 
 The app is a constraint engine plus a review queue plus an export compiler.
 
+Internal MVP/demo packages may include unaccepted draft content only when explicitly generated as an internal preview and visibly labeled as not reviewed. That preview path exists to show the deliverable shape; it must not be treated as final reviewed export content.
+
 The app is not a recommendation engine. It must not choose, reject, rank, score, or recommend a trail, route, site, service location, service area, corridor, alternative, or project feature. It presents objective constraints so someone else can make decisions outside the tool.
 
 The app is not trails-specific. Trails and Conexon are sample workspaces only. The system must work as a blank project machine that can accept point, line, polygon, or mixed project inputs.
@@ -419,6 +421,10 @@ The app should generate these where source data is available and create reviewab
 - [x] Editable Markdown reports are written to `projects/<id>/exports/environmental_constraints_report.md`.
 - [x] Default export includes accepted/edited review queue items and explicitly export-eligible unable-to-verify items only.
 - [x] Preview export exists through `review-assist export-report --include-draft` and is clearly labeled as internal/pre-review.
+- [x] DOCX export exists through `review-assist export-report --format docx` and `--format both`.
+- [x] Demo deliverable package generation exists through `review-assist build-demo-deliverable`.
+- [x] Demo deliverable manifests are written to `projects/<id>/exports/deliverable_package_manifest.json`.
+- [x] DOCX export renders report sections, tables where practical, map figures when files exist, placeholders when files are missing, source refs, caveats, and generated package contents.
 
 ## Still To Go
 
@@ -534,7 +540,10 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 - [x] Include unable-to-verify items only when explicitly export eligible.
 - [x] Decide first export target: Markdown plus JSON manifest.
 - [x] Preserve editability in the exported report.
-- [ ] Add DOCX export once Markdown assembly proves ordering, filtering, source refs, caveats, and map/table reference behavior.
+- [x] Add DOCX export once Markdown assembly proves ordering, filtering, source refs, caveats, and map/table reference behavior.
+- [x] Add an internal demo deliverable command that runs populate-for-review and preview export without auto-accepting review items.
+- [ ] Improve DOCX formatting against the example report template after the MVP package path is stable.
+- [ ] Add PDF export only after DOCX layout is acceptable.
 
 ### 9. Map and Figure Improvements
 
@@ -571,21 +580,19 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 - The app must not pretend desktop screening is field verification.
 - The app must not hide missing or gated data.
 - The app must not invent source-backed evidence.
-- The app must not export unreviewed generated content.
+- The app must not present unreviewed generated content as reviewed, final, or externally ready content.
 - The app must not automate restricted data access without explicit approval.
 - The app must stay project-type agnostic.
 - The app must keep deterministic constraint analysis separate from narrative drafting.
 
 ## Immediate Next Move
 
-Continue evidence depth after the NWI/NHD/Critical Habitat/EPA-ECHO/FEMA acquisition baseline, not review-queue volume for its own sake.
+Move from backend breadth toward a client-showable MVP deliverable package.
 
-The practical next source milestone is:
+The practical next milestones are:
 
-1. Add the next highest-value public downloader one source at a time, likely NLCD, soils, Census, or public community/infrastructure data depending on report need.
-2. Expand source-specific category/subtype mapping for the normalized source-feature contract.
-3. Improve resource-specific report language using grouped constraint summaries, flood hazard summaries, hydrography summaries, map IDs, table IDs, and source caveats.
-4. Improve maps/figures toward template-ready visuals while preserving source provenance.
-5. Keep every generated finding, table, map, caveat, and section behind the review queue before export.
-
-GPT drafting and DOCX export come after the source-backed evidence and review-gated assembly path remain stable.
+1. Improve the DOCX package layout against the example report template without bypassing review gates.
+2. Improve section language quality and map/table placement so the generated report reads like a coherent pre-review draft.
+3. Add GPT-assisted section drafting from structured artifacts only after deterministic DOCX assembly remains stable.
+4. Add reviewer-facing UI only after the backend can repeatedly produce a useful draft package.
+5. Resume additional source downloaders only when they directly improve a missing template section needed for the MVP.

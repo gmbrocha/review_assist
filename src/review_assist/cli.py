@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .constraints import ConstraintAnalysisError, analyze_constraints
+from .deliverable import DemoDeliverableError, build_demo_deliverable
 from .export_report import ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
 from .inspection import ProjectInspectionError, inspect_project
@@ -115,14 +116,45 @@ def build_parser() -> argparse.ArgumentParser:
     sections_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     sections_parser.add_argument("--json", action="store_true", help="Print full JSON report sections artifact to stdout.")
 
-    export_parser = subparsers.add_parser("export-report", help="Export reviewed queue items into an editable Markdown report package.")
+    export_parser = subparsers.add_parser("export-report", help="Export reviewed queue items into an editable report package.")
     export_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     export_parser.add_argument(
         "--include-draft",
         action="store_true",
         help="Create an internal preview export that includes unaccepted draft items except rejected items.",
     )
+    export_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=("markdown", "docx", "both"),
+        default="markdown",
+        help="Editable export format to generate.",
+    )
     export_parser.add_argument("--json", action="store_true", help="Print full JSON export manifest to stdout.")
+
+    demo_parser = subparsers.add_parser(
+        "build-demo-deliverable",
+        help="Run populate-for-review and export an internal preview deliverable package.",
+    )
+    demo_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    demo_parser.add_argument(
+        "--prepare-sources",
+        action="store_true",
+        help="Resolve source gaps and run supported public downloaders before constraint analysis.",
+    )
+    demo_parser.add_argument(
+        "--include-optional-sources",
+        action="store_true",
+        help="When used with --prepare-sources, also download supported optional sources.",
+    )
+    demo_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=("markdown", "docx", "both"),
+        default="both",
+        help="Editable export format to generate for the demo package.",
+    )
+    demo_parser.add_argument("--json", action="store_true", help="Print full JSON demo deliverable manifest to stdout.")
 
     queue_parser = subparsers.add_parser("generate-review-queue", help="Generate review queue items from workflow artifacts.")
     queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -506,9 +538,9 @@ def generate_report_sections_command(project_dir: Path, print_json: bool) -> int
     return 0
 
 
-def export_report_command(project_dir: Path, include_draft: bool, print_json: bool) -> int:
+def export_report_command(project_dir: Path, include_draft: bool, output_format: str, print_json: bool) -> int:
     try:
-        result = export_report(project_dir, include_draft=include_draft)
+        result = export_report(project_dir, include_draft=include_draft, output_format=output_format)
     except ExportReportError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -522,7 +554,43 @@ def export_report_command(project_dir: Path, include_draft: bool, print_json: bo
     print(f"Included items: {result['included_count']}")
     print(f"Skipped items: {result['skipped_count']}")
     print(f"Validation issues: {len(result['validation_issues'])}")
-    print(f"Markdown: {result['markdown_path']}")
+    if result.get("markdown_path"):
+        print(f"Markdown: {result['markdown_path']}")
+    if result.get("docx_path"):
+        print(f"DOCX: {result['docx_path']}")
+    print(f"Manifest: {result['output_path']}")
+    return 0
+
+
+def build_demo_deliverable_command(
+    project_dir: Path,
+    print_json: bool,
+    prepare_sources_flag: bool = False,
+    include_optional_sources: bool = False,
+    output_format: str = "both",
+) -> int:
+    try:
+        result = build_demo_deliverable(
+            project_dir,
+            prepare_sources=prepare_sources_flag,
+            include_optional_sources=include_optional_sources,
+            output_format=output_format,
+        )
+    except DemoDeliverableError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated demo deliverable: {result['project_id']} ({result['project_name']})")
+    print(f"Included items: {result['included_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    if result.get("markdown_path"):
+        print(f"Markdown: {result['markdown_path']}")
+    if result.get("docx_path"):
+        print(f"DOCX: {result['docx_path']}")
     print(f"Manifest: {result['output_path']}")
     return 0
 
@@ -638,7 +706,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "generate-report-sections":
         return generate_report_sections_command(args.project_dir, args.json)
     if args.command == "export-report":
-        return export_report_command(args.project_dir, args.include_draft, args.json)
+        return export_report_command(args.project_dir, args.include_draft, args.output_format, args.json)
+    if args.command == "build-demo-deliverable":
+        if args.include_optional_sources and not args.prepare_sources:
+            parser.error("--include-optional-sources requires --prepare-sources for build-demo-deliverable.")
+        return build_demo_deliverable_command(
+            args.project_dir,
+            args.json,
+            args.prepare_sources,
+            args.include_optional_sources,
+            args.output_format,
+        )
     if args.command == "generate-review-queue":
         return generate_review_queue_command(args.project_dir, args.include_source_inventory, args.json)
     if args.command == "list-review-queue":

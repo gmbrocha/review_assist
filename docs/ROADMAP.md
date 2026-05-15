@@ -18,7 +18,7 @@ The product is not a generic report-item generator. The durable workflow is:
 8. Convert source-backed results into structured constraint findings.
 9. Draft small report sections from those findings, source notes, and uncertainty records.
 10. Send findings, draft sections, tables, maps, caveats, and source notes into the review queue.
-11. Export only reviewer-accepted or explicitly included items.
+11. Export reviewer-accepted or explicitly included reviewed items, with internal preview exports clearly labeled when draft items are included for demo purposes.
 
 The review queue remains central, but it is downstream of the constraint engine. Review queue item count is not a readiness metric. A useful run is one that correctly parses the alternatives, crops/loads relevant sources, identifies objective constraints, preserves no-conflict and missing-source context where report-relevant, and creates editable report sections that a human can review independently.
 
@@ -259,7 +259,7 @@ Current baseline:
 
 This baseline now mirrors the example environmental constraints report more closely with front matter, executive summary, introduction/study area, methodology subsections, environmental constraints inventory, resource sections, conclusion/next steps, attachments, visual slots, and table slots.
 
-This baseline does not create DOCX/PDF exports, call LLMs, generate final conclusions, rank alternatives, or bypass review queue acceptance.
+This baseline does not itself compile exports, call LLMs, generate final conclusions, rank alternatives, or bypass review queue acceptance.
 
 ## Constraint Core Slice: Geometry, Constraint Results, and Lean Queue
 
@@ -280,27 +280,32 @@ This slice uses deterministic drafting only. The section-drafting provider inter
 
 ## Phase 7: Export Compilation
 
-Status: first Markdown export baseline complete.
+Status: Markdown, DOCX, and internal demo deliverable package baseline complete.
 
 - Compile accepted and edited review queue items by default.
 - Include `unable_to_verify` items only when explicitly export eligible.
 - Exclude draft, needs-review, needs-verification, and rejected items from default exports.
-- Generate editable Markdown report packages.
+- Generate editable Markdown and DOCX report packages.
 - Generate an export manifest with included/skipped items, status/type counts, warnings, and source-gap caveats.
 - Preserve section order from report section artifacts.
-- Reference accepted/edited maps and tables by artifact path rather than embedding binaries.
+- Render DOCX report sections, table previews where practical, map figures when files exist, missing visual/table placeholders, source refs, caveats, and generated package contents.
 - Provide `--include-draft` only for internal preview exports, clearly labeled as not ready for external use.
+- Provide a one-command internal demo package flow that runs populate-for-review and preview export without mutating review statuses.
 
 Current baseline:
 
 - `review-assist export-report <project_dir>`
 - `review-assist export-report <project_dir> --include-draft`
+- `review-assist export-report <project_dir> --format markdown|docx|both`
+- `review-assist build-demo-deliverable <project_dir>`
 - JSON manifest at `projects/<project_id>/exports/export_manifest.json`
 - Markdown report at `projects/<project_id>/exports/environmental_constraints_report.md`
+- DOCX report at `projects/<project_id>/exports/environmental_constraints_report.docx`
+- Demo package manifest at `projects/<project_id>/exports/deliverable_package_manifest.json`
 
 Next export milestone:
 
-- Add DOCX export after Markdown proves accepted-content assembly, ordering, provenance, figure/table references, caveat handling, and reviewer-state behavior.
+- Improve DOCX layout fidelity against the example report template and package figures/tables more deliberately before adding PDF or final cartographic output.
 
 ## Phase 8: Optional AI-Assisted Narrative Synthesis
 

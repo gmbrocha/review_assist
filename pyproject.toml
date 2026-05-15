@@ -12,6 +12,7 @@ dependencies = [
     "geopandas>=1.0",
     "matplotlib>=3.9",
     "pandas>=2.2",
+    "python-docx>=1.1",
     "pyogrio>=0.10",
     "pyproj>=3.6",
     "shapely>=2.0",

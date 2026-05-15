@@ -232,7 +232,7 @@ Current baseline:
 - `generate-review-queue` creates a lean JSON review queue from deterministic draft findings, comparison tables, map figures, deterministic report sections, report-relevant missing-data placeholders, and validation issues. Source inventory notes can still be included explicitly for audit/review workflows.
 - `list-review-queue` summarizes item status/type counts and item eligibility.
 - `update-review-item` supports status changes, reviewer notes, and export eligibility flags.
-- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, LLM-assisted report drafting, and DOCX/PDF export remain future work.
+- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, LLM-assisted report drafting, PDF export, and final template-grade DOCX layout remain future work.
 
 ## Export Compilation
 
@@ -259,10 +259,11 @@ The system should compile accepted content only. Rejected items remain in the re
 
 Current baseline:
 
-- `export-report <project_dir>` writes `projects/<project_id>/exports/environmental_constraints_report.md` and `projects/<project_id>/exports/export_manifest.json`.
+- `export-report <project_dir>` writes Markdown and/or DOCX report packages plus `projects/<project_id>/exports/export_manifest.json`.
+- `build-demo-deliverable <project_dir>` runs populate-for-review and preview export into an internal demo package manifest without accepting review items.
 - Default exports include accepted or edited queue items only, plus `unable_to_verify` items only when explicitly export eligible.
-- `--include-draft` creates an internal preview export that includes non-rejected draft/unaccepted items and marks the Markdown as non-final/pre-review.
-- Maps and tables are referenced by artifact path in this slice; binary embedding and DOCX formatting are deferred.
+- `--include-draft` creates an internal preview export that includes non-rejected draft/unaccepted items and marks the Markdown/DOCX as non-final/pre-review.
+- DOCX export renders table previews and embeds map figures when figure files are present; missing visuals/tables remain explicit placeholders.
 
 ## Conceptual Service Boundaries
 

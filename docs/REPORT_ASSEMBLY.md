@@ -2,7 +2,7 @@
 
 This document captures the pipeline for assembling editable pre-review report packages.
 
-A deterministic draft section baseline exists, and the first accepted-content export compiler now writes Markdown plus an export manifest. DOCX remains the next export target after the Markdown path proves ordering, filtering, provenance, and reviewer-state behavior.
+A deterministic draft section baseline exists, and the accepted-content export compiler now writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items.
 
 ## Goal
 
@@ -79,20 +79,34 @@ Resource sections now cite related finding, table, and figure IDs where structur
 
 These sections are not final exports. They become `report_section` review queue items and require human review before reviewed-content export.
 
-## Current Markdown Export Baseline
+## Current Export Baseline
 
-The current CLI can compile reviewed queue items into an editable Markdown package:
+The current CLI can compile reviewed queue items into editable Markdown and DOCX packages:
 
 - Command: `review-assist export-report <project_dir>`
 - Preview command: `review-assist export-report <project_dir> --include-draft`
+- Format option: `review-assist export-report <project_dir> --format markdown|docx|both`
 - Manifest: `projects/<project_id>/exports/export_manifest.json`
 - Markdown: `projects/<project_id>/exports/environmental_constraints_report.md`
+- DOCX: `projects/<project_id>/exports/environmental_constraints_report.docx`
 
 Default export includes only queue items with `accepted` or `edited` status and export eligibility. `unable_to_verify` items export only when explicitly marked export eligible. Draft, needs-review, needs-verification, and rejected items are skipped.
 
-The `--include-draft` option is for internal preview only. It includes unaccepted non-rejected items and marks the Markdown output as an internal preview, not an external report.
+The `--include-draft` option is for internal preview only. It includes unaccepted non-rejected items and marks the Markdown/DOCX output as an internal preview, not an external report.
 
-The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, and missing accepted maps. Maps and tables are referenced by path/artifact metadata in this slice; binary embedding and DOCX formatting are deferred.
+The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included table ids, included map paths, and generated package contents. DOCX export renders report sections, table previews where practical, map figures when files exist, placeholders when files are missing, source refs, uncertainty flags, caveats, and package contents.
+
+## Demo Deliverable Package
+
+The current CLI can create a client-showable internal preview package without touching the UI:
+
+- Command: `review-assist build-demo-deliverable <project_dir>`
+- Optional source acquisition: `--prepare-sources`
+- Optional source inclusion: `--include-optional-sources`, only with `--prepare-sources`
+- Format option: `--format markdown|docx|both`
+- Manifest: `projects/<project_id>/exports/deliverable_package_manifest.json`
+
+This command runs `populate-for-review`, then exports `--include-draft` content in the requested format. It does not accept, edit, or otherwise mutate review item statuses. The output exists to demonstrate the report shape and should not be treated as reviewed deliverable content.
 
 ## Narrative Sources
 
@@ -170,7 +184,7 @@ Potential exports:
 - PNG/PDF map figures.
 - GeoPackage review layers.
 
-DOCX is important because the example deliverable is a Word report. The first implementation path is Markdown plus JSON manifest so the accepted-content assembly rules are testable before adding DOCX dependencies and layout concerns.
+DOCX is important because the example deliverable is a Word report. The current DOCX baseline proves package assembly and editability, but it is still MVP formatting rather than final template fidelity.
 
 Exports should compile accepted or explicitly included reviewed content only. Rejected items remain in the review record but should not export.
 
@@ -199,6 +213,8 @@ The compiled package manifest includes or should continue to include:
 - Tables generated.
 - Figures generated.
 - Markdown report path.
+- DOCX report path.
+- Demo package manifest path, when generated.
 - Review status summary.
 - Included/skipped queue item summaries.
 - Known missing data.
@@ -209,6 +225,6 @@ This manifest should support reproducibility and review.
 ## Open Questions
 
 - How much formatting must match the example report?
-- Should figures be embedded automatically or linked for manual insertion?
+- How close must the first DOCX layout get to the example report before UI work starts?
 - How should reviewer edits round-trip back into structured findings?
 - Which appendices are required for the first prototype?

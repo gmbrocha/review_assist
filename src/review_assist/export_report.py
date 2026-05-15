@@ -10,11 +10,15 @@ from typing import Any
 
 from .review_queue import ReviewQueueError, generate_review_queue, load_review_queue
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
+from .tables import TABLES_PATH, TableGenerationError, load_comparison_tables
 
 
 EXPORT_DIR = Path("exports")
 EXPORT_MANIFEST_PATH = EXPORT_DIR / "export_manifest.json"
 EXPORT_MARKDOWN_PATH = EXPORT_DIR / "environmental_constraints_report.md"
+EXPORT_DOCX_PATH = EXPORT_DIR / "environmental_constraints_report.docx"
+SUPPORTED_OUTPUT_FORMATS = {"markdown", "docx", "both"}
+DOCX_TABLE_ROW_LIMIT = 50
 
 EXPORT_GROUP_ORDER = [
     "front_matter",
@@ -43,32 +47,59 @@ class ExportReportError(RuntimeError):
     """Raised when editable report export generation cannot complete."""
 
 
-def export_report(project_dir: Path, *, include_draft: bool = False) -> dict[str, Any]:
+def export_report(project_dir: Path, *, include_draft: bool = False, output_format: str = "markdown") -> dict[str, Any]:
     project_dir = project_dir.resolve()
+    formats = _output_formats(output_format)
     try:
         queue = _load_or_generate_queue(project_dir)
         source_status = _load_or_generate_source_status(project_dir)
+        comparison_tables = _load_optional_comparison_tables(project_dir)
     except (ReviewQueueError, SourceStatusError) as exc:
         raise ExportReportError(str(exc)) from exc
 
     output_dir = project_dir / EXPORT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
     markdown_path = project_dir / EXPORT_MARKDOWN_PATH
+    docx_path = project_dir / EXPORT_DOCX_PATH
     manifest_path = project_dir / EXPORT_MANIFEST_PATH
     now = _utc_now()
 
     items = _dict_list(queue.get("items", []))
     included, skipped = _partition_export_items(items, include_draft=include_draft)
     included = sorted(included, key=_export_sort_key)
-    validation_issues = _export_validation_issues(included, source_status, include_draft=include_draft)
-
-    markdown = _markdown_report(
-        queue=queue,
-        included=included,
-        validation_issues=validation_issues,
+    unresolved_required_sources = _unresolved_required_sources(source_status)
+    validation_issues = _export_validation_issues(
+        included,
+        unresolved_required_sources,
         include_draft=include_draft,
     )
-    markdown_path.write_text(markdown, encoding="utf-8")
+    if comparison_tables:
+        validation_issues.extend(_dict_list(comparison_tables.get("validation_issues", [])))
+
+    if "markdown" in formats:
+        markdown = _markdown_report(
+            queue=queue,
+            included=included,
+            validation_issues=validation_issues,
+            include_draft=include_draft,
+        )
+        markdown_path.write_text(markdown, encoding="utf-8")
+
+    if "docx" in formats:
+        _write_docx_report(
+            project_dir=project_dir,
+            docx_path=docx_path,
+            queue=queue,
+            included=included,
+            validation_issues=validation_issues,
+            include_draft=include_draft,
+            comparison_tables=comparison_tables,
+            output_paths={
+                "markdown_report": str(markdown_path) if "markdown" in formats else None,
+                "docx_report": str(docx_path),
+                "export_manifest": str(manifest_path),
+            },
+        )
 
     manifest = {
         "project_id": queue.get("project_id"),
@@ -76,9 +107,14 @@ def export_report(project_dir: Path, *, include_draft: bool = False) -> dict[str
         "project_dir": str(project_dir),
         "created_at": now,
         "include_draft": include_draft,
+        "output_format": output_format,
+        "output_formats": formats,
+        "package_status": "internal_preview" if include_draft else "reviewed_content",
         "review_queue_path": queue.get("output_path"),
         "source_status_path": source_status.get("output_path"),
-        "markdown_path": str(markdown_path),
+        "comparison_tables_path": comparison_tables.get("output_path") if comparison_tables else None,
+        "markdown_path": str(markdown_path) if "markdown" in formats else None,
+        "docx_path": str(docx_path) if "docx" in formats else None,
         "included_count": len(included),
         "skipped_count": len(skipped),
         "status_counts": dict(Counter(str(item.get("status", "")) for item in items)),
@@ -86,6 +122,15 @@ def export_report(project_dir: Path, *, include_draft: bool = False) -> dict[str
         "skipped_status_counts": dict(Counter(item["status"] for item in skipped)),
         "included_type_counts": dict(Counter(item["type"] for item in included)),
         "skipped_type_counts": dict(Counter(item["type"] for item in skipped)),
+        "included_table_ids": sorted({str(item.get("table_id")) for item in included if item.get("table_id")}),
+        "included_map_paths": sorted({str(item.get("image_path")) for item in included if item.get("image_path")}),
+        "included_source_refs": sorted({ref for item in included for ref in _string_list(item.get("source_refs", []))}),
+        "unresolved_required_sources": unresolved_required_sources,
+        "package_contents": _package_contents(queue, output_paths={
+            "markdown_report": str(markdown_path) if "markdown" in formats else None,
+            "docx_report": str(docx_path) if "docx" in formats else None,
+            "export_manifest": str(manifest_path),
+        }),
         "included_items": included,
         "skipped_items": skipped,
         "validation_issues": validation_issues,
@@ -113,6 +158,35 @@ def _load_or_generate_source_status(project_dir: Path) -> dict[str, Any]:
             return data
         raise SourceStatusError(f"Source status artifact must be a JSON object: {source_status_path}")
     return resolve_source_status_set(project_dir)
+
+
+def _load_optional_comparison_tables(project_dir: Path) -> dict[str, Any] | None:
+    tables_path = project_dir / TABLES_PATH
+    if not tables_path.exists():
+        return None
+    try:
+        return load_comparison_tables(project_dir)
+    except TableGenerationError as exc:
+        return {
+            "tables": [],
+            "output_path": str(tables_path),
+            "validation_issues": [
+                _issue(
+                    "warning",
+                    "comparison_tables_unavailable",
+                    f"Comparison table artifact could not be loaded for export table rendering: {exc}",
+                )
+            ],
+        }
+
+
+def _output_formats(output_format: str) -> list[str]:
+    if output_format not in SUPPORTED_OUTPUT_FORMATS:
+        allowed = ", ".join(sorted(SUPPORTED_OUTPUT_FORMATS))
+        raise ExportReportError(f"Unsupported export format '{output_format}'. Expected one of: {allowed}.")
+    if output_format == "both":
+        return ["markdown", "docx"]
+    return [output_format]
 
 
 def _include_item(item: dict[str, Any], *, include_draft: bool) -> bool:
@@ -163,6 +237,8 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "related_table_ids": _string_list(item.get("related_table_ids", [])),
         "image_path": item.get("image_path"),
         "table_id": item.get("table_id"),
+        "columns": _string_list(item.get("columns", [])),
+        "rows_preview": _dict_list(item.get("rows_preview", [])),
         "row_count": item.get("row_count"),
         "artifact_path": provenance.get("artifact_path"),
         "provenance": provenance,
@@ -201,7 +277,7 @@ def _export_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
 
 def _export_validation_issues(
     included: list[dict[str, Any]],
-    source_status: dict[str, Any],
+    unresolved_required_sources: list[dict[str, Any]],
     *,
     include_draft: bool,
 ) -> list[dict[str, Any]]:
@@ -210,13 +286,8 @@ def _export_validation_issues(
         issues.append(_issue("warning", "no_accepted_report_sections", "No accepted or edited report sections were available for export."))
     if not include_draft and not any(item["type"] == "map_figure" for item in included):
         issues.append(_issue("warning", "no_accepted_maps", "No accepted or edited map figures were available for export."))
-    unresolved = [
-        item
-        for item in _dict_list(source_status.get("statuses", []))
-        if item.get("requirement") == "required" and str(item.get("status")) in UNRESOLVED_REQUIRED_SOURCE_STATUSES
-    ]
-    if unresolved:
-        categories = ", ".join(str(item.get("category")) for item in unresolved)
+    if unresolved_required_sources:
+        categories = ", ".join(str(item.get("category")) for item in unresolved_required_sources)
         issues.append(
             _issue(
                 "warning",
@@ -225,6 +296,23 @@ def _export_validation_issues(
             )
         )
     return issues
+
+
+def _unresolved_required_sources(source_status: dict[str, Any]) -> list[dict[str, Any]]:
+    unresolved: list[dict[str, Any]] = []
+    for item in _dict_list(source_status.get("statuses", [])):
+        if item.get("requirement") != "required" or str(item.get("status")) not in UNRESOLVED_REQUIRED_SOURCE_STATUSES:
+            continue
+        unresolved.append(
+            {
+                "category": item.get("category"),
+                "status": item.get("status"),
+                "source_ids": _string_list(item.get("source_ids", [])),
+                "notes": item.get("notes", ""),
+                "uncertainty_flags": _string_list(item.get("uncertainty_flags", [])),
+            }
+        )
+    return unresolved
 
 
 def _markdown_report(
@@ -269,6 +357,7 @@ def _markdown_report(
             current_group = group
             lines.extend([f"## {EXPORT_GROUP_TITLES.get(group, group.replace('_', ' ').title())}", ""])
         lines.extend(_markdown_item(item))
+    lines.extend(_markdown_package_contents(queue))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -304,6 +393,258 @@ def _markdown_item(item: dict[str, Any]) -> list[str]:
     if item.get("uncertainty_flags"):
         lines.extend([f"Uncertainty flags: {', '.join(item['uncertainty_flags'])}.", ""])
     return lines
+
+
+def _markdown_package_contents(queue: dict[str, Any]) -> list[str]:
+    lines = ["## Generated Package Contents", ""]
+    contents = _package_contents(queue, output_paths={})
+    for label, value in contents.items():
+        if isinstance(value, dict):
+            if not value:
+                continue
+            lines.append(f"- {label}:")
+            for nested_label, nested_value in value.items():
+                if nested_value:
+                    lines.append(f"  - {nested_label}: `{nested_value}`")
+        elif value:
+            lines.append(f"- {label}: `{value}`")
+    lines.append("")
+    return lines
+
+
+def _write_docx_report(
+    *,
+    project_dir: Path,
+    docx_path: Path,
+    queue: dict[str, Any],
+    included: list[dict[str, Any]],
+    validation_issues: list[dict[str, Any]],
+    include_draft: bool,
+    comparison_tables: dict[str, Any] | None,
+    output_paths: dict[str, str | None],
+) -> None:
+    try:
+        from docx import Document
+        from docx.shared import Inches
+    except ImportError as exc:  # pragma: no cover - dependency is declared, this guards broken environments.
+        raise ExportReportError("DOCX export requires the python-docx package to be installed.") from exc
+
+    document = Document()
+    table_lookup = _tables_by_id(comparison_tables)
+
+    title = str(queue.get("project_name") or "Environmental Constraints Report")
+    document.add_heading(title, level=0)
+    document.add_paragraph("Environmental Constraints Report")
+    document.add_paragraph(f"Generated: {_utc_now()}")
+    if include_draft:
+        notice = document.add_paragraph()
+        run = notice.add_run("INTERNAL PREVIEW / NOT REVIEWED")
+        run.bold = True
+        document.add_paragraph(
+            "This package includes draft or unaccepted review queue items. It is for internal preview only and is not ready for external use."
+        )
+    else:
+        document.add_paragraph(
+            "Reviewed-content export: this package includes only accepted, edited, or explicitly export-eligible reviewed items."
+        )
+
+    if validation_issues:
+        document.add_heading("Export Caveats", level=1)
+        for issue in validation_issues:
+            document.add_paragraph(f"{issue.get('code')}: {issue.get('message')}", style="List Bullet")
+
+    if not included:
+        document.add_heading("No Exported Content", level=1)
+        document.add_paragraph("No review queue items met the export criteria.")
+    else:
+        current_group = ""
+        for item in included:
+            group = str(item.get("export_group", "resource_sections"))
+            if group != current_group:
+                current_group = group
+                document.add_heading(EXPORT_GROUP_TITLES.get(group, group.replace("_", " ").title()), level=1)
+            _add_docx_item(
+                document=document,
+                item=item,
+                project_dir=project_dir,
+                table_lookup=table_lookup,
+                image_width=Inches(6.3),
+            )
+
+    _add_docx_package_contents(document, queue, output_paths)
+    docx_path.parent.mkdir(parents=True, exist_ok=True)
+    document.save(docx_path)
+
+
+def _add_docx_item(
+    *,
+    document: Any,
+    item: dict[str, Any],
+    project_dir: Path,
+    table_lookup: dict[str, dict[str, Any]],
+    image_width: Any,
+) -> None:
+    item_type = str(item.get("type", ""))
+    heading_level = 2 if item_type == "report_section" else 3
+    document.add_heading(str(item.get("title") or "Untitled Item"), level=heading_level)
+
+    content = str(item.get("content", "")).strip()
+    if content:
+        _add_docx_content(document, content)
+    else:
+        document.add_paragraph("No generated or reviewer-edited content was available for this item.")
+
+    if item_type == "comparison_table":
+        _add_docx_comparison_table(document, item, table_lookup)
+    elif item_type == "map_figure":
+        _add_docx_map_figure(document, item, project_dir, image_width)
+    else:
+        _add_docx_missing_slots(document, item)
+
+    if item.get("source_refs"):
+        document.add_paragraph(f"Source refs: {', '.join(_string_list(item.get('source_refs', [])))}.")
+    if item.get("uncertainty_flags"):
+        document.add_paragraph(f"Uncertainty flags: {', '.join(_string_list(item.get('uncertainty_flags', [])))}.")
+
+
+def _add_docx_content(document: Any, content: str) -> None:
+    for raw_line in content.replace("\r\n", "\n").split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("### "):
+            document.add_heading(line[4:].strip(), level=4)
+        elif line.startswith("## "):
+            document.add_heading(line[3:].strip(), level=3)
+        elif line.startswith("# "):
+            document.add_heading(line[2:].strip(), level=2)
+        elif line.startswith("- "):
+            document.add_paragraph(line[2:].strip(), style="List Bullet")
+        else:
+            document.add_paragraph(line)
+
+
+def _add_docx_comparison_table(
+    document: Any,
+    item: dict[str, Any],
+    table_lookup: dict[str, dict[str, Any]],
+) -> None:
+    table_id = str(item.get("table_id") or "")
+    source_table = table_lookup.get(table_id)
+    if source_table is None:
+        document.add_paragraph(f"Table placeholder: source table artifact was not available for table id '{table_id}'.")
+        return
+
+    columns = _string_list(source_table.get("columns", []))
+    rows = _dict_list(source_table.get("rows", []))
+    if not columns:
+        columns = sorted({str(key) for row in rows for key in row})
+    if not columns:
+        document.add_paragraph("Table placeholder: no columns were available for this table.")
+        return
+    if not rows:
+        document.add_paragraph("Table placeholder: this table currently has no rows.")
+        return
+
+    rendered_rows = rows[:DOCX_TABLE_ROW_LIMIT]
+    table = document.add_table(rows=1, cols=len(columns))
+    table.style = "Table Grid"
+    header_cells = table.rows[0].cells
+    for index, column in enumerate(columns):
+        header_cells[index].text = column
+    for row in rendered_rows:
+        cells = table.add_row().cells
+        for index, column in enumerate(columns):
+            cells[index].text = _docx_cell_text(row.get(column))
+    if len(rows) > DOCX_TABLE_ROW_LIMIT:
+        document.add_paragraph(
+            f"Table preview limited to {DOCX_TABLE_ROW_LIMIT} of {len(rows)} rows. Full table data remains in the table artifact."
+        )
+
+
+def _add_docx_map_figure(document: Any, item: dict[str, Any], project_dir: Path, image_width: Any) -> None:
+    image_value = item.get("image_path")
+    if not image_value:
+        document.add_paragraph("Figure placeholder: no image path was recorded for this map figure.")
+        return
+    image_path = Path(str(image_value))
+    if not image_path.is_absolute():
+        image_path = project_dir / image_path
+    if not image_path.exists():
+        document.add_paragraph(f"Figure placeholder: figure file was not available at {image_path}.")
+        return
+    try:
+        document.add_picture(str(image_path), width=image_width)
+    except Exception as exc:  # pragma: no cover - image backend errors vary by file.
+        document.add_paragraph(f"Figure placeholder: figure could not be embedded from {image_path}: {exc}.")
+        return
+    document.add_paragraph(f"Figure file: {image_path}")
+
+
+def _add_docx_missing_slots(document: Any, item: dict[str, Any]) -> None:
+    visual_slots = _string_list(item.get("visual_slots", []))
+    related_figures = _string_list(item.get("related_figure_ids", []))
+    missing_visuals = visual_slots if visual_slots and not related_figures else []
+    if missing_visuals:
+        document.add_paragraph("Visual needed:")
+        for slot in missing_visuals:
+            document.add_paragraph(slot, style="List Bullet")
+
+    table_slots = _string_list(item.get("table_slots", []))
+    related_tables = _string_list(item.get("related_table_ids", []))
+    missing_tables = table_slots if table_slots and not related_tables else []
+    if missing_tables:
+        document.add_paragraph("Table needed:")
+        for slot in missing_tables:
+            document.add_paragraph(slot, style="List Bullet")
+
+
+def _add_docx_package_contents(document: Any, queue: dict[str, Any], output_paths: dict[str, str | None]) -> None:
+    document.add_heading("Generated Package Contents", level=1)
+    contents = _package_contents(queue, output_paths=output_paths)
+    for label, value in contents.items():
+        if isinstance(value, dict):
+            document.add_paragraph(f"{label}:")
+            for nested_label, nested_value in value.items():
+                if nested_value:
+                    document.add_paragraph(f"{nested_label}: {nested_value}", style="List Bullet")
+        elif value:
+            document.add_paragraph(f"{label}: {value}", style="List Bullet")
+
+
+def _tables_by_id(comparison_tables: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    if comparison_tables is None:
+        return {}
+    return {
+        str(table.get("table_id")): table
+        for table in _dict_list(comparison_tables.get("tables", []))
+        if table.get("table_id")
+    }
+
+
+def _package_contents(queue: dict[str, Any], *, output_paths: dict[str, str | None]) -> dict[str, Any]:
+    upstream = queue.get("upstream_artifacts", {}) if isinstance(queue.get("upstream_artifacts"), dict) else {}
+    return {
+        "project_dir": queue.get("project_dir"),
+        "review_queue": queue.get("output_path"),
+        "source_inventory": upstream.get("source_inventory_path"),
+        "source_status": upstream.get("source_status_path"),
+        "constraint_results": upstream.get("constraint_results_path"),
+        "comparison_tables": upstream.get("comparison_tables_path"),
+        "map_manifest": upstream.get("map_manifest_path"),
+        "report_sections": upstream.get("report_sections_path"),
+        "exports": {key: value for key, value in output_paths.items() if value},
+    }
+
+
+def _docx_cell_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list)):
+        text = json.dumps(value, sort_keys=True)
+    else:
+        text = str(value)
+    return text if len(text) <= 250 else text[:247] + "..."
 
 
 def _default_export_group(item: dict[str, Any]) -> str:

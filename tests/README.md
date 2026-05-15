@@ -1,6 +1,6 @@
 # Tests Directory
 
-This directory contains tests for ingestion, inspection, source registry, project context/source status artifacts, source inventory/provenance artifacts, local spatial analysis services, deterministic finding generation, comparison table generation, vector-only map generation, deterministic report section generation, review queue behavior, Markdown export compilation, and populate-for-review orchestration.
+This directory contains tests for ingestion, inspection, source registry, project context/source status artifacts, source inventory/provenance artifacts, local spatial analysis services, deterministic finding generation, comparison table generation, vector-only map generation, deterministic report section generation, review queue behavior, Markdown/DOCX export compilation, internal demo deliverable package generation, and populate-for-review orchestration.
 
 Current focus:
 
@@ -23,10 +23,11 @@ Current focus:
 - Vector-only map manifest/PNG generation and map-to-review-queue integration.
 - Report section template validation, deterministic draft report section generation, and section-to-review-queue integration.
 - Review queue generation, item status updates, reviewer notes, export eligibility, and CLI commands.
-- Markdown export filtering, manifest generation, edited-content precedence, preview mode, and export CLI commands.
+- Markdown/DOCX export filtering, manifest generation, edited-content precedence, preview mode, and export CLI commands.
+- Internal demo deliverable package generation and CLI commands.
 - Populate-for-review run manifests, tolerant missing-source handling, and CLI commands.
 
-Future tests should add coverage for basemap/imagery rendering, richer report draft safety boundaries, DOCX export, and final map package assembly as those features are implemented.
+Future tests should add coverage for basemap/imagery rendering, richer report draft safety boundaries, final PDF export, and final map package assembly as those features are implemented.
 
 ## Test Discipline
 

@@ -66,7 +66,7 @@ Implemented and future draft findings may include:
 - Visible pond or lake in imagery not present in available wetland data.
 - Recent clearing or land disturbance visible in imagery.
 
-The current deterministic baseline implements a subset through template-driven draft findings, comparison tables, vector-only maps, deterministic draft report sections, and accepted-content Markdown export. Imagery observations, richer map/table findings, LLM-assisted synthesis, DOCX/PDF export, and final report package assembly remain future work.
+The current deterministic baseline implements a subset through template-driven draft findings, comparison tables, vector-only maps, deterministic draft report sections, accepted-content Markdown/DOCX export, and an internal preview demo package. Imagery observations, richer map/table findings, LLM-assisted synthesis, PDF export, template-grade DOCX layout, and final report package assembly remain future work.
 
 ## Current Example Projects
 

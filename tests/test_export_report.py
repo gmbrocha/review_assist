@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from review_assist import source_acquisition
+from review_assist.deliverable import build_demo_deliverable
 from review_assist.cli import main
 from review_assist.export_report import export_report
 from review_assist.populate_for_review import populate_for_review
@@ -111,6 +112,17 @@ def included_ids(manifest: dict[str, Any]) -> set[str]:
     return {item["id"] for item in manifest["included_items"]}
 
 
+def docx_text(path: str | Path) -> str:
+    from docx import Document
+
+    document = Document(path)
+    parts = [paragraph.text for paragraph in document.paragraphs]
+    for table in document.tables:
+        for row in table.rows:
+            parts.extend(cell.text for cell in row.cells)
+    return "\n".join(parts)
+
+
 def test_export_manifest_filters_reviewed_items_and_uses_edited_content(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
@@ -169,6 +181,46 @@ def test_export_preview_includes_drafts_and_marks_markdown(tmp_path: Path) -> No
     assert "INTERNAL PREVIEW EXPORT" in markdown
 
 
+def test_export_docx_preview_includes_drafts_and_marks_output(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    manifest = export_report(project_dir, include_draft=True, output_format="docx")
+    text = docx_text(manifest["docx_path"])
+
+    assert manifest["markdown_path"] is None
+    assert manifest["docx_path"].endswith("environmental_constraints_report.docx")
+    assert Path(manifest["docx_path"]).exists()
+    assert "docx" in manifest["output_formats"]
+    assert "INTERNAL PREVIEW / NOT REVIEWED" in text
+    assert "Study Area" in text
+    assert "Generated Package Contents" in text
+
+
+def test_export_format_both_writes_markdown_and_docx(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    manifest = export_report(project_dir, include_draft=True, output_format="both")
+
+    assert Path(manifest["markdown_path"]).exists()
+    assert Path(manifest["docx_path"]).exists()
+    assert manifest["output_formats"] == ["markdown", "docx"]
+
+
+def test_docx_export_embeds_table_content_and_missing_figure_placeholder(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_queue_item(project_dir, "map-figure-project-overview", image_path=str(project_dir / "missing-map.png"))
+
+    manifest = export_report(project_dir, include_draft=True, output_format="docx")
+    text = docx_text(manifest["docx_path"])
+
+    assert "category" in text
+    assert "wetlands_waterbodies" in text
+    assert "Figure placeholder: figure file was not available" in text
+
+
 def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_and_maps(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -196,6 +248,31 @@ def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_an
     assert "Map file:" in markdown
 
 
+def test_docx_export_with_nwi_backed_constraints_includes_accepted_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
+    populate_for_review(project_dir, prepare_sources=True)
+    queue = load_review_queue(project_dir)
+    finding_id = next(item["id"] for item in queue["items"] if item["type"] == "draft_finding" and "Wetland" in item["title"])
+    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and item["source_refs"])
+
+    update_review_item(project_dir, finding_id, status="accepted")
+    update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted")
+    update_review_item(project_dir, "comparison-table-constraint-summary", status="accepted")
+    update_review_item(project_dir, map_id, status="accepted")
+
+    manifest = export_report(project_dir, output_format="docx")
+    text = docx_text(manifest["docx_path"])
+
+    assert finding_id in included_ids(manifest)
+    assert "Mock NWI Wetland" in text
+    assert "Constraint Summary" in text
+    assert "Figure file:" in text
+
+
 def test_export_preserves_reviewer_edit_after_regeneration(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
@@ -214,10 +291,36 @@ def test_cli_export_report_text_and_json(tmp_path: Path, capsys: pytest.CaptureF
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
 
-    assert main(["export-report", str(project_dir), "--include-draft"]) == 0
+    assert main(["export-report", str(project_dir), "--include-draft", "--format", "both"]) == 0
     captured = capsys.readouterr()
     assert "Generated preview export" in captured.out
+    assert "DOCX:" in captured.out
 
     assert main(["export-report", str(project_dir), "--include-draft", "--json"]) == 0
     captured = capsys.readouterr()
     assert json.loads(captured.out)["project_id"] == "test_project"
+
+
+def test_build_demo_deliverable_writes_package_manifest_without_accepting_items(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    manifest = build_demo_deliverable(project_dir, output_format="both")
+    queue = load_review_queue(project_dir)
+
+    assert manifest["package_status"] == "internal_preview"
+    assert Path(manifest["output_path"]).exists()
+    assert Path(manifest["markdown_path"]).exists()
+    assert Path(manifest["docx_path"]).exists()
+    assert not any(item["status"] in {"accepted", "edited"} for item in queue["items"])
+
+
+def test_cli_build_demo_deliverable_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project_dir = write_project(tmp_path)
+
+    assert main(["build-demo-deliverable", str(project_dir), "--format", "docx", "--json"]) == 0
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert payload["project_id"] == "test_project"
+    assert payload["markdown_path"] is None
+    assert Path(payload["docx_path"]).exists()
