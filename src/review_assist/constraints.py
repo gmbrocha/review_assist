@@ -328,6 +328,12 @@ def _constraint_record(
         "source_feature_index": _json_value(source_index),
         "source_feature_label": _feature_label(source_row),
         "source_feature_type": _feature_type(source_row),
+        "source_feature_subtype": _feature_subtype(source_row),
+        "source_feature_original_id": _feature_original_id(source_row),
+        "source_feature_date": _feature_date(source_row),
+        "source_feature_quality_flag": _feature_quality_flag(source_row),
+        "source_feature_source_citation": _feature_source_citation(source_row),
+        "source_feature_values": _source_feature_values(source_row),
         "relationship_type": relationship,
         "buffer_feet": buffer_feet,
         "measurements": measurements,
@@ -368,6 +374,8 @@ def _feature_label(row: Any) -> str:
         "review_assist_feature_label",
         "candidate_label",
         "placemark_name",
+        "FLD_ZONE",
+        "ZONE_SUBTY",
         "gnis_name",
         "GNIS_NAME",
         "name",
@@ -383,6 +391,7 @@ def _feature_label(row: Any) -> str:
         "FTYPE",
         "fcode",
         "FCODE",
+        "SOURCE_CIT",
     ):
         if column in row.index:
             value = row[column]
@@ -394,6 +403,7 @@ def _feature_label(row: Any) -> str:
 def _feature_type(row: Any) -> str:
     for column in (
         "review_assist_feature_type",
+        "FLD_ZONE",
         "featuretypelabel",
         "ATTRIBUTE",
         "WETLAND_TYPE",
@@ -406,6 +416,65 @@ def _feature_type(row: Any) -> str:
             value = row[column]
             if value is not None and str(value).strip() and str(value).lower() != "nan":
                 return str(value).strip()
+    return ""
+
+
+def _feature_subtype(row: Any) -> str:
+    return _feature_value(row, ("review_assist_feature_subtype", "ZONE_SUBTY", "fcode", "FCODE", "WETLAND_TYPE"))
+
+
+def _feature_original_id(row: Any) -> str:
+    return _feature_value(
+        row,
+        (
+            "review_assist_feature_original_id",
+            "GFID",
+            "FLD_AR_ID",
+            "permanent_identifier",
+            "Permanent_Identifier",
+            "nhdplusid",
+            "NHDPlusID",
+            "OBJECTID",
+            "objectid",
+        ),
+    )
+
+
+def _feature_date(row: Any) -> str:
+    return _feature_value(row, ("review_assist_feature_date", "EFF_DATE", "FIRM_PAN", "fdate", "FDATE", "UPDATED", "DATE"))
+
+
+def _feature_quality_flag(row: Any) -> str:
+    return _feature_value(row, ("review_assist_quality_flag", "SFHA_TF", "AR_REVERT", "DUAL_ZONE", "visibilityfilter", "VisibilityFilter"))
+
+
+def _feature_source_citation(row: Any) -> str:
+    return _feature_value(row, ("review_assist_source_citation", "SOURCE_CIT", "source_cit", "Source_Cit"))
+
+
+def _source_feature_values(row: Any) -> dict[str, str]:
+    values = {
+        "flood_zone": _feature_value(row, ("FLD_ZONE", "review_assist_feature_type")),
+        "flood_zone_subtype": _feature_value(row, ("ZONE_SUBTY", "review_assist_feature_subtype")),
+        "sfha_flag": _feature_value(row, ("SFHA_TF", "review_assist_quality_flag")),
+        "static_bfe": _feature_value(row, ("STATIC_BFE",)),
+        "vertical_datum": _feature_value(row, ("V_DATUM",)),
+        "depth": _feature_value(row, ("DEPTH",)),
+        "length_unit": _feature_value(row, ("LEN_UNIT",)),
+        "source_citation": _feature_source_citation(row),
+    }
+    return {key: value for key, value in values.items() if value}
+
+
+def _feature_value(row: Any, columns: tuple[str, ...]) -> str:
+    lower_index = {str(column).lower(): column for column in row.index}
+    for column in columns:
+        key = column if column in row.index else lower_index.get(column.lower())
+        if key is None:
+            continue
+        value = row[key]
+        if value is not None and str(value).strip() and str(value).lower() != "nan":
+            return str(value).strip()
     return ""
 
 

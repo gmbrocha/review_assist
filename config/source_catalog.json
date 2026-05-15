@@ -85,7 +85,12 @@
             "layer_id": 0,
             "layer_name": "Wetlands",
             "label_fields": ["name", "Name", "ATTRIBUTE", "WETLAND_TYPE"],
-            "feature_type_fields": ["ATTRIBUTE", "WETLAND_TYPE"]
+            "feature_type_fields": ["ATTRIBUTE", "WETLAND_TYPE"],
+            "feature_subtype_fields": ["WETLAND_TYPE", "SYSTEM", "CLASS_NAME"],
+            "original_id_fields": ["OBJECTID", "WETLAND_ID"],
+            "date_fields": ["UPDATED", "DATE"],
+            "quality_flag_fields": [],
+            "source_citation_fields": []
           }
         ]
       },
@@ -114,13 +119,23 @@
             "layer_id": 6,
             "layer_name": "Flowline - Large Scale",
             "label_fields": ["gnis_name", "GNIS_NAME", "ftype", "FTYPE", "fcode", "FCODE"],
-            "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"]
+            "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"],
+            "feature_subtype_fields": ["fcode", "FCODE"],
+            "original_id_fields": ["permanent_identifier", "Permanent_Identifier", "nhdplusid", "NHDPlusID", "objectid", "OBJECTID"],
+            "date_fields": ["fdate", "FDATE", "resolution"],
+            "quality_flag_fields": ["visibilityfilter", "VisibilityFilter"],
+            "source_citation_fields": []
           },
           {
             "layer_id": 9,
             "layer_name": "Area - Large Scale",
             "label_fields": ["gnis_name", "GNIS_NAME", "ftype", "FTYPE", "fcode", "FCODE"],
-            "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"]
+            "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"],
+            "feature_subtype_fields": ["fcode", "FCODE"],
+            "original_id_fields": ["permanent_identifier", "Permanent_Identifier", "nhdplusid", "NHDPlusID", "objectid", "OBJECTID"],
+            "date_fields": ["fdate", "FDATE", "resolution"],
+            "quality_flag_fields": ["visibilityfilter", "VisibilityFilter"],
+            "source_citation_fields": []
           }
         ]
       },
@@ -394,8 +409,27 @@
       "geometry_type": "polygon",
       "url": "https://hazards.fema.gov/femaportal/resources/flood_map_svc.htm",
       "spatial_relationships": ["intersects", "within_buffer"],
-      "known_limitations": "Flood hazard is useful where relevant but is not the primary first-pass driver for all project types.",
-      "notes": "Optional floodplain/floodway context."
+      "download": {
+        "supported": true,
+        "downloader": "arcgis_rest_geojson",
+        "service_url": "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer",
+        "output_name": "fema_nfhl_flood_hazard",
+        "layers": [
+          {
+            "layer_id": 28,
+            "layer_name": "Flood Hazard Zones",
+            "label_fields": ["FLD_ZONE", "ZONE_SUBTY", "SFHA_TF", "SOURCE_CIT"],
+            "feature_type_fields": ["FLD_ZONE"],
+            "feature_subtype_fields": ["ZONE_SUBTY"],
+            "original_id_fields": ["GFID", "FLD_AR_ID", "OBJECTID", "OBJECTID_1"],
+            "date_fields": ["EFF_DATE", "REVERT_DATE", "PANEL_DATE"],
+            "quality_flag_fields": ["SFHA_TF", "AR_REVERT", "DUAL_ZONE"],
+            "source_citation_fields": ["SOURCE_CIT"]
+          }
+        ]
+      },
+      "known_limitations": "FEMA NFHL effective data is optional screening context. Not all effective FIRMs have GIS data available; official-purpose display should use map data that meets FEMA accuracy standards. Preliminary and pending flood hazard layers are outside this automated source in the current slice.",
+      "notes": "Optional effective floodplain/floodway context from Flood Hazard Zones layer 28."
     }
   ]
 }

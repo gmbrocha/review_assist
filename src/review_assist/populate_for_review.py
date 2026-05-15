@@ -27,7 +27,12 @@ class PopulateForReviewError(RuntimeError):
     """Raised when populate-for-review orchestration cannot complete."""
 
 
-def populate_for_review(project_dir: Path, *, prepare_sources: bool = False) -> dict[str, Any]:
+def populate_for_review(
+    project_dir: Path,
+    *,
+    prepare_sources: bool = False,
+    include_optional_sources: bool = False,
+) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     started_at = _utc_now()
     steps: list[dict[str, Any]] = []
@@ -53,7 +58,10 @@ def populate_for_review(project_dir: Path, *, prepare_sources: bool = False) -> 
         steps.append(_step("project_geometry", "completed", artifact_path=project_geometry.get("output_path")))
 
         if prepare_sources:
-            source_acquisition = prepare_project_sources(project_dir)
+            source_acquisition = prepare_project_sources(
+                project_dir,
+                include_optional_sources=include_optional_sources,
+            )
             steps.append(_step("source_acquisition", "completed", artifact_path=source_acquisition.get("output_path")))
             warnings.extend(_issue_warnings("source_acquisition", source_acquisition.get("validation_issues", [])))
 
@@ -176,6 +184,7 @@ def populate_for_review(project_dir: Path, *, prepare_sources: bool = False) -> 
         },
         "constraint_count": constraints.get("constraint_count") if constraints else 0,
         "source_acquisition_download_count": source_acquisition.get("download_count") if source_acquisition else 0,
+        "source_acquisition_include_optional_sources": include_optional_sources if prepare_sources else False,
         "review_queue_item_count": review_queue.get("item_count") if review_queue else 0,
         "warnings": warnings,
         "critical_error": critical_error,

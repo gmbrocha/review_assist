@@ -50,7 +50,9 @@ def generate_comparison_tables(project_dir: Path) -> dict[str, Any]:
     tables = [
         _source_status_matrix(source_status),
         _constraint_summary(constraints),
+        _grouped_constraint_summary(constraints),
         _hydrography_crossing_summary(constraints),
+        _flood_hazard_summary(constraints),
         _spatial_relationship_summary(spatial),
         _draft_finding_summary(draft_findings),
     ]
@@ -192,6 +194,9 @@ def _constraint_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
         "source_id",
         "source_name",
         "source_feature_label",
+        "source_feature_type",
+        "source_feature_subtype",
+        "source_feature_original_id",
         "relationship_type",
         "buffer_feet",
         "measurements",
@@ -215,6 +220,9 @@ def _constraint_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
                     "source_id": source_id,
                     "source_name": constraint.get("source_name", ""),
                     "source_feature_label": constraint.get("source_feature_label") or constraint.get("source_feature_index", ""),
+                    "source_feature_type": constraint.get("source_feature_type", ""),
+                    "source_feature_subtype": constraint.get("source_feature_subtype", ""),
+                    "source_feature_original_id": constraint.get("source_feature_original_id", ""),
                     "relationship_type": constraint.get("relationship_type", ""),
                     "buffer_feet": constraint.get("buffer_feet"),
                     "measurements": constraint.get("measurements", {}),
@@ -225,6 +233,90 @@ def _constraint_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
         table_type="constraint_summary",
         title="Constraint Summary",
         description="Objective constraint overlap and proximity records by project feature and source category.",
+        columns=columns,
+        rows=rows,
+        provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
+        source_refs=sorted(source_refs),
+        uncertainty_flags=["no_constraint_results_artifact"] if constraints is None else [],
+    )
+
+
+def _grouped_constraint_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
+    columns = [
+        "project_feature_id",
+        "project_feature_name",
+        "project_geometry_role",
+        "source_category",
+        "source_ids",
+        "source_names",
+        "relationship_types",
+        "constraint_count",
+        "total_intersection_length_feet",
+        "total_intersection_area_acres",
+        "nearest_distance_feet",
+    ]
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    source_refs: set[str] = set()
+    if constraints is not None:
+        for constraint in constraints.get("constraints", []):
+            if not isinstance(constraint, dict):
+                continue
+            feature_id = str(constraint.get("project_feature_id", ""))
+            category = str(constraint.get("source_category", ""))
+            key = (feature_id, category)
+            row = grouped.setdefault(
+                key,
+                {
+                    "project_feature_id": feature_id,
+                    "project_feature_name": constraint.get("project_feature_name", ""),
+                    "project_geometry_role": constraint.get("project_geometry_role", ""),
+                    "source_category": category,
+                    "source_ids": set(),
+                    "source_names": set(),
+                    "relationship_types": set(),
+                    "constraint_count": 0,
+                    "total_intersection_length_feet": 0.0,
+                    "total_intersection_area_acres": 0.0,
+                    "_distances": [],
+                },
+            )
+            source_id = str(constraint.get("source_id", ""))
+            source_name = str(constraint.get("source_name", ""))
+            relationship = str(constraint.get("relationship_type", ""))
+            if source_id:
+                row["source_ids"].add(source_id)
+                source_refs.add(source_id)
+            if source_name:
+                row["source_names"].add(source_name)
+            if relationship:
+                row["relationship_types"].add(relationship)
+            row["constraint_count"] += 1
+            measurements = constraint.get("measurements", {})
+            if not isinstance(measurements, dict):
+                continue
+            row["total_intersection_length_feet"] += _float_value(measurements.get("intersection_length_feet"))
+            row["total_intersection_area_acres"] += _float_value(measurements.get("intersection_area_acres"))
+            distance = measurements.get("distance_feet")
+            if distance is not None:
+                row["_distances"].append(_float_value(distance))
+
+    rows: list[dict[str, Any]] = []
+    for row in grouped.values():
+        distances = row.pop("_distances")
+        row["source_ids"] = sorted(row["source_ids"])
+        row["source_names"] = sorted(row["source_names"])
+        row["relationship_types"] = sorted(row["relationship_types"])
+        row["total_intersection_length_feet"] = round(row["total_intersection_length_feet"], 2)
+        row["total_intersection_area_acres"] = round(row["total_intersection_area_acres"], 4)
+        row["nearest_distance_feet"] = round(min(distances), 2) if distances else None
+        rows.append(row)
+
+    rows.sort(key=lambda item: (str(item["project_feature_id"]), str(item["source_category"])))
+    return _table(
+        table_id="grouped-constraint-summary",
+        table_type="grouped_constraint_summary",
+        title="Grouped Constraint Summary",
+        description="Constraint counts and measurement totals grouped by project feature and source category.",
         columns=columns,
         rows=rows,
         provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
@@ -279,6 +371,73 @@ def _hydrography_crossing_summary(constraints: dict[str, Any] | None) -> dict[st
         table_type="hydrography_crossing_summary",
         title="Hydrography Crossing Summary",
         description="Objective stream, river, ditch, waterbody, and hydrography relationships by project feature.",
+        columns=columns,
+        rows=rows,
+        provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
+        source_refs=sorted(source_refs),
+        uncertainty_flags=["no_constraint_results_artifact"] if constraints is None else [],
+    )
+
+
+def _flood_hazard_summary(constraints: dict[str, Any] | None) -> dict[str, Any]:
+    columns = [
+        "project_feature_id",
+        "project_feature_name",
+        "source_category",
+        "source_id",
+        "flood_zone",
+        "zone_subtype",
+        "sfha_flag",
+        "static_bfe",
+        "depth",
+        "relationship_type",
+        "intersection_length_feet",
+        "intersection_area_acres",
+        "distance_feet",
+        "buffer_feet",
+        "source_feature_original_id",
+        "source_citation",
+    ]
+    rows: list[dict[str, Any]] = []
+    source_refs: set[str] = set()
+    if constraints is not None:
+        for constraint in constraints.get("constraints", []):
+            if not isinstance(constraint, dict) or constraint.get("source_category") != "flood_hazard":
+                continue
+            source_id = str(constraint.get("source_id", ""))
+            if source_id:
+                source_refs.add(source_id)
+            measurements = constraint.get("measurements", {})
+            if not isinstance(measurements, dict):
+                measurements = {}
+            values = constraint.get("source_feature_values", {})
+            if not isinstance(values, dict):
+                values = {}
+            rows.append(
+                {
+                    "project_feature_id": constraint.get("project_feature_id", ""),
+                    "project_feature_name": constraint.get("project_feature_name", ""),
+                    "source_category": constraint.get("source_category", ""),
+                    "source_id": source_id,
+                    "flood_zone": values.get("flood_zone") or constraint.get("source_feature_type", ""),
+                    "zone_subtype": values.get("flood_zone_subtype") or constraint.get("source_feature_subtype", ""),
+                    "sfha_flag": values.get("sfha_flag") or constraint.get("source_feature_quality_flag", ""),
+                    "static_bfe": values.get("static_bfe", ""),
+                    "depth": values.get("depth", ""),
+                    "relationship_type": constraint.get("relationship_type", ""),
+                    "intersection_length_feet": measurements.get("intersection_length_feet"),
+                    "intersection_area_acres": measurements.get("intersection_area_acres"),
+                    "distance_feet": measurements.get("distance_feet"),
+                    "buffer_feet": constraint.get("buffer_feet"),
+                    "source_feature_original_id": constraint.get("source_feature_original_id", ""),
+                    "source_citation": values.get("source_citation") or constraint.get("source_feature_source_citation", ""),
+                }
+            )
+    return _table(
+        table_id="flood-hazard-summary",
+        table_type="flood_hazard_summary",
+        title="FEMA Flood Hazard Summary",
+        description="Effective FEMA NFHL flood hazard zone relationships by project feature.",
         columns=columns,
         rows=rows,
         provenance={"artifact": "constraint_results", "artifact_path": constraints.get("output_path") if constraints else None},
@@ -445,3 +604,10 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _float_value(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0

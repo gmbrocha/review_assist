@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands and USGS NHD hydrography are the first implemented public downloaders. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands, USGS NHD hydrography, and optional FEMA NFHL effective flood hazard zones are the first implemented public downloaders. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -73,7 +73,7 @@ Important cataloged categories that remain manual, semi-automated, or later-phas
 - Transportation, utilities, infrastructure, corridors, parcels, property age, and ROW context.
 - Imagery and basemaps for visual review and report figures.
 
-Flood hazard/floodplain data remains a valid optional source category, but it is secondary for the first useful implementation and should not crowd out water, land, and disturbance context.
+Flood hazard/floodplain data remains a valid optional source category, but it is secondary for the first useful implementation and should not crowd out water, land, and disturbance context. FEMA NFHL is now implemented as an optional explicit downloader.
 
 Current local configuration files:
 
@@ -107,11 +107,14 @@ Live downloads are explicit only:
 .\.venv\Scripts\review-assist.exe resolve-source-gaps projects/trails
 .\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
 .\.venv\Scripts\review-assist.exe download-source projects/trails usgs_nhd_hydrography
+.\.venv\Scripts\review-assist.exe download-source projects/trails fema_nfhl_flood_hazard
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails
+.\.venv\Scripts\review-assist.exe prepare-sources projects/trails --include-optional-sources
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources --include-optional-sources
 ```
 
-Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior.
+Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior. Running `prepare-sources` or `populate-for-review --prepare-sources` without `--include-optional-sources` downloads supported required sources only, so FEMA flood hazard remains optional unless directly requested.
 
 ## Source Tiers
 
@@ -287,9 +290,25 @@ Important caveat:
 
 - Effective, preliminary, and pending data have different official uses. Official-purpose map display requires appropriate basemap accuracy and interpretation.
 
-Reference:
+References:
 
 - https://hazards.fema.gov/femaportal/resources/flood_map_svc.htm
+- https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer
+
+Implementation status:
+
+- `fema_nfhl_flood_hazard` is implemented as an optional explicit public downloader.
+- The downloader queries the effective FEMA NFHL ArcGIS REST MapServer Flood Hazard Zones layer `28` by project analysis bounds and writes GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
+- Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so constraint analysis, findings, flood hazard summary tables, source-context maps, report sections, and review queue generation consume them through the same path as reviewer-supplied data.
+- FEMA remains optional unless the reviewer runs `download-source ... fema_nfhl_flood_hazard`, `prepare-sources --include-optional-sources`, or `populate-for-review --prepare-sources --include-optional-sources`.
+- Failed FEMA downloads remain nonfatal and propagate into source status, draft findings, report sections, and review queue caveat items.
+- Existing reviewer-supplied local FEMA/flood hazard layers are preserved and not overwritten.
+
+Official caveats preserved in the app:
+
+- This downloader uses effective NFHL data only; preliminary and pending NFHL services remain out of scope.
+- Not all effective FIRMs have GIS data available.
+- Official-purpose map display should use other map data that meets FEMA map accuracy standards.
 
 ### USDA NRCS Soils / SSURGO / Web Soil Survey
 

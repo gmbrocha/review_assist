@@ -388,10 +388,17 @@ The app should generate these where source data is available and create reviewab
 - [x] Source inventory records include source acquisition/download provenance when an acquisition manifest exists.
 - [x] `review-assist download-source <project_dir> usfws_nwi_wetlands` exists.
 - [x] `review-assist download-source <project_dir> usgs_nhd_hydrography` exists.
+- [x] `review-assist download-source <project_dir> fema_nfhl_flood_hazard` exists.
 - [x] USGS NHD hydrography downloads query The National Map NHD MapServer large-scale flowline and area layers by project analysis bounds.
 - [x] Downloaded NHD hydrography is combined into a project-local GeoJSON source layer and registered as a normal `local_file` source with `status: downloaded`.
-- [x] Downloaded source layers preserve original attributes while adding lightweight normalized Review Assist source, layer, label, and type fields.
+- [x] FEMA NFHL effective Flood Hazard Zones downloads query the public NFHL MapServer layer 28 by project analysis bounds.
+- [x] FEMA remains optional unless explicitly downloaded or optional-source acquisition is requested.
+- [x] `prepare-sources --include-optional-sources` can include supported optional sources.
+- [x] `populate-for-review --prepare-sources --include-optional-sources` can include supported optional sources.
+- [x] Downloaded source layers preserve original attributes while adding normalized Review Assist source, layer, label, type, subtype, original id, date, quality flag, and source citation fields where available.
 - [x] Hydrography constraints now feed stream/crossing findings, a hydrography crossing summary table, source-context maps, report sections, and review queue items.
+- [x] FEMA flood hazard constraints now feed flood hazard findings, a flood hazard summary table, source-context maps, report sections, and review queue items when FEMA is downloaded.
+- [x] Grouped constraint summaries by project feature and source category now exist for report-ready inventory references.
 - [x] `review-assist prepare-sources <project_dir>` exists.
 - [x] `populate-for-review --prepare-sources` can resolve gaps and run supported source downloads before constraint analysis.
 - [x] `populate-for-review` without `--prepare-sources` keeps the previous no-live-download behavior.
@@ -431,7 +438,7 @@ First downloader candidates:
 
 - [x] USFWS NWI wetlands/waterbodies.
 - [x] USGS hydrography/stream data.
-- [ ] FEMA NFHL flood hazard data where relevant.
+- [x] FEMA NFHL effective flood hazard data where relevant and explicitly requested.
 - [ ] EPA regulated facility data where a stable public download path is practical.
 - [ ] Census TIGER/ACS community context.
 - [ ] Public critical habitat layers.
@@ -443,8 +450,8 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 ### 2. Source Schema Normalization
 
 - [x] Preserve original source attributes while adding lightweight normalized source/layer/label/type fields for downloaded sources.
-- [x] Add source-specific label extraction rules for implemented NWI and NHD downloaders.
-- [ ] Define the full normalized source feature contract: label, category, subtype, source date, confidence/quality flags, and original feature id.
+- [x] Add source-specific label extraction rules for implemented NWI, NHD, and FEMA downloaders.
+- [x] Define and populate the first normalized source feature contract: source, layer, label, type, subtype, source date, quality flag, source citation, and original feature id where available.
 - [ ] Add source-specific category/subtype mapping for wetlands, streams, flood zones, soils, facilities, parcels, utilities, and community resources.
 - [ ] Add validation warnings for missing CRS, unknown schema, empty layers, invalid geometries, and stale source dates.
 
@@ -457,7 +464,7 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 - [ ] Add crossing counts for line/line resources.
 - [ ] Add acreage summaries for polygon/polygon overlaps.
 - [ ] Add nearest-feature summaries for point/site review.
-- [ ] Add grouped summaries by project feature and source category.
+- [x] Add grouped summaries by project feature and source category.
 - [ ] Add no-overlap records where report-relevant, not as noisy queue volume.
 - [ ] Add geometry repair/cleaning for common invalid source geometries.
 - [ ] Add clear handling for very large source layers.
@@ -562,13 +569,13 @@ Implement downloaders one source at a time, with tests, provenance, and a real s
 
 ## Immediate Next Move
 
-Continue evidence depth after the NWI/NHD acquisition baseline, not review-queue volume for its own sake.
+Continue evidence depth after the NWI/NHD/FEMA acquisition baseline, not review-queue volume for its own sake.
 
 The practical next source milestone is:
 
-1. Add the next highest-value public downloader one source at a time, likely FEMA NFHL, NLCD, soils, or critical habitat depending on report need.
-2. Expand source schema normalization beyond lightweight label/type fields into a clear source-feature contract.
-3. Improve constraint summaries by feature/category so report sections can cite counts, lengths, areas, and caveats cleanly.
+1. Add the next highest-value public downloader one source at a time, likely NLCD, soils, critical habitat, EPA/ECHO, or Census depending on report need.
+2. Expand source-specific category/subtype mapping for the normalized source-feature contract.
+3. Improve resource-specific report language using grouped constraint summaries, flood hazard summaries, hydrography summaries, map IDs, table IDs, and source caveats.
 4. Improve maps/figures toward template-ready visuals while preserving source provenance.
 5. Keep every generated finding, table, map, caveat, and section behind the review queue before export.
 

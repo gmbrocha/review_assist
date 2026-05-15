@@ -87,7 +87,7 @@ Phase 2B still does not create findings, review queue records, maps, reports, ra
 
 ## Phase 2C: Catalog-Driven Source Acquisition
 
-Status: NWI plus USGS NHD hydrography downloader baseline complete.
+Status: NWI plus USGS NHD hydrography downloader baseline complete; FEMA NFHL effective flood hazard downloader implemented as optional context.
 
 - Compare project inputs, project source registries, and report-profile source needs against the source catalog.
 - Treat project inputs tagged with `source_id` or unambiguous `source_category` as provided source layers and register them for analysis.
@@ -96,8 +96,9 @@ Status: NWI plus USGS NHD hydrography downloader baseline complete.
 - Preserve local/reviewer-supplied source layers; downloads do not overwrite them.
 - Download USFWS National Wetlands Inventory wetlands through the public Wetlands REST MapServer layer when explicitly requested.
 - Download USGS National Hydrography Dataset hydrography through The National Map NHD MapServer large-scale flowline and area layers when explicitly requested.
+- Download FEMA National Flood Hazard Layer effective Flood Hazard Zones through public NFHL MapServer layer 28 when explicitly requested.
 - Record source URL, service URL/layer, access date, requested bounds, output path, feature count, checksum, limitations, warnings, per-layer provenance, and failures.
-- Add lightweight normalized source fields to downloaded layers while preserving original source attributes.
+- Add normalized Review Assist source/layer/label/type/subtype/original-id/date/quality/source-citation fields to downloaded layers where available while preserving original source attributes.
 - Register successful downloads as normal project `local_file` sources with `status: downloaded` so the constraint engine consumes them without a special case.
 
 Current baseline:
@@ -105,10 +106,13 @@ Current baseline:
 - `review-assist resolve-source-gaps <project_dir>`
 - `review-assist download-source <project_dir> usfws_nwi_wetlands`
 - `review-assist download-source <project_dir> usgs_nhd_hydrography`
+- `review-assist download-source <project_dir> fema_nfhl_flood_hazard`
 - `review-assist prepare-sources <project_dir>`
+- `review-assist prepare-sources <project_dir> --include-optional-sources`
 - `review-assist populate-for-review <project_dir> --prepare-sources`
+- `review-assist populate-for-review <project_dir> --prepare-sources --include-optional-sources`
 
-Live downloads remain opt-in. Running `populate-for-review` without `--prepare-sources` preserves the previous no-live-download behavior.
+Live downloads remain opt-in. Running `populate-for-review` without `--prepare-sources` preserves the previous no-live-download behavior. FEMA flood hazard remains optional unless directly downloaded or optional-source acquisition is requested with `--include-optional-sources`.
 
 ## Phase 3: Workspace Context and Source Status Model
 
@@ -164,7 +168,8 @@ Current baseline:
 - JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
 - Runs project context generation, project geometry normalization, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, report section generation, and lean review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict for the legacy raw spatial check path.
-- `--prepare-sources` resolves catalog gaps and runs supported public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
+- `--prepare-sources` resolves catalog gaps and runs supported required public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
+- `--include-optional-sources`, when paired with `--prepare-sources`, also downloads supported optional sources such as FEMA NFHL flood hazard.
 
 This baseline now includes vector-only map generation through Phase 6C, deterministic report section generation through Phase 6D, and explicit NWI plus USGS NHD hydrography source acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, render basemap/imagery-backed maps, or use LLM-assisted narrative.
 
@@ -193,7 +198,7 @@ Status: initial baseline complete.
 
 - Generate a source inventory artifact with catalog, registry, source status, local file metadata, optional project-supplied source metadata, and validation issues.
 - Support optional per-source registry metadata for citations, attribution, source URL, access date, publication/metadata dates, license/terms, and reviewer notes.
-- Generate descriptive comparison table artifacts for source status, constraint results, spatial relationships, and draft findings.
+- Generate descriptive comparison table artifacts for source status, constraint results, grouped feature/category constraints, hydrography crossings, FEMA flood hazard, spatial relationships, and draft findings.
 - Feed comparison tables into the review queue with deterministic item IDs, with source inventory records available as opt-in audit review items.
 
 Current baseline:
@@ -204,7 +209,7 @@ Current baseline:
 - JSON comparison tables at `projects/<project_id>/tables/comparison_tables.json`.
 - `populate-for-review` records both artifact paths and sends generated records/tables into the review queue.
 
-This baseline now records source acquisition provenance when present. It does not render final map images, draft GPT report prose, compile exports, rank alternatives, or recommend preferred options.
+This baseline now records source acquisition provenance when present and includes report-ready grouped, hydrography, and flood hazard summary tables when source-backed constraints exist. It does not render final map images, draft GPT report prose, compile exports, rank alternatives, or recommend preferred options.
 
 ## Phase 6C: Map/Figure and Imagery Generation
 
@@ -263,7 +268,7 @@ Status: initial baseline complete.
 - `review-assist analyze-constraints <project_dir>` uses registered local source layers only, crops them to project analysis bounds, and writes `projects/<project_id>/constraints/constraint_results.json`.
 - Constraint results preserve project feature identity, source identity/category, relationship type, source feature labels, provenance, and available length/area/distance measurements.
 - `generate-findings` prefers constraint results when present.
-- `generate-tables` adds a constraint summary table when constraint results exist.
+- `generate-tables` adds constraint summary, grouped constraint summary, hydrography crossing summary, and FEMA flood hazard summary tables when relevant constraint results exist.
 - `populate-for-review` now routes through constraint analysis before findings/tables/maps/sections/queue generation.
 - `generate-review-queue` defaults to useful report-facing items instead of source-inventory/source-status volume; source inventory notes are available with `--include-source-inventory`.
 

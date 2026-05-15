@@ -86,8 +86,13 @@ def build_parser() -> argparse.ArgumentParser:
     download_parser.add_argument("source_id", help="Supported source id to download.")
     download_parser.add_argument("--json", action="store_true", help="Print full JSON source acquisition manifest to stdout.")
 
-    prepare_parser = subparsers.add_parser("prepare-sources", help="Resolve gaps and download supported missing required sources.")
+    prepare_parser = subparsers.add_parser("prepare-sources", help="Resolve gaps and download supported missing sources.")
     prepare_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    prepare_parser.add_argument(
+        "--include-optional-sources",
+        action="store_true",
+        help="Also download supported optional sources such as FEMA NFHL flood hazard.",
+    )
     prepare_parser.add_argument("--json", action="store_true", help="Print full JSON source acquisition manifest to stdout.")
 
     inventory_parser = subparsers.add_parser("generate-source-inventory", help="Generate source inventory and provenance records.")
@@ -150,6 +155,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--prepare-sources",
         action="store_true",
         help="Resolve source gaps and run supported public downloaders before constraint analysis.",
+    )
+    populate_parser.add_argument(
+        "--include-optional-sources",
+        action="store_true",
+        help="When used with --prepare-sources, also download supported optional sources.",
     )
     populate_parser.add_argument("--json", action="store_true", help="Print full JSON populate run manifest to stdout.")
     return parser
@@ -372,9 +382,9 @@ def download_source_command(project_dir: Path, source_id: str, print_json: bool)
     return 0
 
 
-def prepare_sources_command(project_dir: Path, print_json: bool) -> int:
+def prepare_sources_command(project_dir: Path, print_json: bool, include_optional_sources: bool = False) -> int:
     try:
-        result = prepare_sources(project_dir)
+        result = prepare_sources(project_dir, include_optional_sources=include_optional_sources)
     except SourceAcquisitionError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -565,9 +575,18 @@ def update_review_item_command(
     return 0
 
 
-def populate_for_review_command(project_dir: Path, print_json: bool, prepare_sources_flag: bool = False) -> int:
+def populate_for_review_command(
+    project_dir: Path,
+    print_json: bool,
+    prepare_sources_flag: bool = False,
+    include_optional_sources: bool = False,
+) -> int:
     try:
-        result = populate_for_review(project_dir, prepare_sources=prepare_sources_flag)
+        result = populate_for_review(
+            project_dir,
+            prepare_sources=prepare_sources_flag,
+            include_optional_sources=include_optional_sources,
+        )
     except PopulateForReviewError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -607,7 +626,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "download-source":
         return download_source_command(args.project_dir, args.source_id, args.json)
     if args.command == "prepare-sources":
-        return prepare_sources_command(args.project_dir, args.json)
+        return prepare_sources_command(args.project_dir, args.json, args.include_optional_sources)
     if args.command == "generate-source-inventory":
         return generate_source_inventory_command(args.project_dir, args.json)
     if args.command == "generate-findings":
@@ -634,7 +653,7 @@ def main(argv: list[str] | None = None) -> int:
             args.json,
         )
     if args.command == "populate-for-review":
-        return populate_for_review_command(args.project_dir, args.json, args.prepare_sources)
+        return populate_for_review_command(args.project_dir, args.json, args.prepare_sources, args.include_optional_sources)
     parser.error(f"Unknown command: {args.command}")
     return 2
 

@@ -638,8 +638,14 @@ def _constraints_inventory_content(
         "The environmental constraints inventory summarizes source-backed and source-gap findings by resource category.",
         f"Draft finding categories represented: {', '.join(categories) if categories else 'none'}."
     ]
+    table_ids = [str(table.get("table_id")) for table in _dict_list(comparison_tables.get("tables", [])) if table.get("table_id")]
+    figure_ids = [str(figure.get("figure_id")) for figure in _dict_list(map_manifest.get("figures", []))] if map_manifest else []
     lines.append(f"Comparison table artifacts available: {comparison_tables.get('table_count', 0)}.")
+    if table_ids:
+        lines.append(f"Inventory table references: {', '.join(table_ids)}.")
     lines.append(f"Draft map figures available: {map_manifest.get('figure_count', 0) if map_manifest else 0}.")
+    if figure_ids:
+        lines.append(f"Inventory figure references: {', '.join(figure_ids)}.")
     lines.append("Inventory text should remain objective and should not identify a preferred project feature.")
     return "\n\n".join(lines)
 
@@ -828,6 +834,16 @@ def _tables_for_category(comparison_tables: dict[str, Any], category: str, secti
     tables = _dict_list(comparison_tables.get("tables", []))
     if section_type == "comparison_summary":
         return tables
+    if section_type == "constraints_inventory":
+        inventory_table_ids = {
+            "constraint-summary",
+            "grouped-constraint-summary",
+            "hydrography-crossing-summary",
+            "flood-hazard-summary",
+            "spatial-relationship-summary",
+            "draft-finding-summary",
+        }
+        return [table for table in tables if str(table.get("table_id", "")) in inventory_table_ids]
     if section_type in {
         "front_matter",
         "executive_summary",
@@ -837,7 +853,6 @@ def _tables_for_category(comparison_tables: dict[str, Any], category: str, secti
         "methodology",
         "analysis_procedures",
         "limitations",
-        "constraints_inventory",
         "maps_and_figures",
         "conclusion",
         "attachments",
@@ -857,7 +872,7 @@ def _figures_for_section(map_manifest: dict[str, Any] | None, source_refs: list[
     if map_manifest is None:
         return []
     figures = _dict_list(map_manifest.get("figures", []))
-    if section_type in {"maps_and_figures", "study_area", "attachments"}:
+    if section_type in {"maps_and_figures", "study_area", "constraints_inventory", "attachments"}:
         return figures
     source_ref_set = set(source_refs)
     if not source_ref_set:

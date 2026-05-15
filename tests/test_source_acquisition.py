@@ -189,6 +189,45 @@ def fake_nhd_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
     raise AssertionError(f"Unexpected NHD fetch URL: {url}")
 
 
+def fake_fema_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    if url.endswith("/28"):
+        return {"maxRecordCount": 2}
+    offset = int(params.get("resultOffset", 0))
+    if offset:
+        return {"type": "FeatureCollection", "features": []}
+    if url.endswith("/28/query"):
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "FLD_ZONE": "AE",
+                        "ZONE_SUBTY": "FLOODWAY",
+                        "SFHA_TF": "T",
+                        "STATIC_BFE": 101.5,
+                        "DEPTH": 2.0,
+                        "SOURCE_CIT": "Mock FEMA NFHL",
+                        "GFID": "fema-zone-1",
+                    },
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [-90.001, 31.999],
+                                [-89.998, 31.999],
+                                [-89.998, 32.001],
+                                [-90.001, 32.001],
+                                [-90.001, 31.999],
+                            ]
+                        ],
+                    },
+                }
+            ],
+        }
+    raise AssertionError(f"Unexpected FEMA fetch URL: {url}")
+
+
 def fake_supported_source_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
     if "/Wetlands/MapServer" in url:
         return fake_nwi_fetch(url, params)
@@ -197,12 +236,26 @@ def fake_supported_source_fetch(url: str, params: dict[str, Any]) -> dict[str, A
     raise AssertionError(f"Unexpected source fetch URL: {url}")
 
 
+def fake_supported_source_fetch_with_optional(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    if "/NFHL/MapServer" in url:
+        return fake_fema_fetch(url, params)
+    return fake_supported_source_fetch(url, params)
+
+
 def fake_empty_nhd_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
     if url.endswith("/6") or url.endswith("/9"):
         return {"maxRecordCount": 1}
     if url.endswith("/6/query") or url.endswith("/9/query"):
         return {"type": "FeatureCollection", "features": []}
     raise AssertionError(f"Unexpected NHD fetch URL: {url}")
+
+
+def fake_empty_fema_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    if url.endswith("/28"):
+        return {"maxRecordCount": 2}
+    if url.endswith("/28/query"):
+        return {"type": "FeatureCollection", "features": []}
+    raise AssertionError(f"Unexpected FEMA fetch URL: {url}")
 
 
 def test_gap_resolver_marks_unregistered_nwi_downloadable(tmp_path: Path) -> None:
@@ -220,6 +273,17 @@ def test_gap_resolver_marks_unregistered_nhd_downloadable(tmp_path: Path) -> Non
     result = resolve_source_gaps(project_dir)
 
     assert source_gap(result, "usgs_nhd_hydrography")["status"] == "downloadable"
+
+
+def test_gap_resolver_marks_fema_optional_but_download_supported(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    result = resolve_source_gaps(project_dir)
+    gap = source_gap(result, "fema_nfhl_flood_hazard")
+
+    assert gap["status"] == "optional"
+    assert gap["requirement"] == "optional"
+    assert gap["download_supported"] is True
 
 
 def test_gap_resolver_marks_tagged_project_input_as_provided_source(tmp_path: Path) -> None:
@@ -281,6 +345,35 @@ def test_successful_nhd_downloader_writes_combined_geojson_normalized_fields_and
     assert set(gdf["review_assist_source_id"]) == {"usgs_nhd_hydrography"}
     assert set(gdf["review_assist_layer_name"]) == {"Flowline - Large Scale", "Area - Large Scale"}
     assert "Mock NHD Stream" in set(gdf["review_assist_feature_label"])
+    assert "review_assist_feature_subtype" in gdf.columns
+    assert "review_assist_feature_original_id" in gdf.columns
+
+
+def test_successful_fema_downloader_writes_geojson_normalized_fields_and_registry(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    result = download_source(project_dir, "fema_nfhl_flood_hazard", fetch_json=fake_fema_fetch)
+    download = result["downloads"][-1]
+    registry_source = load_project_source_registry(project_dir).by_source_id()["fema_nfhl_flood_hazard"]
+    output_path = Path(download["output_path"])
+    gdf = gpd.read_file(output_path)
+
+    assert download["status"] == "downloaded"
+    assert download["feature_count"] == 1
+    assert download["layer_id"] == 28
+    assert download["layers"][0]["layer_name"] == "Flood Hazard Zones"
+    assert download["layers"][0]["service_record_limit"] == 2
+    assert download["checksum_sha256"]
+    assert output_path.exists()
+    assert registry_source.access_method == "local_file"
+    assert registry_source.status == "downloaded"
+    assert registry_source.path == "source_acquisition/downloads/fema_nfhl_flood_hazard.geojson"
+    assert set(gdf["review_assist_source_id"]) == {"fema_nfhl_flood_hazard"}
+    assert set(gdf["review_assist_feature_label"]) == {"AE"}
+    assert set(gdf["review_assist_feature_type"]) == {"AE"}
+    assert set(gdf["review_assist_feature_subtype"]) == {"FLOODWAY"}
+    assert set(gdf["review_assist_quality_flag"]) == {"T"}
+    assert set(gdf["review_assist_source_citation"]) == {"Mock FEMA NFHL"}
 
 
 def test_failed_nwi_downloader_records_nonfatal_failed_status(tmp_path: Path) -> None:
@@ -333,10 +426,57 @@ def test_failed_nhd_downloader_records_nonfatal_failed_status(tmp_path: Path) ->
     assert failed_finding["assumptions"]["source_status"] == "failed"
 
 
+def test_failed_fema_downloader_records_nonfatal_failed_status_and_caveats(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    def failing_fetch(url: str, params: dict[str, Any]) -> dict[str, Any]:
+        raise RuntimeError("network unavailable")
+
+    result = download_source(project_dir, "fema_nfhl_flood_hazard", fetch_json=failing_fetch)
+    download = result["downloads"][-1]
+
+    assert download["status"] == "failed"
+    assert download["validation_issues"][0]["code"] == "source_download_failed"
+    assert source_gap(result, "fema_nfhl_flood_hazard")["status"] == "failed"
+
+    source_status = resolve_source_status_set(project_dir)
+    flood_status = next(item for item in source_status["statuses"] if item["category"] == "flood_hazard")
+    assert flood_status["status"] == "failed"
+    assert "source_download_failed" in flood_status["uncertainty_flags"]
+
+    findings = generate_draft_findings(project_dir)
+    failed_finding = next(item for item in findings["findings"] if item["resource_category"] == "flood_hazard")
+    assert failed_finding["assumptions"]["source_status"] == "failed"
+
+    sections = generate_report_sections(project_dir)
+    flood_section = next(section for section in sections["sections"] if section["section_id"] == "flood-hazard")
+    assert flood_section["review_status"] == "needs_review"
+    assert "source_download_failed" in flood_section["uncertainty_flags"]
+
+    queue = generate_review_queue(project_dir)
+    missing_item = next(item for item in queue["items"] if item["id"] == "missing-data-flood-hazard")
+    assert missing_item["assumptions"]["source_status"] == "failed"
+
+
 def test_empty_nhd_downloader_writes_valid_empty_artifact(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
     result = download_source(project_dir, "usgs_nhd_hydrography", fetch_json=fake_empty_nhd_fetch)
+    download = result["downloads"][-1]
+    constraints = analyze_constraints(project_dir)
+
+    assert download["status"] == "downloaded"
+    assert download["feature_count"] == 0
+    assert download["warnings"][0]["code"] == "downloaded_source_empty"
+    assert Path(download["output_path"]).exists()
+    assert constraints["constraint_count"] == 0
+    assert constraints["sources"][0]["status"] == "analyzed_empty"
+
+
+def test_empty_fema_downloader_writes_valid_empty_artifact(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    result = download_source(project_dir, "fema_nfhl_flood_hazard", fetch_json=fake_empty_fema_fetch)
     download = result["downloads"][-1]
     constraints = analyze_constraints(project_dir)
 
@@ -376,6 +516,24 @@ def test_existing_local_hydrography_source_is_not_overwritten_by_download(tmp_pa
     assert registry_source.status == "local_registered"
 
 
+def test_existing_local_flood_hazard_source_is_not_overwritten_by_download(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "flood.geojson",
+        [Polygon([(-90.001, 31.999), (-89.999, 31.999), (-89.999, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"FLD_ZONE": "X"}],
+    )
+    write_registry(project_dir, "fema_nfhl_flood_hazard", "flood.geojson")
+
+    result = download_source(project_dir, "fema_nfhl_flood_hazard", fetch_json=fake_fema_fetch)
+    download = result["downloads"][-1]
+    registry_source = load_project_source_registry(project_dir).by_source_id()["fema_nfhl_flood_hazard"]
+
+    assert download["status"] == "skipped_existing_local"
+    assert registry_source.path == "flood.geojson"
+    assert registry_source.status == "local_registered"
+
+
 def test_prepare_sources_feeds_downloaded_sources_into_constraints_findings_tables_and_maps(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
@@ -401,6 +559,40 @@ def test_prepare_sources_feeds_downloaded_sources_into_constraints_findings_tabl
     assert "hydrography-crossing-summary" in hydrography_section["related_table_ids"]
     assert "source-context-usgs-nhd-hydrography" in hydrography_section["related_figure_ids"]
     assert any(item["type"] == "report_section" and item["source_refs"] == ["usgs_nhd_hydrography"] for item in queue["items"])
+    assert source_gap(acquisition, "fema_nfhl_flood_hazard")["status"] == "optional"
+    assert not (project_dir / "source_acquisition" / "downloads" / "fema_nfhl_flood_hazard.geojson").exists()
+
+
+def test_prepare_sources_with_optional_feeds_fema_into_downstream_artifacts(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    acquisition = prepare_sources(project_dir, fetch_json=fake_supported_source_fetch_with_optional, include_optional_sources=True)
+    constraints = analyze_constraints(project_dir)
+    findings = generate_draft_findings(project_dir)
+    tables = generate_comparison_tables(project_dir)
+    maps = generate_maps(project_dir)
+    sections = generate_report_sections(project_dir)
+    queue = generate_review_queue(project_dir)
+
+    assert acquisition["include_optional_sources"] is True
+    assert source_gap(acquisition, "fema_nfhl_flood_hazard")["status"] == "downloaded"
+    assert any(item["source_id"] == "fema_nfhl_flood_hazard" for item in constraints["constraints"])
+    assert any(item["resource_category"] == "flood_hazard" for item in findings["findings"])
+    grouped_table = next(table for table in tables["tables"] if table["table_id"] == "grouped-constraint-summary")
+    flood_table = next(table for table in tables["tables"] if table["table_id"] == "flood-hazard-summary")
+    assert any(row["source_category"] == "flood_hazard" for row in grouped_table["rows"])
+    assert flood_table["row_count"] >= 1
+    assert flood_table["rows"][0]["flood_zone"] == "AE"
+    assert flood_table["rows"][0]["zone_subtype"] == "FLOODWAY"
+    assert flood_table["rows"][0]["sfha_flag"] == "T"
+    assert any(figure["figure_id"] == "source-context-fema-nfhl-flood-hazard" for figure in maps["figures"])
+    flood_section = next(section for section in sections["sections"] if section["resource_category"] == "flood_hazard")
+    inventory_section = next(section for section in sections["sections"] if section["section_id"] == "environmental-constraints-inventory")
+    assert "flood-hazard-summary" in flood_section["related_table_ids"]
+    assert "source-context-fema-nfhl-flood-hazard" in flood_section["related_figure_ids"]
+    assert "grouped-constraint-summary" in inventory_section["related_table_ids"]
+    assert "project-overview" in inventory_section["related_figure_ids"]
+    assert any(item["type"] == "report_section" and item["source_refs"] == ["fema_nfhl_flood_hazard"] for item in queue["items"])
 
 
 def test_populate_for_review_prepare_sources_records_acquisition_and_constraints(
@@ -414,7 +606,24 @@ def test_populate_for_review_prepare_sources_records_acquisition_and_constraints
 
     assert result["artifact_paths"]["source_acquisition"].endswith("source_acquisition_manifest.json")
     assert result["source_acquisition_download_count"] >= 2
+    assert result["source_acquisition_include_optional_sources"] is False
     assert result["constraint_count"] >= 3
+    assert not (project_dir / "source_acquisition" / "downloads" / "fema_nfhl_flood_hazard.geojson").exists()
+
+
+def test_populate_for_review_prepare_sources_with_optional_records_fema(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    monkeypatch.setattr(source_acquisition, "_fetch_json", fake_supported_source_fetch_with_optional)
+
+    result = populate_for_review(project_dir, prepare_sources=True, include_optional_sources=True)
+
+    assert result["source_acquisition_include_optional_sources"] is True
+    assert result["source_acquisition_download_count"] >= 3
+    assert result["constraint_count"] >= 4
+    assert (project_dir / "source_acquisition" / "downloads" / "fema_nfhl_flood_hazard.geojson").exists()
 
 
 def test_populate_for_review_without_prepare_sources_does_not_download(
@@ -440,8 +649,10 @@ def test_source_acquisition_cli_commands(tmp_path: Path, capsys: pytest.CaptureF
     assert main(["resolve-source-gaps", str(project_dir)]) == 0
     assert main(["download-source", str(project_dir), "usfws_nwi_wetlands"]) == 0
     assert main(["download-source", str(project_dir), "usgs_nhd_hydrography"]) == 0
+    assert main(["download-source", str(project_dir), "fema_nfhl_flood_hazard"]) == 0
     assert main(["prepare-sources", str(project_dir)]) == 0
-    assert main(["populate-for-review", str(project_dir), "--prepare-sources"]) == 0
+    assert main(["prepare-sources", str(project_dir), "--include-optional-sources"]) == 0
+    assert main(["populate-for-review", str(project_dir), "--prepare-sources", "--include-optional-sources"]) == 0
 
     captured = capsys.readouterr()
     assert "Resolved source gaps" in captured.out

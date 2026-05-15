@@ -43,6 +43,10 @@ NHD_SERVICE_URL = "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapSer
 NHD_FLOWLINE_LAYER_ID = 6
 NHD_AREA_LAYER_ID = 9
 
+FEMA_SOURCE_ID = "fema_nfhl_flood_hazard"
+FEMA_NFHL_SERVICE_URL = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer"
+FEMA_FLOOD_HAZARD_LAYER_ID = 28
+
 SUPPORTED_DOWNLOADERS = {
     NWI_SOURCE_ID: {
         "downloader": "arcgis_rest_geojson",
@@ -54,6 +58,11 @@ SUPPORTED_DOWNLOADERS = {
                 "layer_name": "Wetlands",
                 "label_fields": ["name", "Name", "ATTRIBUTE", "WETLAND_TYPE"],
                 "feature_type_fields": ["ATTRIBUTE", "WETLAND_TYPE"],
+                "feature_subtype_fields": ["WETLAND_TYPE", "SYSTEM", "CLASS_NAME"],
+                "original_id_fields": ["OBJECTID", "WETLAND_ID"],
+                "date_fields": ["UPDATED", "DATE"],
+                "quality_flag_fields": [],
+                "source_citation_fields": [],
             }
         ],
     },
@@ -67,15 +76,43 @@ SUPPORTED_DOWNLOADERS = {
                 "layer_name": "Flowline - Large Scale",
                 "label_fields": ["gnis_name", "GNIS_NAME", "ftype", "FTYPE", "fcode", "FCODE"],
                 "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"],
+                "feature_subtype_fields": ["fcode", "FCODE"],
+                "original_id_fields": ["permanent_identifier", "Permanent_Identifier", "nhdplusid", "NHDPlusID", "objectid", "OBJECTID"],
+                "date_fields": ["fdate", "FDATE", "resolution"],
+                "quality_flag_fields": ["visibilityfilter", "VisibilityFilter"],
+                "source_citation_fields": [],
             },
             {
                 "layer_id": NHD_AREA_LAYER_ID,
                 "layer_name": "Area - Large Scale",
                 "label_fields": ["gnis_name", "GNIS_NAME", "ftype", "FTYPE", "fcode", "FCODE"],
                 "feature_type_fields": ["featuretypelabel", "ftype", "FTYPE", "fcode", "FCODE"],
+                "feature_subtype_fields": ["fcode", "FCODE"],
+                "original_id_fields": ["permanent_identifier", "Permanent_Identifier", "nhdplusid", "NHDPlusID", "objectid", "OBJECTID"],
+                "date_fields": ["fdate", "FDATE", "resolution"],
+                "quality_flag_fields": ["visibilityfilter", "VisibilityFilter"],
+                "source_citation_fields": [],
             },
         ],
-    }
+    },
+    FEMA_SOURCE_ID: {
+        "downloader": "arcgis_rest_geojson",
+        "service_url": FEMA_NFHL_SERVICE_URL,
+        "output_name": FEMA_SOURCE_ID,
+        "layers": [
+            {
+                "layer_id": FEMA_FLOOD_HAZARD_LAYER_ID,
+                "layer_name": "Flood Hazard Zones",
+                "label_fields": ["FLD_ZONE", "ZONE_SUBTY", "SFHA_TF", "SOURCE_CIT"],
+                "feature_type_fields": ["FLD_ZONE"],
+                "feature_subtype_fields": ["ZONE_SUBTY"],
+                "original_id_fields": ["GFID", "FLD_AR_ID", "OBJECTID", "OBJECTID_1"],
+                "date_fields": ["EFF_DATE", "REVERT_DATE", "PANEL_DATE"],
+                "quality_flag_fields": ["SFHA_TF", "AR_REVERT", "DUAL_ZONE"],
+                "source_citation_fields": ["SOURCE_CIT"],
+            }
+        ],
+    },
 }
 
 FetchJson = Callable[[str, dict[str, Any]], dict[str, Any]]
@@ -99,8 +136,13 @@ def download_source(project_dir: Path, source_id: str, *, fetch_json: FetchJson 
     return _download_source(project_dir.resolve(), source_id, fetch_json=fetch_json, write_manifest=True)
 
 
-def prepare_sources(project_dir: Path, *, fetch_json: FetchJson | None = None) -> dict[str, Any]:
-    """Resolve source gaps, download supported missing required sources, and write the manifest."""
+def prepare_sources(
+    project_dir: Path,
+    *,
+    fetch_json: FetchJson | None = None,
+    include_optional_sources: bool = False,
+) -> dict[str, Any]:
+    """Resolve source gaps, download supported missing sources, and write the manifest."""
 
     project_dir = project_dir.resolve()
     initial = _resolve_source_gaps(project_dir, preserve_downloads=True)
@@ -113,9 +155,7 @@ def prepare_sources(project_dir: Path, *, fetch_json: FetchJson | None = None) -
         source_id = str(gap.get("source_id") or "")
         if source_id not in SUPPORTED_DOWNLOADERS:
             continue
-        if gap.get("requirement") != "required":
-            continue
-        if gap.get("status") not in {"downloadable", "failed"}:
+        if not _should_prepare_download(gap, include_optional_sources=include_optional_sources):
             continue
         attempt = _download_source(project_dir, source_id, fetch_json=fetch_json, write_manifest=False)
         for download in attempt.get("downloads", []):
@@ -131,6 +171,7 @@ def prepare_sources(project_dir: Path, *, fetch_json: FetchJson | None = None) -
     merged_downloads = existing_downloads + [download for download in downloads if _download_key(download) not in {_download_key(item) for item in existing_downloads}]
     final["downloads"] = merged_downloads
     final["download_count"] = len(merged_downloads)
+    final["include_optional_sources"] = include_optional_sources
     final["validation_issues"] = _merged_validation_issues(final.get("validation_issues", []), merged_downloads)
     _apply_download_statuses_to_gaps(final)
     _write_manifest(project_dir, final)
@@ -480,6 +521,11 @@ def _download_layers(config: dict[str, Any]) -> list[dict[str, Any]]:
                 "layer_name": layer_name,
                 "label_fields": _string_list(raw_layer.get("label_fields", [])),
                 "feature_type_fields": _string_list(raw_layer.get("feature_type_fields", [])),
+                "feature_subtype_fields": _string_list(raw_layer.get("feature_subtype_fields", [])),
+                "original_id_fields": _string_list(raw_layer.get("original_id_fields", [])),
+                "date_fields": _string_list(raw_layer.get("date_fields", [])),
+                "quality_flag_fields": _string_list(raw_layer.get("quality_flag_fields", [])),
+                "source_citation_fields": _string_list(raw_layer.get("source_citation_fields", [])),
             }
         )
     return layers
@@ -506,6 +552,11 @@ def _normalized_download_feature(feature: dict[str, Any], *, source: SourceDefin
     properties = dict(raw_properties) if isinstance(raw_properties, dict) else {}
     label = _first_property_value(properties, layer.get("label_fields", []))
     feature_type = _first_property_value(properties, layer.get("feature_type_fields", []))
+    feature_subtype = _first_property_value(properties, layer.get("feature_subtype_fields", []))
+    original_id = _first_property_value(properties, layer.get("original_id_fields", []))
+    feature_date = _first_property_value(properties, layer.get("date_fields", []))
+    quality_flag = _first_property_value(properties, layer.get("quality_flag_fields", []))
+    source_citation = _first_property_value(properties, layer.get("source_citation_fields", []))
     if not label:
         label = feature_type or layer["layer_name"]
     properties.update(
@@ -517,6 +568,11 @@ def _normalized_download_feature(feature: dict[str, Any], *, source: SourceDefin
             "review_assist_layer_name": layer["layer_name"],
             "review_assist_feature_label": label,
             "review_assist_feature_type": feature_type,
+            "review_assist_feature_subtype": feature_subtype,
+            "review_assist_feature_original_id": original_id,
+            "review_assist_feature_date": feature_date,
+            "review_assist_quality_flag": quality_flag,
+            "review_assist_source_citation": source_citation,
         }
     )
     normalized["properties"] = properties
@@ -569,7 +625,7 @@ def _service_record_limit(metadata: dict[str, Any]) -> int:
         limit = int(raw_limit)
     except (TypeError, ValueError):
         limit = 1000
-    return max(1, min(limit, 2000))
+    return max(1, min(limit, 10000))
 
 
 def _project_analysis_bounds_wgs84(project_dir: Path) -> dict[str, float]:
@@ -998,6 +1054,16 @@ def _download_key(download: dict[str, Any]) -> tuple[str, str, str, str]:
         str(download.get("access_date", "")),
         str(download.get("output_path", "")),
     )
+
+
+def _should_prepare_download(gap: dict[str, Any], *, include_optional_sources: bool) -> bool:
+    status = str(gap.get("status") or "")
+    requirement = str(gap.get("requirement") or "")
+    if requirement == "required":
+        return status in {"downloadable", "failed"}
+    if include_optional_sources and requirement == "optional":
+        return status in {"optional", "downloadable", "failed"}
+    return False
 
 
 def _tagged_input_records(tagged_inputs: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:

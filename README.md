@@ -12,9 +12,9 @@ The review queue is the core workflow object. Every generated artifact should be
 
 ## Current Status
 
-The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, the Phase 2C catalog-driven source acquisition baseline with explicit NWI and USGS NHD hydrography downloaders, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D deterministic draft report sections, the first Markdown export compiler, and the first constraint-engine baseline. The current CLI can inspect project KMZ/KML inputs, normalize project geometry into point/site, line/corridor, polygon/area, or mixed feature artifacts, list the source catalog, register local source layers, resolve source gaps, explicitly download NWI wetlands and USGS NHD hydrography, run legacy spatial relationship checks, run constraint overlap/proximity checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section artifacts, populate a lean review queue, create/update review queue items, and export accepted/edited review items to Markdown plus an export manifest.
+The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, the Phase 2C catalog-driven source acquisition baseline with explicit NWI, USGS NHD hydrography, and optional FEMA NFHL flood hazard downloaders, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation, Phase 6D deterministic draft report sections, the first Markdown export compiler, and the first constraint-engine baseline. The current CLI can inspect project KMZ/KML inputs, normalize project geometry into point/site, line/corridor, polygon/area, or mixed feature artifacts, list the source catalog, register local source layers, resolve source gaps, explicitly download NWI wetlands, USGS NHD hydrography, and FEMA NFHL flood hazard, run legacy spatial relationship checks, run constraint overlap/proximity checks, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section artifacts, populate a lean review queue, create/update review queue items, and export accepted/edited review items to Markdown plus an export manifest.
 
-The implementation surface is reusable Python services plus a CLI. No GUI, broad external API integration, source downloads beyond opt-in NWI and USGS NHD hydrography, AI narrative generation, scoring, DOCX export, basemap/imagery acquisition, or production workflow has been implemented.
+The implementation surface is reusable Python services plus a CLI. No GUI, broad external API integration, source downloads beyond opt-in NWI, USGS NHD hydrography, and optional FEMA NFHL flood hazard, AI narrative generation, scoring, DOCX export, basemap/imagery acquisition, or production workflow has been implemented.
 
 ## Planning Docs
 
@@ -86,7 +86,9 @@ Resolve source gaps and explicitly acquire supported public sources:
 .\.venv\Scripts\review-assist.exe resolve-source-gaps projects/trails
 .\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
 .\.venv\Scripts\review-assist.exe download-source projects/trails usgs_nhd_hydrography
+.\.venv\Scripts\review-assist.exe download-source projects/trails fema_nfhl_flood_hazard
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails
+.\.venv\Scripts\review-assist.exe prepare-sources projects/trails --include-optional-sources
 ```
 
 Generate deterministic draft findings, comparison tables, vector-only draft maps, and deterministic draft report sections:
@@ -118,6 +120,7 @@ Run the current orchestration behind the future desktop `Populate for Review` ac
 ```powershell
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources --include-optional-sources
 ```
 
 The CLI writes `geometry_summary.json`, normalized input GeoJSON files, `project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` under each project's `intermediate/` directory. Constraint artifacts are written under `constraints/`, including `constraint_results.json` and clipped source GeoJSON files. Source acquisition manifests and downloads are written under `source_acquisition/` when source gap resolution/downloads run. Markdown exports and export manifests are written under `exports/`. Workflow artifacts are written under project `context/`, `source_status/`, `source_inventory/`, `findings/`, `tables/`, `maps/`, `drafts/`, `review_queue/`, and `populate_for_review/` directories. Project intermediate outputs, source acquisition artifacts/downloads, constraint artifacts, workflow artifacts, source inventories, draft findings, comparison tables, draft maps, draft report sections, exports, and local project layers are generated/project-specific artifacts and are ignored by Git.
@@ -146,7 +149,7 @@ Implementation phases should add or update tests with the behavior they introduc
 2. Add project inputs such as KMZ/KML alternatives, GIS layers, reports, imagery, PDFs, maps, notes, or study documents.
 3. Generate persistent project context: extent, assumptions, detected alternatives, likely report profile, provided sources, missing categories, and reviewer instructions.
 4. Resolve needed source categories into a source status set: provided locally, downloadable, downloaded, failed, gated, stubbed, missing, optional, or needs review.
-5. Resolve source gaps against the source catalog and, when explicitly requested, acquire supported public sources such as NWI wetlands and USGS NHD hydrography.
+5. Resolve source gaps against the source catalog and, when explicitly requested, acquire supported public sources such as NWI wetlands, USGS NHD hydrography, and optional FEMA NFHL flood hazard.
 6. Populate for review by normalizing project geometry, acquiring/loading registered sources, cropping data to analysis bounds, generating constraint results, findings, tables, maps, narrative drafts, caveats, and provenance notes.
 7. Send every generated artifact into the review queue for human edit/accept/reject/verification.
 8. Compile accepted or explicitly included reviewed content into an editable Markdown export package; DOCX export remains a later target.
