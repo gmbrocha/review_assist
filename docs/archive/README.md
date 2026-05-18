@@ -1,15 +1,17 @@
-# Documentation Archive
+# Archive
 
-Archive area for documentation that should be retained for historical context but is no longer part of the active documentation set.
+Archived docs are cold context. They are retained for historical reference and should not be treated as source of current truth unless a current core, governance, domain, or sprint doc explicitly references them.
 
-Use this for superseded planning notes, replaced drafts, old decision records, or prior versions of docs that are useful for traceability.
+Do not load archive docs during routine implementation. Load them only when:
 
-Current docs should stay in `docs/`, not in this folder.
+- the user explicitly asks for historical context
+- a current doc points to a specific archived record
+- a migration/audit task requires old planning detail
 
-Archived docs currently include:
+Current archived planning records include:
 
-- `FIRST_VERSION_PLAN.md`: superseded desktop GUI first-version plan retained for history. Current implementation remains backend/CLI-first until the deliverable pipeline is strong enough to justify UI work.
-- `PLAN_REDIRECT.md`: superseded planning source retained for historical context. Active planning lives in `../../CANONICAL_PLAN.md`.
-- `DELIVERABLE_OUTLINE.md`: superseded deliverable outline retained for historical context. Active deliverable structure lives in `../../CANONICAL_PLAN.md`.
-- `REPORT_GEN_SYSTEM_PROMPT.md`: superseded prompt planning reference retained for historical context. Active prompt rules live in `../../CANONICAL_PLAN.md`.
-
+- `docs/archive/PLAN_REDIRECT.md`
+- `docs/archive/DELIVERABLE_OUTLINE.md`
+- `docs/archive/REPORT_GEN_SYSTEM_PROMPT.md`
+- `docs/archive/FIRST_VERSION_PLAN.md`
+- `docs/archive/sprints/SPRINT_1_1_CONTRACT_FOUNDATION.md`

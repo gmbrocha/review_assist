@@ -1,6 +1,6 @@
 # Workflow Model
 
-This document is the aligned workflow model for the Alternatives Review Assistant. The canonical planning source is `../CANONICAL_PLAN.md`.
+This document is the aligned workflow model for the Alternatives Review Assistant. The canonical planning source is `../../CANONICAL_PLAN.md`.
 
 The application is a local, workspace-oriented, human-supervised workflow accelerator. It is a source-aware report compiler and contextual review assistant. It is not a recommendation engine, black-box AI reviewer, autonomous environmental analyst, or final decision-maker.
 
@@ -27,7 +27,7 @@ The workspace is the persistent container for:
 - Accepted outputs.
 - Export artifacts.
 
-The workspace should be designed for a low-friction local desktop workflow and eventual PyInstaller packaging.
+The workspace should be designed for a low-friction web app workflow over local/project workspace services. Archived desktop GUI and PyInstaller references are historical unless a later decision reopens that path.
 
 ### 2. User Adds Project Inputs
 

@@ -198,10 +198,10 @@ Support `--json` if consistent with existing CLI patterns.
 
 Update docs touched by Sprint 1 behavior:
 
-- `docs/WORKFLOW_MODEL.md`
-- `docs/CURRENT_STATE.md`
-- `docs/ARCHITECTURE.md`
-- `docs/ROADMAP.md`
+- `docs/domains/WORKFLOW_MODEL.md`
+- `docs/core/CURRENT_STATE.md`
+- `docs/core/ARCHITECTURE.md`
+- `docs/sprints/ROADMAP.md`
 - `CANONICAL_PLAN.md` if Sprint 1 decisions need cleanup.
 
 Docs should say:

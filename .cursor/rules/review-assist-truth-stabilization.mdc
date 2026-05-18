@@ -1,0 +1,42 @@
+---
+description: Minimal always-loaded review_assist agent routing, truth, deferred-work, and sprint-resolution rules
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# review_assist Active Agent Rule
+
+Read minimally first. Do not recursively load the docs tree unless explicitly requested.
+
+Hot context:
+
+- `AGENTS.md`
+- `docs/core/CURRENT_STATE.md`
+- active sprint/subunit file
+- directly relevant domain doc from `docs/domains/README.md`
+
+Warm context:
+
+- `docs/core/DECISIONS.md`
+- `docs/core/ARCHITECTURE.md`
+- `docs/governance/TRUTH_STABILIZATION.md`
+- `docs/governance/DEFERRED_WORK.md`
+- `docs/governance/SPRINT_RESOLUTION.md`
+- related sprint docs
+
+Cold context:
+
+- `docs/archive/`
+- completed sprint plans
+- historical/superseded planning records
+
+Before implementation, classify the change as `SAFE LAYER CHANGE`, `DOMAIN EXTENSION`, `DOMAIN CORRECTION`, or `DANGEROUS PATCH`.
+
+Mandatory workflows live in:
+
+- Truth Stabilization Pass: `docs/governance/TRUTH_STABILIZATION.md`
+- Deferred Work Propagation: `docs/governance/DEFERRED_WORK.md`
+- Sprint Resolution & Knowledge Migration: `docs/governance/SPRINT_RESOLUTION.md`
+
+The system generates draft, source-backed review packages. Preserve human review, provenance, uncertainty, source gaps, and no-ranking/no-selection/no-final-determination boundaries.

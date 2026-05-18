@@ -310,13 +310,13 @@ Provide routes or API endpoints for:
 ### 7.1 Docs to update
 
 - `README.md`
-- `docs/CURRENT_STATE.md`
-- `docs/ARCHITECTURE.md`
-- `docs/WORKFLOW_MODEL.md`
-- `docs/ROADMAP.md`
-- `docs/REVIEW_POLICY.md`
-- `docs/REPORT_ASSEMBLY.md`
-- `docs/DECISIONS.md`
+- `docs/core/CURRENT_STATE.md`
+- `docs/core/ARCHITECTURE.md`
+- `docs/domains/WORKFLOW_MODEL.md`
+- `docs/sprints/ROADMAP.md`
+- `docs/domains/REVIEW_POLICY.md`
+- `docs/domains/REPORT_ASSEMBLY.md`
+- `docs/core/DECISIONS.md`
 
 ### 7.2 Verification
 

@@ -1,5 +1,5 @@
 ---
-description: Require tests with implementation changes
+description: Require test review for implementation changes
 globs:
   - "**/*"
 alwaysApply: true
@@ -7,30 +7,12 @@ alwaysApply: true
 
 # Testing Discipline
 
-Every implementation phase and behavior-changing code change must include a test review.
+For behavior-changing code, add or update focused tests and run relevant tests when the local environment is available.
 
-Add or update tests when changes affect:
-
-- services
-- CLI commands
-- data models or JSON artifact schemas
-- validation rules
-- geospatial ingestion or analysis behavior
-- source status resolution
-- review queue behavior
-- export/report/map behavior
-- error handling
-
-Expected default command:
+Default full-suite command:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-Run the relevant tests before committing or pushing code changes when the local environment is available.
-
-If a change is documentation-only, tests may be unnecessary, but state that explicitly in the final summary.
-
-If tests cannot be run, document the reason and residual risk before finishing the task.
-
-Never implement a new feature phase without either tests for the new behavior or an explicit user-approved reason for deferring tests.
+For documentation-only changes, tests are usually unnecessary; state that explicitly in the final summary.

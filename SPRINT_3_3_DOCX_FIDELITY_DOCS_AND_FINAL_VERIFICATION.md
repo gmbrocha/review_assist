@@ -183,15 +183,15 @@ Do not spend excessive time on fragile Word field mechanics if it threatens the 
 Update affected docs:
 
 - `CANONICAL_PLAN.md`
-- `docs/WORKFLOW_MODEL.md`
-- `docs/CURRENT_STATE.md`
-- `docs/ARCHITECTURE.md`
-- `docs/ROADMAP.md`
-- `docs/REPORT_ASSEMBLY.md`
-- `docs/REVIEW_POLICY.md`
-- `docs/MAP_GENERATION.md`
-- `docs/DATA_SOURCES.md`
-- `docs/LLM_ASSISTED_SYNTHESIS.md`
+- `docs/domains/WORKFLOW_MODEL.md`
+- `docs/core/CURRENT_STATE.md`
+- `docs/core/ARCHITECTURE.md`
+- `docs/sprints/ROADMAP.md`
+- `docs/domains/REPORT_ASSEMBLY.md`
+- `docs/domains/REVIEW_POLICY.md`
+- `docs/domains/MAP_GENERATION.md`
+- `docs/domains/DATA_SOURCES.md`
+- `docs/domains/LLM_ASSISTED_SYNTHESIS.md`
 
 Docs must state:
 

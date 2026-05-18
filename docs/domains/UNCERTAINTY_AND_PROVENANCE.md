@@ -293,4 +293,4 @@ Example:
 - A finding can be `edited` and still require agency coordination.
 - A finding can be `unable_to_verify` because a restricted source was unavailable.
 
-Review statuses are defined in `docs/REVIEW_POLICY.md`. Source status categories are defined in `docs/WORKFLOW_MODEL.md`.
+Review statuses are defined in `docs/domains/REVIEW_POLICY.md`. Source status categories are defined in `docs/domains/WORKFLOW_MODEL.md`.

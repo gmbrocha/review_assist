@@ -2,7 +2,7 @@
 
 This is the canonical planning source for the current Review Assist implementation direction. It supersedes the older root planning documents for active planning; archived copies are retained only for historical context. If another active document duplicates or conflicts with this plan, this plan controls.
 
-`docs/WORKFLOW_MODEL.md` remains an important workflow model and should be aligned to this plan during implementation. When the two duplicate a current workflow decision, this plan is the source of truth unless a later approved decision updates it.
+`docs/domains/WORKFLOW_MODEL.md` remains an important workflow model and should be aligned to this plan during implementation. When the two duplicate a current workflow decision, this plan is the source of truth unless a later approved decision updates it.
 
 The immediate product concern is that the current generated deliverable can become far too large, such as a 640-page package. The redirected workflow should identify the discrete deliverable items first, then generate only the source-backed items needed for those deliverables, with reviewer control over what enters export.
 
@@ -12,7 +12,7 @@ Active source hierarchy:
 
 - `CANONICAL_PLAN.md` is the canonical planning source.
 - Sprint documents are implementation breakdowns derived from this plan.
-- `docs/WORKFLOW_MODEL.md`, `docs/ARCHITECTURE.md`, `docs/REPORT_ASSEMBLY.md`, `docs/MAP_GENERATION.md`, and related docs should be updated as implementation changes land.
+- `docs/domains/WORKFLOW_MODEL.md`, `docs/core/ARCHITECTURE.md`, `docs/domains/REPORT_ASSEMBLY.md`, `docs/domains/MAP_GENERATION.md`, and related docs should be updated as implementation changes land.
 - Archived planning documents under `docs/archive/` are retained for history and should not drive new work.
 - `env_constraints_report_20260511_EXAMPLE_ONLY.docx` remains the structural and visual target for generated deliverables, but it is not project evidence for future reports.
 
@@ -356,7 +356,7 @@ Carried-forward repo rules:
 - Add or update tests for behavior-changing implementation work.
 - Run the relevant test suite before committing or summarize why tests were not run.
 - Review docs for every code change and update affected docs in the same task.
-- Keep `docs/WORKFLOW_MODEL.md` aligned with this canonical plan.
+- Keep `docs/domains/WORKFLOW_MODEL.md` aligned with this canonical plan.
 
 Sprint execution protocol:
 

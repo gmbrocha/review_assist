@@ -625,9 +625,9 @@ This milestone has started. GPT is implemented only for report-section drafting 
 ### 11. Documentation and Drift Control
 
 - [ ] Keep `PLAN_REDIRECT.md` aligned with the actual roadmap.
-- [ ] Keep `docs/ROADMAP.md` implementation-focused.
-- [ ] Keep `docs/WORKFLOW_MODEL.md` as the canonical workflow truth model.
-- [ ] Keep `docs/CURRENT_STATE.md` honest about what exists and what does not.
+- [ ] Keep `docs/sprints/ROADMAP.md` implementation-focused.
+- [ ] Keep `docs/domains/WORKFLOW_MODEL.md` as the canonical workflow truth model.
+- [ ] Keep `docs/core/CURRENT_STATE.md` honest about what exists and what does not.
 - [ ] Update docs whenever a phase changes behavior.
 - [ ] Avoid using review queue item count as a readiness signal.
 - [ ] Keep "objective constraints only" language visible in product and report docs.

@@ -33,7 +33,7 @@ The work is service/CLI only. UI-facing needs should be represented as structure
 
 ## Sub-Sprint Breakdown
 
-- `SPRINT_1_1_CONTRACT_FOUNDATION.md`: deliverable matrix, prompt config, loaders, validation, and precedence docs.
+- `docs/archive/sprints/SPRINT_1_1_CONTRACT_FOUNDATION.md`: implemented Sprint 1.1 historical reference for deliverable matrix, prompt config, loaders, validation, and precedence docs.
 - `SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`: input package classification, project area artifact, county detection, and NAIP/MARIS basemap provenance.
 - `SPRINT_1_3_COMPARISON_UNITS_AND_ORCHESTRATION.md`: comparison-unit model, line/point grouping, populate integration, and Sprint 1 documentation/test completion.
 
@@ -43,14 +43,14 @@ The work is service/CLI only. UI-facing needs should be represented as structure
 
 - Add a short precedence note to durable project docs during implementation:
   - `CANONICAL_PLAN.md` controls current planning, deliverable shape, prompt intent, review policy, and export direction.
-  - `docs/WORKFLOW_MODEL.md` remains the aligned workflow model after it is updated to match the canonical plan.
+  - `docs/domains/WORKFLOW_MODEL.md` remains the aligned workflow model after it is updated to match the canonical plan.
 - Search for duplicated conflicts in:
-  - `docs/WORKFLOW_MODEL.md`
-  - `docs/ARCHITECTURE.md`
-  - `docs/ROADMAP.md`
-  - `docs/REPORT_ASSEMBLY.md`
-  - `docs/MAP_GENERATION.md`
-  - `docs/CURRENT_STATE.md`
+  - `docs/domains/WORKFLOW_MODEL.md`
+  - `docs/core/ARCHITECTURE.md`
+  - `docs/sprints/ROADMAP.md`
+  - `docs/domains/REPORT_ASSEMBLY.md`
+  - `docs/domains/MAP_GENERATION.md`
+  - `docs/core/CURRENT_STATE.md`
 - Keep UI implementation planning out of Sprints 1 through 3 and leave it to Sprint 4.
 
 ### 1.2 Preserve product boundaries

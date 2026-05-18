@@ -136,4 +136,3 @@ The tool should avoid:
 - Overstating desktop data.
 - Treating imagery observations as authoritative facts.
 - Depending on inaccessible gated data unless the user provides it.
-

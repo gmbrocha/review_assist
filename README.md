@@ -16,27 +16,19 @@ The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, 
 
 The implementation surface is reusable Python services plus a CLI. No web app UI, broad external API integration, source downloads beyond opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard, scoring, PDF export, basemap/imagery acquisition, or production workflow has been implemented. GPT is limited to report-section copy from structured evidence and never replaces geometry, local source materialization, source acquisition, constraint analysis, measurements, review decisions, or export acceptance.
 
-## Planning Docs
+## Documentation Map
 
-Key planning documents live at the repo root and under `docs/`:
+Use the documentation hierarchy to avoid loading the whole repo context:
 
-- `CANONICAL_PLAN.md`: canonical root drift-control plan; read before large implementation work. It defines the destination as filling the example environmental constraints report template with source-backed constraints, visuals, reviewable copy, tables, caveats, reviewed export content, and the future web app direction.
-- `SPRINT_1_FOUNDATION_AND_CONTRACT.md`, `SPRINT_2_CONSTRAINTS_TABLES_AND_FIGURES.md`, and `SPRINT_3_REVIEW_EXPORT_AND_DOCX.md`: non-UI implementation sprints for the redirected backend/report pipeline.
-- `SPRINT_4_WEB_APP_AND_WIRING.md`: future web app and wiring sprint after the non-UI pipeline is complete.
-- `OVERALL_CONTEXT.md`: product philosophy and anti-drift context.
-- `WORKFLOW_MODEL.md`: canonical workspace, source-status, review-queue, and export workflow.
-- `ARCHITECTURE.md`: conceptual service/module boundaries.
-- `DATA_SOURCES.md`: practical source stack, candidate sources, and source-registry planning.
-- `CODE_AUDIT.md`: latest implementation audit notes, fixes, and known limits.
-- `REPORT_TAXONOMY.md`: expected report structure.
-- `FINDING_TYPES.md`: implemented baseline and future finding/implication types.
-- `UNCERTAINTY_AND_PROVENANCE.md`: source traceability and uncertainty policy.
-- `MAP_GENERATION.md`: current vector-only map baseline and future map/figure direction.
-- `REPORT_ASSEMBLY.md`: findings-to-report workflow and current Markdown/DOCX export baseline.
-- `IMAGERY_REVIEW.md`: imagery observation philosophy.
-- `LLM_ASSISTED_SYNTHESIS.md`: GPT/LLM section-drafting insertion point and boundaries.
-- `docs/archive/FIRST_VERSION_PLAN.md`: superseded desktop GUI first-version plan retained for history; web app work is deferred behind the backend deliverable pipeline and captured as Sprint 4.
-- `docs/archive/PLAN_REDIRECT.md`, `docs/archive/DELIVERABLE_OUTLINE.md`, and `docs/archive/REPORT_GEN_SYSTEM_PROMPT.md`: superseded planning references retained for history; active planning has been consolidated into `CANONICAL_PLAN.md`.
+- `AGENTS.md`: minimal always-loaded agent operating contract.
+- `docs/core/CURRENT_STATE.md`: concise current implementation state.
+- `docs/core/ARCHITECTURE.md`: current service/artifact architecture summary.
+- `docs/core/DECISIONS.md`: durable decisions only.
+- `docs/governance/`: truth stabilization, deferred work, and sprint-resolution workflows.
+- `docs/domains/README.md`: routing index for subsystem/domain docs.
+- `docs/sprints/README.md`: active, planned, and completed sprint index.
+- `docs/archive/README.md`: cold historical context and superseded planning docs.
+- `CANONICAL_PLAN.md`: active high-level canonical plan; read when a planning decision, deliverable-shape decision, or workflow direction is ambiguous.
 
 ## Directory Notes
 
@@ -184,7 +176,7 @@ Create a real-data guarded MVP deliverable package. This runs source preparation
 .\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --materialize-local-sources --include-optional-sources
 ```
 
-Run the current orchestration behind the future desktop `Populate for Review` action:
+Run the current orchestration behind the future web app `Create Review Queue` action:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails

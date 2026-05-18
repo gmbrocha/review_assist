@@ -2,7 +2,7 @@
 
 This roadmap is intentionally rough and may change as requirements are clarified.
 
-Before large implementation work, read `../CANONICAL_PLAN.md`. That document is the canonical drift-control destination for the app: use the example environmental constraints report as the structural template and build the system to fill that template with source-backed constraints, visuals, reviewable copy, tables, caveats, accepted export content, and the future web app direction.
+Before large implementation work, read `../../CANONICAL_PLAN.md`. That document is the canonical drift-control destination for the app: use the example environmental constraints report as the structural template and build the system to fill that template with source-backed constraints, visuals, reviewable copy, tables, caveats, accepted export content, and the future web app direction.
 
 ## Core Product Shape: Constraint Engine Plus Review Queue
 
@@ -36,7 +36,7 @@ Status: complete.
 - Identify first candidate data sources.
 - Create project workspaces for current example projects.
 - Document report taxonomy, finding types, uncertainty, provenance, map-generation direction, and report assembly direction.
-- Record first-version desktop direction, with the review queue as the spine.
+- Record the first review-queue-centered UI direction. Archived desktop GUI direction has since been superseded by the web-app-only direction in `../../CANONICAL_PLAN.md`.
 - Record source stack, archive conventions, and Phase 1 implementation defaults.
 
 ## Phase 1: Parse KMZ/KML and Inspect Geometries
