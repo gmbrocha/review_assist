@@ -205,7 +205,14 @@ def test_commit_staged_inputs_creates_valid_manifest_and_classification(tmp_path
     input_package = json.loads((project_dir / "context" / "input_package.json").read_text(encoding="utf-8"))
 
     assert response.status_code == 200
+    text = response.data.decode()
     assert b"Committed 1 input" in response.data
+    assert "Latest Run Status" in text
+    assert "classify_inputs" in text
+    assert "Committed Inputs" in text
+    assert "inputs/routes.kmz" in text
+    assert "project_geometry" in text
+    assert "Classification Summary" in text
     assert manifest.project_id == "fresh_project"
     assert manifest.inputs[0].path == "inputs/routes.kmz"
     assert (project_dir / "inputs" / "routes.kmz").exists()
@@ -241,6 +248,7 @@ def test_missing_required_input_and_populate_failure_are_user_visible_without_tr
     setup = client.get("/setup")
     assert setup.status_code == 200
     assert b"staged_input_missing" in setup.data
+    assert b"config/project.json" in setup.data
 
     response = client.post("/overview/populate", follow_redirects=True)
     status_path = tmp_path / "fresh_project" / "web_runs" / "latest_run.json"
@@ -252,6 +260,39 @@ def test_missing_required_input_and_populate_failure_are_user_visible_without_tr
     assert b"Traceback" not in response.data
     assert latest_run["action"] == "populate_for_review"
     assert latest_run["status"] == "failed"
+
+
+def test_overview_displays_workflow_readiness_ladder_and_setup_blockers(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
+
+    draft = client.get("/overview")
+    draft_text = draft.data.decode()
+
+    assert draft.status_code == 200
+    assert "Workflow Readiness" in draft_text
+    assert "Project Manifest" in draft_text
+    assert "Input Classification" in draft_text
+    assert "Project Area" in draft_text
+    assert "Standard Review Queue" in draft_text
+    assert "Draft workspace only" in draft_text
+    assert 'disabled>Create Review Queue' in draft_text
+
+    client.post(
+        "/setup/upload",
+        data={"files": (_valid_kmz_upload(), "routes.kmz")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    client.post("/setup/commit", follow_redirects=True)
+    committed = client.get("/overview")
+    committed_text = committed.data.decode()
+
+    assert committed.status_code == 200
+    assert "1 input(s), 1 project geometry input(s)" in committed_text
+    assert "Run Create Review Queue after setup blockers are cleared" in committed_text
+    assert 'disabled>Create Review Queue' not in committed_text
 
 
 def test_overview_displays_project_populate_and_source_status(tmp_path: Path) -> None:
@@ -382,6 +423,10 @@ def test_preview_export_shows_compactness_and_final_verification(tmp_path: Path)
     assert "preview_bypassed" in text
     assert "Latest Run Status" in text
     assert "preview_export" in text
+    assert "Started" in text
+    assert "Completed" in text
+    assert "Artifact" in text
+    assert "Traceback" not in text
 
 
 def test_reviewed_export_failure_and_success_status_without_traceback(tmp_path: Path) -> None:

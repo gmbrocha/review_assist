@@ -220,6 +220,29 @@ code {
   padding: 2px 8px;
 }
 
+.status-ready,
+.status-completed {
+  background: #edf8f0;
+  border-color: #b9dfc4;
+}
+
+.status-blocked,
+.status-failed {
+  background: #fff1f0;
+  border-color: #f3b5b1;
+}
+
+.status-warning {
+  background: #fff8e6;
+  border-color: #ecd58a;
+}
+
+.status-missing,
+.status-started {
+  background: #f4f6f8;
+  border-color: var(--line);
+}
+
 .issue {
   color: var(--danger);
 }

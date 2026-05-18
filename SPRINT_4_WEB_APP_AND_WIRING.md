@@ -64,7 +64,11 @@ Sprint 4 Pass 1 implementation status:
 Sprint 4 Pass 2A implementation status:
 
 - Implemented: safe draft project creation, staged uploads under `staging/uploads/`, commit into `inputs/` plus valid `config/project.json`, input classification through the existing input-package service, missing-input readiness blockers, and lightweight synchronous latest-run status for classify/populate/export actions.
-- Remaining: richer progress handling, role correction UI, advanced audit browsing, UI polish, project archive flow, background execution, and any production/deployment concerns. These should stay thin over service contracts and should not make raw/audit artifacts part of the default review/export path.
+
+Sprint 4 Pass 2B implementation status:
+
+- Implemented: clearer setup/readiness display, committed-input/classification summaries, reusable latest-run status panels for setup/overview/export, workflow readiness ladder, and focused route tests for the fresh-project status path.
+- Remaining: role correction UI, advanced audit browsing, project archive flow, browser smoke testing, background execution, broader UI polish, and any production/deployment concerns. These should stay thin over service contracts and should not make raw/audit artifacts part of the default review/export path.
 
 ## Information Architecture
 

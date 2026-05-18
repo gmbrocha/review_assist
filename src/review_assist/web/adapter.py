@@ -297,6 +297,7 @@ def project_summary(project_dir: Path) -> dict[str, Any]:
             "report_profile": context.get("report_profile") if isinstance(context, dict) else None,
         },
         "setup": setup_status(project_dir),
+        "workflow_readiness": workflow_readiness(project_dir),
         "latest_run": latest_run_status(project_dir),
         "validation_issues": validation_issues,
     }
@@ -334,6 +335,7 @@ def setup_status(project_dir: Path) -> dict[str, Any]:
     manifest_exists = (project_dir / MANIFEST_PATH).exists()
     input_package = _load_json(project_dir / INPUT_PACKAGE_PATH)
     staged = get_staged_inputs(project_dir)
+    classification = classification_summary(project_dir)
     blockers: list[dict[str, str]] = []
     if not manifest_exists:
         blockers.append({"code": "project_manifest_missing", "message": "Commit at least one staged input to create config/project.json."})
@@ -348,10 +350,143 @@ def setup_status(project_dir: Path) -> dict[str, Any]:
         "staged_inputs": staged,
         "staged_input_count": len(staged),
         "committed_input_count": _manifest_summary(project_dir).get("input_count", 0),
+        "committed_inputs": committed_inputs(project_dir),
+        "classification": classification,
         "input_package_status": _artifact_status(input_package),
         "required_kmz_present": bool(input_package.get("required_kmz_present", False)) if input_package else False,
+        "latest_run": latest_run_status(project_dir),
         "blockers": blockers,
     }
+
+
+def committed_inputs(project_dir: Path) -> list[dict[str, Any]]:
+    """Return configured input rows with compact classification status."""
+
+    try:
+        manifest = load_project_manifest(project_dir)
+    except ProjectManifestError:
+        return []
+    input_package = _load_json(project_dir / INPUT_PACKAGE_PATH)
+    classified_by_path = {
+        str(record.get("path") or ""): record
+        for record in _dict_list(input_package.get("inputs", []))
+    }
+    rows: list[dict[str, Any]] = []
+    for project_input in manifest.inputs:
+        relative_path = str(project_input.path)
+        classified = classified_by_path.get(relative_path, {})
+        try:
+            safe_path = _safe_relative_path(project_dir, relative_path)
+            exists = (project_dir.resolve() / safe_path).exists()
+        except WebAdapterError:
+            safe_path = Path(relative_path)
+            exists = False
+        rows.append(
+            {
+                "path": safe_path.as_posix(),
+                "role": project_input.role,
+                "description": project_input.description,
+                "classification": str(classified.get("classification") or "not_classified"),
+                "confidence": str(classified.get("confidence") or ""),
+                "exists": bool(classified.get("exists", exists)) if classified else exists,
+                "requires_reviewer_confirmation": bool(classified.get("requires_reviewer_confirmation", False)),
+                "issue_count": len(_dict_list(classified.get("validation_issues", []))),
+            }
+        )
+    return rows
+
+
+def classification_summary(project_dir: Path) -> dict[str, Any]:
+    """Return compact input-package classification status for setup screens."""
+
+    input_package = _load_json(project_dir / INPUT_PACKAGE_PATH)
+    if not isinstance(input_package, dict) or not input_package:
+        return {
+            "status": "missing",
+            "input_count": 0,
+            "required_kmz_present": False,
+            "project_geometry_input_count": 0,
+            "source_layer_input_count": 0,
+            "unknown_input_count": 0,
+            "requires_confirmation_count": 0,
+            "validation_issue_count": 0,
+            "output_path": "",
+        }
+    inputs = _dict_list(input_package.get("inputs", []))
+    return {
+        "status": "available",
+        "input_count": _int_value(input_package.get("input_count"), len(inputs)),
+        "required_kmz_present": bool(input_package.get("required_kmz_present", False)),
+        "project_geometry_input_count": _int_value(input_package.get("project_geometry_input_count")),
+        "source_layer_input_count": _int_value(input_package.get("source_layer_input_count")),
+        "unknown_input_count": _int_value(input_package.get("unknown_input_count")),
+        "requires_confirmation_count": sum(1 for item in inputs if item.get("requires_reviewer_confirmation")),
+        "validation_issue_count": len(_dict_list(input_package.get("validation_issues", []))),
+        "output_path": _project_relative_path(project_dir, str(input_package.get("output_path") or "")),
+    }
+
+
+def workflow_readiness(project_dir: Path) -> list[dict[str, str]]:
+    """Return display-only readiness steps for the main local workflow."""
+
+    manifest = _manifest_summary(project_dir)
+    classification = classification_summary(project_dir)
+    project_area = _load_json(project_dir / PROJECT_AREA_PATH)
+    comparison_units = _load_json(project_dir / COMPARISON_UNITS_METADATA_PATH)
+    source_status = _load_json(project_dir / SOURCE_STATUS_PATH)
+    rows: list[dict[str, str]] = []
+
+    if manifest.get("manifest_status") == "valid":
+        rows.append(_workflow_step("Project Manifest", "ready", f"{manifest.get('input_count', 0)} configured input(s).", MANIFEST_PATH))
+    elif manifest.get("manifest_status") == "draft":
+        rows.append(_workflow_step("Project Manifest", "blocked", "Draft workspace only; commit staged inputs to create config/project.json.", MANIFEST_PATH))
+    else:
+        rows.append(_workflow_step("Project Manifest", "blocked", str(manifest.get("error") or "config/project.json is missing."), MANIFEST_PATH))
+
+    if classification["status"] == "missing":
+        rows.append(_workflow_step("Input Classification", "missing", "Run classification after committing project inputs.", INPUT_PACKAGE_PATH))
+    elif classification["required_kmz_present"]:
+        message = f"{classification['input_count']} input(s), {classification['project_geometry_input_count']} project geometry input(s)."
+        rows.append(_workflow_step("Input Classification", "ready", message, INPUT_PACKAGE_PATH))
+    else:
+        rows.append(_workflow_step("Input Classification", "blocked", "At least one committed project-geometry KMZ input is required.", INPUT_PACKAGE_PATH))
+
+    if isinstance(project_area, dict) and project_area:
+        counties = _string_list(project_area.get("county_names", []))
+        county_text = ", ".join(counties[:3]) if counties else "project area recorded"
+        rows.append(_workflow_step("Project Area", "ready", county_text, PROJECT_AREA_PATH))
+    else:
+        rows.append(_workflow_step("Project Area", "missing", "Created by Create Review Queue/populate.", PROJECT_AREA_PATH))
+
+    if isinstance(comparison_units, dict) and comparison_units:
+        count = _int_value(comparison_units.get("comparison_unit_count"))
+        status = "ready" if count else "warning"
+        rows.append(_workflow_step("Comparison Units", status, f"{count} comparison unit(s) recorded.", COMPARISON_UNITS_METADATA_PATH))
+    else:
+        rows.append(_workflow_step("Comparison Units", "missing", "Created by Create Review Queue/populate.", COMPARISON_UNITS_METADATA_PATH))
+
+    if isinstance(source_status, dict) and source_status:
+        source_rows = _source_status_rows(source_status)
+        status_counts = Counter(row.get("status", "unknown") for row in source_rows)
+        message = ", ".join(f"{key}: {value}" for key, value in sorted(status_counts.items())) or f"{len(source_rows)} source status row(s)."
+        rows.append(_workflow_step("Source Status", "ready", message, SOURCE_STATUS_PATH))
+    else:
+        rows.append(_workflow_step("Source Status", "missing", "Created by Create Review Queue/populate.", SOURCE_STATUS_PATH))
+
+    if (project_dir / REVIEW_QUEUE_PATH).exists():
+        try:
+            queue = load_review_queue(project_dir)
+        except ReviewQueueError as exc:
+            rows.append(_workflow_step("Standard Review Queue", "warning", str(exc), REVIEW_QUEUE_PATH))
+        else:
+            if queue.get("queue_mode") == "deliverable_items":
+                rows.append(_workflow_step("Standard Review Queue", "ready", f"{len(_dict_list(queue.get('items', [])))} bounded review item(s).", REVIEW_QUEUE_PATH))
+            else:
+                rows.append(_workflow_step("Standard Review Queue", "warning", "A legacy/audit queue exists; create the bounded standard queue for the UI workflow.", REVIEW_QUEUE_PATH))
+    else:
+        rows.append(_workflow_step("Standard Review Queue", "missing", "Run Create Review Queue after setup blockers are cleared.", REVIEW_QUEUE_PATH))
+
+    return rows
 
 
 def get_staged_inputs(project_dir: Path) -> list[dict[str, Any]]:
@@ -873,6 +1008,15 @@ def _issue_rows(data: dict[str, Any], stage: str) -> list[dict[str, Any]]:
     return rows
 
 
+def _workflow_step(label: str, status: str, message: str, artifact_path: Path) -> dict[str, str]:
+    return {
+        "label": label,
+        "status": status,
+        "message": message,
+        "artifact_path": artifact_path.as_posix(),
+    }
+
+
 def _artifact_status(data: Any) -> str:
     return "available" if isinstance(data, dict) and data else "missing"
 
@@ -1131,6 +1275,13 @@ def _nested_string(data: dict[str, Any], *keys: str) -> str:
             return ""
         current = current.get(key)
     return str(current or "")
+
+
+def _int_value(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _modified_at(path: Path) -> str:

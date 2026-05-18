@@ -15,30 +15,38 @@
   <div class="metric"><span>Review Items</span><strong>{{ summary.populate.review_queue_item_count }}</strong></div>
 </section>
 
-{% if summary.latest_run %}
-<section class="panel">
-  <h2>Latest Run Status</h2>
-  <dl class="details">
-    <dt>Action</dt><dd>{{ summary.latest_run.action }}</dd>
-    <dt>Status</dt><dd>{{ summary.latest_run.status }}</dd>
-    <dt>Message</dt><dd>{{ summary.latest_run.message }}</dd>
-    {% if summary.latest_run.error %}<dt>Error</dt><dd class="issue">{{ summary.latest_run.error }}</dd>{% endif %}
-    {% if summary.latest_run.artifact_path %}<dt>Artifact</dt><dd><code>{{ summary.latest_run.artifact_path }}</code></dd>{% endif %}
-  </dl>
-</section>
-{% endif %}
+{% with run_status=summary.latest_run %}
+  {% include "run_status.html" %}
+{% endwith %}
 
 {% if summary.setup.blockers %}
 <section class="panel">
   <h2>Project Readiness</h2>
   <ul class="issue-list">
     {% for blocker in summary.setup.blockers %}
-      <li>{{ blocker.code }}: {{ blocker.message }}</li>
+      <li>{{ blocker.message }} <span class="muted">({{ blocker.code }})</span></li>
     {% endfor %}
   </ul>
   <a class="button" href="{{ url_for('setup') }}">Open Project Setup</a>
 </section>
 {% endif %}
+
+<section class="table-section">
+  <h2>Workflow Readiness</h2>
+  <table>
+    <thead><tr><th>Step</th><th>Status</th><th>Message</th><th>Artifact</th></tr></thead>
+    <tbody>
+      {% for step in summary.workflow_readiness %}
+      <tr>
+        <td>{{ step.label }}</td>
+        <td><span class="status status-{{ step.status }}">{{ step.status }}</span></td>
+        <td>{{ step.message }}</td>
+        <td><code>{{ step.artifact_path }}</code></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
 
 <section class="panel">
   <h2>Project Metadata</h2>
@@ -55,7 +63,7 @@
   <div class="section-title-row">
     <h2>Create Review Queue</h2>
     <form method="post" action="{{ url_for('populate') }}">
-      <button class="primary" type="submit">Create Review Queue</button>
+      <button class="primary" type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Create Review Queue</button>
     </form>
   </div>
   <p class="muted">Runs the existing populate-for-review backend service with deterministic drafting. This does not export a report.</p>
