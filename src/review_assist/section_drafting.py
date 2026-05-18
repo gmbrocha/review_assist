@@ -393,6 +393,45 @@ def _compact_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
             for figure in figures[:COMPACT_FIGURE_LIMIT]
             if isinstance(figure, dict)
         ]
+    deliverable_tables = evidence.get("deliverable_tables", [])
+    if isinstance(deliverable_tables, list):
+        compact["deliverable_tables"] = [
+            {
+                "table_id": table.get("table_id"),
+                "table_number": table.get("table_number"),
+                "title": table.get("title"),
+                "row_count": table.get("row_count", 0),
+                "columns": table.get("columns", []),
+                "rows_preview": table.get("rows_preview", [])[:COMPACT_TABLE_ROW_LIMIT]
+                if isinstance(table.get("rows_preview"), list)
+                else [],
+                "is_stub": table.get("is_stub", False),
+                "source_refs": table.get("source_refs", []),
+            }
+            for table in deliverable_tables
+            if isinstance(table, dict)
+        ]
+    deliverable_figures = evidence.get("deliverable_figures", [])
+    if isinstance(deliverable_figures, list):
+        compact["deliverable_figures"] = [
+            {
+                "figure_id": figure.get("figure_id"),
+                "figure_number": figure.get("figure_number"),
+                "title": figure.get("title"),
+                "has_image": figure.get("has_image", False),
+                "is_stub": figure.get("is_stub", False),
+                "source_refs": figure.get("source_refs", []),
+                "review_status": figure.get("review_status"),
+            }
+            for figure in deliverable_figures[:COMPACT_FIGURE_LIMIT]
+            if isinstance(figure, dict)
+        ]
+    if isinstance(evidence.get("row_summaries"), list):
+        compact["row_summaries"] = evidence["row_summaries"][:COMPACT_TABLE_ROW_LIMIT]
+    if isinstance(evidence.get("figure_availability"), dict):
+        compact["figure_availability"] = evidence["figure_availability"]
+    if isinstance(evidence.get("source_gap_status"), list):
+        compact["source_gap_status"] = evidence["source_gap_status"][:8]
     return _sanitize_for_gpt(compact)
 
 
@@ -449,11 +488,17 @@ def _response_output_text(output: Any) -> str:
 
 def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], content: str) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
+    allowed_table_ids = set(request.related_table_ids)
+    allowed_table_ids.update(_evidence_ids(request.evidence_bundle, ("tables", "deliverable_tables"), "table_id"))
+    allowed_figure_ids = set(request.related_figure_ids)
+    allowed_figure_ids.update(_evidence_ids(request.evidence_bundle, ("figures", "deliverable_figures"), "figure_id"))
+    allowed_source_refs = set(request.source_refs)
+    allowed_source_refs.update(_evidence_source_refs(request.evidence_bundle))
     citation_checks = [
         ("cited_finding_ids", set(request.related_finding_ids), "unknown_finding_id"),
-        ("cited_table_ids", set(request.related_table_ids), "unknown_table_id"),
-        ("cited_figure_ids", set(request.related_figure_ids), "unknown_figure_id"),
-        ("cited_source_refs", set(request.source_refs), "unknown_source_ref"),
+        ("cited_table_ids", allowed_table_ids, "unknown_table_id"),
+        ("cited_figure_ids", allowed_figure_ids, "unknown_figure_id"),
+        ("cited_source_refs", allowed_source_refs, "unknown_source_ref"),
     ]
     for field_name, allowed_values, code in citation_checks:
         for value in _string_list(parsed.get(field_name, [])):
@@ -467,6 +512,35 @@ def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], c
         if re.search(pattern, lowered):
             issues.append(_issue("error", "prohibited_gpt_language", f"GPT output included prohibited {label} language."))
     return issues
+
+
+def _evidence_ids(evidence: dict[str, Any], keys: tuple[str, ...], id_field: str) -> set[str]:
+    ids: set[str] = set()
+    if not isinstance(evidence, dict):
+        return ids
+    for key in keys:
+        value = evidence.get(key, [])
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if isinstance(item, dict) and item.get(id_field):
+                ids.add(str(item[id_field]))
+    return ids
+
+
+def _evidence_source_refs(evidence: dict[str, Any]) -> set[str]:
+    refs = set(_string_list(evidence.get("source_refs", []))) if isinstance(evidence, dict) else set()
+    if not isinstance(evidence, dict):
+        return refs
+    for key in ("sources", "tables", "figures", "deliverable_tables", "deliverable_figures"):
+        value = evidence.get(key, [])
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if isinstance(item, dict):
+                refs.update(_string_list(item.get("source_refs", [])))
+                refs.update(_string_list(item.get("source_ids", [])))
+    return refs
 
 
 def _rejected_result(

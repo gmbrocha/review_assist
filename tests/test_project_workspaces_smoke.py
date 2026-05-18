@@ -54,15 +54,17 @@ def test_active_projects_populate_for_review(tmp_path: Path) -> None:
         shutil.copytree(project_dir / "config", isolated_project_dir / "config")
         shutil.copytree(project_dir / "inputs", isolated_project_dir / "inputs")
 
-        result = populate_for_review(isolated_project_dir)
+        result = populate_for_review(isolated_project_dir, gpt_drafting=False)
         queue = load_review_queue(isolated_project_dir)
         item_types = {item["type"] for item in queue["items"]}
 
         assert result["status"] == "completed"
-        assert all(warning.get("stage") in {"project_area"} for warning in result["warnings"])
+        assert all(warning.get("stage") in {"project_area", "deliverable_figures", "evidence_package"} for warning in result["warnings"])
         assert result["artifact_paths"]["input_package"].endswith("input_package.json")
         assert result["artifact_paths"]["project_area"].endswith("project_area.json")
         assert result["artifact_paths"]["constraint_results"].endswith("constraint_results.json")
+        assert result["artifact_paths"]["deliverable_figures"].endswith("figures.json")
+        assert result["deliverable_figure_count"] == 13
         assert "project_county_names" in result
         assert "basemap_rendering_status" in result
         assert json.loads(Path(result["artifact_paths"]["project_geometry"]).read_text(encoding="utf-8"))["geometry_role"] == expected_geometry_role

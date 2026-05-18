@@ -193,14 +193,14 @@ Current baseline:
 - `review-assist populate-for-review <project_dir>`
 - `review-assist populate-for-review <project_dir> --materialize-local-sources`
 - JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Runs input package classification, project geometry normalization, project area generation, comparison-unit generation, project context generation, optional local source materialization, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, evidence package generation, report section generation, and lean review queue generation.
+- Runs input package classification, project geometry normalization, project area generation, comparison-unit generation, project context generation, optional local source materialization, source status resolution, source inventory generation, tolerant constraint analysis, report-facing comparison-unit constraint analysis, deterministic draft finding generation, comparison table generation, matrix-backed deliverable table/figure generation, legacy map generation, evidence package generation, report section generation, and lean review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict for the legacy raw spatial check path.
 - `--materialize-local-sources` clips configured local warehouse data into project-ready source layers before source status, inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - `--prepare-sources` resolves catalog gaps and runs supported required public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - When `--materialize-local-sources` is combined with `--prepare-sources`, materialization runs before public download attempts so local warehouse data can satisfy source gaps.
 - `--include-optional-sources`, when paired with `--prepare-sources`, also downloads supported optional sources such as FEMA NFHL flood hazard.
 
-This baseline now includes vector-only map generation through Phase 6C, report section generation with deterministic and optional GPT drafting through Phase 6D, evidence package generation, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement web app review screens, or render basemap/imagery-backed maps.
+This baseline now includes matrix-backed deliverable tables/figures, vector-only legacy map generation through Phase 6C, report section generation with deterministic and optional GPT drafting through Phase 6D, evidence package generation, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C. `populate-for-review` does not create exports itself, implement web app review screens, replace legacy review queue items with canonical deliverable items, or enforce export gates.
 
 ## Phase 6A: Deterministic Finding Templates
 
@@ -242,7 +242,7 @@ This baseline now records source acquisition and local materialization provenanc
 
 ## Phase 6C: Map/Figure and Imagery Generation
 
-Status: initial vector-only map baseline complete.
+Status: initial vector-only map baseline plus matrix-backed deliverable figure artifacts complete.
 
 - Generate overall project maps.
 - Generate resource-specific maps.
@@ -254,18 +254,23 @@ Status: initial vector-only map baseline complete.
 Current baseline:
 
 - `review-assist generate-maps <project_dir>`
+- `review-assist generate-deliverable-figures <project_dir>`
 - JSON map manifest at `projects/<project_id>/maps/map_manifest.json`.
+- JSON deliverable figure artifact at `projects/<project_id>/deliverable/figures.json`.
 - PNG draft figures under `projects/<project_id>/maps/figures/`.
 - Generates a project overview figure from normalized project geometry.
 - Generates source-context figures for analyzed local source clipped layers when available.
 - Generates a combined `environmental-constraints-overview` figure when analyzed source layers contain mapped features.
-- Uses GeoPandas and Matplotlib only; maps are vector-only and contain no basemap or imagery.
+- Generates 13 main matrix-backed deliverable figure records in matrix order, with explicit stubs when source data or rendering is unavailable.
+- Uses selected MARIS/NAIP `.png`, `.tif`, or `.tiff` sidecars in deliverable figures when project-area metadata selects renderable imagery. `.sid` remains provenance only.
+- Adds Attachment A supporting panel records outside the 13 main figure count when the mapped extent is too elongated.
+- Legacy maps use GeoPandas and Matplotlib only and remain vector-only source-context/audit maps.
 - Draft figures include legend, north arrow, scale bar where CRS units allow it, source note, CRS/method note, and visible draft/pre-review labeling.
 - Map figure records include captions, source notes, method notes, figure grouping, and related resource categories.
-- `populate-for-review` runs map generation after comparison table generation and before review queue generation.
+- `populate-for-review` runs deliverable figure generation after deliverable tables and before evidence package generation; legacy map generation remains in the run.
 - Review queue generation converts map figures into `map_figure` items with deterministic IDs and preview metadata.
 
-This baseline does not implement basemap tiles, local raster imagery, NAIP/Google/ArcGIS acquisition, panel map sheets, PDF/SVG exports, or final cartographic styling. Report export now copies included PNG figures into the export package, but final map-sheet package compilation remains future work.
+This baseline does not implement basemap tiles, MrSID decoding, Google/ArcGIS acquisition, final panel map sheets, PDF/SVG exports, or final cartographic styling. Report export now copies included PNG figures into the export package, but final map-sheet package compilation and canonical export gating remain future work.
 
 ## Phase 6D: Draft Report Sections and Evidence Package
 
@@ -275,7 +280,7 @@ Status: deterministic baseline, evidence package, and optional GPT-backed sectio
 - Keep deterministic GIS/source analysis separate from GPT-assisted narrative synthesis and export compilation.
 - Preserve source refs, related finding/table/figure IDs, assumptions, provenance, uncertainty flags, validation issues, and review status.
 - Feed report sections into the review queue with deterministic IDs so reviewer status and notes survive regeneration.
-- Build an evidence package that groups real sources, stubs, acquisition provenance, source-backed constraints, table/figure refs, and section-level evidence classes.
+- Build an evidence package that groups real sources, stubs, acquisition provenance, source-backed constraints, deliverable table/figure refs, compact row/figure/constraint summaries, source-gap status, and section-level evidence classes.
 - Allow GPT section drafting only from structured evidence when explicitly enabled by environment.
 
 Current baseline:

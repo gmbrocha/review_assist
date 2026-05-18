@@ -10,6 +10,7 @@ from typing import Any
 from .comparison_units import ComparisonUnitError, build_comparison_units
 from .constraints import ConstraintAnalysisError, analyze_constraints
 from .deliverable_constraints import ComparisonUnitConstraintError, analyze_comparison_unit_constraints
+from .deliverable_figures import DeliverableFigureError, generate_deliverable_figures
 from .deliverable_tables import DeliverableTableError, generate_deliverable_tables
 from .evidence_package import EvidencePackageError, build_evidence_package
 from .findings import FindingGenerationError, generate_draft_findings
@@ -62,6 +63,7 @@ def populate_for_review(
     draft_findings: dict[str, Any] | None = None
     comparison_tables: dict[str, Any] | None = None
     deliverable_tables: dict[str, Any] | None = None
+    deliverable_figures: dict[str, Any] | None = None
     map_manifest: dict[str, Any] | None = None
     evidence_package: dict[str, Any] | None = None
     report_sections: dict[str, Any] | None = None
@@ -138,6 +140,10 @@ def populate_for_review(
         steps.append(_step("deliverable_tables", "completed", artifact_path=deliverable_tables.get("output_path")))
         warnings.extend(_issue_warnings("deliverable_tables", deliverable_tables.get("validation_issues", [])))
 
+        deliverable_figures = generate_deliverable_figures(project_dir)
+        steps.append(_step("deliverable_figures", "completed", artifact_path=deliverable_figures.get("output_path")))
+        warnings.extend(_issue_warnings("deliverable_figures", deliverable_figures.get("validation_issues", [])))
+
         map_manifest = generate_maps(project_dir)
         steps.append(_step("map_generation", "completed", artifact_path=map_manifest.get("output_path")))
         warnings.extend(_issue_warnings("map_generation", map_manifest.get("validation_issues", [])))
@@ -173,6 +179,7 @@ def populate_for_review(
         FindingGenerationError,
         TableGenerationError,
         DeliverableTableError,
+        DeliverableFigureError,
         MapGenerationError,
         EvidencePackageError,
         ReportSectionGenerationError,
@@ -198,6 +205,7 @@ def populate_for_review(
                     draft_findings,
                     comparison_tables,
                     deliverable_tables,
+                    deliverable_figures,
                     map_manifest,
                     evidence_package,
                     report_sections,
@@ -225,6 +233,7 @@ def populate_for_review(
             draft_findings,
             comparison_tables,
             deliverable_tables,
+            deliverable_figures,
             map_manifest,
             evidence_package,
             report_sections,
@@ -246,6 +255,7 @@ def populate_for_review(
             draft_findings,
             comparison_tables,
             deliverable_tables,
+            deliverable_figures,
             map_manifest,
             evidence_package,
             report_sections,
@@ -274,6 +284,7 @@ def populate_for_review(
             "draft_findings": draft_findings.get("output_path") if draft_findings else None,
             "comparison_tables": comparison_tables.get("output_path") if comparison_tables else None,
             "deliverable_tables": deliverable_tables.get("output_path") if deliverable_tables else None,
+            "deliverable_figures": deliverable_figures.get("output_path") if deliverable_figures else None,
             "map_manifest": map_manifest.get("output_path") if map_manifest else None,
             "evidence_package": evidence_package.get("output_path") if evidence_package else None,
             "report_sections": report_sections.get("output_path") if report_sections else None,
@@ -283,6 +294,7 @@ def populate_for_review(
         "constraint_count": constraints.get("constraint_count") if constraints else 0,
         "comparison_unit_constraint_count": comparison_unit_constraints.get("constraint_count") if comparison_unit_constraints else 0,
         "deliverable_table_count": deliverable_tables.get("table_count") if deliverable_tables else 0,
+        "deliverable_figure_count": deliverable_figures.get("figure_count") if deliverable_figures else 0,
         "comparison_unit_count": comparison_units.get("comparison_unit_count") if comparison_units else 0,
         "expected_comparison_unit_count": comparison_units.get("expected_comparison_unit_count") if comparison_units else None,
         "expected_count_status": comparison_units.get("expected_count_status") if comparison_units else None,
@@ -374,6 +386,7 @@ def _failed_step_name(
     draft_findings: dict[str, Any] | None,
     comparison_tables: dict[str, Any] | None,
     deliverable_tables: dict[str, Any] | None,
+    deliverable_figures: dict[str, Any] | None,
     map_manifest: dict[str, Any] | None,
     evidence_package: dict[str, Any] | None,
     report_sections: dict[str, Any] | None,
@@ -407,6 +420,8 @@ def _failed_step_name(
         return "comparison_tables"
     if deliverable_tables is None:
         return "deliverable_tables"
+    if deliverable_figures is None:
+        return "deliverable_figures"
     if map_manifest is None:
         return "map_generation"
     if evidence_package is None:

@@ -27,10 +27,10 @@ Each deferred item should include:
 
 - `Deferred item`: Wire the Sprint 1.1 deliverable matrix into report-facing generation.
 - `Why postponed`: Sprint 1.1 intentionally added static config, loaders, validators, tests, and CLI validation only. It did not change report generation, review queue generation, table generation, figure generation, or export behavior.
-- `Affected sections/workflows`: Report section generation, deliverable tables, deliverable figures, deliverable items, review queue generation, export assembly, GPT-assisted section drafting.
+- `Affected sections/workflows`: Report section generation, deliverable items, review queue generation, export assembly, GPT-assisted section drafting.
 - `Risk if forgotten`: The legacy report profile/templates can continue to drive output while the canonical matrix only validates on the side, allowing output volume, section coverage, stub policy, and table/figure inventory to drift away from the redirected workflow.
-- `Temporary simplification`: Sprint 2.2 now generates exact matrix-backed deliverable tables, but report sections, figures, review queue deliverable items, and export gates can still use legacy artifacts until their owning sprints wire the matrix into those paths.
-- `Target sprint/subunit`: Sprint 2.3 for deliverable figures and evidence refs; Sprint 3.1 for deliverable items/review queue; Sprint 3.2 for export gate/package manifests.
+- `Temporary simplification`: Sprint 2.2 now generates exact matrix-backed deliverable tables, and Sprint 2.3 now generates exact matrix-backed deliverable figures plus evidence refs. Report sections, review queue deliverable items, and export gates can still use legacy artifacts until their owning sprints wire the matrix into those paths.
+- `Target sprint/subunit`: Sprint 3.1 for deliverable items/review queue; Sprint 3.2 for export gate/package manifests.
 - `Status`: open.
 
 ### Canonical Prompt Contract Wiring
@@ -63,16 +63,6 @@ Each deferred item should include:
 - `Target sprint/subunit`: Future source acquisition/data-quality hardening.
 - `Status`: open.
 
-### Raster-Backed NAIP Figure Rendering
-
-- `Deferred item`: Render NAIP/MARIS basemaps into deliverable figures only when renderable sidecars are available.
-- `Why postponed`: Sprint 2.1 implemented catalog/profile/status behavior plus basemap indexing and sidecar detection, but intentionally avoided rasterio, GDAL, MrSID decoding, paid basemap APIs, and figure rendering.
-- `Affected sections/workflows`: Map generation, deliverable figures, figure validation issues, Attachment A panel maps, source/provenance notes for imagery-backed figures.
-- `Risk if forgotten`: The workflow may correctly record selected NAIP provenance but still produce vector-only or stubbed figures without making the rendering limitation obvious.
-- `Temporary simplification`: `.sid` files remain provenance only; `.tif`, `.tiff`, and `.png` sidecars are detected but not yet rendered by deliverable figure generation.
-- `Target sprint/subunit`: Sprint 2.3.
-- `Status`: open.
-
 ## Resolved Deferred Items
 
 ### Sprint 1.2 Project Intake Artifacts
@@ -95,6 +85,22 @@ Each deferred item should include:
 
 - `Deferred item`: Implement the Sprint 2.2 comparison-unit constraints and exact deliverable table targets.
 - `Resolution`: Implemented `constraints/comparison_unit_constraints.json`, source-specific normalization for NWI wetland classes, hydrography crossing de-duplication, FEMA flood-zone acreage aggregation, local Census-like ACS table rows, four exact matrix-backed deliverable tables at `deliverable/tables.json`, required stubs for unavailable sources, CLI commands, populate manifest wiring, docs, and focused tests.
-- `Remaining limitation`: Deliverable figures, raster-backed NAIP/MARIS rendering, panel maps, evidence package refs, review queue deliverable item expansion, export gating, and live Census acquisition remain deferred to their owning future work items.
+- `Remaining limitation`: Review queue deliverable item expansion, export gating, and live Census acquisition remain deferred to their owning future work items.
 - `Target sprint/subunit`: Sprint 2.2.
+- `Status`: resolved.
+
+### Sprint 2.3 Figures, Evidence, And Validation
+
+- `Deferred item`: Implement matrix-backed deliverable figures and align them with evidence package refs.
+- `Resolution`: Implemented `deliverable/figures.json`, 13 exact main figure records in matrix order, explicit source/implementation stubs, selected-sidecar basemap rendering/fallbacks, restricted cultural exclusion, Attachment A supporting panel maps outside the main figure count, CLI/populate wiring, evidence package table/figure refs, compact row/figure/constraint summaries, GPT-safe payload handling, docs, and focused tests.
+- `Remaining limitation`: Legacy report section generation and review queue generation still do not expand canonical matrix deliverable items. Export gates and reviewed-package manifest enforcement remain deferred to Sprint 3.1 and Sprint 3.2. Local NAIP warehouses that are `.sid`-only remain provenance-only and produce vector-only figures or stubs; GeoTIFF rendering depends on optional `rasterio`.
+- `Target sprint/subunit`: Sprint 2.3.
+- `Status`: resolved.
+
+### Raster-Backed NAIP Figure Rendering
+
+- `Deferred item`: Render NAIP/MARIS basemaps into deliverable figures only when renderable sidecars are available.
+- `Resolution`: Sprint 2.3 deliverable figures can render selected `.png`, `.tif`, or `.tiff` sidecars when project-area metadata/georeference is usable. `.sid` files remain provenance only, and failures are preserved through `basemap_selected_not_renderable` or `basemap_render_failed`.
+- `Remaining limitation`: No MrSID decoding, paid basemap API, or hard `rasterio` dependency. The current local NAIP warehouse may be `.sid`-only, so normal local runs may remain vector-only.
+- `Target sprint/subunit`: Sprint 2.3.
 - `Status`: resolved.

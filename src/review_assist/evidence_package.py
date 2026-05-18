@@ -10,6 +10,8 @@ from typing import Any
 
 from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, analyze_constraints
 from .data_lineage import build_data_lineage
+from .deliverable_figures import DELIVERABLE_FIGURES_PATH, DeliverableFigureError, generate_deliverable_figures, load_deliverable_figures
+from .deliverable_tables import DELIVERABLE_TABLES_PATH, DeliverableTableError, generate_deliverable_tables, load_deliverable_tables
 from .findings import FINDINGS_PATH, FindingGenerationError, generate_draft_findings, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
@@ -27,6 +29,23 @@ EVIDENCE_CLASSES = {
     "failed_or_missing",
     "test_fixture_blocked",
 }
+SOURCE_ID_CATEGORY_HINTS = {
+    "usfws_nwi_wetlands": "wetlands_waterbodies",
+    "usgs_nhd_hydrography": "hydrography_crossings",
+    "fema_nfhl_flood_hazard": "flood_hazard",
+    "maris_public_cultural_context": "cultural_historic",
+    "mdah_public_historic_resources": "cultural_historic",
+    "mdah_restricted_archaeology": "cultural_historic",
+    "maris_community_facilities": "community_socioeconomic",
+    "hifld_community_infrastructure": "community_socioeconomic",
+    "census_tiger_acs": "community_socioeconomic",
+    "mdeq_public_water_supply_wells": "transportation_utilities",
+    "local_utility_infrastructure": "transportation_utilities",
+    "epa_envirofacts_echo": "regulated_facilities",
+    "mdeq_environmental_context": "regulated_facilities",
+    "mississippi_oil_gas_wells": "regulated_facilities",
+    "maris_naip_2025_imagery": "imagery_basemaps",
+}
 
 
 class EvidencePackageError(RuntimeError):
@@ -42,6 +61,8 @@ def build_evidence_package(project_dir: Path) -> dict[str, Any]:
         constraints = _load_or_generate_constraints(project_dir)
         draft_findings = _load_or_generate_findings(project_dir)
         comparison_tables = _load_or_generate_tables(project_dir)
+        deliverable_tables = _load_or_generate_deliverable_tables(project_dir)
+        deliverable_figures = _load_or_generate_deliverable_figures(project_dir)
         map_manifest = _load_optional_map_manifest(project_dir)
     except (
         ProjectContextError,
@@ -50,6 +71,8 @@ def build_evidence_package(project_dir: Path) -> dict[str, Any]:
         ConstraintAnalysisError,
         FindingGenerationError,
         TableGenerationError,
+        DeliverableTableError,
+        DeliverableFigureError,
         MapGenerationError,
     ) as exc:
         raise EvidencePackageError(str(exc)) from exc
@@ -62,6 +85,8 @@ def build_evidence_package(project_dir: Path) -> dict[str, Any]:
         constraints=constraints,
         draft_findings=draft_findings,
         comparison_tables=comparison_tables,
+        deliverable_tables=deliverable_tables,
+        deliverable_figures=deliverable_figures,
         map_manifest=map_manifest,
         data_lineage=data_lineage,
     )
@@ -83,15 +108,37 @@ def build_evidence_package(project_dir: Path) -> dict[str, Any]:
         "constraint_results_path": constraints.get("output_path"),
         "draft_findings_path": draft_findings.get("output_path"),
         "comparison_tables_path": comparison_tables.get("output_path"),
+        "deliverable_tables_path": deliverable_tables.get("output_path"),
+        "deliverable_figures_path": deliverable_figures.get("output_path"),
         "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
         "constraint_count": constraints.get("constraint_count", 0),
+        "deliverable_table_count": deliverable_tables.get("table_count", 0),
+        "deliverable_figure_count": deliverable_figures.get("figure_count", 0),
+        "deliverable_figure_stub_count": sum(1 for figure in _dict_list(deliverable_figures.get("figures", [])) if figure.get("is_stub")),
         "source_backed_constraint_count": data_lineage.get("source_backed_constraint_count", 0),
         "real_source_count": data_lineage.get("real_source_count", 0),
         "stub_count": data_lineage.get("stub_count", 0),
         "test_or_mock_count": data_lineage.get("test_or_mock_count", 0),
         "evidence_class_counts": {key: int(evidence_class_counts.get(key, 0)) for key in sorted(EVIDENCE_CLASSES)},
         "section_evidence": section_bundles,
-        "validation_issues": _validation_issues(data_lineage, source_acquisition, constraints, source_status),
+        "raw_artifact_paths": {
+            "source_status": source_status.get("output_path"),
+            "source_inventory": source_inventory.get("output_path"),
+            "constraint_results": constraints.get("output_path"),
+            "draft_findings": draft_findings.get("output_path"),
+            "comparison_tables": comparison_tables.get("output_path"),
+            "deliverable_tables": deliverable_tables.get("output_path"),
+            "deliverable_figures": deliverable_figures.get("output_path"),
+            "map_manifest": map_manifest.get("output_path") if map_manifest else None,
+        },
+        "validation_issues": _validation_issues(
+            data_lineage,
+            source_acquisition,
+            constraints,
+            source_status,
+            deliverable_tables,
+            deliverable_figures,
+        ),
     }
     output_path = project_dir / EVIDENCE_PACKAGE_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -165,6 +212,18 @@ def _load_or_generate_tables(project_dir: Path) -> dict[str, Any]:
     return generate_comparison_tables(project_dir)
 
 
+def _load_or_generate_deliverable_tables(project_dir: Path) -> dict[str, Any]:
+    if (project_dir / DELIVERABLE_TABLES_PATH).exists():
+        return load_deliverable_tables(project_dir)
+    return generate_deliverable_tables(project_dir)
+
+
+def _load_or_generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
+    if (project_dir / DELIVERABLE_FIGURES_PATH).exists():
+        return load_deliverable_figures(project_dir)
+    return generate_deliverable_figures(project_dir)
+
+
 def _load_optional_map_manifest(project_dir: Path) -> dict[str, Any] | None:
     if not (project_dir / MAP_MANIFEST_PATH).exists():
         return None
@@ -178,15 +237,31 @@ def _section_bundles(
     constraints: dict[str, Any],
     draft_findings: dict[str, Any],
     comparison_tables: dict[str, Any],
+    deliverable_tables: dict[str, Any],
+    deliverable_figures: dict[str, Any],
     map_manifest: dict[str, Any] | None,
     data_lineage: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
-    categories = _categories(source_status, draft_findings, constraints)
+    categories = _categories(source_status, draft_findings, constraints, deliverable_tables, deliverable_figures)
     bundles: dict[str, dict[str, Any]] = {}
     for section_id, category in categories.items():
         findings = _findings_for_category(draft_findings, category)
         tables = _tables_for_category(comparison_tables, category)
-        source_refs = sorted({ref for finding in findings for ref in _string_list(finding.get("source_refs", []))})
+        deliverable_section_tables = _deliverable_tables_for_section(deliverable_tables, section_id, category)
+        deliverable_section_figures = _deliverable_figures_for_section(deliverable_figures, section_id, category)
+        source_refs = sorted(
+            {
+                ref
+                for ref in [
+                    *[ref for finding in findings for ref in _string_list(finding.get("source_refs", []))],
+                    *[ref for table in deliverable_section_tables for ref in _string_list(table.get("source_refs", []))],
+                    *[ref for figure in deliverable_section_figures for ref in _string_list(figure.get("source_refs", []))],
+                ]
+                if ref
+            }
+        )
+        deliverable_table_summaries = [_deliverable_table_summary(table) for table in deliverable_section_tables]
+        deliverable_figure_summaries = [_deliverable_figure_summary(figure) for figure in deliverable_section_figures]
         bundles[section_id] = {
             "section_id": section_id,
             "resource_category": category,
@@ -200,13 +275,36 @@ def _section_bundles(
             "sources": _sources_for_category(source_status, source_inventory, category, source_refs),
             "findings": [_finding_summary(finding) for finding in findings[:8]],
             "tables": [_table_summary(table, category) for table in tables],
+            "deliverable_table_ids": [str(table.get("table_id")) for table in deliverable_section_tables if table.get("table_id")],
+            "deliverable_tables": deliverable_table_summaries,
+            "row_summaries": _row_summaries(deliverable_table_summaries),
+            "deliverable_figure_ids": [str(figure.get("figure_id")) for figure in deliverable_section_figures if figure.get("figure_id")],
+            "deliverable_figures": deliverable_figure_summaries,
+            "figure_availability": _figure_availability(deliverable_figure_summaries),
             "figures": _figures_for_refs(map_manifest, source_refs),
-            "validation_issues": _validation_issues_for_category(source_status, category),
+            "comparison_unit_summaries": _comparison_unit_summaries(deliverable_section_tables, deliverable_section_figures, constraints, category),
+            "constraint_summaries": _constraint_summaries(constraints, category, source_refs),
+            "source_gap_status": _source_gap_status(source_status, category),
+            "raw_artifact_paths": _section_raw_artifact_paths(
+                constraints=constraints,
+                comparison_tables=comparison_tables,
+                deliverable_tables=deliverable_tables,
+                deliverable_figures=deliverable_figures,
+                map_manifest=map_manifest,
+            ),
+            "validation_issues": _validation_issues_for_category(source_status, category)
+            + _deliverable_validation_issues(deliverable_section_tables, deliverable_section_figures),
         }
     return bundles
 
 
-def _categories(source_status: dict[str, Any], draft_findings: dict[str, Any], constraints: dict[str, Any]) -> dict[str, str]:
+def _categories(
+    source_status: dict[str, Any],
+    draft_findings: dict[str, Any],
+    constraints: dict[str, Any],
+    deliverable_tables: dict[str, Any],
+    deliverable_figures: dict[str, Any],
+) -> dict[str, str]:
     categories: dict[str, str] = {
         "executive-summary": "overall",
         "methodology-and-data-sources": "overall",
@@ -230,6 +328,16 @@ def _categories(source_status: dict[str, Any], draft_findings: dict[str, Any], c
         category = str(constraint.get("source_category", ""))
         if category:
             categories.setdefault(_section_id_for_category(category), category)
+    for table in _dict_list(deliverable_tables.get("tables", [])):
+        section_id = str(table.get("section_target_id", ""))
+        if section_id:
+            category = _first_string(table.get("related_resource_categories")) or _first_source_category_from_refs(source_status, table.get("source_refs", []))
+            categories.setdefault(section_id, category or "overall")
+    for figure in _dict_list(deliverable_figures.get("figures", [])):
+        section_id = str(figure.get("section_target_id", ""))
+        if section_id:
+            category = _first_string(figure.get("related_resource_categories")) or _first_source_category_from_refs(source_status, figure.get("source_refs", []))
+            categories.setdefault(section_id, category or "overall")
     return categories
 
 
@@ -353,6 +461,68 @@ def _source_ids_for_status(status: dict[str, Any]) -> list[str]:
     return _string_list(status.get("source_ids", [])) or _string_list(status.get("registered_source_ids", []))
 
 
+def _first_string(value: Any) -> str:
+    values = _string_list(value)
+    return values[0] if values else ""
+
+
+def _first_source_category_from_refs(source_status: dict[str, Any], refs: Any) -> str:
+    ref_set = set(_string_list(refs))
+    if not ref_set:
+        return ""
+    for item in _dict_list(source_status.get("statuses", [])):
+        source_ids = set(_source_ids_for_status(item))
+        for detail in _dict_list(item.get("source_details", [])):
+            source_id = str(detail.get("source_id", ""))
+            if source_id:
+                source_ids.add(source_id)
+        if source_ids.intersection(ref_set):
+            return str(item.get("category", ""))
+    categories = _source_categories_from_refs(sorted(ref_set))
+    return categories[0] if categories else ""
+
+
+def _source_categories_from_refs(refs: list[str]) -> list[str]:
+    return sorted({SOURCE_ID_CATEGORY_HINTS.get(ref, "") for ref in refs if SOURCE_ID_CATEGORY_HINTS.get(ref, "")})
+
+
+def _nested_value(record: dict[str, Any], object_key: str, value_key: str) -> Any:
+    nested = record.get(object_key, {})
+    if not isinstance(nested, dict):
+        return []
+    return nested.get(value_key, [])
+
+
+def _compact_row(row: dict[str, Any]) -> dict[str, Any]:
+    compact: dict[str, Any] = {}
+    for key, value in row.items():
+        key_text = str(key)
+        if key_text.lower() in {"geometry", "coordinates", "geojson", "raw_features", "__geo_interface__"}:
+            continue
+        if isinstance(value, (dict, list)):
+            compact[key_text] = _truncate(json.dumps(value, sort_keys=True, default=str), 300)
+        else:
+            compact[key_text] = value
+    return compact
+
+
+def _safe_provenance_summary(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    blocked_tokens = ("path", "geojson", "geometry", "feature")
+    summary: dict[str, Any] = {}
+    for key, item in value.items():
+        key_text = str(key)
+        lowered = key_text.lower()
+        if any(token in lowered for token in blocked_tokens):
+            continue
+        if isinstance(item, (str, int, float, bool)) or item is None:
+            summary[key_text] = item
+        elif isinstance(item, list):
+            summary[key_text] = [entry for entry in item[:8] if isinstance(entry, (str, int, float, bool))]
+    return summary
+
+
 def _figures_for_refs(map_manifest: dict[str, Any] | None, source_refs: list[str]) -> list[dict[str, Any]]:
     if map_manifest is None:
         return []
@@ -373,6 +543,211 @@ def _figures_for_refs(map_manifest: dict[str, Any] | None, source_refs: list[str
     return figures[:8]
 
 
+def _deliverable_tables_for_section(deliverable_tables: dict[str, Any], section_id: str, category: str) -> list[dict[str, Any]]:
+    tables = _dict_list(deliverable_tables.get("tables", []))
+    if category == "overall":
+        return tables[:8]
+    result = [table for table in tables if table.get("section_target_id") == section_id]
+    if result:
+        return result
+    return [
+        table
+        for table in tables
+        if category in _string_list(_nested_value(table, "provenance", "source_categories"))
+        or category in _source_categories_from_refs(_string_list(table.get("source_refs", [])))
+    ]
+
+
+def _deliverable_figures_for_section(deliverable_figures: dict[str, Any], section_id: str, category: str) -> list[dict[str, Any]]:
+    figures = _dict_list(deliverable_figures.get("figures", []))
+    if category == "overall":
+        return figures[:8]
+    result = [figure for figure in figures if figure.get("section_target_id") == section_id]
+    if result:
+        return result
+    return [
+        figure
+        for figure in figures
+        if category in _string_list(figure.get("related_resource_categories", []))
+        or category in _source_categories_from_refs(_string_list(figure.get("source_refs", [])))
+    ]
+
+
+def _deliverable_table_summary(table: dict[str, Any]) -> dict[str, Any]:
+    rows = _dict_list(table.get("rows", []))
+    return {
+        "table_id": table.get("table_id"),
+        "table_number": table.get("table_number"),
+        "title": table.get("title"),
+        "section_target_id": table.get("section_target_id"),
+        "row_count": table.get("row_count", len(rows)),
+        "columns": _string_list(table.get("columns", [])),
+        "rows_preview": [_compact_row(row) for row in rows[:5]],
+        "source_refs": _string_list(table.get("source_refs", [])),
+        "comparison_unit_ids": _string_list(table.get("comparison_unit_ids", [])),
+        "related_constraint_ids": _string_list(table.get("related_constraint_ids", []))[:20],
+        "is_stub": bool(table.get("is_stub", False)),
+        "stub_text": table.get("stub_text", "") if table.get("is_stub") else "",
+        "review_status": table.get("review_status"),
+        "uncertainty_flags": _string_list(table.get("uncertainty_flags", [])),
+    }
+
+
+def _deliverable_figure_summary(figure: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "figure_id": figure.get("figure_id"),
+        "figure_number": figure.get("figure_number"),
+        "title": figure.get("title"),
+        "section_target_id": figure.get("section_target_id"),
+        "has_image": bool(figure.get("image_path")) and not bool(figure.get("is_stub", False)),
+        "is_stub": bool(figure.get("is_stub", False)),
+        "stub_text": figure.get("stub_text", "") if figure.get("is_stub") else "",
+        "source_refs": _string_list(figure.get("source_refs", [])),
+        "shown_layer_count": len(_dict_list(figure.get("shown_layers", []))),
+        "comparison_unit_ids": _string_list(figure.get("comparison_unit_ids", [])),
+        "related_constraint_ids": _string_list(figure.get("related_constraint_ids", []))[:20],
+        "review_status": figure.get("review_status"),
+        "uncertainty_flags": _string_list(figure.get("uncertainty_flags", [])),
+        "validation_issue_codes": sorted({str(issue.get("code")) for issue in _dict_list(figure.get("validation_issues", [])) if issue.get("code")}),
+    }
+
+
+def _row_summaries(deliverable_table_summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    summaries: list[dict[str, Any]] = []
+    for table in deliverable_table_summaries:
+        for row in _dict_list(table.get("rows_preview", [])):
+            summaries.append(
+                {
+                    "table_id": table.get("table_id"),
+                    "values": row,
+                }
+            )
+    return summaries[:12]
+
+
+def _figure_availability(deliverable_figure_summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "figure_count": len(deliverable_figure_summaries),
+        "available_count": sum(1 for figure in deliverable_figure_summaries if figure.get("has_image")),
+        "stub_count": sum(1 for figure in deliverable_figure_summaries if figure.get("is_stub")),
+        "figures": [
+            {
+                "figure_id": figure.get("figure_id"),
+                "has_image": figure.get("has_image"),
+                "is_stub": figure.get("is_stub"),
+                "review_status": figure.get("review_status"),
+            }
+            for figure in deliverable_figure_summaries
+        ],
+    }
+
+
+def _comparison_unit_summaries(
+    deliverable_tables: list[dict[str, Any]],
+    deliverable_figures: list[dict[str, Any]],
+    constraints: dict[str, Any],
+    category: str,
+) -> list[dict[str, Any]]:
+    unit_ids: set[str] = set()
+    for item in [*deliverable_tables, *deliverable_figures]:
+        unit_ids.update(_string_list(item.get("comparison_unit_ids", [])))
+    constraints_by_unit: dict[str, list[dict[str, Any]]] = {}
+    for constraint in _dict_list(constraints.get("constraints", [])):
+        if category != "overall" and constraint.get("source_category") != category:
+            continue
+        unit_id = str(constraint.get("comparison_unit_id", ""))
+        if unit_id:
+            unit_ids.add(unit_id)
+            constraints_by_unit.setdefault(unit_id, []).append(constraint)
+    summaries = []
+    for unit_id in sorted(unit_ids):
+        unit_constraints = constraints_by_unit.get(unit_id, [])
+        names = sorted({str(item.get("comparison_unit_name", "")) for item in unit_constraints if item.get("comparison_unit_name")})
+        summaries.append(
+            {
+                "comparison_unit_id": unit_id,
+                "comparison_unit_name": names[0] if names else "",
+                "source_backed_constraint_count": len(unit_constraints),
+                "source_refs": sorted({str(item.get("source_id")) for item in unit_constraints if item.get("source_id")}),
+            }
+        )
+    return summaries[:20]
+
+
+def _constraint_summaries(constraints: dict[str, Any], category: str, source_refs: list[str]) -> list[dict[str, Any]]:
+    source_ref_set = set(source_refs)
+    summaries: list[dict[str, Any]] = []
+    for constraint in _dict_list(constraints.get("constraints", [])):
+        if category != "overall" and constraint.get("source_category") != category and str(constraint.get("source_id", "")) not in source_ref_set:
+            continue
+        summaries.append(
+            {
+                "constraint_id": constraint.get("constraint_id"),
+                "comparison_unit_id": constraint.get("comparison_unit_id"),
+                "comparison_unit_name": constraint.get("comparison_unit_name"),
+                "source_id": constraint.get("source_id"),
+                "source_category": constraint.get("source_category"),
+                "source_feature_label": constraint.get("source_feature_label"),
+                "source_feature_type": constraint.get("source_feature_type"),
+                "relationship_type": constraint.get("relationship_type"),
+                "measurements": constraint.get("measurements", {}) if isinstance(constraint.get("measurements"), dict) else {},
+                "uncertainty_flags": _string_list(constraint.get("uncertainty_flags", [])),
+            }
+        )
+    return summaries[:12]
+
+
+def _source_gap_status(source_status: dict[str, Any], category: str) -> list[dict[str, Any]]:
+    records = []
+    for item in _dict_list(source_status.get("statuses", [])):
+        if category != "overall" and item.get("category") != category:
+            continue
+        records.append(
+            {
+                "category": item.get("category"),
+                "status": item.get("status"),
+                "source_ids": _source_ids_for_status(item),
+                "notes": item.get("notes", ""),
+                "uncertainty_flags": _string_list(item.get("uncertainty_flags", [])),
+            }
+        )
+    return records[:12]
+
+
+def _section_raw_artifact_paths(
+    *,
+    constraints: dict[str, Any],
+    comparison_tables: dict[str, Any],
+    deliverable_tables: dict[str, Any],
+    deliverable_figures: dict[str, Any],
+    map_manifest: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "constraint_results": constraints.get("output_path"),
+        "comparison_tables": comparison_tables.get("output_path"),
+        "deliverable_tables": deliverable_tables.get("output_path"),
+        "deliverable_figures": deliverable_figures.get("output_path"),
+        "map_manifest": map_manifest.get("output_path") if map_manifest else None,
+    }
+
+
+def _deliverable_validation_issues(tables: list[dict[str, Any]], figures: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for table in tables:
+        if table.get("is_stub"):
+            issues.append(
+                {
+                    "severity": "warning",
+                    "code": "deliverable_table_created_as_stub",
+                    "message": "Required matrix-backed deliverable table is an explicit stub pending source data or implementation.",
+                    "table_id": table.get("table_id"),
+                }
+            )
+    for figure in figures:
+        issues.extend(_dict_list(figure.get("validation_issues", [])))
+    return issues
+
+
 def _finding_summary(finding: dict[str, Any]) -> dict[str, Any]:
     return {
         "finding_id": finding.get("finding_id"),
@@ -382,7 +757,7 @@ def _finding_summary(finding: dict[str, Any]) -> dict[str, Any]:
         "source_refs": _string_list(finding.get("source_refs", [])),
         "content": _truncate(str(finding.get("generated_content", "")), 900),
         "uncertainty_flags": _string_list(finding.get("uncertainty_flags", [])),
-        "provenance": finding.get("provenance", {}) if isinstance(finding.get("provenance"), dict) else {},
+        "provenance": _safe_provenance_summary(finding.get("provenance", {})),
     }
 
 
@@ -447,10 +822,14 @@ def _validation_issues(
     source_acquisition: dict[str, Any],
     constraints: dict[str, Any],
     source_status: dict[str, Any],
+    deliverable_tables: dict[str, Any],
+    deliverable_figures: dict[str, Any],
 ) -> list[dict[str, Any]]:
     issues = list(_dict_list(data_lineage.get("validation_issues", [])))
     issues.extend(_dict_list(source_acquisition.get("validation_issues", [])))
     issues.extend(_dict_list(constraints.get("validation_issues", [])))
+    issues.extend(_dict_list(deliverable_tables.get("validation_issues", [])))
+    issues.extend(_dict_list(deliverable_figures.get("validation_issues", [])))
     for item in _dict_list(source_status.get("statuses", [])):
         if str(item.get("status", "")) == "failed":
             issues.append(

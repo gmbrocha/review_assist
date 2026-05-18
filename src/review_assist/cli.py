@@ -16,6 +16,7 @@ from .deliverable_matrix import (
     load_report_prompt_config,
     validate_deliverable_contract,
 )
+from .deliverable_figures import DeliverableFigureError, generate_deliverable_figures
 from .deliverable_tables import DeliverableTableError, generate_deliverable_tables
 from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from .evidence_package import EvidencePackageError, build_evidence_package
@@ -187,6 +188,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     deliverable_tables_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     deliverable_tables_parser.add_argument("--json", action="store_true", help="Print full JSON deliverable tables artifact to stdout.")
+
+    deliverable_figures_parser = subparsers.add_parser(
+        "generate-deliverable-figures",
+        help="Generate exact matrix-backed deliverable figure targets.",
+    )
+    deliverable_figures_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    deliverable_figures_parser.add_argument("--json", action="store_true", help="Print full JSON deliverable figures artifact to stdout.")
 
     maps_parser = subparsers.add_parser("generate-maps", help="Generate draft static map/figure artifacts.")
     maps_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -775,6 +783,25 @@ def generate_deliverable_tables_command(project_dir: Path, print_json: bool) -> 
     return 0
 
 
+def generate_deliverable_figures_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = generate_deliverable_figures(project_dir)
+    except DeliverableFigureError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated deliverable figures: {result['project_id']} ({result['project_name']})")
+    print(f"Figures: {result['figure_count']}")
+    print(f"Attachment supporting figures: {result['attachment_supporting_figure_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def generate_maps_command(project_dir: Path, print_json: bool) -> int:
     try:
         result = generate_maps(project_dir)
@@ -1128,6 +1155,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_tables_command(args.project_dir, args.json)
     if args.command == "generate-deliverable-tables":
         return generate_deliverable_tables_command(args.project_dir, args.json)
+    if args.command == "generate-deliverable-figures":
+        return generate_deliverable_figures_command(args.project_dir, args.json)
     if args.command == "generate-maps":
         return generate_maps_command(args.project_dir, args.json)
     if args.command == "build-evidence-package":

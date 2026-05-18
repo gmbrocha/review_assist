@@ -14,7 +14,7 @@ The active backend is Python service modules plus CLI commands. Project-specific
 4. Project context and source status resolution.
 5. Optional local source materialization and explicit public source acquisition.
 6. Source inventory and deterministic constraint analysis.
-7. Draft findings, tables, maps, evidence package, and report sections.
+7. Draft findings, comparison tables, matrix deliverable tables/figures, maps, evidence package, and report sections.
 8. Review queue generation.
 9. Reviewed-content export.
 
@@ -25,7 +25,7 @@ Sprint 1.2 added explicit input package and project area artifacts before deeper
 - Project/input/geometry: workspace manifests, input package classification, KMZ/KML parsing, normalized project features, analysis bounds, project area context, comparison units.
 - Source management: source catalog, project registries, materialization, acquisition, status, inventory.
 - Constraint engine: deterministic spatial overlays, buffers, crossings, proximity, measurements.
-- Evidence generation: findings, comparison tables, maps, evidence package, section drafts.
+- Evidence generation: findings, comparison tables, matrix deliverable tables/figures, legacy audit maps, evidence package, section drafts.
 - Review: JSON-backed review queue, reviewer statuses, notes, export eligibility.
 - Export: Markdown/DOCX report assembly from reviewed or explicit preview items.
 - Governance: truth stabilization, deferred work, sprint resolution, documentation routing.
@@ -36,7 +36,7 @@ Sprint 1.2 added explicit input package and project area artifacts before deeper
 - No final PDF export.
 - No ranking, scoring, preferred-alternative logic, approval, clearance, or final determinations.
 - No restricted-source automation without explicit approval.
-- No basemap/raster-backed cartographic output yet.
+- No MrSID decoding, paid basemap APIs, restricted-source automation, or final cartographic export. Deliverable figures may use selected renderable MARIS/NAIP sidecars when available; otherwise they preserve the limitation as provenance, warning, or stub status.
 
 ## Deeper Domain Docs
 

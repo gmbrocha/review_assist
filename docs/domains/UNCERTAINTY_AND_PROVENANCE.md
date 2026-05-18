@@ -62,6 +62,7 @@ Examples:
 - Distance to nearest feature.
 - Buffer intersection.
 - Comparison-unit wetland, stream-crossing, flood-zone, and demographic deliverable table values derived from source records.
+- Matrix-backed deliverable figure records derived from comparison-unit geometry, public/allowed source layers, and optional selected basemap sidecars.
 
 Treatment:
 
@@ -209,6 +210,7 @@ The workflow now writes `projects/<project_id>/evidence/evidence_package.json`. 
 - Constraint counts.
 - Source-backed constraint counts.
 - Finding/table/figure references.
+- Deliverable table/figure references, row summaries, figure availability/stub status, comparison-unit summaries, compact source-backed constraint summaries, source-gap status, and raw artifact paths.
 - Per-section evidence bundles.
 - Validation issues.
 
@@ -221,6 +223,8 @@ Section evidence uses only these classes:
 - `test_fixture_blocked`
 
 The evidence package is not a final report. It exists to keep deterministic hard data separate from narrative drafting while preserving traceability.
+
+Deliverable figures add validation issue codes such as `figure_source_missing`, `figure_source_unimplemented`, `basemap_selected_not_renderable`, `basemap_render_failed`, `restricted_source_not_mapped`, `figure_created_as_stub`, and `panel_map_generation_skipped`. These issues are evidence for reviewer attention, not conclusions.
 
 ## GPT Drafting Provenance
 
@@ -276,6 +280,8 @@ Findings should record:
 
 Sprint 2.2 comparison-unit constraints record `analysis_geometry_kind`, `buffer_feet`, `measurement_crs`, source refs, raw feature IDs, and uncertainty flags before exact deliverable table rows are generated. Raw project-feature constraints remain evidence and should not become standard report rows by default.
 
+Sprint 2.3 deliverable figures carry comparison-unit IDs, source refs, related constraint IDs, shown-layer summaries, method notes, and source notes. Stubbed figures preserve the same matrix target identity and canonical stub text so missing or unsupported figure content remains visible during review.
+
 ## MDAH and Cultural Resource Uncertainty
 
 MDAH integration is currently a placeholder.
@@ -295,6 +301,7 @@ Future workflow assumptions:
 - The system may allow a qualified reviewer to upload restricted-source exports.
 - The system may represent restricted review as a status without storing sensitive details in public report outputs.
 - The system should never attempt to bypass access controls.
+- Matrix-backed deliverable figures do not render or expose `mdah_restricted_archaeology` locations. When restricted cultural source status is present, the figure artifact records `restricted_source_not_mapped`.
 
 ## Review Status Relationship
 

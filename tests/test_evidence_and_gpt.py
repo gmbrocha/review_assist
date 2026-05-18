@@ -78,6 +78,13 @@ def test_build_evidence_package_classifies_stubs_and_real_sources(tmp_path: Path
     assert stub_package["stub_count"] > 0
     assert stub_package["real_source_count"] == 0
     assert stub_package["evidence_class_counts"]["stub_or_manual"] > 0
+    assert stub_package["deliverable_table_count"] == 4
+    assert stub_package["deliverable_figure_count"] == 13
+    assert stub_package["deliverable_figure_stub_count"] == 13
+    wetlands_evidence = stub_package["section_evidence"]["wetlands-and-waterbodies"]
+    assert "table-wetlands-waterbodies" in wetlands_evidence["deliverable_table_ids"]
+    assert "figure-wetlands-waterbodies" in wetlands_evidence["deliverable_figure_ids"]
+    assert wetlands_evidence["figure_availability"]["stub_count"] >= 1
     assert (project_dir / "evidence" / "evidence_package.json").exists()
 
     real_project_dir = write_project(tmp_path / "real")
@@ -165,6 +172,24 @@ def test_gpt_payload_sanitizes_raw_geometries_and_source_paths(monkeypatch: pyte
                     {
                         "table_id": "soil-mapunit-summary",
                         "rows_preview": [{"geometry": "raw", "coordinates": [1, 2], "mapunit_symbol": "s3973"}],
+                    }
+                ],
+                "deliverable_tables": [
+                    {
+                        "table_id": "table-soils",
+                        "rows_preview": [
+                            {
+                                "source_path": r"F:\Desktop\review_assist\sources\wss_gsmsoil_MS_10_13_2016\spatial\gsmsoilmu_a_ms.shp"
+                            }
+                        ],
+                    }
+                ],
+                "deliverable_figures": [
+                    {
+                        "figure_id": "figure-soils",
+                        "has_image": True,
+                        "source_refs": ["usda_nrcs_ssurgo_soils"],
+                        "image_path": r"F:\Desktop\review_assist\sources\wss_gsmsoil_MS_10_13_2016\spatial\raw.tif",
                     }
                 ],
             },

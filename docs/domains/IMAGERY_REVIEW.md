@@ -2,7 +2,7 @@
 
 This document defines the future philosophy for aerial imagery, basemaps, and visual observations.
 
-No imagery acquisition, computer vision, raster rendering, or production overlay workflow is implemented yet. The current backend can index local MARIS/NAIP 2025 county folders through `src/review_assist/basemaps.py`, select matching source paths for project counties, record whether selected imagery has renderable sidecars in `context/project_area.json`, and expose `maris_naip_2025_imagery` source status detail.
+No imagery acquisition, computer vision, or production imagery-observation workflow is implemented yet. The current backend can index local MARIS/NAIP 2025 county folders through `src/review_assist/basemaps.py`, select matching source paths for project counties, record whether selected imagery has renderable sidecars in `context/project_area.json`, expose `maris_naip_2025_imagery` source status detail, and use selected renderable sidecars in matrix-backed deliverable figures when metadata is sufficient.
 
 ## Purpose
 
@@ -65,6 +65,8 @@ Current implemented selection context:
 - Matching county folders under `sources/aerial_base_maps/maris_naip_2025` are recorded as basemap candidates.
 - `.sid` files are stored as selected source/provenance paths, while `.tif`, `.tiff`, and `.png` sidecars are tracked as renderable paths.
 - `.sid`-only selections are marked `selected_not_renderable` with validation/status warnings rather than decoded or silently treated as renderable.
+- `generate-deliverable-figures` may render selected `.png`, `.tif`, or `.tiff` sidecars into draft/pre-review figures. GeoTIFF support uses optional `rasterio` lazily; PNG support requires usable project-area metadata/georeference.
+- If a sidecar is unavailable, unreadable, unreferenced, or unsupported, the figure artifact records `basemap_selected_not_renderable` or `basemap_render_failed` and falls back to vector-only rendering or an explicit stub.
 - This does not create imagery observations or authoritative source corrections.
 
 ## Imagery vs. Authoritative Layers

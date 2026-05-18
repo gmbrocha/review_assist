@@ -116,10 +116,14 @@ def test_populate_for_review_writes_manifest_and_review_queue(tmp_path: Path) ->
     assert result["artifact_paths"]["source_status"].endswith("source_status_set.json")
     assert result["artifact_paths"]["constraint_results"].endswith("constraint_results.json")
     assert result["artifact_paths"]["draft_findings"].endswith("draft_findings.json")
+    assert result["artifact_paths"]["deliverable_tables"].endswith("tables.json")
+    assert result["artifact_paths"]["deliverable_figures"].endswith("figures.json")
     assert result["artifact_paths"]["review_queue"].endswith("review_queue.json")
     assert "project_county_names" in result
     assert "basemap_rendering_status" in result
     assert result["comparison_unit_count"] == 1
+    assert result["deliverable_table_count"] == 4
+    assert result["deliverable_figure_count"] == 13
     assert result["expected_count_status"] == "not_configured"
     assert result["review_queue_item_count"] > 0
 

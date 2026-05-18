@@ -1,6 +1,6 @@
 # Map Generation
 
-This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented, including project overview, source-context figures, a combined constraints overview where analyzed source layers exist, report figure metadata, and export-package figure asset copying. Project area generation now records NAIP/MARIS basemap source-path provenance and renderability status, but production cartography, basemap rendering, imagery rendering, panel sheets, PDF/SVG map sheets, and final cartographic styling remain future work.
+This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented for legacy audit/context maps, and Sprint 2.3 adds matrix-backed deliverable figure artifacts. Project area generation records NAIP/MARIS basemap source-path provenance and renderability status; deliverable figures can use selected renderable `.png`, `.tif`, or `.tiff` sidecars, while `.sid` files remain provenance only. Production cartography, MrSID decoding, paid basemap APIs, PDF/SVG map sheets, and final cartographic styling remain future work.
 
 ## Purpose
 
@@ -24,32 +24,40 @@ Current command:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe generate-maps projects/trails
+.\.venv\Scripts\review-assist.exe generate-deliverable-figures projects/trails
 ```
 
 Current artifacts:
 
 - `projects/<project_id>/maps/map_manifest.json`
 - `projects/<project_id>/maps/figures/*.png`
+- `projects/<project_id>/deliverable/figures.json`
 - `projects/<project_id>/context/project_area.json` records project-area basemap source candidates and renderability status for future map rendering.
 
 Current behavior:
 
-- Generates `project-overview` from normalized project geometry.
-- Generates `source-context-<source_id>` for each analyzed local source clipped layer from `constraints/constraint_results.json` when present, with legacy `spatial_relationships.json` as a fallback.
-- Generates `environmental-constraints-overview` when analyzed source layers have mapped features inside the analysis bounds.
+- Generates legacy `project-overview` from normalized project geometry.
+- Generates legacy `source-context-<source_id>` for each analyzed local source clipped layer from `constraints/constraint_results.json` when present, with legacy `spatial_relationships.json` as a fallback.
+- Generates legacy `environmental-constraints-overview` when analyzed source layers have mapped features inside the analysis bounds.
+- Generates exactly 13 main deliverable figure records from `config/deliverable_section_matrix.json` in matrix order at `deliverable/figures.json`.
+- Stores deliverable PNGs under `projects/<project_id>/maps/figures/`; unavailable or unsupported figures are explicit stubs with the canonical stub text.
+- Renders comparison units with target-specific public/allowed layers for wetlands/NWI/hydrography, FEMA flood zones, hydrography with impaired-waters caveat, public cultural context, community facility subtypes, public water wells, energy/utility infrastructure, regulated facilities, and Census tracts when source data is available.
+- Never renders or exposes `mdah_restricted_archaeology` locations. Restricted cultural status is preserved as `restricted_source_not_mapped`.
+- Adds Attachment A supporting panel maps outside the 13 main figure count when the comparison-unit extent is too elongated for a single 6.5-inch figure.
 - Uses GeoPandas and Matplotlib only.
 - Adds draft map elements: legend, north arrow, scale bar when CRS units allow it, source note, CRS/method note, and draft/pre-review label.
-- Stores figure captions, source notes, method notes, figure grouping, related resource categories, source refs, shown layers, provenance, uncertainty flags, validation issues, and review status in the map manifest.
+- Stores figure captions, source notes, method notes, figure grouping, related resource categories, source refs, shown layers, provenance, uncertainty flags, validation issues, stub status, and review status in the relevant figure artifact.
 - Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.
 - Adds review queue validation items for map-generation warnings, including skipped or failed source-context figures.
-- Runs as part of `populate-for-review` after comparison table generation and before review queue generation.
+- `populate-for-review` generates deliverable figures after deliverable tables and before the evidence package. Legacy map generation still runs and remains unchanged.
 
 Current limits:
 
-- No basemap tiles.
-- No raster imagery.
-- No NAIP, Google, ArcGIS, USGS, state imagery, or county imagery rendering/acquisition. Local MARIS/NAIP source paths may be recorded in `project_area.json`.
-- No panel maps.
+- No basemap tiles, Google/ArcGIS basemap calls, or paid basemap APIs.
+- No MrSID decoding. `.sid` files stay as source provenance only.
+- GeoTIFF sidecar rendering depends on optional `rasterio`; if unavailable or rendering fails, figures fall back to vector-only output or explicit stubs with validation issues.
+- PNG sidecars require usable project-area metadata/georeference; otherwise they warn and fall back.
+- Panel maps are simple capped long-axis slices for Attachment A support, not final map sheets.
 - No PDF/SVG map sheet export.
 - No final cartographic styling.
 

@@ -33,7 +33,7 @@ Everything should be service/CLI artifacts.
 
 - Completed Sprint 2.1: `docs/archive/sprints/SPRINT_2_1_SOURCE_PROFILE_AND_BASEMAPS.md` implemented the example report profile, source status behavior, NAIP/MARIS basemap service, and Census source setup.
 - Completed Sprint 2.2: `docs/archive/sprints/SPRINT_2_2_COMPARISON_CONSTRAINTS_AND_TABLES.md` implemented comparison-unit constraints, source-specific normalization, and exact deliverable table generation.
-- `SPRINT_2_3_FIGURES_EVIDENCE_AND_VALIDATION.md`: exact deliverable figures, panel map support, evidence package updates, and Sprint 2 validation.
+- `docs/archive/sprints/SPRINT_2_3_FIGURES_EVIDENCE_AND_VALIDATION.md`: exact deliverable figures, panel map support, evidence package updates, and Sprint 2 validation.
 
 ## Sprint 1 Dependencies
 
