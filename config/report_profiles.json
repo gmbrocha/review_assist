@@ -1,10 +1,32 @@
 {
   "profile_version": "0.1",
   "project_type_defaults": {
-    "alternatives_review": "environmental_constraints_basic",
+    "alternatives_review": "environmental_constraints_example",
     "location_review": "location_screening_basic"
   },
   "profiles": [
+    {
+      "profile_id": "environmental_constraints_example",
+      "name": "Environmental Constraints Example",
+      "description": "Example-report-shaped environmental constraints profile aligned to the canonical deliverable matrix.",
+      "required_categories": [
+        "wetlands_waterbodies",
+        "hydrography_crossings",
+        "flood_hazard",
+        "species_habitat",
+        "cultural_historic",
+        "community_socioeconomic",
+        "land_cover_disturbance",
+        "transportation_utilities",
+        "regulated_facilities",
+        "imagery_basemaps",
+        "attachments"
+      ],
+      "optional_categories": [
+        "soils",
+        "parcels_property"
+      ]
+    },
     {
       "profile_id": "environmental_constraints_basic",
       "name": "Environmental Constraints Basic",

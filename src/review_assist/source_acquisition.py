@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -956,6 +957,8 @@ def _gap_status(
     if project_source is not None and _has_existing_local_path(project_dir, project_source):
         if project_source.status == "downloaded":
             return "downloaded", "Downloaded source data is available in the workspace."
+        if project_source.status == "local_materialized":
+            return "local_materialized", "Local warehouse source data is materialized for this workspace."
         if project_source.status == "provided_in_input":
             return "provided_in_input", "Project input package includes this source layer and it is registered for analysis."
         return "registered_local", "Reviewer-supplied or locally registered source data is available in the workspace."
@@ -963,6 +966,8 @@ def _gap_status(
         return "failed", "The latest supported download attempt failed; the workflow can continue with a caveat."
     if requirement == "optional":
         return "optional", "Optional source is not required for this report profile."
+    if source.source_id == "census_tiger_acs" and not os.environ.get("CENSUS_API_KEY"):
+        return "stubbed", "Census TIGER/ACS setup is configured, but CENSUS_API_KEY is not set for future ACS API calls."
     if _public_future_download(source):
         if _source_download_supported(source):
             return "downloadable", "Public source data is supported by an implemented downloader but has not been downloaded."

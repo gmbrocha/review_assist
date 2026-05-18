@@ -59,6 +59,7 @@ def write_project(tmp_path: Path) -> Path:
                 "name": "Test Project",
                 "description": "Synthetic project",
                 "project_type": "alternatives_review",
+                "report_profile": "environmental_constraints_basic",
                 "inputs": [
                     {
                         "path": "inputs/routes.kmz",
@@ -754,7 +755,7 @@ def test_failed_critical_habitat_downloader_records_nonfatal_failed_status_and_c
 
     sections = generate_report_sections(project_dir)
     species_section = next(section for section in sections["sections"] if section["section_id"] == "species-and-habitat")
-    assert species_section["review_status"] == "needs_review"
+    assert species_section["review_status"] == "needs_verification"
     assert "source_download_failed" in species_section["uncertainty_flags"]
 
     queue = generate_review_queue(project_dir)

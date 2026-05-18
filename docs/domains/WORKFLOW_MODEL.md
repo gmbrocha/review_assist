@@ -102,6 +102,7 @@ Examples:
 The system compares required categories against:
 
 - Locally provided data.
+- Locally materialized warehouse data.
 - Downloadable public data.
 - Gated or restricted data.
 - Stubbed/manual data.
@@ -109,7 +110,7 @@ The system compares required categories against:
 
 The result is a `SOURCE_STATUS_SET`.
 
-The companion source acquisition workflow writes `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`. It compares the project input package and project registry against the catalog, marks source gaps as provided, registered local, downloaded, downloadable, unsupported, gated, manual, optional, missing, or failed, and can explicitly acquire supported public sources. Implemented public downloaders include USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard. Downloads are opt-in through `download-source`, `prepare-sources`, or `populate-for-review --prepare-sources`; optional downloads through `populate-for-review` require pairing `--include-optional-sources` with `--prepare-sources`.
+The companion source acquisition workflow writes `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`. It compares the project input package and project registry against the catalog, marks source gaps as provided, registered local, local materialized, downloaded, downloadable, unsupported, gated/restricted, manual, stubbed, optional, missing, or failed, and can explicitly acquire supported public sources. Implemented public downloaders include USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL flood hazard where the selected profile requires or explicitly includes it. Downloads are opt-in through `download-source`, `prepare-sources`, or `populate-for-review --prepare-sources`; optional downloads through `populate-for-review` require pairing `--include-optional-sources` with `--prepare-sources`.
 
 The companion local source materialization workflow writes `projects/<project_id>/source_materialization/local_source_materialization_manifest.json`. It reads configured Mississippi warehouse datasets from ignored root `sources/`, clips them to the normalized project analysis bounds, writes small project-ready GeoJSON layers under `projects/<project_id>/layers/<source_id>/`, and registers those layers as real `local_file` sources with `status: local_materialized`. Implemented materializers cover NWI wetlands, USFWS Critical Habitat line/polygon layers, SSURGO soils, aggregated MDOT/rail transportation context, utilities, administrative/boundary context, public cultural context, community facilities, and conservation/recreation lands. Materialized county boundaries are also summarized into project context so the study-area section can name intersecting Mississippi counties. When `populate-for-review --materialize-local-sources --prepare-sources` is used, materialization runs before public download attempts so local warehouse data can satisfy source gaps first.
 
@@ -122,14 +123,19 @@ Suggested statuses:
 - `provided_locally`: user supplied a local source file or document.
 - `downloadable`: public data appears available but is not downloaded yet.
 - `downloaded`: public data has been acquired for the workspace.
+- `local_materialized`: local warehouse data has been clipped/materialized into the workspace.
 - `failed`: a supported source acquisition attempt failed and should create caveat/review handling.
 - `gated`: access requires credentials, qualified access, agency request, or restricted handling.
+- `restricted`: source requires restricted, sensitive, or qualified-access handling.
+- `manual`: source requires manual lookup, download, document attachment, or reviewer-supplied material.
+- `unimplemented`: source appears feasible but no downloader/materializer is implemented yet.
 - `stubbed`: a placeholder exists so reports can include a review requirement or caveat.
+- `selected_not_renderable`: a context source is selected as provenance but cannot be rendered by the current pipeline.
 - `missing`: expected source material is not available.
 - `optional`: useful context but not required for the selected report profile.
 - `needs_review`: source status or fitness for use needs reviewer confirmation.
 
-Missing, failed, gated, and stubbed datasets should generate placeholders, uncertainty flags, and review requirements rather than causing the workflow to fail. The goal is useful pre-review report generation, not perfect data completeness.
+Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed datasets should generate placeholders, uncertainty flags, and review requirements rather than causing the workflow to fail. The goal is useful pre-review report generation, not perfect data completeness.
 
 ## Populate for Review
 
@@ -162,7 +168,7 @@ GPT/LLM calls are acceptable here for draft narrative generation, summarization,
 Current baseline:
 
 - `classify-input-package <project_dir>` writes `projects/<project_id>/context/input_package.json` with per-input classification, required-KMZ state, and reviewer-confirmation warnings for ambiguous inputs.
-- `build-project-area <project_dir>` writes `projects/<project_id>/context/project_area.json` with analysis bboxes, county detection, NAIP/MARIS basemap candidates, selected source paths, renderable sidecars, renderability status, warnings, and provenance.
+- `build-project-area <project_dir>` writes `projects/<project_id>/context/project_area.json` with analysis bboxes, county detection, NAIP/MARIS basemap candidates, selected source paths, renderable sidecars, renderability status, warnings, and provenance. Basemap indexing is service-level behavior in `src/review_assist/basemaps.py`; `.sid` files are provenance only unless `.tif`, `.tiff`, or `.png` sidecars exist.
 - `build-comparison-units <project_dir>` writes `projects/<project_id>/intermediate/comparison_units.geojson` and `comparison_units.json`. These artifacts group segmented lines, point-heavy inputs, polygons, and mixed geometry into pre-review report-facing units without deleting or repurposing `project_features.geojson`.
 - `populate-for-review` runs input package classification, project geometry normalization, project area generation, comparison-unit generation, context generation, optional local source materialization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
@@ -170,6 +176,7 @@ Current baseline:
 - It records `projects/<project_id>/intermediate/project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` in the run manifest when project geometry generation succeeds.
 - It records `projects/<project_id>/intermediate/comparison_units.geojson`, `comparison_units.json`, generated comparison-unit count, expected comparison-unit count, and expected-count status in the run manifest when comparison-unit generation succeeds.
 - It records project county names and basemap renderability status in the run manifest when project area generation succeeds.
+- It records source status and source inventory with per-source detail states so required manual, restricted, unimplemented, failed, stubbed, Census-key-missing, and selected-not-renderable sources remain visible to reviewers.
 - It records `projects/<project_id>/constraints/constraint_results.json` in the run manifest when constraint analysis succeeds.
 - It can record `projects/<project_id>/source_materialization/local_source_materialization_manifest.json` in the run manifest when `--materialize-local-sources` is used.
 - It can record `projects/<project_id>/source_acquisition/source_acquisition_manifest.json` in the run manifest when `--prepare-sources` is used.

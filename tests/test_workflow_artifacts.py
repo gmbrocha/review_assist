@@ -99,6 +99,14 @@ def write_layer(path: Path) -> Path:
     return path
 
 
+def status_by_category(status_set: dict[str, object], category: str) -> dict[str, object]:
+    return next(item for item in status_set["statuses"] if item["category"] == category)  # type: ignore[index]
+
+
+def detail_by_source(status_record: dict[str, object], source_id: str) -> dict[str, object]:
+    return next(detail for detail in status_record["source_details"] if detail["source_id"] == source_id)  # type: ignore[index]
+
+
 def test_generate_project_context_writes_workflow_artifact(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
@@ -107,7 +115,7 @@ def test_generate_project_context_writes_workflow_artifact(tmp_path: Path) -> No
     context_path = project_dir / "context" / "project_context.json"
     assert context_path.exists()
     assert context["project_id"] == "test_project"
-    assert context["report_profile"]["profile_id"] == "environmental_constraints_basic"
+    assert context["report_profile"]["profile_id"] == "environmental_constraints_example"
     assert context["project_extent_wgs84"]["west"] == pytest.approx(-90.0)
     assert context["detected_inputs"][0]["geometry_type_counts"] == {"LineString": 1}
     assert context["input_roles"] == ["alternatives"]
@@ -121,12 +129,27 @@ def test_generate_project_context_errors_for_missing_manifest(tmp_path: Path) ->
 
 
 def test_report_profiles_load_and_resolve_defaults(tmp_path: Path) -> None:
-    project_dir = write_project(tmp_path, project_type="location_review")
+    project_dir = write_project(tmp_path)
+    location_project_dir = write_project(tmp_path / "location", project_type="location_review")
     config = load_report_profile_config()
     profile = resolve_report_profile(load_project_manifest(project_dir), config)
+    location_profile = resolve_report_profile(load_project_manifest(location_project_dir), config)
 
+    assert "environmental_constraints_example" in config.profiles
     assert "environmental_constraints_basic" in config.profiles
-    assert profile.profile_id == "location_screening_basic"
+    assert profile.profile_id == "environmental_constraints_example"
+    assert location_profile.profile_id == "location_screening_basic"
+    assert "flood_hazard" in profile.required_categories
+    assert "imagery_basemaps" in profile.required_categories
+
+
+def test_explicit_basic_report_profile_still_resolves(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path, report_profile="environmental_constraints_basic")
+
+    profile = resolve_report_profile(load_project_manifest(project_dir))
+
+    assert profile.profile_id == "environmental_constraints_basic"
+    assert "flood_hazard" in profile.optional_categories
 
 
 def test_report_profile_config_rejects_invalid_profiles(tmp_path: Path) -> None:
@@ -151,7 +174,7 @@ def test_source_status_marks_local_registered_source_provided(tmp_path: Path) ->
 
     status_set = resolve_source_status_set(project_dir)
 
-    wetlands = next(item for item in status_set["statuses"] if item["category"] == "wetlands_waterbodies")
+    wetlands = status_by_category(status_set, "wetlands_waterbodies")
     assert wetlands["status"] == "provided_locally"
     assert str(layer_path) in wetlands["local_paths"]
 
@@ -161,7 +184,7 @@ def test_source_status_marks_public_candidate_downloadable(tmp_path: Path) -> No
 
     status_set = resolve_source_status_set(project_dir)
 
-    wetlands = next(item for item in status_set["statuses"] if item["category"] == "wetlands_waterbodies")
+    wetlands = status_by_category(status_set, "wetlands_waterbodies")
     assert wetlands["status"] == "downloadable"
     assert "source_not_downloaded" in wetlands["uncertainty_flags"]
 
@@ -171,9 +194,11 @@ def test_source_status_marks_restricted_manual_category_gated(tmp_path: Path) ->
 
     status_set = resolve_source_status_set(project_dir)
 
-    cultural = next(item for item in status_set["statuses"] if item["category"] == "cultural_historic")
+    cultural = status_by_category(status_set, "cultural_historic")
     assert cultural["status"] == "gated"
     assert "restricted_source_required" in cultural["uncertainty_flags"]
+    mdah = detail_by_source(cultural, "mdah_restricted_archaeology")
+    assert mdah["status"] == "restricted"
 
 
 def test_source_status_marks_missing_required_category_nonfatal() -> None:
@@ -189,14 +214,48 @@ def test_source_status_marks_missing_required_category_nonfatal() -> None:
     assert "source_unavailable" in result["uncertainty_flags"]
 
 
-def test_source_status_marks_optional_category_nonblocking(tmp_path: Path) -> None:
+def test_source_status_marks_example_flood_hazard_required(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
     status_set = resolve_source_status_set(project_dir)
 
-    flood = next(item for item in status_set["statuses"] if item["category"] == "flood_hazard")
+    flood = status_by_category(status_set, "flood_hazard")
+    assert flood["status"] == "downloadable"
+    assert flood["requirement"] == "required"
+
+
+def test_source_status_marks_basic_optional_category_nonblocking(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path, report_profile="environmental_constraints_basic")
+
+    status_set = resolve_source_status_set(project_dir)
+
+    flood = status_by_category(status_set, "flood_hazard")
     assert flood["status"] == "optional"
     assert flood["requirement"] == "optional"
+
+
+def test_source_status_exposes_manual_unimplemented_and_census_stub_details(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("CENSUS_API_KEY", raising=False)
+    project_dir = write_project(tmp_path)
+
+    status_set = resolve_source_status_set(project_dir)
+
+    community = status_by_category(status_set, "community_socioeconomic")
+    census = detail_by_source(community, "census_tiger_acs")
+    businesses = detail_by_source(community, "local_business_economic_nodes")
+    land_cover = status_by_category(status_set, "land_cover_disturbance")
+    nlcd = detail_by_source(land_cover, "mrlc_nlcd_land_cover")
+    attachments = status_by_category(status_set, "attachments")
+    hazmat = detail_by_source(attachments, "hazardous_materials_support_report")
+
+    assert census["status"] == "stubbed"
+    assert "missing_census_api_key" in census["uncertainty_flags"]
+    assert businesses["status"] == "manual"
+    assert nlcd["status"] == "unimplemented"
+    assert hazmat["status"] == "manual"
 
 
 def test_source_status_marks_missing_local_source_needs_review(tmp_path: Path) -> None:
@@ -205,7 +264,7 @@ def test_source_status_marks_missing_local_source_needs_review(tmp_path: Path) -
 
     status_set = resolve_source_status_set(project_dir)
 
-    wetlands = next(item for item in status_set["statuses"] if item["category"] == "wetlands_waterbodies")
+    wetlands = status_by_category(status_set, "wetlands_waterbodies")
     assert wetlands["status"] == "needs_review"
     assert "local_source_missing" in wetlands["uncertainty_flags"]
 

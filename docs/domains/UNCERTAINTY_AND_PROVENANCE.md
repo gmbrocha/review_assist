@@ -148,6 +148,11 @@ Suggested flags:
 - `source_date_unknown`
 - `source_may_be_stale`
 - `source_unavailable`
+- `source_unimplemented`
+- `source_download_failed`
+- `source_selected_not_renderable`
+- `renderable_sidecar_missing`
+- `missing_census_api_key`
 - `restricted_source_required`
 - `geometry_uncertain`
 - `buffer_assumption`
@@ -166,14 +171,19 @@ Suggested source statuses:
 - `provided_locally`
 - `downloadable`
 - `downloaded`
+- `local_materialized`
 - `failed`
 - `gated`
+- `restricted`
+- `manual`
+- `unimplemented`
 - `stubbed`
+- `selected_not_renderable`
 - `missing`
 - `optional`
 - `needs_review`
 
-Missing, failed, gated, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default.
+Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default. Source status artifacts and source inventory records include per-source detail status and detail notes so a mixed category can remain stable at the category level while still exposing the exact unavailable, restricted, manual, or nonrenderable source.
 
 ## Data Authenticity and Lineage
 
@@ -182,7 +192,7 @@ Export and deliverable manifests include a `data_lineage` summary. It counts pro
 The current convention is:
 
 - `real`: project inputs, reviewer-registered local sources, provided-in-input source layers, and live downloaded public sources.
-- `stub`: source-gap caveats, manual/restricted placeholders, failed downloads, and missing-source placeholders.
+- `stub`: source-gap caveats, manual/restricted placeholders, unimplemented source placeholders, failed downloads, selected-not-renderable basemap context, missing Census API key setup, and missing-source placeholders.
 - `test_fixture`: mocked downloader responses or test-only source records.
 - `unknown`: legacy or malformed provenance that cannot be classified.
 

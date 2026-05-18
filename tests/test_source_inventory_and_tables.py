@@ -54,6 +54,7 @@ def write_project(tmp_path: Path) -> Path:
                 "name": "Test Project",
                 "description": "Synthetic project",
                 "project_type": "alternatives_review",
+                "report_profile": "environmental_constraints_basic",
                 "inputs": [
                     {
                         "path": "inputs/routes.kmz",

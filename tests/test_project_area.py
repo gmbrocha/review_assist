@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import review_assist.project_area as project_area_module
+from review_assist.basemaps import build_basemap_index, renderable_sidecars_for
 from review_assist.cli import main
 from review_assist.project_area import build_project_area, index_maris_naip_basemaps, load_project_area
 from review_assist.source_catalog import repo_root
@@ -90,6 +91,12 @@ def write_naip_county(root: Path, county_name: str = "Test") -> Path:
     return imagery_dir
 
 
+def write_naip_county_with_sidecar(root: Path, suffix: str, county_name: str = "Test") -> Path:
+    imagery_dir = write_naip_county(root, county_name)
+    (imagery_dir / f"{county_name}_NAIP_2025{suffix}").write_bytes(b"sidecar")
+    return imagery_dir
+
+
 def issue_codes(artifact: dict[str, object]) -> set[str]:
     return {str(issue["code"]) for issue in artifact["validation_issues"]}  # type: ignore[index]
 
@@ -144,6 +151,19 @@ def test_sid_only_county_imagery_returns_selected_not_renderable(tmp_path: Path,
     assert result["selected_basemap_paths"] == [str(sid_dir / "Test_NAIP_2025.sid")]
     assert result["renderable_basemap_paths"] == []
     assert any(warning["code"] == "aerial_basemap_selected_not_renderable" for warning in result["warnings"])  # type: ignore[index]
+
+
+@pytest.mark.parametrize("suffix", [".tif", ".tiff", ".png"])
+def test_renderable_sidecar_detection_finds_supported_formats(tmp_path: Path, suffix: str) -> None:
+    basemap_root = tmp_path / "naip"
+    imagery_dir = write_naip_county_with_sidecar(basemap_root, suffix)
+
+    index = build_basemap_index(basemap_root)
+    candidate = index["candidates"][0]
+
+    assert index["candidate_count"] == 1
+    assert candidate["status"] == "renderable_sidecar_available"
+    assert renderable_sidecars_for(candidate) == [imagery_dir / f"Test_NAIP_2025{suffix}"]
 
 
 def test_project_area_loads_after_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

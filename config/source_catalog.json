@@ -60,6 +60,11 @@
       "category": "flood_hazard",
       "label": "Flood Hazard and Floodplain",
       "first_pass_priority": "secondary"
+    },
+    {
+      "category": "attachments",
+      "label": "Attachments, Agency Letters, and Support Reports",
+      "first_pass_priority": "medium"
     }
   ],
   "sources": [
@@ -323,6 +328,21 @@
       "notes": "UST, hazardous materials, water quality, wells, dams, mines, and related context."
     },
     {
+      "source_id": "mississippi_oil_gas_wells",
+      "name": "Mississippi Oil and Gas Well Context",
+      "publisher": "Mississippi State Oil and Gas Board",
+      "category": "regulated_facilities",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "manual_placeholder",
+      "access_methods": ["local_file", "manual_lookup", "manual_download"],
+      "public_or_restricted": "public",
+      "geometry_type": "point",
+      "url": "https://www.ogb.state.ms.us/",
+      "spatial_relationships": ["within_buffer"],
+      "known_limitations": "Oil and gas well context requires current source review and reviewer confirmation before use in report findings.",
+      "notes": "Manual/stubbed source for oil wells until repeatable data access is validated."
+    },
+    {
       "source_id": "epa_envirofacts_echo",
       "name": "EPA Envirofacts / ECHO Regulated Facilities",
       "publisher": "U.S. Environmental Protection Agency",
@@ -369,8 +389,14 @@
       "geometry_type": "polygon_table",
       "url": "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
       "spatial_relationships": ["intersects"],
-      "known_limitations": "Demographic context should not be treated as a final equity determination.",
-      "notes": "Community profile and socioeconomic context."
+      "download": {
+        "supported": false,
+        "requires_env": "CENSUS_API_KEY",
+        "default_dataset": "2024 ACS 5-year",
+        "setup_status": "metadata_only"
+      },
+      "known_limitations": "Demographic context should not be treated as a final equity determination. ACS values require source-year, geography, and margin-of-error review before external use.",
+      "notes": "Community profile and socioeconomic context. Sprint 2.1 records Census setup and missing-key status only; table generation is deferred to Sprint 2.2."
     },
     {
       "source_id": "maris_boundary_context",
@@ -418,6 +444,21 @@
       "notes": "Hospitals, schools, fire stations, utilities, and other infrastructure context."
     },
     {
+      "source_id": "local_business_economic_nodes",
+      "name": "Local Businesses and Economic Nodes",
+      "publisher": "Local governments, chambers of commerce, business directories, or reviewer-supplied sources",
+      "category": "community_socioeconomic",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "manual_placeholder",
+      "access_methods": ["local_file", "manual_lookup", "reviewer_supplied"],
+      "public_or_restricted": "public_or_local_terms",
+      "geometry_type": "point_table",
+      "url": "",
+      "spatial_relationships": ["within_buffer"],
+      "known_limitations": "Business and economic-node sources vary by jurisdiction and should not be treated as comprehensive without reviewer validation.",
+      "notes": "Manual/stubbed source for local businesses and economic nodes until a repeatable source is validated."
+    },
+    {
       "source_id": "mdot_transportation_context",
       "name": "MDOT / Local Transportation Context",
       "publisher": "Mississippi Department of Transportation and local agencies",
@@ -448,6 +489,36 @@
       "notes": "Water, sewer, pipeline, energy, communications, and other utility context."
     },
     {
+      "source_id": "mdeq_public_water_supply_wells",
+      "name": "MDEQ Public Water Supply Wells",
+      "publisher": "Mississippi Department of Environmental Quality",
+      "category": "transportation_utilities",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "manual_placeholder",
+      "access_methods": ["local_file", "manual_lookup", "manual_download"],
+      "public_or_restricted": "public",
+      "geometry_type": "point",
+      "url": "https://www.mdeq.ms.gov/about-mdeq/interactive-maps/",
+      "spatial_relationships": ["within_buffer"],
+      "known_limitations": "Public water supply well context requires current MDEQ source review and reviewer confirmation before external reporting.",
+      "notes": "Manual/stubbed source for public water supply wells until repeatable data access is validated."
+    },
+    {
+      "source_id": "faa_airports",
+      "name": "Airport and Aeronautical Facility Context",
+      "publisher": "Federal Aviation Administration or local aviation authorities",
+      "category": "transportation_utilities",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "manual_placeholder",
+      "access_methods": ["local_file", "manual_lookup", "manual_download"],
+      "public_or_restricted": "public",
+      "geometry_type": "point_polygon",
+      "url": "https://www.faa.gov/data/aero_data",
+      "spatial_relationships": ["within_buffer"],
+      "known_limitations": "Airport proximity context requires current FAA/local source review and does not establish aviation clearance or project approval.",
+      "notes": "Manual/stubbed source for airports until a repeatable source is validated."
+    },
+    {
       "source_id": "county_parcels_property_age",
       "name": "County Parcels / Tax Assessor Property Age",
       "publisher": "County or local government",
@@ -461,6 +532,21 @@
       "spatial_relationships": ["intersects", "within_buffer"],
       "known_limitations": "County schemas, freshness, licensing, and year-built fields vary widely.",
       "notes": "Property age, ownership, parcel, access, and ROW screening context."
+    },
+    {
+      "source_id": "maris_naip_2025_imagery",
+      "name": "MARIS/NAIP 2025 Imagery",
+      "publisher": "Mississippi Automated Resource Information System / USDA Farm Service Agency",
+      "category": "imagery_basemaps",
+      "tier": "tier_4_context_only",
+      "priority": "first_pass_medium",
+      "access_methods": ["local_file", "manual_download", "visual_review"],
+      "public_or_restricted": "public",
+      "geometry_type": "raster",
+      "url": "https://maris.mississippi.edu/",
+      "spatial_relationships": [],
+      "known_limitations": "Local MARIS/NAIP 2025 county imagery is basemap and visual context only. MrSID .sid files are source/provenance files and are not rendered unless a preconverted .tif, .tiff, or .png sidecar exists.",
+      "notes": "Indexed from sources/aerial_base_maps/maris_naip_2025. Imagery observations are reviewer context, not authoritative findings."
     },
     {
       "source_id": "usda_naip_imagery",
@@ -540,6 +626,36 @@
       },
       "known_limitations": "FEMA NFHL effective data is optional screening context. Not all effective FIRMs have GIS data available; official-purpose display should use map data that meets FEMA accuracy standards. Preliminary and pending flood hazard layers are outside this automated source in the current slice.",
       "notes": "Optional effective floodplain/floodway context from Flood Hazard Zones layer 28."
+    },
+    {
+      "source_id": "hazardous_materials_support_report",
+      "name": "Hazardous Materials Support Report",
+      "publisher": "Reviewer-supplied or project consultant",
+      "category": "attachments",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "manual_placeholder",
+      "access_methods": ["manual_document", "reviewer_supplied"],
+      "public_or_restricted": "reviewer_supplied",
+      "geometry_type": "document",
+      "url": "",
+      "spatial_relationships": [],
+      "known_limitations": "Hazardous materials support reports must be supplied, reviewed, and accepted by a human reviewer before use in exports.",
+      "notes": "Attachment B placeholder for the example deliverable."
+    },
+    {
+      "source_id": "agency_consultation_letters",
+      "name": "Agency Consultation Letters",
+      "publisher": "Reviewer-supplied agency correspondence",
+      "category": "attachments",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "manual_placeholder",
+      "access_methods": ["manual_document", "reviewer_supplied"],
+      "public_or_restricted": "reviewer_supplied",
+      "geometry_type": "document",
+      "url": "",
+      "spatial_relationships": [],
+      "known_limitations": "Agency consultation letters must be supplied, reviewed, and accepted by a human reviewer before use in exports.",
+      "notes": "Attachment C placeholder for the example deliverable."
     }
   ]
 }

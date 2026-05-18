@@ -4,12 +4,11 @@ Root-level sprint docs remain the active working style for not-yet-implemented s
 
 ## Active Sprint/Subunit
 
-- No active sprint/subunit is selected after Sprint 1.3 completion.
+- Sprint 2.2: `SPRINT_2_2_COMPARISON_CONSTRAINTS_AND_TABLES.md`
 
 ## Planned Sprint/Subunits
 
 - Sprint 2 overview: `SPRINT_2_CONSTRAINTS_TABLES_AND_FIGURES.md`
-- Sprint 2.1: `SPRINT_2_1_SOURCE_PROFILE_AND_BASEMAPS.md`
 - Sprint 2.2: `SPRINT_2_2_COMPARISON_CONSTRAINTS_AND_TABLES.md`
 - Sprint 2.3: `SPRINT_2_3_FIGURES_EVIDENCE_AND_VALIDATION.md`
 - Sprint 3 overview: `SPRINT_3_REVIEW_EXPORT_AND_DOCX.md`
@@ -29,6 +28,8 @@ Root-level sprint docs remain the active working style for not-yet-implemented s
   - Implemented input package classification, project area artifact generation, county detection, NAIP/MARIS basemap provenance/renderability status, CLI commands, populate integration, and focused tests.
 - Sprint 1.3 Comparison Units and Orchestration: `docs/archive/sprints/SPRINT_1_3_COMPARISON_UNITS_AND_ORCHESTRATION.md`
   - Implemented comparison-unit artifacts, KML folder/style/color preservation, expected-count validation, CLI command, populate integration, and focused tests.
+- Sprint 2.1 Source Profile And Basemaps: `docs/archive/sprints/SPRINT_2_1_SOURCE_PROFILE_AND_BASEMAPS.md`
+  - Implemented the example report source profile default, Sprint 2.1 source catalog stubs, per-source status detail, Census key stubbing, MARIS/NAIP 2025 basemap indexing, and renderable sidecar detection.
 
 ## Deferred Work Linked To Sprints
 

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .basemaps import MARIS_NAIP_SOURCE_ID, select_project_basemaps
 from .project_context import ProjectContextError, generate_project_context
 from .projects import ProjectManifestError, load_project_manifest
 from .report_profiles import ReportProfileError, resolve_report_profile
@@ -50,6 +52,7 @@ def resolve_source_status_set(project_dir: Path) -> dict[str, Any]:
     catalog_by_category = _catalog_by_category(catalog)
     project_sources = registry.by_source_id()
     latest_download_status = _latest_download_status(_load_download_records(project_dir))
+    basemap_selection = select_project_basemaps(project_dir)
     validation_issues = _unknown_project_sources(project_sources, catalog)
 
     statuses = [
@@ -60,6 +63,7 @@ def resolve_source_status_set(project_dir: Path) -> dict[str, Any]:
             catalog_sources=catalog_by_category.get(category, []),
             project_sources=project_sources,
             latest_download_status=latest_download_status,
+            basemap_selection=basemap_selection,
         )
         for category in categories
     ]
@@ -90,6 +94,7 @@ def _category_status(
     catalog_sources: list[SourceDefinition],
     project_sources: dict[str, ProjectSource],
     latest_download_status: dict[str, str] | None = None,
+    basemap_selection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     source_ids = [source.source_id for source in catalog_sources]
     download_status = latest_download_status or {}
@@ -97,6 +102,17 @@ def _category_status(
     local_ready = [source for source in registered if _has_existing_local_path(project_dir, source)]
     downloaded = [source for source in local_ready if source.status == "downloaded" or source.access_method == "downloaded"]
     missing_local = [source for source in registered if _is_enabled_local_source(source) and not _has_existing_local_path(project_dir, source)]
+    source_details = [
+        _source_detail(
+            project_dir=project_dir,
+            source=source,
+            requirement=requirement,
+            project_source=project_sources.get(source.source_id),
+            latest_download_status=download_status,
+            basemap_selection=basemap_selection,
+        )
+        for source in catalog_sources
+    ]
 
     if downloaded:
         status = "downloaded"
@@ -118,17 +134,29 @@ def _category_status(
         status = "optional"
         flags = []
         notes = "Optional source category is not required for this profile."
-    elif _has_public_download_candidate(catalog_sources):
+    elif any(detail["status"] == "selected_not_renderable" for detail in source_details):
+        status = "selected_not_renderable"
+        flags = ["source_selected_not_renderable", "renderable_sidecar_missing"]
+        notes = "A basemap source is selected as provenance, but no renderable sidecar is available."
+    elif any(detail["status"] == "downloadable" for detail in source_details):
         status = "downloadable"
         flags = ["source_not_downloaded"]
         notes = "Public source data appears to be a future download candidate."
-    elif _has_gated_candidate(catalog_sources):
+    elif any(detail["status"] == "restricted" for detail in source_details):
         status = "gated"
         flags = ["restricted_source_required", "manual_review_required"]
         notes = "Source category requires restricted, sensitive, or qualified-access review."
-    elif _has_manual_candidate(catalog_sources):
+    elif any(detail["status"] in {"manual", "stubbed", "unimplemented"} for detail in source_details):
         status = "stubbed"
-        flags = ["manual_review_required", "source_unavailable"]
+        flags = sorted(
+            {
+                flag
+                for detail in source_details
+                for flag in detail.get("uncertainty_flags", [])
+                if flag in {"manual_review_required", "source_unavailable", "source_unimplemented", "missing_census_api_key"}
+            }
+            or {"manual_review_required", "source_unavailable"}
+        )
         notes = "Source category requires manual or reviewer-supplied data."
     else:
         status = "missing"
@@ -143,6 +171,7 @@ def _category_status(
         "source_names": [source.name for source in catalog_sources],
         "registered_source_ids": [source.source_id for source in registered],
         "local_paths": _local_paths(project_dir, local_ready),
+        "source_details": source_details,
         "uncertainty_flags": flags,
         "notes": notes,
     }
@@ -213,18 +242,126 @@ def _local_paths(project_dir: Path, sources: list[ProjectSource]) -> list[str]:
     return paths
 
 
-def _has_public_download_candidate(sources: list[SourceDefinition]) -> bool:
-    return any("future_download" in source.access_methods and "public" in source.public_or_restricted for source in sources)
-
-
-def _has_gated_candidate(sources: list[SourceDefinition]) -> bool:
-    gated_markers = ("restricted", "sensitive")
-    return any(
-        any(marker in source.public_or_restricted for marker in gated_markers) or "restricted" in source.tier
-        for source in sources
+def _source_detail(
+    *,
+    project_dir: Path,
+    source: SourceDefinition,
+    requirement: str,
+    project_source: ProjectSource | None,
+    latest_download_status: dict[str, str],
+    basemap_selection: dict[str, Any] | None,
+) -> dict[str, Any]:
+    status, notes, flags = _source_detail_status(
+        project_dir=project_dir,
+        source=source,
+        requirement=requirement,
+        project_source=project_source,
+        latest_download_status=latest_download_status,
+        basemap_selection=basemap_selection,
     )
+    local_path = resolve_project_source_path(project_dir, project_source) if project_source is not None else None
+    return {
+        "source_id": source.source_id,
+        "source_name": source.name,
+        "status": status,
+        "requirement": requirement,
+        "access_methods": source.access_methods,
+        "public_or_restricted": source.public_or_restricted,
+        "registered": project_source is not None,
+        "local_path": str(local_path) if local_path is not None else None,
+        "local_path_exists": bool(local_path and local_path.exists()),
+        "uncertainty_flags": flags,
+        "notes": notes,
+    }
 
 
-def _has_manual_candidate(sources: list[SourceDefinition]) -> bool:
+def _source_detail_status(
+    *,
+    project_dir: Path,
+    source: SourceDefinition,
+    requirement: str,
+    project_source: ProjectSource | None,
+    latest_download_status: dict[str, str],
+    basemap_selection: dict[str, Any] | None,
+) -> tuple[str, str, list[str]]:
+    if project_source is not None and _has_existing_local_path(project_dir, project_source):
+        if project_source.status == "downloaded":
+            return "downloaded", "Downloaded source data is available in the workspace.", []
+        if project_source.status == "local_materialized":
+            return "local_materialized", "Local warehouse source data is materialized for this workspace.", []
+        if project_source.status == "provided_in_input":
+            return "provided_in_input", "Project input package includes this source layer.", []
+        return "registered_local", "Reviewer-supplied or locally registered source data is available in the workspace.", []
+    if project_source is not None and _is_enabled_local_source(project_source):
+        return "missing", "A local source is configured but the referenced path is unavailable.", ["local_source_missing"]
+    if latest_download_status.get(source.source_id) == "failed":
+        return "failed", "The latest supported public download attempt failed; the workflow can continue with a caveat.", [
+            "source_download_failed",
+            "source_unavailable",
+        ]
+    if requirement == "optional":
+        return "optional", "Optional source is not required for this profile.", []
+    if source.source_id == MARIS_NAIP_SOURCE_ID:
+        return _basemap_detail_status(basemap_selection)
+    if source.source_id == "census_tiger_acs" and not os.environ.get("CENSUS_API_KEY"):
+        return "stubbed", "Census TIGER/ACS setup is configured, but CENSUS_API_KEY is not set for future ACS API calls.", [
+            "missing_census_api_key",
+            "source_unavailable",
+        ]
+    if _public_future_download(source):
+        if _source_download_supported(source):
+            return "downloadable", "Public source data is supported by an implemented downloader but has not been downloaded.", [
+                "source_not_downloaded"
+            ]
+        return "unimplemented", "Public source data appears downloadable, but no downloader is implemented yet.", [
+            "source_unimplemented",
+            "source_unavailable",
+        ]
+    if _gated_source(source):
+        return "restricted", "Source requires restricted, sensitive, or qualified-access handling.", [
+            "restricted_source_required",
+            "manual_review_required",
+        ]
+    if _manual_source(source):
+        return "manual", "Source requires manual lookup, manual download, or reviewer-supplied material.", [
+            "manual_review_required",
+            "source_unavailable",
+        ]
+    return "missing", "No supported source path is available for this source.", ["source_unavailable"]
+
+
+def _basemap_detail_status(basemap_selection: dict[str, Any] | None) -> tuple[str, str, list[str]]:
+    if not basemap_selection:
+        return "missing", "Basemap selection has not been resolved.", ["source_unavailable"]
+    status = str(basemap_selection.get("basemap_rendering_status") or "not_available")
+    if status == "renderable_sidecar_available":
+        return "registered_local", "Selected MARIS/NAIP imagery has at least one renderable sidecar.", []
+    if status == "selected_not_renderable":
+        return "selected_not_renderable", "Selected MARIS/NAIP imagery is available as MrSID provenance but has no renderable sidecar.", [
+            "source_selected_not_renderable",
+            "renderable_sidecar_missing",
+        ]
+    issues = basemap_selection.get("validation_issues", [])
+    flags = ["source_unavailable"]
+    if isinstance(issues, list) and any(isinstance(issue, dict) and issue.get("code") == "project_area_unavailable_for_basemap_selection" for issue in issues):
+        flags.append("basemap_selection_unresolved")
+    return "missing", "No selected MARIS/NAIP basemap source is available for this project.", flags
+
+
+def _source_download_supported(source: SourceDefinition) -> bool:
+    download = source.download if isinstance(source.download, dict) else {}
+    return bool(download.get("supported")) and str(download.get("downloader") or "") == "arcgis_rest_geojson"
+
+
+def _public_future_download(source: SourceDefinition) -> bool:
+    return "future_download" in source.access_methods and "public" in source.public_or_restricted
+
+
+def _gated_source(source: SourceDefinition) -> bool:
+    gated_markers = ("restricted", "sensitive")
+    return any(marker in source.public_or_restricted for marker in gated_markers) or "restricted" in source.tier
+
+
+def _manual_source(source: SourceDefinition) -> bool:
     manual_methods = {"manual_document", "manual_lookup", "manual_download", "reviewer_supplied"}
-    return any(bool(manual_methods.intersection(source.access_methods)) for source in sources)
+    return bool(manual_methods.intersection(source.access_methods))

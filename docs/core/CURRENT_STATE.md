@@ -11,7 +11,8 @@ The system is not a recommendation engine, final environmental review, regulator
 - Completed: Sprint 1.1 Contract Foundation.
 - Completed: Sprint 1.2 Project Intake Artifacts.
 - Completed: Sprint 1.3 Comparison Units and Orchestration.
-- Active next implementation target: not selected after Sprint 1.3 completion.
+- Completed: Sprint 2.1 Source Profile And Basemaps.
+- Active next implementation target: Sprint 2.2 Comparison Constraints And Tables.
 
 ## Active Architectural State
 
@@ -22,11 +23,17 @@ Implemented baseline:
 - Input package classification, KMZ/KML inspection, normalized project geometry artifacts, and project area artifacts.
 - Project context, comparison units, source status, source acquisition, local source materialization, source inventory, constraint analysis, findings, tables, vector-only maps, evidence packages, draft report sections, JSON review queue, Markdown/DOCX exports, demo/MVP package commands, populate-for-review orchestration.
 - Static Sprint 1.1 deliverable matrix and report prompt contract validation.
+- `environmental_constraints_example` is the default profile for `alternatives_review`; `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use.
+- Source status and source inventory now include per-source detail statuses for registered local, local materialized, downloaded, manual, restricted, failed, unimplemented, missing, optional, stubbed, and selected-but-not-renderable sources.
+- MARIS/NAIP 2025 imagery is cataloged as context-only basemap provenance. `src/review_assist/basemaps.py` indexes county folders under `sources/aerial_base_maps/maris_naip_2025`, treats `.sid` files as provenance only, and recognizes `.tif`, `.tiff`, and `.png` sidecars as renderable candidates.
+- Census TIGER/ACS is represented as metadata-only setup using `CENSUS_API_KEY` and 2024 ACS 5-year as the declared default future dataset; a missing key creates visible stub/status detail rather than a crash.
 
 Important current artifacts:
 
 - `config/deliverable_section_matrix.json`
 - `config/report_generation_prompts.json`
+- `config/report_profiles.json`
+- `config/source_catalog.json`
 - `projects/<project_id>/context/input_package.json`
 - `projects/<project_id>/intermediate/project_geometry.json`
 - `projects/<project_id>/intermediate/project_features.geojson`
@@ -46,8 +53,9 @@ Important current artifacts:
 - No web app is implemented yet.
 - The canonical deliverable matrix validates but is not wired into report generation, table generation, figure generation, review queue generation, or export.
 - The canonical prompt config validates but is not wired into section drafting.
-- NAIP/MARIS basemap provenance and renderability are recorded in `project_area.json`, but raster-backed map rendering is not implemented in the current pipeline.
-- Comparison units are generated and recorded by populate orchestration, but Sprint 2+ work still needs to wire them into constraint summaries, tables, figures, report item expansion, and export gating.
+- NAIP/MARIS basemap provenance and renderability are recorded in `project_area.json` and source status detail, but raster-backed map/figure rendering is not implemented in the current pipeline.
+- Comparison units are generated and recorded by populate orchestration, but Sprint 2.2+ work still needs to wire them into report-facing constraint summaries, exact deliverable tables, figures, report item expansion, and export gating.
+- Census source setup is visible, but ACS/TIGER table generation remains deferred to Sprint 2.2.
 - Default export behavior still needs the future matrix-bounded review-complete gate.
 - Missing/gated/manual/stale/failed sources must remain visible and reviewable.
 

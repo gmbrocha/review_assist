@@ -53,12 +53,40 @@ Each deferred item should include:
 - `Target sprint/subunit`: Sprint 3.1.
 - `Status`: open.
 
+### Census Table Generation
+
+- `Deferred item`: Generate Census TIGER/ACS demographic tables from the Sprint 2.1 Census source setup.
+- `Why postponed`: Sprint 2.1 intentionally represented the source requirement, `CENSUS_API_KEY` convention, 2024 ACS 5-year default, and missing-key stub/status behavior only. It did not implement ACS API calls, Census geometry selection, margin-of-error handling, or deliverable table rows.
+- `Affected sections/workflows`: Community/socioeconomic source status, source inventory, evidence packages, income demographics table, demographic composition table, report sections that cite demographic tables.
+- `Risk if forgotten`: Census requirements could appear visible while the deliverable tables remain empty or unsupported, or ACS values could be generated later without preserving geography, source year, and margin-of-error caveats.
+- `Temporary simplification`: Missing Census API key creates a visible stub/source status detail; no Census table values are generated.
+- `Target sprint/subunit`: Sprint 2.2.
+- `Status`: open.
+
+### Raster-Backed NAIP Figure Rendering
+
+- `Deferred item`: Render NAIP/MARIS basemaps into deliverable figures only when renderable sidecars are available.
+- `Why postponed`: Sprint 2.1 implemented catalog/profile/status behavior plus basemap indexing and sidecar detection, but intentionally avoided rasterio, GDAL, MrSID decoding, paid basemap APIs, and figure rendering.
+- `Affected sections/workflows`: Map generation, deliverable figures, figure validation issues, Attachment A panel maps, source/provenance notes for imagery-backed figures.
+- `Risk if forgotten`: The workflow may correctly record selected NAIP provenance but still produce vector-only or stubbed figures without making the rendering limitation obvious.
+- `Temporary simplification`: `.sid` files remain provenance only; `.tif`, `.tiff`, and `.png` sidecars are detected but not yet rendered by deliverable figure generation.
+- `Target sprint/subunit`: Sprint 2.3.
+- `Status`: open.
+
 ## Resolved Deferred Items
 
 ### Sprint 1.2 Project Intake Artifacts
 
 - `Deferred item`: Implement the Sprint 1.2 project intake artifacts: `context/input_package.json`, `context/project_area.json`, input classification CLI, project area CLI, NAIP/MARIS basemap provenance, and populate integration.
 - `Resolution`: Implemented as service-layer artifacts and CLI commands; `populate-for-review` now records input package and project area artifact paths, detected counties, basemap renderability status, and related warnings.
-- `Remaining limitation`: NAIP/MARIS imagery is indexed for provenance and renderability only; raster-backed map rendering remains deferred.
+- `Remaining limitation`: Sprint 2.1 added the source catalog entry, example profile requirement, source status detail, and standalone basemap service for MARIS/NAIP 2025 provenance/renderability. Raster-backed map/figure rendering remains deferred.
 - `Target sprint/subunit`: Sprint 1.2.
+- `Status`: resolved.
+
+### Sprint 2.1 Source Profile And Basemaps
+
+- `Deferred item`: Implement the Sprint 2.1 source/profile/basemap setup for the example-report-shaped workflow.
+- `Resolution`: Implemented `environmental_constraints_example` as the default alternatives-review profile; added Sprint 2.1 source catalog entries and attachment/manual stubs; exposed per-source status details; represented missing Census API key as a visible stub; cataloged `maris_naip_2025_imagery`; added service-level MARIS/NAIP basemap indexing and `.tif`/`.tiff`/`.png` sidecar detection.
+- `Remaining limitation`: Census table generation, comparison-unit deliverable tables, raster-backed figures, panel maps, and exact deliverable evidence wiring remain deferred to Sprint 2.2 and Sprint 2.3.
+- `Target sprint/subunit`: Sprint 2.1.
 - `Status`: resolved.

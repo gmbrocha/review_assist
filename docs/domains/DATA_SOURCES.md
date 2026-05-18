@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, or explicitly downloaded public layers can be registered, inspected, and checked. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL effective flood hazard zones are the first implemented public downloaders. NWI wetlands, USFWS Critical Habitat, SSURGO soils, MDOT/rail transportation context, utilities, administrative/boundary context, public cultural context, community facilities, and conservation/recreation lands are also configured for local Mississippi source warehouse materialization. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, or explicitly downloaded public layers can be registered, inspected, and checked. `environmental_constraints_example` is the default source-requirement profile for alternatives review, while `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL effective flood hazard zones are implemented public downloaders. NWI wetlands, USFWS Critical Habitat, SSURGO soils, MDOT/rail transportation context, utilities, administrative/boundary context, public cultural context, community facilities, and conservation/recreation lands are also configured for local Mississippi source warehouse materialization. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -45,14 +45,19 @@ Suggested statuses:
 - `provided_locally`: user supplied a local layer, document, report, or map.
 - `downloadable`: public data appears available but is not downloaded yet.
 - `downloaded`: public data has been acquired for the workspace.
+- `local_materialized`: local warehouse data has been clipped into the workspace.
 - `failed`: a supported acquisition attempt failed and should remain visible as a caveat/review item.
 - `gated`: access requires credentials, qualified access, agency request, or restricted handling.
+- `restricted`: source requires restricted, sensitive, or qualified-access handling.
+- `manual`: source requires manual lookup, manual download, a document attachment, or reviewer-supplied material.
+- `unimplemented`: a public or repeatable source is identified, but no downloader/materializer is implemented yet.
 - `stubbed`: a placeholder exists so report sections can include a review requirement or caveat.
+- `selected_not_renderable`: a basemap/context source is selected as provenance but cannot be rendered without a preconverted sidecar.
 - `missing`: expected source material is not available.
 - `optional`: useful context but not required for the selected report profile.
 - `needs_review`: source status or fitness for use requires reviewer confirmation.
 
-Missing, failed, gated, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, and report caveats so the reviewer can decide how to proceed.
+Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, and report caveats so the reviewer can decide how to proceed.
 
 ## Phase 2A/2B Source Priority
 
@@ -98,11 +103,13 @@ The source acquisition workflow compares the project input package, project sour
 
 - `provided_in_input`: tagged project input source layer exists and is registered where possible.
 - `registered_local`: reviewer-supplied or manually registered local layer exists.
+- `local_materialized`: local warehouse data is materialized for this workspace.
 - `downloaded`: public source has been acquired into the workspace.
 - `downloadable`: an implemented downloader can acquire it if the user requests downloads.
 - `unsupported_download`: public data appears downloadable but no downloader exists yet.
 - `gated`: restricted, sensitive, credentialed, or qualified-access source.
 - `manual`: manual lookup/download or reviewer-supplied source.
+- `stubbed`: setup exists, but a required key/source/document is missing; for Census this includes missing `CENSUS_API_KEY`.
 - `optional`: not required for the selected report profile.
 - `missing`: no supported source path exists.
 - `failed`: a supported download attempt failed but did not block the rest of the workflow.
@@ -122,7 +129,9 @@ Live downloads are explicit only:
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources --include-optional-sources
 ```
 
-Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior. Running `prepare-sources` or `populate-for-review --prepare-sources` without `--include-optional-sources` downloads supported required sources only, so FEMA flood hazard remains optional unless directly requested. The `populate-for-review --include-optional-sources` flag is valid only when paired with `--prepare-sources`.
+Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior. Running `prepare-sources` or `populate-for-review --prepare-sources` without `--include-optional-sources` downloads supported required sources only. FEMA flood hazard remains optional under `environmental_constraints_basic`, but it is required by the default `environmental_constraints_example` alternatives-review profile. The `populate-for-review --include-optional-sources` flag is valid only when paired with `--prepare-sources`.
+
+The Sprint 2.1 catalog also exposes review-visible manual or stub entries for IPaC report context, state heritage review, restricted archaeology, MDEQ/manual environmental context, public water supply wells, airports, oil wells, local businesses/economic nodes, hazardous materials support reports, and agency consultation letters. These entries are not automated determinations; they keep the missing or reviewer-supplied source need visible for later deliverable tables, figures, attachments, caveats, and review items.
 
 ## Local Source Materialization
 
@@ -342,10 +351,10 @@ References:
 
 Implementation status:
 
-- `fema_nfhl_flood_hazard` is implemented as an optional explicit public downloader.
+- `fema_nfhl_flood_hazard` is implemented as an explicit public downloader.
 - The downloader queries the effective FEMA NFHL ArcGIS REST MapServer Flood Hazard Zones layer `28` by project analysis bounds and writes GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
 - Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so constraint analysis, findings, flood hazard summary tables, source-context maps, report sections, and review queue generation consume them through the same path as reviewer-supplied data.
-- FEMA remains optional unless the reviewer runs `download-source ... fema_nfhl_flood_hazard`, `prepare-sources --include-optional-sources`, or `populate-for-review --prepare-sources --include-optional-sources`.
+- FEMA remains optional under `environmental_constraints_basic`, but is required by the default `environmental_constraints_example` alternatives-review profile.
 - Failed FEMA downloads remain nonfatal and propagate into source status, draft findings, report sections, and review queue caveat items.
 - Existing reviewer-supplied local FEMA/flood hazard layers are preserved and not overwritten.
 
@@ -392,8 +401,8 @@ Potential findings:
 Important caveat:
 
 - Imagery observations are review items, not authoritative facts.
-- The current Sprint 1.2 implementation indexes local MARIS/NAIP 2025 county folders under `sources/aerial_base_maps/maris_naip_2025`, records matching county source paths and renderability status in `project_area.json`, and treats `.sid` files as source/provenance unless a renderable `.tif`, `.tiff`, or `.png` sidecar exists.
-- This indexing does not perform raster rendering, imagery interpretation, source-layer materialization, or map generation.
+- The current basemap service indexes local MARIS/NAIP 2025 county folders under `sources/aerial_base_maps/maris_naip_2025`, records matching county source paths and renderability status in `project_area.json`, exposes source status detail under `maris_naip_2025_imagery`, and treats `.sid` files as source/provenance unless a renderable `.tif`, `.tiff`, or `.png` sidecar exists.
+- This indexing does not perform MrSID decoding, raster rendering, imagery interpretation, source-layer materialization, or map generation.
 
 Reference:
 
@@ -438,6 +447,14 @@ References:
 
 - https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html
 - https://www.census.gov/programs-surveys/acs/data.html
+
+Implementation status:
+
+- `census_tiger_acs` is cataloged as metadata-only setup for future demographics table generation.
+- `CENSUS_API_KEY` is the configured environment variable convention for future ACS API calls.
+- 2024 ACS 5-year is the declared default future dataset.
+- Missing `CENSUS_API_KEY` creates visible stub/source-status detail and uncertainty flags rather than crashing source status, acquisition, inventory, or populate workflows.
+- Census tract/ACS table generation remains deferred to Sprint 2.2.
 
 ## Species, Habitat, and Ecology Sources
 

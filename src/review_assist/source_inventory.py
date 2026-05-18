@@ -65,6 +65,7 @@ def generate_source_inventory(project_dir: Path) -> dict[str, Any]:
         for item in source_status.get("statuses", [])
         if isinstance(item, dict) and item.get("category")
     }
+    source_detail_by_id = _source_detail_by_id(source_status)
     source_ids = _inventory_source_ids(source_status, project_sources)
     records = [
         _inventory_record(
@@ -75,6 +76,7 @@ def generate_source_inventory(project_dir: Path) -> dict[str, Any]:
             source_acquisition=acquisition_by_source.get(source_id),
             source_materialization=materialization_by_source.get(source_id),
             status_by_category=status_by_category,
+            source_detail=source_detail_by_id.get(source_id),
         )
         for source_id in source_ids
     ]
@@ -143,6 +145,23 @@ def _inventory_source_ids(source_status: dict[str, Any], project_sources: dict[s
     return sorted(source_ids)
 
 
+def _source_detail_by_id(source_status: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    details: dict[str, dict[str, Any]] = {}
+    for status_record in source_status.get("statuses", []):
+        if not isinstance(status_record, dict):
+            continue
+        raw_details = status_record.get("source_details", [])
+        if not isinstance(raw_details, list):
+            continue
+        for detail in raw_details:
+            if not isinstance(detail, dict):
+                continue
+            source_id = str(detail.get("source_id") or "")
+            if source_id:
+                details[source_id] = detail
+    return details
+
+
 def _inventory_record(
     *,
     project_dir: Path,
@@ -152,11 +171,14 @@ def _inventory_record(
     source_acquisition: dict[str, Any] | None,
     source_materialization: dict[str, Any] | None,
     status_by_category: dict[str, dict[str, Any]],
+    source_detail: dict[str, Any] | None,
 ) -> dict[str, Any]:
     category = source_definition.category if source_definition else ""
     status_record = status_by_category.get(category, {})
     local_metadata, validation_issues = _local_metadata(project_dir, project_source)
     uncertainty_flags = _string_list(status_record.get("uncertainty_flags", []))
+    if source_detail:
+        uncertainty_flags.extend(_string_list(source_detail.get("uncertainty_flags", [])))
     uncertainty_flags.extend(issue["code"] for issue in validation_issues if issue.get("code"))
     return {
         "source_id": source_id,
@@ -182,6 +204,8 @@ def _inventory_record(
             "notes": status_record.get("notes", "") if status_record else "",
             "registered_source_ids": _string_list(status_record.get("registered_source_ids", [])) if status_record else [],
             "local_paths": _string_list(status_record.get("local_paths", [])) if status_record else [],
+            "detail_status": source_detail.get("status", "") if source_detail else "",
+            "detail_notes": source_detail.get("notes", "") if source_detail else "",
         },
         "local_metadata": local_metadata,
         "metadata": project_source.metadata if project_source else {},

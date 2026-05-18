@@ -6,10 +6,20 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from xml.etree import ElementTree as ET
 
 import geopandas as gpd
 
+from .basemaps import (
+    AERIAL_BASEMAP_ROOT,
+    basemap_rendering_status,
+    build_basemap_index,
+    flatten_paths,
+    format_county_name,
+    index_maris_naip_basemaps as index_maris_naip_basemap_candidates,
+    naip_metadata_counties,
+    resolved_basemap_root,
+    select_basemap_candidates,
+)
 from .input_package import InputPackageError, classify_input_package
 from .project_context import BOUNDARY_CONTEXT_SOURCE_IDS, ProjectContextError, load_project_context
 from .project_geometry import (
@@ -20,14 +30,11 @@ from .project_geometry import (
     load_project_geometry,
 )
 from .projects import ProjectManifestError, load_project_manifest
-from .source_catalog import SourceCatalogError, load_project_source_registry, repo_root, resolve_project_source_path
+from .source_catalog import SourceCatalogError, load_project_source_registry, resolve_project_source_path
 from .spatial_analysis import SpatialAnalysisError, _default_buffer_feet
 
 
 PROJECT_AREA_PATH = Path("context/project_area.json")
-AERIAL_BASEMAP_ROOT = Path("sources/aerial_base_maps/maris_naip_2025")
-
-RENDERABLE_EXTENSIONS = {".tif", ".tiff", ".png"}
 
 
 class ProjectAreaError(RuntimeError):
@@ -56,7 +63,8 @@ def build_project_area(project_dir: Path) -> dict[str, Any]:
     validation_issues.extend(context_issues)
 
     basemap_root = _resolved_basemap_root()
-    basemap_candidates = index_maris_naip_basemaps(basemap_root)
+    basemap_index = build_basemap_index(basemap_root)
+    basemap_candidates = [dict(candidate) for candidate in basemap_index["candidates"]]
     if not basemap_root.exists():
         validation_issues.append(
             _issue(
@@ -159,34 +167,7 @@ def load_project_area(project_dir: Path) -> dict[str, Any]:
 def index_maris_naip_basemaps(root: Path | None = None) -> list[dict[str, Any]]:
     """Index local MARIS/NAIP county basemap folders without reading MrSID rasters."""
 
-    basemap_root = _resolved_basemap_root(root)
-    if not basemap_root.exists():
-        return []
-    records: list[dict[str, Any]] = []
-    for county_dir in sorted((path for path in basemap_root.iterdir() if path.is_dir()), key=lambda item: item.name.lower()):
-        files = sorted((path for path in county_dir.rglob("*") if path.is_file()), key=lambda item: str(item).lower())
-        sid_paths = [path for path in files if path.suffix.lower() == ".sid"]
-        metadata_paths = [
-            path
-            for path in files
-            if path.suffix.lower() in {".xml", ".txt"} or path.name.lower().endswith(".sid.aux.xml")
-        ]
-        world_file_paths = [path for path in files if path.suffix.lower() == ".sdw"]
-        renderable_sidecar_paths = [path for path in files if path.suffix.lower() in RENDERABLE_EXTENSIONS]
-        imagery_dir = _imagery_dir(county_dir, files)
-        record = {
-            "county_name": _format_county_name(county_dir.name),
-            "county_dir": str(county_dir),
-            "imagery_dir": str(imagery_dir),
-            "sid_paths": [str(path) for path in sid_paths],
-            "metadata_paths": [str(path) for path in metadata_paths],
-            "world_file_paths": [str(path) for path in world_file_paths],
-            "renderable_sidecar_paths": [str(path) for path in renderable_sidecar_paths],
-            "metadata_bbox_wgs84": _first_metadata_bbox(metadata_paths),
-            "status": _candidate_status(sid_paths, renderable_sidecar_paths, metadata_paths),
-        }
-        records.append(record)
-    return records
+    return index_maris_naip_basemap_candidates(_resolved_basemap_root(root))
 
 
 def _load_or_build_project_geometry(project_dir: Path) -> dict[str, Any]:
@@ -399,40 +380,15 @@ def _project_context_counties(context: dict[str, Any] | None) -> dict[str, Any] 
 
 
 def _naip_metadata_counties(bounds_wgs84: gpd.GeoDataFrame, basemap_candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
-    project_bbox = _bbox(bounds_wgs84)
-    matched: list[dict[str, Any]] = []
-    for candidate in basemap_candidates:
-        metadata_bbox = candidate.get("metadata_bbox_wgs84")
-        if not isinstance(metadata_bbox, dict):
-            continue
-        if _bboxes_intersect(project_bbox, metadata_bbox):
-            matched.append(candidate)
-    if not matched:
-        return None
-    return {
-        "method": "naip_maris_metadata_extent",
-        "county_names": sorted(_format_county_name(str(candidate["county_name"])) for candidate in matched),
-        "source_id": "maris_naip_2025",
-        "source_path": _common_root([str(candidate["county_dir"]) for candidate in matched]),
-        "candidate_count": len(matched),
-        "confidence": "medium",
-    }
+    return naip_metadata_counties(_bbox(bounds_wgs84), basemap_candidates)
 
 
 def _selected_basemap_candidates(county_names: list[str], basemap_candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    county_keys = {_county_key(name) for name in county_names}
-    if not county_keys:
-        return []
-    return [candidate for candidate in basemap_candidates if _county_key(str(candidate.get("county_name", ""))) in county_keys]
+    return select_basemap_candidates(county_names, basemap_candidates)
 
 
 def _flatten_paths(records: list[dict[str, Any]], key: str) -> list[str]:
-    paths: list[str] = []
-    for record in records:
-        values = record.get(key, [])
-        if isinstance(values, list):
-            paths.extend(str(value) for value in values)
-    return sorted(paths)
+    return flatten_paths(records, key)
 
 
 def _basemap_rendering_status(
@@ -440,98 +396,7 @@ def _basemap_rendering_status(
     selected_basemap_paths: list[str],
     renderable_basemap_paths: list[str],
 ) -> str:
-    if renderable_basemap_paths:
-        return "renderable_sidecar_available"
-    if selected_basemap_paths:
-        return "selected_not_renderable"
-    if selected_candidates:
-        return "not_available"
-    return "not_available"
-
-
-def _imagery_dir(county_dir: Path, files: list[Path]) -> Path:
-    for file_path in files:
-        try:
-            relative = file_path.relative_to(county_dir)
-        except ValueError:
-            continue
-        if len(relative.parts) > 1:
-            return county_dir / relative.parts[0]
-    return county_dir
-
-
-def _candidate_status(sid_paths: list[Path], renderable_paths: list[Path], metadata_paths: list[Path]) -> str:
-    if renderable_paths:
-        return "renderable_sidecar_available"
-    if sid_paths:
-        return "selected_not_renderable"
-    if metadata_paths:
-        return "metadata_only"
-    return "empty"
-
-
-def _first_metadata_bbox(metadata_paths: list[Path]) -> dict[str, float] | None:
-    for path in metadata_paths:
-        if path.suffix.lower() != ".xml":
-            continue
-        bbox = _metadata_bbox(path)
-        if bbox is not None:
-            return bbox
-    return None
-
-
-def _metadata_bbox(path: Path) -> dict[str, float] | None:
-    try:
-        root = ET.parse(path).getroot()
-    except Exception:
-        return None
-    keys = {
-        "westBoundLongitude": "west",
-        "eastBoundLongitude": "east",
-        "southBoundLatitude": "south",
-        "northBoundLatitude": "north",
-    }
-    values: dict[str, float] = {}
-    for element in root.iter():
-        key = keys.get(_local_name(element.tag))
-        if key is None:
-            continue
-        value = _first_float_descendant(element)
-        if value is not None:
-            values[key] = value
-    if set(values) != {"west", "east", "south", "north"}:
-        return None
-    return values
-
-
-def _first_float_descendant(element: ET.Element) -> float | None:
-    for child in element.iter():
-        if child.text is None:
-            continue
-        text = child.text.strip()
-        if not text:
-            continue
-        try:
-            return float(text)
-        except ValueError:
-            continue
-    return None
-
-
-def _local_name(tag: str) -> str:
-    return tag.rsplit("}", 1)[-1]
-
-
-def _bboxes_intersect(left: dict[str, Any], right: dict[str, Any]) -> bool:
-    try:
-        return not (
-            float(left["east"]) < float(right["west"])
-            or float(left["west"]) > float(right["east"])
-            or float(left["north"]) < float(right["south"])
-            or float(left["south"]) > float(right["north"])
-        )
-    except (KeyError, TypeError, ValueError):
-        return False
+    return basemap_rendering_status(selected_candidates, selected_basemap_paths, renderable_basemap_paths)
 
 
 def _first_row_value(row: Any, fields: list[str]) -> str:
@@ -555,37 +420,11 @@ def _first_row_value(row: Any, fields: list[str]) -> str:
 
 
 def _format_county_name(raw_name: str) -> str:
-    name = " ".join(str(raw_name).replace("_", " ").split())
-    if not name:
-        return ""
-    if name.lower().endswith(" county"):
-        return name
-    if name.lower().endswith(" co"):
-        name = name[:-3].strip()
-    return f"{name} County"
-
-
-def _county_key(name: str) -> str:
-    normalized = _format_county_name(name).lower()
-    if normalized.endswith(" county"):
-        normalized = normalized[: -len(" county")]
-    return "".join(character for character in normalized if character.isalnum())
-
-
-def _common_root(paths: list[str]) -> str | None:
-    if not paths:
-        return None
-    try:
-        return str(Path(paths[0]).parent if len(paths) == 1 else Path(paths[0]).parents[1])
-    except IndexError:
-        return str(paths[0])
+    return format_county_name(raw_name)
 
 
 def _resolved_basemap_root(root: Path | None = None) -> Path:
-    path = root or AERIAL_BASEMAP_ROOT
-    if path.is_absolute():
-        return path
-    return (repo_root() / path).resolve()
+    return resolved_basemap_root(root or AERIAL_BASEMAP_ROOT)
 
 
 def _dedupe_issues(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
