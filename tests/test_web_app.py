@@ -499,3 +499,25 @@ def test_fresh_project_flow_reaches_standard_bounded_review_queue(tmp_path: Path
     assert "draft_finding" not in review_text
     assert "spatial_relationship" not in review_text
     assert "source_inventory_note" not in review_text
+
+
+def test_create_review_queue_ui_requests_local_source_materialization(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    called: dict[str, object] = {}
+
+    def fake_populate(path: Path, **kwargs: object) -> dict[str, object]:
+        called["path"] = path
+        called.update(kwargs)
+        return {"review_queue_item_count": 1, "output_path": str(project_dir / "populate_for_review" / "populate_for_review_run.json")}
+
+    monkeypatch.setattr(adapter, "populate_for_review", fake_populate)
+
+    response = client.post("/overview/populate", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert called["path"] == project_dir.resolve()
+    assert called["materialize_local_sources"] is True
+    assert called["gpt_drafting"] is False

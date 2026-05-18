@@ -9,10 +9,17 @@ import pytest
 from shapely.geometry import LineString, Point, Polygon
 
 from review_assist.cli import main
+from review_assist.comparison_units import build_comparison_units
 from review_assist.constraints import analyze_constraints
+from review_assist.deliverable_constraints import analyze_comparison_unit_constraints
+from review_assist.deliverable_figures import generate_deliverable_figures
+from review_assist.deliverable_items import generate_deliverable_items
+from review_assist.deliverable_tables import generate_deliverable_tables
+from review_assist.evidence_package import build_evidence_package
 from review_assist.populate_for_review import populate_for_review
 from review_assist.project_context import generate_project_context
 from review_assist.report_sections import generate_report_sections
+from review_assist.review_queue import generate_review_queue
 from review_assist.source_catalog import load_project_source_registry
 from review_assist.source_inventory import generate_source_inventory
 from review_assist.source_materialization import (
@@ -21,6 +28,7 @@ from review_assist.source_materialization import (
     materialize_local_source,
     materialize_local_sources,
 )
+from review_assist.source_status import resolve_source_status_set
 from review_assist.tables import generate_comparison_tables
 
 
@@ -442,6 +450,91 @@ def test_materializer_preserves_existing_reviewer_local_source_without_replace(t
     registered = load_project_source_registry(project_dir).by_source_id()["usfws_nwi_wetlands"]
     assert registered.path == "existing.geojson"
     assert existing_path.exists()
+
+
+def test_materializer_registers_existing_project_layer_without_replace(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    existing_output = project_dir / "layers" / "usfws_nwi_wetlands" / "usfws_nwi_wetlands.geojson"
+    existing_output.parent.mkdir(parents=True)
+    write_layer(existing_output, [{"ATTRIBUTE": "Freshwater Pond", "NWI_ID": "nwi-1"}], [wetland_polygon()])
+    (project_dir / "config" / "sources.json").write_text(
+        json.dumps(
+            {
+                "project_id": "test_project",
+                "sources": [
+                    {
+                        "source_id": "usfws_nwi_wetlands",
+                        "enabled": False,
+                        "access_method": "local_file",
+                        "path": None,
+                        "role": "wetland_and_waterbody_screening",
+                        "buffer_feet": None,
+                        "notes": "Stale path-null registry entry.",
+                        "status": "candidate_needs_local_layer",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = write_config(tmp_path / "materializers.json", [materializer_entry("usfws_nwi_wetlands", tmp_path / "missing.geojson")])
+
+    result = materialize_local_source(project_dir, "usfws_nwi_wetlands", config_path=config_path)
+
+    assert result["materialized_count"] == 1
+    assert result["registered_existing_count"] == 1
+    assert result["sources"][0]["status"] == "registered_existing_output"
+    assert result["sources"][0]["feature_count"] == 1
+    registered = load_project_source_registry(project_dir).by_source_id()["usfws_nwi_wetlands"]
+    assert registered.enabled is True
+    assert registered.status == "local_materialized"
+    assert registered.path == "layers/usfws_nwi_wetlands/usfws_nwi_wetlands.geojson"
+    assert existing_output.exists()
+
+
+def test_existing_project_layer_recovery_feeds_deliverable_pipeline(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    existing_output = project_dir / "layers" / "usfws_nwi_wetlands" / "usfws_nwi_wetlands.geojson"
+    existing_output.parent.mkdir(parents=True)
+    write_layer(
+        existing_output,
+        [{"ATTRIBUTE": "Freshwater Pond", "WETLAND_TYPE": "Freshwater Pond", "NWI_ID": "nwi-1"}],
+        [wetland_polygon()],
+    )
+    config_path = write_config(tmp_path / "materializers.json", [materializer_entry("usfws_nwi_wetlands", tmp_path / "missing.geojson")])
+
+    materialize_local_sources(project_dir, config_path=config_path)
+    source_status = resolve_source_status_set(project_dir)
+    constraints = analyze_constraints(project_dir)
+    build_comparison_units(project_dir)
+    comparison_constraints = analyze_comparison_unit_constraints(project_dir)
+    tables = generate_deliverable_tables(project_dir)
+    figures = generate_deliverable_figures(project_dir)
+    build_evidence_package(project_dir)
+    items = generate_deliverable_items(project_dir, gpt_drafting=False)
+    queue = generate_review_queue(project_dir)
+
+    wetlands_status = next(status for status in source_status["statuses"] if status["category"] == "wetlands_waterbodies")
+    assert wetlands_status["status"] == "provided_locally"
+    assert wetlands_status["local_paths"] == [str(existing_output.resolve())]
+    assert constraints["constraint_count"] > 0
+    assert comparison_constraints["constraint_count"] > 0
+    wetlands_table = next(table for table in tables["tables"] if table["table_id"] == "table-wetlands-waterbodies")
+    assert wetlands_table["rows"]
+    assert "usfws_nwi_wetlands" in wetlands_table["source_refs"]
+    wetlands_figure = next(figure for figure in figures["figures"] if figure["figure_id"] == "figure-wetlands-waterbodies")
+    assert wetlands_figure["image_path"]
+    figure_path = Path(wetlands_figure["image_path"])
+    if not figure_path.is_absolute():
+        figure_path = project_dir / figure_path
+    assert figure_path.exists()
+    wetlands_item = next(item for item in items["items"] if item["deliverable_item_id"] == "wetlands-and-waterbodies")
+    assert "usfws_nwi_wetlands" in wetlands_item["source_refs"]
+    queue_item = next(item for item in queue["items"] if item["id"] == "wetlands-and-waterbodies")
+    assert "usfws_nwi_wetlands" in queue_item["source_refs"]
+    assert "Empty stub for future implements whenever source data is accessible." not in queue_item["generated_content"]
 
 
 def test_missing_warehouse_files_warn_in_all_source_mode_and_fail_single_source_mode(tmp_path: Path) -> None:

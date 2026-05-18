@@ -3,13 +3,20 @@
   "sources": [
     {
       "source_id": "usfws_nwi_wetlands",
-      "enabled": false,
+      "enabled": true,
       "access_method": "local_file",
-      "path": null,
+      "path": "layers/usfws_nwi_wetlands/usfws_nwi_wetlands.geojson",
       "role": "wetland_and_waterbody_screening",
       "buffer_feet": null,
       "notes": "Register local NWI export when available.",
-      "status": "candidate_needs_local_layer"
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "National Wetlands Inventory",
+        "attribution": "U.S. Fish and Wildlife Service",
+        "source_url": "https://www.fws.gov/program/national-wetlands-inventory/data-download",
+        "review_notes": "NWI is screening-level data and does not define jurisdictional wetland boundaries.",
+        "data_authenticity": "real"
+      }
     },
     {
       "source_id": "usgs_nhd_hydrography",
@@ -19,7 +26,8 @@
       "role": "stream_crossing_screening",
       "buffer_feet": null,
       "notes": "Register local hydrography export when available.",
-      "status": "candidate_needs_local_layer"
+      "status": "candidate_needs_local_layer",
+      "metadata": {}
     },
     {
       "source_id": "mrlc_nlcd_land_cover",
@@ -29,17 +37,25 @@
       "role": "land_cover_and_disturbance_context",
       "buffer_feet": null,
       "notes": "Register local vectorized or project-ready land cover layer when available.",
-      "status": "candidate_needs_local_layer"
+      "status": "candidate_needs_local_layer",
+      "metadata": {}
     },
     {
       "source_id": "usda_nrcs_ssurgo_soils",
-      "enabled": false,
+      "enabled": true,
       "access_method": "local_file",
-      "path": null,
+      "path": "layers/usda_nrcs_ssurgo_soils/usda_nrcs_ssurgo_soils.geojson",
       "role": "soil_context",
       "buffer_feet": null,
       "notes": "Register local SSURGO or Web Soil Survey export when available.",
-      "status": "candidate_needs_local_layer"
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "SSURGO / Web Soil Survey",
+        "attribution": "USDA Natural Resources Conservation Service",
+        "source_url": "https://www.nrcs.usda.gov/resources/data-and-reports/web-soil-survey",
+        "review_notes": "Soil map units are screening-level context and may not represent exact field boundaries.",
+        "data_authenticity": "real"
+      }
     },
     {
       "source_id": "fema_nfhl_flood_hazard",
@@ -49,7 +65,127 @@
       "role": "secondary_flood_context",
       "buffer_feet": null,
       "notes": "Optional secondary source; not a first-pass driver for the current trail prototype.",
-      "status": "secondary_optional"
+      "status": "secondary_optional",
+      "metadata": {}
+    },
+    {
+      "source_id": "usfws_critical_habitat",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/usfws_critical_habitat/usfws_critical_habitat.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "USFWS Critical Habitat",
+        "attribution": "U.S. Fish and Wildlife Service",
+        "source_url": "https://ecos.fws.gov/ecp/",
+        "review_notes": "Critical habitat GIS is screening context, not the legal boundary source, not a project species list, and not a replacement for IPaC or agency consultation.",
+        "data_authenticity": "real"
+      }
+    },
+    {
+      "source_id": "mdot_transportation_context",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/mdot_transportation_context/mdot_transportation_context.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "MDOT / Local Transportation Context",
+        "attribution": "Mississippi Department of Transportation and local agencies",
+        "source_url": "",
+        "review_notes": "Recent projects, ROW, and design plans may require reviewer-supplied files.",
+        "data_authenticity": "real"
+      }
+    },
+    {
+      "source_id": "local_utility_infrastructure",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/local_utility_infrastructure/local_utility_infrastructure.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "Local Utility and Infrastructure Sources",
+        "attribution": "Local governments, utility providers, and authoritative infrastructure sources",
+        "source_url": "",
+        "review_notes": "Public utility data may be incomplete or intentionally generalized.",
+        "data_authenticity": "real"
+      }
+    },
+    {
+      "source_id": "maris_boundary_context",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/maris_boundary_context/maris_boundary_context.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "MARIS Administrative and Physical Boundary Context",
+        "attribution": "Mississippi Automated Resource Information System",
+        "source_url": "https://maris.mississippi.edu/",
+        "review_notes": "Boundary context is used for project location and report context only; source currency and official boundary use should be checked before final reporting.",
+        "data_authenticity": "real"
+      }
+    },
+    {
+      "source_id": "maris_public_cultural_context",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/maris_public_cultural_context/maris_public_cultural_context.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "MARIS Public Cultural and Tribal Context",
+        "attribution": "Mississippi Automated Resource Information System and source agencies",
+        "source_url": "https://maris.mississippi.edu/",
+        "review_notes": "Public cultural layers do not include restricted archaeological records and do not replace qualified cultural resources review or agency consultation.",
+        "data_authenticity": "real"
+      }
+    },
+    {
+      "source_id": "maris_community_facilities",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/maris_community_facilities/maris_community_facilities.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "MARIS Community Facilities and Places",
+        "attribution": "Mississippi Automated Resource Information System and source agencies",
+        "source_url": "https://maris.mississippi.edu/",
+        "review_notes": "Community facility and place layers are screening context and may not reflect current facilities, emergency service coverage, or local planning determinations.",
+        "data_authenticity": "real"
+      }
+    },
+    {
+      "source_id": "maris_conservation_recreation_lands",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/maris_conservation_recreation_lands/maris_conservation_recreation_lands.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "MARIS Conservation and Recreation Lands",
+        "attribution": "Mississippi Automated Resource Information System and source agencies",
+        "source_url": "https://maris.mississippi.edu/",
+        "review_notes": "Public conservation, recreation, wildlife management, and easement boundaries are screening context and should be checked against current source-agency records before final use.",
+        "data_authenticity": "real"
+      }
     }
   ]
 }

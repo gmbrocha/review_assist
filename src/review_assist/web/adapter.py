@@ -308,7 +308,7 @@ def run_populate(project_dir: Path) -> dict[str, Any]:
 
     _write_run_status(project_dir, action="populate_for_review", status="started", message="Create Review Queue started.")
     try:
-        result = populate_for_review(project_dir, gpt_drafting=False)
+        result = populate_for_review(project_dir, materialize_local_sources=True, gpt_drafting=False)
     except PopulateForReviewError as exc:
         _write_run_status(
             project_dir,

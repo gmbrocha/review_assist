@@ -199,7 +199,8 @@ def _materialize(
         "analysis_bounds_path": str(project_dir / PROJECT_ANALYSIS_BOUNDS_PATH),
         "replace": replace,
         "source_count": len(sources),
-        "materialized_count": len([record for record in sources if record.get("status") == "materialized"]),
+        "materialized_count": len([record for record in sources if record.get("status") in {"materialized", "registered_existing_output"}]),
+        "registered_existing_count": len([record for record in sources if record.get("status") == "registered_existing_output"]),
         "skipped_count": len([record for record in sources if str(record.get("status", "")).startswith("skipped")]),
         "failed_count": len([record for record in sources if record.get("status") in {"failed", "missing_warehouse_source"}]),
         "status_counts": status_counts,
@@ -228,7 +229,7 @@ def _materialize_one(
     output_dir = (project_dir / MATERIALIZED_LAYERS_DIR / definition.source_id).resolve()
     output_path = output_dir / f"{definition.output_name}.geojson"
     if output_path.exists() and not replace:
-        return _skipped_existing_output_record(source_definition, output_path)
+        return _registered_existing_output_record(project_dir, source_definition, output_path)
 
     frames: list[gpd.GeoDataFrame] = []
     layer_records: list[dict[str, Any]] = []
@@ -729,6 +730,34 @@ def _skipped_existing_output_record(source_definition: SourceDefinition, output_
     }
 
 
+def _registered_existing_output_record(project_dir: Path, source_definition: SourceDefinition, output_path: Path) -> dict[str, Any]:
+    feature_count = _geojson_feature_count(output_path)
+    register_materialized_source(project_dir, source_definition.source_id, output_path)
+    issue = _issue(
+        "info",
+        "existing_materialized_output_registered",
+        "Existing project-local materialized output was registered for analysis without overwriting it.",
+        str(output_path),
+        source_id=source_definition.source_id,
+    )
+    return {
+        "source_id": source_definition.source_id,
+        "source_name": source_definition.name,
+        "source_category": source_definition.category,
+        "status": "registered_existing_output",
+        "data_authenticity": "real",
+        "access_method": "local_warehouse_materialization",
+        "output_path": str(output_path),
+        "feature_count": feature_count,
+        "checksum_sha256": _sha256(output_path),
+        "layers": [],
+        "source_url": source_definition.url,
+        "source_limitations": source_definition.known_limitations,
+        "validation_issues": [],
+        "warnings": [issue],
+    }
+
+
 def _missing_or_failed_record(
     source_definition: SourceDefinition,
     layer_records: list[dict[str, Any]],
@@ -779,6 +808,17 @@ def _record_issues(record: dict[str, Any]) -> list[dict[str, Any]]:
             if isinstance(issue, dict):
                 issues.append(dict(issue))
     return issues
+
+
+def _geojson_feature_count(path: Path) -> int:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SourceMaterializationError(f"Existing materialized source output is not readable GeoJSON: {path}: {exc}") from exc
+    features = data.get("features") if isinstance(data, dict) else None
+    if not isinstance(features, list):
+        raise SourceMaterializationError(f"Existing materialized source output must be a GeoJSON FeatureCollection: {path}")
+    return len(features)
 
 
 def _sha256(path: Path) -> str:

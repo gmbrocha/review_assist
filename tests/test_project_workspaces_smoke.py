@@ -53,6 +53,8 @@ def test_active_projects_populate_for_review(tmp_path: Path) -> None:
         isolated_project_dir = tmp_path / project_dir.name
         shutil.copytree(project_dir / "config", isolated_project_dir / "config")
         shutil.copytree(project_dir / "inputs", isolated_project_dir / "inputs")
+        if (project_dir / "layers").exists():
+            shutil.copytree(project_dir / "layers", isolated_project_dir / "layers")
 
         result = populate_for_review(isolated_project_dir, gpt_drafting=False)
         queue = load_review_queue(isolated_project_dir)
