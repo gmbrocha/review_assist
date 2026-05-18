@@ -1,3 +1,7 @@
+# Archived Notice
+
+This document is retained for historical context only. Active deliverable structure, table/figure inventory, attachment targets, and formatting guidance now live in `../../PLAN_REDIRECT_NEW.md`.
+
 # Deliverable Outline From Example Report
 
 Source document: `env_constraints_report_20260511_EXAMPLE_ONLY.docx`

@@ -1,3 +1,7 @@
+# Archived Notice
+
+This document is retained for historical context only. Active planning now lives in `../../PLAN_REDIRECT_NEW.md`.
+
 # Plan Redirect: Constraint Engine Plus Review Queue Plus Export
 
 ## Specific Goal

@@ -1,16 +1,245 @@
-# Plan Redirect New: Working Pipeline Notes
+# Canonical Plan Redirect: Review Assist Workflow
 
-This is a working discussion document. It does not replace `PLAN_REDIRECT.md` or `docs/WORKFLOW_MODEL.md` yet. Use it to collect pipeline decisions, compare them against the current implementation, and identify discussion items before changing architecture or workflow behavior.
+This is the canonical planning source for the current Review Assist implementation direction. It supersedes the older root planning documents for active planning; archived copies are retained only for historical context. If another active document duplicates or conflicts with this plan, this plan controls.
 
-Companion deliverable reference: `DELIVERABLE_OUTLINE.md`. Use that document as the current working source for the example deliverable shape, section/subsection structure, figure list, table list, table schemas, attachment expectations, and DOCX formatting target.
-
-Companion text-generation prompt reference: `REPORT_GEN_SYSTEM_PROMPT.md`. Use that document as the current working source for generic section prompts derived from the example report's structure, voice, and tone. It must not be treated as source evidence.
+`docs/WORKFLOW_MODEL.md` remains an important workflow model and should be aligned to this plan during implementation. When the two duplicate a current workflow decision, this plan is the source of truth unless a later approved decision updates it.
 
 The immediate product concern is that the current generated deliverable can become far too large, such as a 640-page package. The redirected workflow should identify the discrete deliverable items first, then generate only the source-backed items needed for those deliverables, with reviewer control over what enters export.
 
+## Canonical Source Hierarchy
+
+Active source hierarchy:
+
+- `PLAN_REDIRECT_NEW.md` is the canonical planning source.
+- Sprint documents are implementation breakdowns derived from this plan.
+- `docs/WORKFLOW_MODEL.md`, `docs/ARCHITECTURE.md`, `docs/REPORT_ASSEMBLY.md`, `docs/MAP_GENERATION.md`, and related docs should be updated as implementation changes land.
+- Archived planning documents under `docs/archive/` are retained for history and should not drive new work.
+- `env_constraints_report_20260511_EXAMPLE_ONLY.docx` remains the structural and visual target for generated deliverables, but it is not project evidence for future reports.
+
+Implementation precedence:
+
+- The deliverable shape, table/figure inventory, attachment inventory, formatting target, prompt rules, and review/export rules are all captured in this document.
+- Implementation should turn those canonical rules into machine-readable config, service artifacts, tests, and export behavior.
+- Any generated report content must use current project evidence only. Example-report language may guide structure, pacing, and voice, but not facts.
+
+## Canonical Deliverable And Style Contract
+
+Source model:
+
+- The example deliverable is an Environmental Constraints Report appendix-style package.
+- The generated package should follow the example report's section shape, figure/table inventory, attachment shape, and DOCX visual style.
+- The generated package should not copy example project facts, locations, counts, dates, agency outcomes, or conclusions.
+- Figure and table numbering should be assigned by the deliverable matrix, not copied from inconsistent example numbering.
+- Raw GIS relationship tables and raw source hits are evidence artifacts, not default report pages.
+
+Formatting target from the example report:
+
+- Page size: Letter, 8.5 in x 11 in.
+- Margins: 1.0 in top, bottom, left, and right.
+- Header distance: 0.5 in.
+- Footer distance: 0.5 in.
+- Usable content width: approximately 6.5 in.
+- Default body font: Calibri, 12 pt.
+- Default paragraph spacing after: 8 pt.
+- Default line spacing: approximately 1.16.
+- Cover title: Calibri Light, 20 pt, right aligned.
+- Cover subtitle: Calibri Light, 16 pt, bold, italic, right aligned, color `#0F4761`.
+- Main section headings: Lato, 20 pt, color `#0F4761`, numbered outline level 1.
+- Subsection headings: Lato, 14 pt, color `#0F4761`, numbered outline level 2.
+- Resource subsection headings: Lato, italic, color `#0F4761`, numbered outline level 3.
+- Alternative/detail subsection headings: italic, color `#4C94D8`, numbered outline level 4.
+- Captions: Calibri Light, 11 pt, italic, centered, color `#0E2841`, single spacing, 10 pt after.
+- Tables: Word `Table Grid` style, with consistent generated header emphasis.
+- Main map figures: target 6.5 in wide and approximately 4.1 in high.
+- Footer: current project name, report title, and page number where practical.
+
+Front matter:
+
+- Cover/title page:
+  - Planning and Environmental Linkage Study for the current project name.
+  - Project route/location line.
+  - Appendix A: Environmental Constraints Report.
+  - Report date.
+  - Project number or identifier when available.
+  - County/counties and state.
+- List of figures.
+- List of tables.
+- List of attachments.
+
+List of figures, in canonical report order:
+
+| Figure | Title |
+| --- | --- |
+| Figure 1 | Wetlands and Waterbodies in and near the Study Corridor |
+| Figure 2 | FEMA Flood Zones in and near the Study Corridor |
+| Figure 3 | Streams and 303(d) Impaired Waters within the Subwatersheds of the Study Corridor |
+| Figure 4 | Cultural Resources Sites in or near the Study Corridor |
+| Figure 5 | Fire Stations in or near the Study Corridor |
+| Figure 6 | Government Offices near the Study Corridor |
+| Figure 7 | Schools and Childcare Facilities in or near the Study Corridor |
+| Figure 8 | Health Care Facilities near the Study Corridor |
+| Figure 9 | Places of Worship in or near the Study Corridor |
+| Figure 10 | Public Water Supply Wells near the Study Corridor |
+| Figure 11 | Energy Infrastructure near the Study Corridor |
+| Figure 12 | Hazardous Waste Sites near the Study Corridor |
+| Figure 13 | Census Tracts along the Study Corridor |
+
+List of tables, in canonical report order:
+
+| Table | Title | Section | Columns |
+| --- | --- | --- | --- |
+| Table 1 | Descriptions of Wetlands and Waterbodies Present within the Study Corridor | 3.1.1 Wetlands and Waterbodies | Alternative; Stream Crossings; Freshwater Emergent Wetland; Freshwater Forested/Shrub Wetland; Freshwater Pond |
+| Table 2 | FEMA Flood Zones within the Study Corridor | 3.1.2 Floodplains and Floodways | Alternative; Flood Zone Classification; Estimated Acreage |
+| Table 3 | Income Demographics of Census Tracts along the Study Corridor | 3.6.1 Demographic Characteristics | Census Tract; Population Below the Poverty Line |
+| Table 4 | Demographic Composition of Census Tracts along the Study Corridor | 3.6.1 Demographic Characteristics | Geography; Black or African American; Asian; White |
+
+Attachment targets:
+
+- Attachment A: Environmental Constraints Maps.
+- Attachment B: Hazardous Materials Report.
+- Attachment C: Agency Consultation Letters.
+
+Canonical section outline:
+
+- Executive Summary.
+- 1. Introduction.
+- 1.1 Relationship with the PEL Study.
+- 1.2 Study Area.
+- 2. Methodology.
+- 2.1 Data Collection and Sources.
+- 2.2 Mapping and Analysis Procedures.
+- 2.3 Limitations and Data Gaps.
+- 3. Environmental Constraints Inventory.
+- 3.1 Natural and Ecological Resources.
+- 3.1.1 Wetlands and Waterbodies.
+- Dynamic 3.1.1.x comparison-unit subsections under wetlands and waterbodies.
+- 3.1.2 Floodplains and Floodways.
+- 3.1.3 Water Quality.
+- 3.1.4 Protected Species and Critical Habitat.
+- 3.2 Cultural and Historic Resources.
+- 3.2.1 Archaeological Sites.
+- 3.2.2 Historic Structures and Districts.
+- 3.3 Community Resources.
+- 3.3.1 Fire/EMS Stations.
+- 3.3.2 Government Buildings.
+- 3.3.3 Education Facilities.
+- 3.3.4 Health Care Facilities.
+- 3.3.5 Places of Worship.
+- 3.3.6 Parks and Recreation Areas.
+- 3.4 Utility and Infrastructure Considerations.
+- 3.4.1 Public Water Supply.
+- 3.4.2 Utility Infrastructure.
+- 3.4.3 Energy Infrastructure.
+- 3.4.4 Airports.
+- 3.5 Contamination Risks.
+- 3.5.1 Hazardous Materials Sites.
+- 3.5.2 Oil Wells.
+- 3.6 Socioeconomic and Business Considerations.
+- 3.6.1 Demographic Characteristics.
+- 3.6.2 Local Businesses and Economic Nodes.
+- 4. Conclusion and Next Steps.
+- Attachment A: Project Maps / Environmental Constraints Maps.
+- Attachment B: Hazardous Materials Report.
+- Attachment C: Agency Consultation Letters.
+
+Section target notes:
+
+- Executive Summary: generated last from reviewed/generated section summaries, tables, figures, source gaps, and caveats. Keep concise and objective.
+- 1 Introduction: explain the report's screening role and current project context without final impact conclusions.
+- 1.1 Relationship with the PEL Study: describe the report as a planning appendix or supporting screening document. If no formal PEL context exists, use generic broader planning language.
+- 1.2 Study Area: use project bbox, county names, termini or service-area labels, comparison-unit names, and available overview/basemap context.
+- 2 Methodology: describe input geometry, source layers, deterministic GIS checks, table/figure generation, and human review.
+- 2.1 Data Collection and Sources: summarize GIS layers, agency/public data, aerial imagery, reviewer-supplied material, and source gaps.
+- 2.2 Mapping and Analysis Procedures: document KMZ parsing, comparison-unit creation, bbox/source clipping, buffers, CRS, measurements, overlays, and map production.
+- 2.3 Limitations and Data Gaps: concise caveats for screening limitations, missing/manual/restricted sources, stale sources, and field-verification needs.
+- 3 Environmental Constraints Inventory: introduce the resource-by-resource organization and comparison-unit basis.
+- 3.1 Natural and Ecological Resources: bridge into wetlands/waterbodies, floodplains/floodways, water quality, and protected species/critical habitat.
+- 3.1.1 Wetlands and Waterbodies: use Table 1 and Figure 1; summarize wetland/waterbody categories and stream crossings by comparison unit.
+- Dynamic 3.1.1.x subsections: one concise wetlands/waterbodies paragraph per comparison unit.
+- 3.1.2 Floodplains and Floodways: use Table 2 and Figure 2; store acreage by comparison unit and flood classification, using the configured line buffer for line alternatives.
+- 3.1.3 Water Quality: use hydrography, stream, subwatershed, impaired-water, and 303(d) evidence; reference Figure 3.
+- 3.1.4 Protected Species and Critical Habitat: separate GIS-checkable critical habitat from IPaC, state heritage, and agency/manual review.
+- 3.2 Cultural and Historic Resources: use Figure 4 when public cultural context is available; keep restricted archaeology and MDAH/SHPO review gated/manual.
+- 3.2.1 Archaeological Sites: use only available public or reviewer-approved evidence; do not expose sensitive records.
+- 3.2.2 Historic Structures and Districts: use public historic resource context and reviewed eligibility/status fields when available.
+- 3.3 Community Resources: introduce fire/EMS, government, education, health care, worship, parks, and recreation without final social impact conclusions.
+- 3.3.1 Fire/EMS Stations: use Figure 5.
+- 3.3.2 Government Buildings: use Figure 6.
+- 3.3.3 Education Facilities: use Figure 7.
+- 3.3.4 Health Care Facilities: use Figure 8.
+- 3.3.5 Places of Worship: use Figure 9.
+- 3.3.6 Parks and Recreation Areas: generate from available park/recreation/conservation evidence or create the required stub.
+- 3.4 Utility and Infrastructure Considerations: describe water supply, utilities, energy infrastructure, and aviation constraints without claiming utility conflicts unless supported.
+- 3.4.1 Public Water Supply: use Figure 10.
+- 3.4.2 Utility Infrastructure: use utility/corridor/crossing evidence and relevant figure context when available.
+- 3.4.3 Energy Infrastructure: use Figure 11.
+- 3.4.4 Airports: generate from aviation evidence or create the required stub.
+- 3.5 Contamination Risks: introduce regulated facilities, cleanup sites, USTs, contamination, hazardous materials, and oil/gas context as screening-level topics.
+- 3.5.1 Hazardous Materials Sites: use Figure 12 and Attachment B when reviewed support material exists.
+- 3.5.2 Oil Wells: generate from oil/gas well evidence or create the required stub.
+- 3.6 Socioeconomic and Business Considerations: introduce demographic and economic context without final EJ, equity, or economic impact conclusions.
+- 3.6.1 Demographic Characteristics: use Figure 13, Table 3, and Table 4.
+- 3.6.2 Local Businesses and Economic Nodes: generate from business/economic node evidence or create the required stub.
+- 4 Conclusion and Next Steps: summarize objective constraint themes and future coordination/review needs without ranking or recommending alternatives.
+- Attachments: include only reviewed/accepted attachment content or the required stub.
+
+Required stub text:
+
+`Empty stub for future implements whenever source data is accessible.`
+
+All current-profile section, table, figure, and attachment targets are mandatory review targets. Missing, inaccessible, gated, or unimplemented data creates a stub review item using the exact required stub text. Missing source categories do not block review queue creation.
+
+## Canonical Report-Generation Prompt Contract
+
+Global prompt rules:
+
+- Draft pre-review Environmental Constraints Report content for a project screening workflow.
+- Use the example report only for structure, voice, pacing, section organization, and formatting expectations.
+- Do not reuse example project facts, place names, counts, dates, agencies contacted, conclusions, or source-specific findings unless those facts are explicitly present in the current project evidence package.
+- Use only the provided current-project evidence package.
+- Evidence may include comparison-unit summaries, generated tables, generated figures, source-backed constraint summaries, source status, source provenance, review assumptions, validation warnings, missing-source stubs, and reviewer instructions.
+- Write in a professional environmental planning style.
+- Keep language objective, screening-level, concise, and suitable for human review.
+- Do not rank alternatives.
+- Do not recommend an alternative.
+- Do not select, reject, approve, clear, or determine project impacts.
+- Do not claim field verification, jurisdictional determination, agency approval, final design, or final environmental clearance.
+- Reference only known table IDs, figure IDs, source IDs, attachment IDs, and comparison-unit names supplied in the evidence package.
+- If a relevant figure or table is provided, reference it naturally by assigned number.
+- If source data is missing or a section is unimplemented, use exactly: `Empty stub for future implements whenever source data is accessible.`
+- Prefer concise paragraphs over long lists.
+- Summarize patterns by comparison unit and resource category.
+- Treat raw GIS intersections as evidence inputs, not report paragraphs.
+- Preserve uncertainty, assumptions, data limitations, and reviewer-needed caveats.
+
+Section prompt intent:
+
+- Front matter prompts generate title, lists of figures, lists of tables, and lists of attachments from project metadata and reviewed matrix items only.
+- Executive Summary follows the example sequence: report purpose, natural/ecological themes, cultural/historic themes, community themes, demographic/socioeconomic themes, utility/infrastructure themes, contamination themes, and later-phase planning support.
+- Introduction prompts explain early screening purpose, current project type, comparison units, and support for later planning/design/coordination/review.
+- Relationship to PEL prompts describe the report as a planning appendix or supporting screening document, adapting to generic broader planning language when no formal PEL exists.
+- Study Area prompts use bbox, county names, termini/service-area labels, comparison-unit names, and available overview/basemap context.
+- Methodology prompts describe deterministic GIS/source checks, source layering, mapping, buffering, CRS/measurement assumptions, and human review.
+- Data Collection prompts summarize source categories and provenance without inventing source dates or agency outcomes.
+- Mapping and Analysis prompts explain KMZ parsing, comparison-unit creation, source selection/clipping, overlays, buffers, and table/figure generation.
+- Limitations prompts keep source gaps, stale data, manual/restricted review, and field-verification caveats concise.
+- Inventory prompts organize constraints by resource category and comparison unit without treating review queue volume as an impact metric.
+- Wetlands/waterbodies prompts use stream crossing counts, NWI/wetland category mappings, Table 1, and Figure 1; they must not state jurisdictional determinations.
+- Alternative-detail prompts summarize only the named comparison unit's evidence and must not repeat full tables or rank alternatives.
+- Floodplain prompts use FEMA/NFHL classification, corridor buffer assumptions, acreage by classification, Table 2, and Figure 2; they must not claim final floodplain/floodway determinations.
+- Water quality prompts use hydrography, streams, subwatersheds, impaired waters, TMDL/303(d) evidence, and Figure 3 when available.
+- Protected species prompts distinguish critical habitat GIS, IPaC, state heritage/manual review, and agency consultation records.
+- Cultural prompts summarize public cultural/historic context and restricted/manual review status without exposing sensitive archaeology or claiming clearance.
+- Community prompts summarize fire/EMS, government, education, health care, places of worship, parks, and recreation with descriptive planning language.
+- Utility/infrastructure prompts summarize public water, utility, energy, transportation, and aviation evidence without claiming conflicts or relocations unless evidence supports that wording.
+- Contamination prompts summarize regulated facility, hazardous materials, cleanup, UST, and oil/gas context without final due diligence conclusions.
+- Socioeconomic prompts use Census/ACS table and figure evidence descriptively and avoid final EJ, equity, or economic impact conclusions.
+- Conclusion prompts summarize objective constraint themes and future coordination, source review, field verification, agency consultation, design review, and permitting needs supported by evidence.
+- Attachment prompts include accepted reviewed attachment content or the exact required stub.
+
 ## Carried-Forward Product Boundary
 
-These durable rules come forward from `PLAN_REDIRECT.md` and should remain true unless explicitly replaced by a later approved decision:
+These durable rules are part of the canonical plan and should remain true unless explicitly replaced by a later approved decision:
 
 - The product is a constraint engine plus a review queue plus an export compiler.
 - The product is not a recommendation engine.
@@ -29,7 +258,7 @@ These durable rules come forward from `PLAN_REDIRECT.md` and should remain true 
 
 Discussion items:
 
-- Older language in `PLAN_REDIRECT.md` mentions a local app and desktop GUI. The carried-forward product boundary remains valid, but the UI direction in this document supersedes the desktop GUI direction with a web-app-only direction.
+- Archived planning language mentions a local app and desktop GUI. The carried-forward product boundary remains valid, but the UI direction in this document supersedes the desktop GUI direction with a web-app-only direction.
 - Internal preview exports may still be useful for development, but they must remain clearly labeled as internal/pre-review and must not be the default user-facing report path.
 
 ## Current Baseline To Preserve
@@ -127,12 +356,23 @@ Carried-forward repo rules:
 - Add or update tests for behavior-changing implementation work.
 - Run the relevant test suite before committing or summarize why tests were not run.
 - Review docs for every code change and update affected docs in the same task.
-- Keep `docs/WORKFLOW_MODEL.md` as the canonical workflow truth model until a later approved update changes that.
+- Keep `docs/WORKFLOW_MODEL.md` aligned with this canonical plan.
+
+Sprint execution protocol:
+
+- Work through one sprint subunit at a time.
+- Before implementing a subunit, create and push a checkpoint commit of the current accepted state.
+- Implement the subunit only; do not opportunistically start the next subunit.
+- Run the relevant tests and smoke checks for the subunit.
+- Perform an audit/review pass and fix anything found.
+- Update affected documentation in the same work cycle.
+- Commit and push the completed subunit before moving to the next sprint subunit.
+- If a checkpoint, test run, audit fix, commit, or push is blocked, record the blocker and do not proceed to the next subunit until the user decides how to handle it.
 
 Discussion items:
 
-- `PLAN_REDIRECT_NEW.md` is currently a working discussion document. Once accepted, its decisions should be reconciled back into `PLAN_REDIRECT.md`, `docs/WORKFLOW_MODEL.md`, and related docs.
-- Future code changes should treat `DELIVERABLE_OUTLINE.md` as the human-readable source for the deliverable matrix until a machine-readable config is created.
+- `PLAN_REDIRECT_NEW.md` is the canonical planning source. Future implementation docs should be reconciled to it as behavior changes land.
+- Future code changes should treat this document's canonical deliverable and prompt contracts as the human-readable source until machine-readable configs are created.
 
 ## Known Gaps Brought Forward
 
@@ -178,7 +418,9 @@ Discussion items:
 - Decide whether non-KMZ support remains available but secondary, or whether the UI should block populate-for-review until a KMZ is present.
 - Add a validation step that reports: KMZ present, geometry parsed, geometry role inferred or reviewer-confirmed, analysis bounds created, and required source categories resolved.
 
-## Web App UI Direction
+## Sprint 4: Web App UI Direction
+
+This section belongs to Sprint 4 only. It is intentionally out of scope for Sprints 1 through 3, which should remain focused on non-UI pipeline, constraints, review queue, export, and DOCX behavior.
 
 Planned workflow:
 
@@ -237,7 +479,7 @@ Current pipeline check:
 
 - Current implementation is service/CLI-first.
 - No production UI exists.
-- Older docs refer to a desktop app or desktop GUI direction.
+- Archived docs may refer to a desktop app or desktop GUI direction.
 - The backend already has service boundaries that can support a future web app.
 - Current review queue services already support row-like item listing and item updates, but not a web detail view.
 - Current export services already support DOCX output, but default export behavior must be changed to enforce the review-complete gate for the working web-app flow.
@@ -248,7 +490,7 @@ Discussion items:
 - Decide whether the first web app runs only locally or supports remote/multi-user deployment.
 - Decide how web uploads map to `projects/<project_id>/inputs/`.
 - Decide how generated artifacts under ignored project folders are exposed for preview/download.
-- Update older docs later when this working decision is accepted, especially references to desktop GUI or PyInstaller packaging.
+- Treat any remaining desktop GUI or PyInstaller packaging references in archived docs as historical only.
 - Decide the exact pipeline trigger label: `Create Review Queue`, `Build Review Queue`, or similar.
 - Decide whether file classification is required before enabling `Create Review Queue`, or whether the backend can infer obvious types and ask only for ambiguous files.
 
@@ -323,7 +565,7 @@ Planned workflow:
 - Reviewer review happens at the output layer: report sections, summary tables, figures, caveats, and selected evidence. The reviewer should not have to accept or reject every raw intersection record.
 - Every constraint run should save enough metadata for later text, table, and figure generation.
 - Runtime metadata should preserve comparison unit, source category, source ID/name, source feature labels or types, relationship type, measurements, buffer assumptions, analysis CRS, source path/provenance, uncertainty flags, and any validation warnings.
-- Runtime metadata must be sufficient to populate the section/table/figure needs identified in `DELIVERABLE_OUTLINE.md`.
+- Runtime metadata must be sufficient to populate the section/table/figure needs identified in this document's canonical deliverable contract.
 - Raw intersection records remain available as evidence, but the standard workflow uses them to create compact section-level deliverables.
 
 Current pipeline check:
@@ -355,11 +597,11 @@ Planned workflow:
 - Maps should be identified by figure number and tied to their report section/header.
 - The example deliverable should be used to identify which sections expect tables and which sections expect figures.
 - This example-derived section/table/figure information should be stored beforehand as a static config file, not inferred ad hoc during every run.
-- `DELIVERABLE_OUTLINE.md` is the current human-readable source for this static config.
+- This document's canonical deliverable contract is the current human-readable source for this static config.
 - Report section generation should reference the generated table and figure IDs rather than independently inventing content.
 - If a section has no source-backed content, it should receive concise caveat or no-data language rather than a long placeholder section.
 - Standard report generation should wait until section text inputs, table inputs, and figure inputs are ready.
-- For the current working profile, every section, subsection, table, figure, and attachment target in `DELIVERABLE_OUTLINE.md` is mandatory as a review item.
+- For the current working profile, every section, subsection, table, figure, and attachment target in this document's canonical deliverable contract is mandatory as a review item.
 - If source data is not accessible or not implemented yet, still create the required section/subsection/table/figure/attachment review item as a stub with this exact statement: `Empty stub for future implements whenever source data is accessible.`
 
 Current pipeline check:
@@ -410,7 +652,7 @@ Current pipeline check:
 - Optional GPT-backed report section drafting already exists when `GPT_DRAFTING=1`.
 - Current GPT drafting receives structured evidence bundles and deterministic baseline copy.
 - Current guardrails reject unknown cited IDs and prohibited recommendation/final-determination language.
-- Current prompt path is not yet driven by a complete static deliverable matrix from `DELIVERABLE_OUTLINE.md`.
+- Current prompt path is not yet driven by a complete static deliverable matrix derived from this canonical plan.
 - Current section drafting may occur before section-level table/figure packages are fully coherent.
 
 Discussion items:
@@ -427,7 +669,7 @@ Discussion items:
 Planned workflow:
 
 - Before runtime report generation, the system should know the expected report headers, subsection headers, text needs, table needs, and figure needs from a static deliverable matrix derived from the example deliverable.
-- The current working human-readable source for this matrix is `DELIVERABLE_OUTLINE.md`.
+- This document's canonical deliverable contract is the current working human-readable source for this matrix.
 - The static matrix should define the section path, title, generated text requirement, table definitions, figure definitions, required source categories, optional source categories, aggregation rules, and fallback caveat behavior.
 - Runtime processing should fill this matrix from stored constraint metadata.
 - Report generation should happen only after the section matrix has populated text inputs, table inputs, and figure inputs or clear caveats for missing/unavailable sources.
@@ -439,7 +681,7 @@ Current pipeline check:
 - `config/report_section_templates.json` already defines section IDs, titles, visual slots, and table slots.
 - It does not yet define exact table schemas, section numbering, figure numbering, or aggregation rules from the example deliverable.
 - Current table generation has source-specific summary tables, but it does not yet treat the example deliverable tables as strict output targets.
-- `DELIVERABLE_OUTLINE.md` now captures the example report outline, table schemas, figure inventory, attachment structure, and formatting target in a human-editable form.
+- This document now captures the example report outline, table schemas, figure inventory, attachment structure, and formatting target in a human-editable form.
 
 Discussion items:
 
@@ -737,7 +979,7 @@ Discussion items:
 - Resolved for now: point-heavy projects should compare style/color/service-area groups by default, not every individual point.
 - Resolved for now: deterministic GIS intersections can support generation as source-backed screening facts; reviewer attention should focus on the generated section/table/figure outputs rather than every raw intersection record.
 - Resolved for now: report generation should wait until section text, table, and figure inputs are ready.
-- Resolved for now: `DELIVERABLE_OUTLINE.md` is the working reference for deliverable shape, expected tables/figures, attachments, and formatting.
+- Resolved for now: this canonical plan is the working reference for deliverable shape, expected tables/figures, attachments, and formatting.
 - Resolved for now: example report text may guide GPT structure and voice, but its project-specific content must not be reused as facts.
 - Resolved for now: for the current working profile, every item in the example-report deliverable outline is mandatory as a review target. Items without source data or implementation become stubs with this exact statement: `Empty stub for future implements whenever source data is accessible.`
 - Resolved for now: no source category should block generation right now. Missing/unimplemented source categories create required stubs, and the blocking rules can be revisited later.

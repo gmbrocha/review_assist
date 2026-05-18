@@ -31,4 +31,4 @@ Current implementation scope:
 - Populate-for-review orchestration and run manifest generation.
 - CLI entrypoints for project inspection and workflow artifact generation.
 
-Do not put GUI callback logic here. Future desktop UI code should call service modules rather than owning workflow logic directly.
+Do not put UI callback logic here. Future web app UI code should call service modules rather than owning workflow logic directly.

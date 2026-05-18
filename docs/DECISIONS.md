@@ -40,17 +40,17 @@ The system may document future integration points and reviewer-supplied workflow
 
 GPT/LLM calls may assist with narrative, summaries, implications, uncertainty phrasing, and sanity checks, but deterministic GIS/source analysis must remain separate and source-backed. The first implemented use is report-section draft copy from structured evidence only.
 
-### 2026-05-14: The desktop app review queue is the spine
+### 2026-05-14: The product review queue is the spine
 
-The first GUI version should treat the review queue as the core domain model. Generated findings, section drafts, maps, tables, provenance notes, assumptions, and caveats must become reviewable items before export.
+The UI should treat the review queue as the core domain model. Generated findings, section drafts, maps, tables, provenance notes, assumptions, and caveats must become reviewable items before export.
 
-### 2026-05-14: The desktop GUI must stay thin over services
+### 2026-05-14: The UI must stay thin over services
 
-The PyInstaller desktop app should use a modular service architecture underneath the GUI so pipeline, GIS, findings, review, and export logic does not become trapped in callbacks.
+The future web app should use a modular service architecture underneath the UI so pipeline, GIS, findings, review, and export logic does not become trapped in route handlers or view callbacks.
 
 ### 2026-05-14: Phase 1 starts with services plus CLI
 
-Phase 1 implementation should build reusable ingestion/inspection services and a command-line entrypoint before GUI work, so the later desktop shell can sit on top of stable workflow logic.
+Phase 1 implementation should build reusable ingestion/inspection services and a command-line entrypoint before UI work, so the later web app can sit on top of stable workflow logic.
 
 ### 2026-05-14: Phase 1 project inputs are copied into project workspaces
 
@@ -78,7 +78,7 @@ Phase 2B produces reviewable spatial relationship records with source and method
 
 ### 2026-05-14: The canonical workflow is workspace driven
 
-The product workflow is now defined as workspace creation/opening, user-added inputs, project context generation, needed source resolution, populate for review, review queue, and accepted-content export. `docs/WORKFLOW_MODEL.md` is the canonical truth model for this workflow.
+The product workflow is now defined as workspace creation/opening, user-added inputs, project context generation, needed source resolution, populate for review, review queue, and accepted-content export. `PLAN_REDIRECT_NEW.md` is the canonical planning source, and `docs/WORKFLOW_MODEL.md` should stay aligned to it.
 
 ### 2026-05-14: Project context is a persistent artifact
 
@@ -90,7 +90,7 @@ Needed data categories should resolve to explicit statuses such as provided loca
 
 ### 2026-05-14: Populate for Review is the main generation action
 
-The future desktop workflow should expose a `Populate for Review` action that loads/acquires sources, clips data, runs deterministic checks, prepares imagery/basemaps, and generates findings, maps, tables, narrative drafts, caveats, and provenance notes as review queue items.
+The future web app workflow should expose a `Create Review Queue` action that loads/acquires sources, clips data, runs deterministic checks, prepares imagery/basemaps, and generates findings, maps, tables, narrative drafts, caveats, and provenance notes as review queue items.
 
 ### 2026-05-14: Exports compile reviewed content only
 
@@ -98,7 +98,7 @@ Export packages should compile accepted or explicitly included reviewed items. R
 
 ### 2026-05-14: Workflow artifacts use JSON for the current baseline
 
-Project context and source status set artifacts are stored as project-local JSON files. This keeps the workflow state inspectable while the review queue and desktop GUI requirements are still being clarified.
+Project context and source status set artifacts are stored as project-local JSON files. This keeps the workflow state inspectable while the review queue and web app requirements are still being clarified.
 
 ### 2026-05-14: Existing CLI commands remain backward-compatible
 
@@ -110,13 +110,13 @@ Each behavior-changing implementation phase should add or update tests for the s
 
 ### 2026-05-14: Review queue persistence uses JSON for the current baseline
 
-The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the GUI is still deferred. The baseline now defaults to a lean queue from deterministic draft findings, comparison tables, maps, report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues. Source inventory notes are opt-in for audit workflows. Queue items now carry export grouping metadata for Markdown assembly, but the queue itself does not generate final findings or reports.
+The first review queue implementation stores project-local review state at `projects/<project_id>/review_queue/review_queue.json`. This keeps generated review items inspectable while the web app UI is still deferred. The baseline now defaults to a lean queue from deterministic draft findings, comparison tables, maps, report sections, report-relevant missing-data placeholders, no-mapped checks, and validation issues. Source inventory notes are opt-in for audit workflows. Queue items now carry export grouping metadata for Markdown assembly, but the queue itself does not generate final findings or reports.
 
 ### 2026-05-14: Populate for Review starts as orchestration, not generation
 
 The first `populate-for-review` implementation coordinates current services and writes a project-local run manifest. It originally ran through review queue generation without maps or report sections; Phase 6C added vector-only map generation, Phase 6D added report section generation, the constraint-core slice added project geometry normalization plus first-class constraint analysis, the source-acquisition slice added opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL downloads, and the GPT/evidence slice added evidence packages plus optional GPT section drafting. It deliberately does not download public sources unless explicitly requested, render basemap/imagery-backed maps, create exports itself, or create recommendations.
 
-### 2026-05-14: Deterministic draft findings come before maps, reports, GUI, and LLM work
+### 2026-05-14: Deterministic draft findings come before maps, reports, UI, and LLM work
 
 Phase 6A converts source status records, first-class constraint result records when present, and legacy spatial relationship records when needed into cautious, template-driven draft finding records at `projects/<project_id>/findings/draft_findings.json`. Findings use deterministic IDs so review queue regeneration can preserve reviewer status and notes. These findings are review queue inputs, not final conclusions or report text.
 
@@ -138,7 +138,7 @@ The first export compiler writes `projects/<project_id>/exports/environmental_co
 
 ### 2026-05-15: MVP demo deliverable moves export from Markdown to DOCX package assembly
 
-The MVP export slice adds DOCX generation through `review-assist export-report --format docx|both` and an internal preview package command through `review-assist build-demo-deliverable`. Default export remains review-gated. The demo command uses `--include-draft` preview semantics, visibly labels output as not reviewed, and does not auto-accept or mutate review item statuses. PDF export, final template fidelity, and UI review screens remain deferred.
+The MVP export slice adds DOCX generation through `review-assist export-report --format docx|both` and an internal preview package command through `review-assist build-demo-deliverable`. Default export remains review-gated. The demo command uses `--include-draft` preview semantics, visibly labels output as not reviewed, and does not auto-accept or mutate review item statuses. PDF export, final template fidelity, and web app review screens remain deferred.
 
 ### 2026-05-15: MVP deliverables must prove real-data lineage
 
@@ -146,7 +146,7 @@ The real-data MVP path adds `review-assist build-mvp-deliverable`, which runs so
 
 ### 2026-05-15: MVP packages should render evidence inside the report body
 
-The MVP report package now treats tables and figures as report evidence, not only attachments. Export builds table/figure lookups from included review items and upstream artifacts, renders referenced tables and figures inline in their related report sections, tracks which artifacts were rendered to avoid duplicate full renderings, and records `mvp_quality` counts in export and deliverable manifests. Missing or unreadable table/map artifacts must create visible placeholders or validation warnings instead of silent omissions. This improves the client-showable preview package while leaving final template-grade DOCX layout, basemaps, PDF export, and UI review screens deferred.
+The MVP report package now treats tables and figures as report evidence, not only attachments. Export builds table/figure lookups from included review items and upstream artifacts, renders referenced tables and figures inline in their related report sections, tracks which artifacts were rendered to avoid duplicate full renderings, and records `mvp_quality` counts in export and deliverable manifests. Missing or unreadable table/map artifacts must create visible placeholders or validation warnings instead of silent omissions. This improves the client-showable preview package while leaving final template-grade DOCX layout, basemaps, PDF export, and web app review screens deferred.
 
 ### 2026-05-15: Failed source downloads must remain visible downstream
 

@@ -55,7 +55,7 @@ The review queue is the required control point before export. Findings, paragrap
 - Basemap or imagery acquisition workflows.
 - PDF export assembly pipelines.
 - Public source downloads beyond the explicit, opt-in NWI, USGS NHD, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL public downloaders.
-- Desktop GUI.
+- Web app UI.
 - UI-facing GPT review screens, prompt editing, or accepted-edit round-tripping. The backend has optional GPT section drafting only.
 - Basemap-backed, raster, panel-sheet, or final cartographic map rendering.
 - ML or computer vision detection.

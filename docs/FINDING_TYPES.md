@@ -48,7 +48,7 @@ Implemented draft finding records include:
   - This is the finding type, such as `wetland_or_waterbody_relationship`.
   - The older conceptual name `finding_type` is represented by `type` in the current JSON artifact.
   - Review queue items keep the original `finding_id` in item metadata.
-  - Future schema revisions may add aliases if the GUI needs them.
+  - Future schema revisions may add aliases if the UI needs them.
   - Do not treat this as final report wording.
 - `resource_category`
 - `title`

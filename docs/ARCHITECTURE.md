@@ -1,10 +1,10 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export packages, internal demo deliverable packages, real-data MVP deliverable guardrails, and populate-for-review orchestration. No production desktop app, final PDF export, template-grade DOCX layout, or production workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export packages, internal demo deliverable packages, real-data MVP deliverable guardrails, and populate-for-review orchestration. No production web app, final PDF export, template-grade DOCX layout, or production workflow exists yet.
 
-The canonical workflow model is `docs/WORKFLOW_MODEL.md`. This architecture should support that model without over-engineering it.
+The canonical planning source is `../PLAN_REDIRECT_NEW.md`. `docs/WORKFLOW_MODEL.md` should remain aligned to that plan without over-engineering the architecture.
 
-The system should stay modular enough to support multiple project types while avoiding premature complexity. The likely shape is a thin desktop shell over small services that pass structured workspace, project context, source status, geometry, review item, map, table, narrative, and export artifacts between each other.
+The system should stay modular enough to support multiple project types while avoiding premature complexity. The likely shape is a thin web app over small services that pass structured workspace, project context, source status, geometry, review item, map, table, narrative, and export artifacts between each other.
 
 ## Canonical Workflow Architecture
 
@@ -285,7 +285,7 @@ Findings are emitted as review queue items, not direct report content.
 Purpose:
 
 - Convert source status, constraint result, legacy spatial relationship, and draft finding artifacts into descriptive table artifacts.
-- Prepare structured table data for future maps, report exports, and GUI previews without producing final report content.
+- Prepare structured table data for future maps, report exports, and UI previews without producing final report content.
 - Avoid ranking, scoring, or preferred-alternative language.
 
 Current implementation:
@@ -423,13 +423,13 @@ Current implementation:
 - Source inventory/provenance records can be included explicitly for audit workflows with the `--include-source-inventory` flag.
 - Supports CLI listing and status/note/export-eligibility updates.
 - Supports downstream Markdown/DOCX export through review status and export eligibility.
-- Does not yet provide GUI review screens or reviewer-facing GPT controls.
+- Does not yet provide web app review screens or reviewer-facing GPT controls.
 
 ## Populate For Review Service
 
 Purpose:
 
-- Provide the service-level backend for the future desktop `Populate for Review` action.
+- Provide the service-level backend for the future web app `Create Review Queue` action.
 - Run current workflow steps in order: project context, project geometry normalization, optional local source materialization, optional source preparation, source status, source inventory, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, evidence package generation, report section generation, and lean review queue generation.
 - Write a run manifest with step statuses, artifact paths, warning records, constraint count, review queue item count for traceability only, and critical error text when a run fails.
 

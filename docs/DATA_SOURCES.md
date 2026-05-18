@@ -920,7 +920,7 @@ Future source registry or inventory records may also need:
 - How should source provenance be cited in draft findings?
 - How should stale, missing, restricted, or unavailable data be represented in findings?
 - Which sources should be automated first for the trails prototype?
-- What source download/cache location should the desktop app use?
+- What source download/cache location should the local web app workflow use?
 - Should the app ship with a starter registry of URLs or require project-specific source folders?
 - What level of Google Earth/Google Maps usage is permitted in draft or final deliverables?
 - How should IPaC reports be generated, stored, and cited?

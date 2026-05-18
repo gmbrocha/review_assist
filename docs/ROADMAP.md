@@ -2,7 +2,7 @@
 
 This roadmap is intentionally rough and may change as requirements are clarified.
 
-Before large implementation work, read `../PLAN_REDIRECT.md`. That document is the drift-control destination for the app: use the example environmental constraints report as the structural template and build the system to fill that template with source-backed constraints, visuals, reviewable copy, tables, caveats, and accepted export content.
+Before large implementation work, read `../PLAN_REDIRECT_NEW.md`. That document is the canonical drift-control destination for the app: use the example environmental constraints report as the structural template and build the system to fill that template with source-backed constraints, visuals, reviewable copy, tables, caveats, accepted export content, and the future web app direction.
 
 ## Core Product Shape: Constraint Engine Plus Review Queue
 
@@ -45,7 +45,7 @@ Status: complete for the current prototype baseline.
 
 Implementation defaults:
 
-- Services plus CLI first; no GUI work in this phase.
+- Services plus CLI first; no UI work in this phase.
 - GeoPandas is the standard geospatial dependency path.
 - Real KMZ inputs are copied into project `inputs/` folders while root originals remain as reference files.
 - Project manifests use JSON.
@@ -59,7 +59,7 @@ Implementation defaults:
 - Move or reference real KMZ inputs from project workspaces.
 - Standardize a geospatial Python dependency plan, likely including GeoPandas.
 
-Phase 1 remains limited to ingestion and geometry inspection. It does not generate findings, run source-layer spatial analysis, generate reports, implement a GUI, query external APIs, or decide preferred alternatives.
+Phase 1 remains limited to ingestion and geometry inspection. It does not generate findings, run source-layer spatial analysis, generate reports, implement UI, query external APIs, or decide preferred alternatives.
 
 ## Phase 2A: Source Catalog and Source Population
 
@@ -175,7 +175,7 @@ Current baseline:
 - `review-assist update-review-item <project_dir> <item_id> --status <status>`
 - JSON artifact at `projects/<project_id>/review_queue/review_queue.json`.
 
-The baseline defaults to a lean queue from deterministic draft findings, comparison tables, map figures, report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues. Source inventory/provenance notes are opt-in for audit workflows. Queue items now carry export-group metadata for report assembly and preserve GPT-drafted sections as reviewable items when GPT drafting is enabled. It does not yet provide GUI review screens.
+The baseline defaults to a lean queue from deterministic draft findings, comparison tables, map figures, report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues. Source inventory/provenance notes are opt-in for audit workflows. Queue items now carry export-group metadata for report assembly and preserve GPT-drafted sections as reviewable items when GPT drafting is enabled. It does not yet provide web app review screens.
 
 ## Phase 5: Populate for Review
 
@@ -200,7 +200,7 @@ Current baseline:
 - When `--materialize-local-sources` is combined with `--prepare-sources`, materialization runs before public download attempts so local warehouse data can satisfy source gaps.
 - `--include-optional-sources`, when paired with `--prepare-sources`, also downloads supported optional sources such as FEMA NFHL flood hazard.
 
-This baseline now includes vector-only map generation through Phase 6C, report section generation with deterministic and optional GPT drafting through Phase 6D, evidence package generation, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement GUI review screens, or render basemap/imagery-backed maps.
+This baseline now includes vector-only map generation through Phase 6C, report section generation with deterministic and optional GPT drafting through Phase 6D, evidence package generation, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C, but `populate-for-review` does not create exports itself, implement web app review screens, or render basemap/imagery-backed maps.
 
 ## Phase 6A: Deterministic Finding Templates
 

@@ -1,3 +1,7 @@
+# Archived Notice
+
+This document is retained for historical context only. Active report-generation prompt rules now live in `../../PLAN_REDIRECT_NEW.md`.
+
 # Report Generation System Prompts
 
 Purpose: define generic report-generation prompts based on the structure, tone, and section behavior of `env_constraints_report_20260511_EXAMPLE_ONLY.docx`.

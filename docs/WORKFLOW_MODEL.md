@@ -1,6 +1,6 @@
 # Workflow Model
 
-This document is the canonical workflow truth model for the Alternatives Review Assistant.
+This document is the aligned workflow model for the Alternatives Review Assistant. The canonical planning source is `../PLAN_REDIRECT_NEW.md`.
 
 The application is a local, workspace-oriented, human-supervised workflow accelerator. It is a source-aware report compiler and contextual review assistant. It is not a recommendation engine, black-box AI reviewer, autonomous environmental analyst, or final decision-maker.
 
@@ -12,7 +12,7 @@ The review queue is not an end in itself. A large number of generic review items
 
 ### 1. Open or Create Workspace
 
-The user opens the desktop app and creates or opens a workspace/project.
+The user opens the web app and creates or opens a workspace/project.
 
 The workspace is the persistent container for:
 
@@ -236,7 +236,7 @@ Current baseline:
 - `generate-review-queue` creates a lean JSON review queue from deterministic draft findings, comparison tables, map figures, report sections, report-relevant missing-data placeholders, and validation issues. Source inventory notes can still be included explicitly for audit/review workflows.
 - `list-review-queue` summarizes item status/type counts and item eligibility.
 - `update-review-item` supports status changes, reviewer notes, and export eligibility flags.
-- The baseline is still service/CLI only; GUI review screens, basemap/imagery maps, PDF export, reviewer-facing GPT controls, and final template-grade DOCX layout remain future work.
+- The baseline is still service/CLI only; web app review screens, basemap/imagery maps, PDF export, reviewer-facing GPT controls, and final template-grade DOCX layout remain future work.
 
 ## Export Compilation
 
@@ -275,7 +275,7 @@ Current baseline:
 
 ## Conceptual Service Boundaries
 
-The desktop GUI should remain thin over services.
+The future web app UI should remain thin over services.
 
 Conceptual modules:
 
