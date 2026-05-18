@@ -195,6 +195,7 @@ def _review_gate_fields(export_manifest: dict[str, Any]) -> dict[str, Any]:
         "stub_item_count": export_manifest.get("stub_item_count"),
         "unreviewed_items_preview": export_manifest.get("unreviewed_items_preview", []),
         "compactness_budget": export_manifest.get("compactness_budget", {}),
+        "final_verification": export_manifest.get("final_verification", {}),
     }
 
 

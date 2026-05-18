@@ -16,7 +16,8 @@ The system is not a recommendation engine, final environmental review, regulator
 - Completed: Sprint 2.3 Figures, Evidence, And Validation.
 - Completed: Sprint 3.1 Deliverable Items And Review Queue.
 - Completed: Sprint 3.2 Export Gate And Package Commands.
-- Active next implementation target: Sprint 3.3 DOCX Fidelity Docs And Final Verification.
+- Completed: Sprint 3.3 DOCX Fidelity Docs And Final Verification.
+- Active next implementation target: Sprint 4 Web App And Wiring.
 
 ## Active Architectural State
 
@@ -31,7 +32,8 @@ Implemented baseline:
 - Matrix-backed Sprint 2.3 deliverable figure generation at `projects/<project_id>/deliverable/figures.json`, with 13 exact main figure targets generated or stubbed from `config/deliverable_section_matrix.json`.
 - Matrix-backed Sprint 3.1 deliverable item generation at `projects/<project_id>/deliverable/deliverable_items.json`, including static report targets, dynamic wetlands/waterbodies comparison-unit child sections, deliverable table/figure/attachment items, prompt-contract metadata, source-gap validation summaries, and required stubs.
 - The standard review queue now consumes `deliverable_items.json` by default and creates one bounded review item per deliverable item. Legacy raw finding/table/map/spatial/source-inventory queue behavior remains available only through explicit audit mode.
-- Default reviewed-content export is gated by the standard bounded review queue. `export-report` without `--include-draft` blocks until every standard deliverable item is terminal or explicitly export-includable; `--include-draft` remains an internal/pre-review preview bypass. Export and package manifests record review gate status, review counts, matrix item counts, included table/figure/attachment IDs, stub counts, preview state, and a compactness budget for pre-DOCX/UI readiness checks.
+- Default reviewed-content export is gated by the standard bounded review queue. `export-report` without `--include-draft` blocks until every standard deliverable item is terminal or explicitly export-includable; `--include-draft` remains an internal/pre-review preview bypass. Export and package manifests record review gate status, review counts, matrix item counts, included table/figure/attachment IDs, stub counts, preview state, compactness budget, and final verification summary.
+- DOCX export now applies Sprint 3.3 baseline page setup, core Word styles, matrix-ordered headings, title/front-matter metadata, bounded editable table previews, figure captions/source/method notes, missing-figure placeholders, attachment ordering, and DOCX readability checks while preserving Markdown/DOCX compactness guardrails.
 - `deliverable_figures.py` remains the orchestration entry point; figure target specs, artifact validation, basemap sidecar loading, and rendering/layout helpers are split into focused `deliverable_figure_*` modules.
 - Report-facing comparison-unit constraint analysis at `projects/<project_id>/constraints/comparison_unit_constraints.json`; raw project-feature constraints remain available as evidence at `projects/<project_id>/constraints/constraint_results.json`.
 - `environmental_constraints_example` is the default profile for `alternatives_review`; `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use.
@@ -73,12 +75,12 @@ Important current artifacts:
 - No web app is implemented yet.
 - The canonical deliverable matrix validates and now drives exact deliverable table, figure, deliverable item, bounded review queue generation, review-complete export gating, and package manifest review-gate summaries.
 - The canonical prompt config validates and is wired into standard deliverable item section drafting payloads. Legacy `drafts/report_sections.json` remains available for compatibility/audit context.
-- Compactness regression tests protect the standard deliverable path from raw-artifact body dumps, unbounded table rendering, and overlong generated section content before Sprint 3.3 DOCX fidelity work begins.
+- Compactness and DOCX fidelity regression tests protect the standard deliverable path from raw-artifact body dumps, unbounded table rendering, overlong generated section content, malformed DOCX output, and missing final verification status.
 - Legacy `maps/map_manifest.json` remains a raw evidence/audit map manifest. Standard report-facing figures live in `deliverable/figures.json`.
 - NAIP/MARIS basemap provenance and renderability are recorded in `project_area.json` and source status detail. Deliverable figure rendering can use selected renderable sidecars, but local `.sid`-only imagery still produces vector-only figures or explicit stubs/warnings.
 - Comparison units are generated, recorded by populate orchestration, and used for report-facing constraint summaries, exact deliverable tables, exact deliverable figures, evidence refs, dynamic wetlands/waterbodies deliverable item sections, and matrix-backed export gating.
 - Census source setup and table stubbing/local-source table generation are implemented; live ACS API calls, TIGER download/acquisition, and full margin-of-error handling remain future work.
-- Sprint 3.3 still owns DOCX fidelity, final verification docs, and any final formatting polish. Sprint 3.2 did not implement PDF export, web/UI behavior, or new deliverable targets.
+- Sprint 3 is complete as the non-UI backend foundation for Sprint 4. Exact/pixel Word template fidelity, page-number fields, PDF export, and any web/UI behavior remain outside the completed Sprint 3 backend scope unless explicitly re-scoped.
 - Missing/gated/manual/stale/failed sources must remain visible and reviewable.
 
 ## Context Routing

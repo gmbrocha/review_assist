@@ -4,12 +4,10 @@ Root-level sprint docs remain the active working style for not-yet-implemented s
 
 ## Active Sprint/Subunit
 
-- Sprint 3.3: `SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
+- Sprint 4: `SPRINT_4_WEB_APP_AND_WIRING.md`
 
 ## Planned Sprint/Subunits
 
-- Sprint 3 overview: `SPRINT_3_REVIEW_EXPORT_AND_DOCX.md`
-- Sprint 3.3: `SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
 - Sprint 4: `SPRINT_4_WEB_APP_AND_WIRING.md`
 - Roadmap reference: `docs/sprints/ROADMAP.md`
 
@@ -35,10 +33,13 @@ Root-level sprint docs remain the active working style for not-yet-implemented s
   - Implemented matrix-backed deliverable item generation, dynamic wetlands/waterbodies comparison-unit child sections, prompt-contract-backed section drafting payloads, bounded default review queue generation, legacy/audit queue opt-in, expanded reviewer statuses, CLI/populate wiring, and focused tests.
 - Sprint 3.2 Export Gate And Package Commands: `docs/archive/sprints/SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`
   - Implemented review-complete default export gating from the standard bounded review queue, reviewed-content selection rules, structured CLI gate failures, preview bypass metadata, package manifest gate summaries, demo/MVP package behavior, and focused tests.
+- Sprint 3 Review Queue, Export Gate, And DOCX Fidelity: `docs/archive/sprints/SPRINT_3_REVIEW_EXPORT_AND_DOCX.md`
+  - Completed Sprint 3 across deliverable items, bounded review queue, terminal statuses, review-complete export gate, package manifests, compactness budget, DOCX fidelity, and final verification.
+- Sprint 3.3 DOCX Fidelity Docs And Final Verification: `docs/archive/sprints/SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
+  - Implemented baseline DOCX page setup/styles, title/front matter/body/attachment assembly, bounded editable table previews, figure placeholders/captions/source/method notes, manifest-level final verification, package-manifest propagation, docs, and focused/full verification.
 
 ## Deferred Work Linked To Sprints
 
 See `docs/governance/DEFERRED_WORK.md` for full detail.
 
-- Sprint 3.3: DOCX fidelity docs and final verification.
 - Sprint 4: no backend deferred item should be newly routed here by default; Sprint 4 should consume the resolved Sprint 2/3 service contracts through a thin UI.

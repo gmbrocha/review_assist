@@ -14,6 +14,8 @@ from .data_lineage import build_data_lineage
 from .deliverable_items import DeliverableItemsError, load_deliverable_items
 from .deliverable_matrix import REQUIRED_STUB_TEXT
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
+from .project_area import ProjectAreaError, load_project_area
+from .projects import ProjectManifestError, load_project_manifest
 from .review_queue import ReviewQueueError, generate_review_queue, load_review_queue
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 from .tables import TABLES_PATH, TableGenerationError, load_comparison_tables
@@ -26,6 +28,8 @@ EXPORT_DOCX_PATH = EXPORT_DIR / "environmental_constraints_report.docx"
 EXPORT_FIGURE_ASSETS_DIR = EXPORT_DIR / "assets" / "figures"
 SUPPORTED_OUTPUT_FORMATS = {"markdown", "docx", "both"}
 DOCX_TABLE_ROW_LIMIT = 50
+DELIVERABLE_TABLE_BODY_PREVIEW_LIMIT = 5
+EXPORT_BODY_CONTENT_WARNING_CHAR_LIMIT = 4000
 
 EXPORT_GROUP_ORDER = [
     "front_matter",
@@ -33,9 +37,17 @@ EXPORT_GROUP_ORDER = [
     "introduction",
     "methodology",
     "constraints_inventory",
-    "resource_sections",
+    "natural_ecological",
+    "cultural_historic",
+    "community_resources",
+    "utility_infrastructure",
+    "contamination",
+    "socioeconomic",
     "conclusion",
+    "tables",
+    "figures",
     "attachments",
+    "resource_sections",
 ]
 EXPORT_GROUP_TITLES = {
     "front_matter": "Front Matter",
@@ -43,14 +55,32 @@ EXPORT_GROUP_TITLES = {
     "introduction": "Introduction",
     "methodology": "Methodology",
     "constraints_inventory": "Environmental Constraints Inventory",
+    "natural_ecological": "Natural and Ecological Resources",
+    "cultural_historic": "Cultural and Historic Resources",
+    "community_resources": "Community Resources",
+    "utility_infrastructure": "Utility and Infrastructure Considerations",
+    "contamination": "Contamination Risks",
+    "socioeconomic": "Socioeconomic and Business Considerations",
     "resource_sections": "Resource Sections",
     "conclusion": "Conclusion and Next Steps",
+    "tables": "Tables",
+    "figures": "Figures",
     "attachments": "Attachments",
 }
 UNRESOLVED_REQUIRED_SOURCE_STATUSES = {"missing", "downloadable", "needs_review", "gated", "stubbed", "failed"}
 TERMINAL_REVIEW_STATUSES = {"accepted", "edited", "replaced", "declined"}
 GATE_INCLUDED_NONTERMINAL_STATUSES = {"unable_to_verify"}
 GATE_PREVIEW_LIMIT = 10
+RAW_LEGACY_EXPORT_TYPES = {
+    "draft_finding",
+    "spatial_relationship",
+    "comparison_table",
+    "source_inventory_note",
+    "source_status_note",
+    "no_mapped_relationships",
+    "validation_issue",
+    "missing_data_placeholder",
+}
 
 
 class ExportReportError(RuntimeError):
@@ -164,6 +194,16 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
             },
         )
 
+    final_verification = _final_verification_summary(
+        included=included,
+        review_gate=review_gate,
+        compactness_budget=compactness_budget,
+        output_formats=formats,
+        markdown_path=markdown_path if "markdown" in formats else None,
+        docx_path=docx_path if "docx" in formats else None,
+    )
+    validation_issues = _dedupe_issues([*validation_issues, *_dict_list(final_verification.get("issues", []))])
+
     manifest = {
         "project_id": queue.get("project_id"),
         "project_name": queue.get("project_name"),
@@ -211,6 +251,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "gpt_drafting": _gpt_drafting_summary(items),
         "mvp_quality": mvp_quality,
         "compactness_budget": compactness_budget,
+        "final_verification": final_verification,
         "package_contents": _package_contents(queue, output_paths={
             "markdown_report": str(markdown_path) if "markdown" in formats else None,
             "docx_report": str(docx_path) if "docx" in formats else None,
@@ -574,7 +615,8 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "export_group": str(item.get("export_group") or _default_export_group(item)),
         "export_section": str(item.get("export_section", "")),
         "section_number": item.get("section_number") or matrix_target.get("section_number"),
-        "section_order": _optional_int(item.get("section_order") or assumptions.get("section_order")),
+        "section_order": _optional_number(item.get("section_order") if item.get("section_order") is not None else assumptions.get("section_order")),
+        "heading_level": _optional_int(item.get("heading_level") or assumptions.get("heading_level") or matrix_target.get("heading_level")),
         "content": content,
         "content_source": content_source,
         "source_refs": _string_list(item.get("source_refs", [])),
@@ -659,9 +701,19 @@ def _export_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
     group_index = EXPORT_GROUP_ORDER.index(group) if group in EXPORT_GROUP_ORDER else len(EXPORT_GROUP_ORDER)
     item_type = str(item.get("type", ""))
     type_index = 0 if item_type in {"report_section", "section_text"} else 1
-    section_order = item.get("section_order")
-    order = int(section_order) if isinstance(section_order, int) else 9999
+    order = _sort_order_value(item.get("section_order"))
     return (group_index, type_index, order, str(item.get("title", "")))
+
+
+def _sort_order_value(value: Any) -> int:
+    if isinstance(value, bool):
+        return 9999
+    if isinstance(value, (int, float)):
+        return int(value * 1000)
+    try:
+        return int(float(value) * 1000)
+    except (TypeError, ValueError):
+        return 9999
 
 
 def _export_validation_issues(
@@ -791,9 +843,10 @@ def _markdown_item(
     all_included_items: list[dict[str, Any]] | None = None,
 ) -> list[str]:
     lines: list[str] = []
+    heading = _item_heading_text(item)
     if not suppress_heading:
-        lines.extend([f"### {item.get('title')}", ""])
-    content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), str(item.get("title", "")))
+        lines.extend([f"### {heading}", ""])
+    content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), heading, str(item.get("title", "")))
     if content:
         lines.extend([content, ""])
     if item.get("type") in {"report_section", "section_text"} and not _is_front_matter_item(item):
@@ -944,17 +997,13 @@ def _markdown_front_matter_lists(included: list[dict[str, Any]]) -> list[str]:
         lines.extend(f"- {item.get('title')} (`{item.get('table_id')}`)" for item in tables)
     else:
         lines.append("- No table items are included in this export.")
-    lines.extend(
-        [
-            "",
-            "List of Attachments",
-            "",
-            "- Attachment A: Project Maps.",
-            "- Attachment B: Hazardous Materials Report, when available or reviewer-provided.",
-            "- Attachment C: Agency Consultation Letters or reviewer-provided coordination records.",
-            "",
-        ]
-    )
+    lines.extend(["", "List of Attachments", ""])
+    attachments = _front_matter_attachment_items(included)
+    if attachments:
+        lines.extend(f"- {_attachment_list_label(item)}" for item in attachments)
+    else:
+        lines.append("- No attachment items are included in this export.")
+    lines.append("")
     return lines
 
 
@@ -1074,7 +1123,7 @@ def _write_docx_report(
     rendered_table_ids: set[str] = set()
     rendered_figure_ids: set[str] = set()
 
-    _add_docx_title_page(document, queue, include_draft=include_draft)
+    _add_docx_title_page(document, project_dir, queue, include_draft=include_draft)
 
     if validation_issues:
         document.add_heading("Export Caveats", level=1)
@@ -1162,35 +1211,117 @@ def _add_docx_data_lineage(document: Any, data_lineage: dict[str, Any]) -> None:
 
 def _configure_docx_document(document: Any, *, include_draft: bool) -> None:
     try:
-        from docx.shared import Inches, Pt
+        from docx.enum.style import WD_STYLE_TYPE
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Inches, Pt, RGBColor
     except ImportError:  # pragma: no cover - guarded by caller.
         return
 
     for section in document.sections:
-        section.top_margin = Inches(0.75)
-        section.bottom_margin = Inches(0.75)
-        section.left_margin = Inches(0.75)
-        section.right_margin = Inches(0.75)
+        section.page_width = Inches(8.5)
+        section.page_height = Inches(11)
+        section.top_margin = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
+        section.header_distance = Inches(0.5)
+        section.footer_distance = Inches(0.5)
         if include_draft:
             section.header.paragraphs[0].text = "INTERNAL PREVIEW / NOT REVIEWED"
-            section.footer.paragraphs[0].text = "Generated by Review Assist - draft/pre-review package"
+            section.footer.paragraphs[0].text = "Review Assist - Environmental Constraints Report - INTERNAL PREVIEW"
+        else:
+            section.footer.paragraphs[0].text = "Review Assist - Environmental Constraints Report"
     styles = document.styles
-    styles["Normal"].font.name = "Calibri"
-    styles["Normal"].font.size = Pt(10.5)
-    for style_name, size in (("Title", 20), ("Heading 1", 16), ("Heading 2", 13), ("Heading 3", 11)):
+    normal = styles["Normal"]
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(12)
+    normal.paragraph_format.space_after = Pt(8)
+    normal.paragraph_format.line_spacing = 1.16
+
+    _set_docx_style(styles, "Title", font_name="Calibri Light", size=20, color=RGBColor(0x0F, 0x47, 0x61))
+    _set_docx_style(styles, "Heading 1", font_name="Lato", size=20, color=RGBColor(0x0F, 0x47, 0x61), keep_with_next=True)
+    _set_docx_style(styles, "Heading 2", font_name="Lato", size=14, color=RGBColor(0x0F, 0x47, 0x61), keep_with_next=True)
+    _set_docx_style(styles, "Heading 3", font_name="Lato", color=RGBColor(0x0F, 0x47, 0x61), italic=True, keep_with_next=True)
+    _set_docx_style(styles, "Heading 4", color=RGBColor(0x4C, 0x94, 0xD8), italic=True, keep_with_next=True)
+    _set_docx_style(
+        styles,
+        "Caption",
+        font_name="Calibri Light",
+        size=11,
+        color=RGBColor(0x0E, 0x28, 0x41),
+        italic=True,
+        alignment=WD_ALIGN_PARAGRAPH.CENTER,
+    )
+    try:
+        styles["Attachment Title"]
+    except KeyError:
+        styles.add_style("Attachment Title", WD_STYLE_TYPE.PARAGRAPH)
+    _set_docx_style(
+        styles,
+        "Attachment Title",
+        color=RGBColor(0x0F, 0x47, 0x61),
+        alignment=WD_ALIGN_PARAGRAPH.CENTER,
+        keep_with_next=True,
+    )
+
+
+def _set_docx_style(
+    styles: Any,
+    style_name: str,
+    *,
+    font_name: str | None = None,
+    size: int | None = None,
+    color: Any | None = None,
+    italic: bool | None = None,
+    bold: bool | None = None,
+    alignment: Any | None = None,
+    keep_with_next: bool = False,
+) -> None:
+    try:
+        style = styles[style_name]
+    except KeyError:
+        return
+    if font_name:
+        style.font.name = font_name
+    if size is not None:
         try:
-            style = styles[style_name]
-        except KeyError:
-            continue
-        style.font.name = "Calibri"
-        style.font.size = Pt(size)
+            from docx.shared import Pt
+
+            style.font.size = Pt(size)
+        except ImportError:  # pragma: no cover - guarded by caller.
+            pass
+    if color is not None:
+        style.font.color.rgb = color
+    if italic is not None:
+        style.font.italic = italic
+    if bold is not None:
+        style.font.bold = bold
+    if alignment is not None:
+        style.paragraph_format.alignment = alignment
+    if keep_with_next:
+        style.paragraph_format.keep_with_next = True
 
 
-def _add_docx_title_page(document: Any, queue: dict[str, Any], *, include_draft: bool) -> None:
-    title = str(queue.get("project_name") or "Environmental Constraints Report")
-    document.add_heading(title, level=0)
-    document.add_paragraph("Environmental Constraints Report")
-    document.add_paragraph(f"Generated: {_utc_now()}")
+def _add_docx_title_page(document: Any, project_dir: Path, queue: dict[str, Any], *, include_draft: bool) -> None:
+    try:
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+    except ImportError:  # pragma: no cover - guarded by caller.
+        WD_ALIGN_PARAGRAPH = None
+
+    metadata = _project_report_metadata(project_dir, queue)
+    title = str(metadata.get("project_name") or "Environmental Constraints Report")
+    title_paragraph = document.add_heading(title, level=0)
+    if WD_ALIGN_PARAGRAPH is not None:
+        title_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    subtitle = document.add_paragraph("Environmental Constraints Report")
+    if WD_ALIGN_PARAGRAPH is not None:
+        subtitle.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    document.add_paragraph(f"Project ID: {metadata.get('project_id') or 'unknown'}")
+    if metadata.get("description"):
+        document.add_paragraph(str(metadata["description"]))
+    if metadata.get("county_state_context"):
+        document.add_paragraph(str(metadata["county_state_context"]))
+    document.add_paragraph(f"Generated: {metadata['generated_at']}")
     if include_draft:
         notice = document.add_paragraph()
         run = notice.add_run("INTERNAL PREVIEW / NOT REVIEWED")
@@ -1206,6 +1337,36 @@ def _add_docx_title_page(document: Any, queue: dict[str, Any], *, include_draft:
         "This report presents objective desktop-screening constraints only and does not rank, select, reject, or recommend project features."
     )
     document.add_page_break()
+
+
+def _project_report_metadata(project_dir: Path, queue: dict[str, Any]) -> dict[str, Any]:
+    project_id = str(queue.get("project_id") or "")
+    project_name = str(queue.get("project_name") or "Environmental Constraints Report")
+    description = ""
+    try:
+        manifest = load_project_manifest(project_dir)
+        project_id = manifest.project_id or project_id
+        project_name = manifest.name or project_name
+        description = manifest.description
+    except ProjectManifestError:
+        pass
+
+    county_state_context = ""
+    try:
+        project_area = load_project_area(project_dir)
+        counties = _string_list(project_area.get("county_names", []))
+        if counties:
+            county_state_context = f"County context: {', '.join(counties)}."
+    except ProjectAreaError:
+        pass
+
+    return {
+        "project_id": project_id,
+        "project_name": project_name,
+        "description": description,
+        "county_state_context": county_state_context,
+        "generated_at": _utc_now(),
+    }
 
 
 def _add_docx_item(
@@ -1224,11 +1385,15 @@ def _add_docx_item(
     all_included_items: list[dict[str, Any]] | None = None,
 ) -> None:
     item_type = str(item.get("type", ""))
-    heading_level = 2 if item_type in {"report_section", "section_text"} else 3
+    heading = _item_heading_text(item)
+    heading_level = _docx_heading_level(item, item_type)
     if not suppress_heading:
-        document.add_heading(str(item.get("title") or "Untitled Item"), level=heading_level)
+        if item_type == "attachment":
+            document.add_paragraph(heading, style="Attachment Title")
+        else:
+            document.add_heading(heading, level=heading_level)
 
-    content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), str(item.get("title", "")))
+    content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), heading, str(item.get("title", "")))
     if content:
         _add_docx_content(document, content)
     else:
@@ -1287,7 +1452,6 @@ def _add_docx_inline_evidence(
         if table is None:
             document.add_paragraph(f"Table placeholder: source table artifact was not available for table id '{table_id}'.")
             continue
-        document.add_paragraph(f"Table: {table.get('title') or table_id} ({table_id})")
         _add_docx_comparison_table(document, {"table_id": table_id}, table_lookup)
         rendered_table_ids.add(table_id)
     for figure_id in _string_list(item.get("related_figure_ids", [])):
@@ -1298,7 +1462,7 @@ def _add_docx_inline_evidence(
         if figure is None:
             document.add_paragraph(f"Figure placeholder: source figure artifact was not available for figure id '{figure_id}'.")
             continue
-        document.add_paragraph(f"Figure: {figure.get('title') or figure_id} ({figure_id})")
+        document.add_paragraph(f"Figure: {figure.get('title') or figure_id} ({figure_id})", style="Caption")
         _add_docx_map_figure(document, figure, project_dir, image_width)
         rendered_figure_ids.add(figure_id)
 
@@ -1319,12 +1483,12 @@ def _add_docx_front_matter_lists(document: Any, included: list[dict[str, Any]]) 
     else:
         document.add_paragraph("No table items are included in this export.", style="List Bullet")
     document.add_heading("List of Attachments", level=2)
-    for label in (
-        "Attachment A: Project Maps.",
-        "Attachment B: Hazardous Materials Report, when available or reviewer-provided.",
-        "Attachment C: Agency Consultation Letters or reviewer-provided coordination records.",
-    ):
-        document.add_paragraph(label, style="List Bullet")
+    attachments = _front_matter_attachment_items(included)
+    if attachments:
+        for item in attachments:
+            document.add_paragraph(_attachment_list_label(item), style="List Bullet")
+    else:
+        document.add_paragraph("No attachment items are included in this export.", style="List Bullet")
 
 
 def _add_docx_front_matter_list(document: Any, kind: str, included: list[dict[str, Any]]) -> None:
@@ -1379,6 +1543,8 @@ def _add_docx_comparison_table(
         document.add_paragraph(f"Table placeholder: source table artifact was not available for table id '{table_id}'.")
         return
 
+    title = str(source_table.get("title") or table_id)
+    document.add_paragraph(f"Table: {title} ({table_id})", style="Caption")
     columns = _string_list(source_table.get("columns", []))
     rows = _dict_list(source_table.get("rows", []))
     row_count = _optional_int(source_table.get("row_count"))
@@ -1418,18 +1584,24 @@ def _add_docx_map_figure(document: Any, item: dict[str, Any], project_dir: Path,
         image_path = project_dir / image_path
     if not image_path.exists():
         document.add_paragraph(f"Figure placeholder: figure file was not available at {image_path}.")
+        _add_docx_figure_notes(document, item)
         return
     try:
         document.add_picture(str(image_path), width=image_width)
     except Exception as exc:  # pragma: no cover - image backend errors vary by file.
         document.add_paragraph(f"Figure placeholder: figure could not be embedded from {image_path}: {exc}.")
+        _add_docx_figure_notes(document, item)
         return
     document.add_paragraph(f"Figure file: {image_path}")
+    _add_docx_figure_notes(document, item)
+
+
+def _add_docx_figure_notes(document: Any, item: dict[str, Any]) -> None:
     caption = str(item.get("caption") or "").strip()
     source_note = str(item.get("source_note") or "").strip()
     method_note = str(item.get("method_note") or "").strip()
     if caption:
-        document.add_paragraph(f"Caption: {caption}")
+        document.add_paragraph(f"Caption: {caption}", style="Caption")
     if source_note:
         document.add_paragraph(f"Source note: {source_note}")
     if method_note:
@@ -1561,6 +1733,128 @@ def _included_attachment_ids(included: list[dict[str, Any]]) -> set[str]:
     return values
 
 
+def _final_verification_summary(
+    *,
+    included: list[dict[str, Any]],
+    review_gate: dict[str, Any],
+    compactness_budget: dict[str, Any],
+    output_formats: list[str],
+    markdown_path: Path | None,
+    docx_path: Path | None,
+) -> dict[str, Any]:
+    issues: list[dict[str, Any]] = []
+    gate_status = str(review_gate.get("review_gate_status") or "")
+    if gate_status not in {"passed", "preview_bypassed"}:
+        issues.append(_issue("error", "final_review_gate_not_ready", "Final verification requires a passed review gate or explicit preview bypass."))
+    if not compactness_budget:
+        issues.append(_issue("error", "compactness_budget_missing", "Final verification requires the export compactness budget."))
+
+    expected_count = review_gate.get("expected_deliverable_item_count")
+    actual_count = review_gate.get("actual_deliverable_item_count")
+    if expected_count is not None and actual_count is not None and expected_count != actual_count:
+        issues.append(
+            _issue(
+                "error",
+                "deliverable_item_count_mismatch",
+                "Expected deliverable item count does not match the actual bounded review queue item count.",
+            )
+        )
+
+    raw_items = [item for item in included if str(item.get("type") or "") in RAW_LEGACY_EXPORT_TYPES]
+    if raw_items:
+        issues.append(
+            _issue(
+                "error",
+                "raw_legacy_items_in_export",
+                "Raw legacy/audit review item types are present in the export candidate; standard deliverables must use bounded deliverable items.",
+            )
+        )
+
+    max_table_preview_rows = 0
+    for item in included:
+        item_type = str(item.get("type") or "")
+        if item_type == "table":
+            if not item.get("table_id"):
+                issues.append(_issue("error", "included_table_ref_missing", "Included table review item is missing table_id."))
+            rows_preview = _dict_list(item.get("rows_preview", []))
+            max_table_preview_rows = max(max_table_preview_rows, len(rows_preview))
+            if len(rows_preview) > DELIVERABLE_TABLE_BODY_PREVIEW_LIMIT:
+                issues.append(
+                    _issue(
+                        "error",
+                        "table_preview_limit_exceeded",
+                        f"Included table '{item.get('id')}' carries {len(rows_preview)} preview rows; body previews are capped at {DELIVERABLE_TABLE_BODY_PREVIEW_LIMIT}.",
+                    )
+                )
+        elif item_type == "figure" and not _item_figure_id(item):
+            issues.append(_issue("error", "included_figure_ref_missing", "Included figure review item is missing figure_id."))
+        elif item_type == "attachment" and not item.get("attachment_id"):
+            issues.append(_issue("error", "included_attachment_ref_missing", "Included attachment review item is missing attachment_id."))
+
+        content_length = len(str(item.get("content") or ""))
+        if content_length > EXPORT_BODY_CONTENT_WARNING_CHAR_LIMIT:
+            issues.append(
+                _issue(
+                    "warning",
+                    "export_body_content_over_budget",
+                    f"Included item '{item.get('id')}' content is {content_length} characters; compact report sections should stay under {EXPORT_BODY_CONTENT_WARNING_CHAR_LIMIT} characters unless reviewed.",
+                )
+            )
+
+    if markdown_path is not None and not markdown_path.exists():
+        issues.append(_issue("error", "markdown_export_missing", f"Markdown export was requested but not found at {markdown_path}."))
+
+    docx_readable: bool | None = None
+    if "docx" in output_formats:
+        docx_readable = _docx_readability_check(docx_path, issues)
+
+    severities = {str(issue.get("severity", "")) for issue in issues}
+    status = "failed" if "error" in severities else ("warning" if "warning" in severities else "passed")
+    return {
+        "status": status,
+        "checked_at": _utc_now(),
+        "review_gate_status": gate_status,
+        "compactness_budget_present": bool(compactness_budget),
+        "expected_deliverable_item_count": expected_count,
+        "actual_deliverable_item_count": actual_count,
+        "included_item_count": len(included),
+        "included_section_count": compactness_budget.get("included_section_count", 0) if compactness_budget else 0,
+        "included_table_count": compactness_budget.get("included_table_count", 0) if compactness_budget else 0,
+        "included_figure_count": compactness_budget.get("included_figure_count", 0) if compactness_budget else 0,
+        "included_attachment_count": compactness_budget.get("included_attachment_count", 0) if compactness_budget else 0,
+        "raw_legacy_item_count": len(raw_items),
+        "raw_legacy_item_ids": [str(item.get("id") or "") for item in raw_items],
+        "max_table_preview_rows": max_table_preview_rows,
+        "table_preview_limit": DELIVERABLE_TABLE_BODY_PREVIEW_LIMIT,
+        "docx_readable": docx_readable,
+        "issue_count": len(issues),
+        "issues": _dedupe_issues(issues),
+    }
+
+
+def _docx_readability_check(docx_path: Path | None, issues: list[dict[str, Any]]) -> bool:
+    if docx_path is None:
+        issues.append(_issue("error", "docx_export_path_missing", "DOCX export was requested but no DOCX path was provided."))
+        return False
+    if not docx_path.exists():
+        issues.append(_issue("error", "docx_export_missing", f"DOCX export was requested but not found at {docx_path}."))
+        return False
+    try:
+        from docx import Document
+    except ImportError as exc:  # pragma: no cover - guarded by caller.
+        issues.append(_issue("error", "docx_dependency_unavailable", f"DOCX readability check could not import python-docx: {exc}."))
+        return False
+    try:
+        document = Document(docx_path)
+    except Exception as exc:  # pragma: no cover - corrupt DOCX failures vary by library version.
+        issues.append(_issue("error", "docx_export_unreadable", f"DOCX export could not be opened for final verification: {exc}."))
+        return False
+    if not document.paragraphs:
+        issues.append(_issue("error", "docx_export_empty", "DOCX export opened but contained no paragraphs."))
+        return False
+    return True
+
+
 def _stub_item_count(items: list[dict[str, Any]]) -> int:
     count = 0
     for item in items:
@@ -1659,9 +1953,14 @@ def _front_matter_attachment_items(included: list[dict[str, Any]]) -> list[dict[
     items: list[dict[str, Any]] = []
     seen: set[str] = set()
     for item in included:
-        if item.get("type") != "attachment":
-            continue
         section_number = str(item.get("section_number") or "").strip()
+        is_attachment_section = (
+            str(item.get("export_group") or "") == "attachments"
+            and section_number.lower().startswith("attachment")
+            and item.get("type") in {"report_section", "section_text", "attachment"}
+        )
+        if item.get("type") != "attachment" and not is_attachment_section:
+            continue
         item_id = str(item.get("id") or item.get("target_id") or "")
         if not section_number and item.get("attachment_id"):
             continue
@@ -1682,19 +1981,38 @@ def _attachment_list_label(item: dict[str, Any]) -> str:
     return f"{title}{suffix}"
 
 
-def _strip_duplicate_leading_heading(content: str, title: str) -> str:
+def _item_heading_text(item: dict[str, Any]) -> str:
+    title = str(item.get("title") or "Untitled Item").strip()
+    section_number = str(item.get("section_number") or "").strip()
+    if section_number and not _normalized_heading(title).startswith(_normalized_heading(section_number)):
+        return f"{section_number} {title}".strip()
+    return title or "Untitled Item"
+
+
+def _docx_heading_level(item: dict[str, Any], item_type: str) -> int:
+    heading_level = _optional_int(item.get("heading_level"))
+    if heading_level is not None and 1 <= heading_level <= 4:
+        return heading_level
+    if item_type in {"front_matter", "attachment"}:
+        return 2
+    if item_type in {"report_section", "section_text"}:
+        return 2
+    return 3
+
+
+def _strip_duplicate_leading_heading(content: str, *titles: str) -> str:
     lines = content.splitlines()
     while lines and not lines[0].strip():
         lines.pop(0)
     if not lines:
         return ""
-    title_key = _normalized_heading(title)
+    title_keys = {_normalized_heading(title) for title in titles if title}
     while lines:
         first = lines[0].strip()
         if not first.startswith("#"):
             break
         heading = first.lstrip("#").strip()
-        if _normalized_heading(heading) != title_key:
+        if _normalized_heading(heading) not in title_keys:
             break
         lines.pop(0)
         while lines and not lines[0].strip():
@@ -1987,6 +2305,18 @@ def _optional_int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _optional_number(value: Any) -> int | float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return int(number) if number.is_integer() else number
 
 
 def _utc_now() -> str:

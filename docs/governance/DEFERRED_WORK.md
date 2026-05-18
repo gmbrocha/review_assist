@@ -71,7 +71,7 @@ Each deferred item should include:
 
 - `Deferred item`: Implement matrix-backed deliverable item generation, prompt-contract section drafting payloads, dynamic wetlands/waterbodies comparison-unit child sections, and bounded default review queue generation.
 - `Resolution`: Implemented `deliverable/deliverable_items.json`, generation/loading/validation service and CLI, dynamic wetlands/waterbodies children from comparison units, deliverable table/figure/attachment item refs, prompt-contract metadata in section drafting requests, compact validation summaries, default review queue generation from deliverable items, legacy/audit queue opt-in with `include_legacy_artifacts` / `--include-legacy-artifacts`, terminal statuses `accepted`, `edited`, `replaced`, and `declined`, legacy `rejected` normalization to `declined`, replacement-content validation, populate manifest wiring, docs, and focused tests.
-- `Remaining limitation`: Sprint 3.3 still owns DOCX fidelity/final verification docs. Legacy `drafts/report_sections.json`, raw findings, raw comparison tables, and legacy `maps/map_manifest.json` remain available as compatibility/audit artifacts, not the standard queue source.
+- `Remaining limitation`: Sprint 3.3 resolved DOCX fidelity/final verification. Legacy `drafts/report_sections.json`, raw findings, raw comparison tables, and legacy `maps/map_manifest.json` remain available as compatibility/audit artifacts, not the standard queue source.
 - `Target sprint/subunit`: Sprint 3.1.
 - `Status`: resolved.
 
@@ -79,8 +79,16 @@ Each deferred item should include:
 
 - `Deferred item`: Wire the Sprint 1.1 deliverable matrix into review-complete export gating and package manifests.
 - `Resolution`: Implemented default export gating from the standard bounded `deliverable_items` review queue. Reviewed-content export now blocks until every standard deliverable item is terminal or explicitly export-includable; internal preview requires `--include-draft`. Export content selection now handles accepted, edited, replaced, declined, legacy rejected, and explicitly export-eligible unable-to-verify items. Export and deliverable package manifests record review gate status, review counts, matrix item counts, included table/figure/attachment IDs, stub counts, preview state, and unreviewed-item previews. Demo packages remain preview-only and do not mutate review state; MVP packages keep real-data guardrails and fall back to preview unless the queue is already review-complete.
-- `Remaining limitation`: Sprint 3.3 still owns DOCX formatting fidelity and final verification docs. Sprint 3.2 did not implement PDF export, web/UI review behavior, or new deliverable targets.
+- `Remaining limitation`: Sprint 3.3 resolved baseline DOCX formatting fidelity and final verification docs. Exact/pixel Word-template fidelity, page-number fields, PDF export, web/UI review behavior, and new deliverable targets remain outside Sprint 3.2.
 - `Target sprint/subunit`: Sprint 3.2.
+- `Status`: resolved.
+
+### Sprint 3.3 DOCX Fidelity Docs And Final Verification
+
+- `Deferred item`: Improve editable DOCX fidelity and add final verification status over the compact, reviewed export path.
+- `Resolution`: Implemented Sprint 3.3 baseline DOCX page setup, core Word styles, title metadata, matrix-ordered headings, front matter lists, bounded editable table previews with truncation notices, figure placeholders/captions/source/method notes, attachment ordering, DOCX readability checks, manifest-level `final_verification`, package-manifest propagation, docs, focused tests, full pytest, and verify-script smoke checks.
+- `Remaining limitation`: Exact/pixel Word-template fidelity and page-number fields remain later polish. PDF export and UI/web wiring remain out of scope. The UI should consume existing backend contracts rather than adding report/review/export logic.
+- `Target sprint/subunit`: Sprint 3.3.
 - `Status`: resolved.
 
 ### Canonical Prompt Contract Wiring

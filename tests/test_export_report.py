@@ -200,6 +200,23 @@ def docx_text(path: str | Path) -> str:
     return "\n".join(parts)
 
 
+def docx_document(path: str | Path) -> Any:
+    from docx import Document
+
+    return Document(path)
+
+
+def write_tiny_png(path: Path) -> None:
+    import base64
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEklEQVR4nGNgYGD4z8DAwMAAAAUgAgnqQZ7nAAAAAElFTkSuQmCC"
+        )
+    )
+
+
 def set_review_states(
     project_dir: Path,
     *,
@@ -237,6 +254,172 @@ def set_review_states(
 
 def set_only_reviewed_items(project_dir: Path, overrides: dict[str, str | dict[str, Any]]) -> None:
     set_review_states(project_dir, default_status="declined", overrides=overrides)
+
+
+def test_docx_export_uses_letter_page_setup_and_core_styles(tmp_path: Path) -> None:
+    from docx.shared import Inches, Pt, RGBColor
+
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir)
+
+    manifest = export_report(project_dir, output_format="docx")
+    document = docx_document(manifest["docx_path"])
+    section = document.sections[0]
+
+    assert section.page_width == Inches(8.5)
+    assert section.page_height == Inches(11)
+    assert section.top_margin == Inches(1)
+    assert section.bottom_margin == Inches(1)
+    assert section.left_margin == Inches(1)
+    assert section.right_margin == Inches(1)
+    assert section.header_distance == Inches(0.5)
+    assert section.footer_distance == Inches(0.5)
+
+    styles = document.styles
+    assert styles["Normal"].font.name == "Calibri"
+    assert styles["Normal"].font.size == Pt(12)
+    assert styles["Normal"].paragraph_format.space_after == Pt(8)
+    assert styles["Heading 1"].font.name == "Lato"
+    assert styles["Heading 1"].font.size == Pt(20)
+    assert styles["Heading 1"].font.color.rgb == RGBColor(0x0F, 0x47, 0x61)
+    assert styles["Heading 2"].font.size == Pt(14)
+    assert styles["Caption"].font.name == "Calibri Light"
+    assert styles["Caption"].font.size == Pt(11)
+    assert styles["Attachment Title"].font.color.rgb == RGBColor(0x0F, 0x47, 0x61)
+
+
+def test_docx_export_title_front_matter_and_outline_follow_matrix(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir)
+
+    manifest = export_report(project_dir, output_format="docx")
+    text = docx_text(manifest["docx_path"])
+
+    assert "Test Project" in text
+    assert "Project ID: test_project" in text
+    assert "Synthetic project" in text
+    assert "INTERNAL PREVIEW / NOT REVIEWED" not in text
+    assert "List of Figures" in text
+    assert "Wetlands and Waterbodies in and near the Study Corridor" in text
+    assert "List of Tables" in text
+    assert "Descriptions of Wetlands and Waterbodies Present within the Study Corridor" in text
+    assert "List of Attachments" in text
+    assert text.index("Attachment A") < text.index("Attachment B") < text.index("Attachment C")
+
+    expected_outline = [
+        "Executive Summary",
+        "Introduction",
+        "Methodology",
+        "Environmental Constraints Inventory",
+        "Natural and Ecological Resources",
+        "Cultural and Historic Resources",
+        "Community Resources",
+        "Utility and Infrastructure Considerations",
+        "Contamination Risks",
+        "Socioeconomic and Business Considerations",
+        "Conclusion and Next Steps",
+        "Attachments",
+    ]
+    document = docx_document(manifest["docx_path"])
+    headings = [paragraph.text for paragraph in document.paragraphs if paragraph.style and paragraph.style.name.startswith("Heading")]
+    positions = [headings.index(title) for title in expected_outline]
+    assert positions == sorted(positions)
+
+
+def test_docx_preview_label_appears_only_in_preview_mode(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    preview_manifest = export_report(project_dir, include_draft=True, output_format="docx")
+    preview_text = docx_text(preview_manifest["docx_path"])
+    assert "INTERNAL PREVIEW / NOT REVIEWED" in preview_text
+
+    set_review_states(project_dir)
+    reviewed_manifest = export_report(project_dir, output_format="docx")
+    reviewed_text = docx_text(reviewed_manifest["docx_path"])
+    assert "INTERNAL PREVIEW / NOT REVIEWED" not in reviewed_text
+
+
+def test_docx_renders_reviewed_table_preview_and_figure_metadata_compactly(tmp_path: Path) -> None:
+    from test_deliverable_compactness import _write_large_deliverable_table
+
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    _write_large_deliverable_table(project_dir, row_count=60)
+    from review_assist.deliverable_items import generate_deliverable_items
+    from review_assist.review_queue import generate_review_queue
+
+    generate_deliverable_items(project_dir, gpt_drafting=False)
+    generate_review_queue(project_dir)
+    figure_path = project_dir / "maps" / "figures" / "wetlands-test.png"
+    write_tiny_png(figure_path)
+    set_queue_item(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        image_path=str(figure_path),
+        caption="Wetlands figure caption.",
+        source_note="Wetlands source note.",
+        method_note="Wetlands method note.",
+    )
+    set_only_reviewed_items(
+        project_dir,
+        {
+            "wetlands-and-waterbodies": "accepted",
+            "table-wetlands-waterbodies": "accepted",
+            "figure-wetlands-waterbodies": "accepted",
+        },
+    )
+
+    manifest = export_report(project_dir, output_format="docx")
+    text = docx_text(manifest["docx_path"])
+
+    assert "Table preview limited to 5 of 60 rows" in text
+    assert "Alternative 004" in text
+    assert "Alternative 059" not in text
+    assert "Wetlands figure caption." in text
+    assert "Wetlands source note." in text
+    assert "Wetlands method note." in text
+    assert manifest["final_verification"]["docx_readable"] is True
+    assert manifest["final_verification"]["raw_legacy_item_count"] == 0
+    assert manifest["final_verification"]["max_table_preview_rows"] <= 5
+
+
+def test_final_verification_flags_raw_legacy_and_over_budget_content(tmp_path: Path) -> None:
+    from review_assist.review_queue import generate_review_queue
+
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    generate_review_queue(project_dir, include_legacy_artifacts=True)
+    legacy_manifest = export_report(project_dir, include_draft=True)
+    assert legacy_manifest["final_verification"]["status"] == "failed"
+    assert legacy_manifest["final_verification"]["raw_legacy_item_count"] > 0
+    assert any(issue["code"] == "raw_legacy_items_in_export" for issue in legacy_manifest["final_verification"]["issues"])
+
+    generate_review_queue(project_dir)
+    set_queue_item(project_dir, "study-area", generated_content="Oversized reviewed section. " * 250)
+    set_review_states(project_dir)
+    reviewed_manifest = export_report(project_dir)
+
+    assert any(issue["code"] == "export_body_content_over_budget" for issue in reviewed_manifest["final_verification"]["issues"])
+
+
+def test_sprint_3_3_smoke_gate_then_terminal_docx_export_succeeds(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    with pytest.raises(ExportGateError):
+        export_report(project_dir, output_format="docx")
+
+    set_review_states(project_dir)
+    manifest = export_report(project_dir, output_format="both")
+
+    assert manifest["review_gate_status"] == "passed"
+    assert Path(manifest["markdown_path"]).exists()
+    assert Path(manifest["docx_path"]).exists()
+    assert manifest["final_verification"]["docx_readable"] is True
 
 
 def test_export_manifest_filters_reviewed_items_and_uses_edited_content(tmp_path: Path) -> None:
@@ -661,6 +844,8 @@ def test_build_demo_deliverable_writes_package_manifest_without_accepting_items(
     assert manifest["preview_mode"] is True
     assert manifest["review_gate_status"] == "preview_bypassed"
     assert manifest["unreviewed_item_count"] > 0
+    assert manifest["final_verification"]["review_gate_status"] == "preview_bypassed"
+    assert manifest["final_verification"]["docx_readable"] is True
     assert not any(item["status"] in {"accepted", "edited"} for item in queue["items"])
 
 
@@ -713,6 +898,8 @@ def test_build_mvp_deliverable_succeeds_with_real_provided_source_layers(tmp_pat
     assert manifest["data_lineage"]["counts"]["test_or_mock"] == 0
     assert manifest["mvp_quality"]["real_source_count"] >= 4
     assert manifest["mvp_quality"]["source_backed_constraint_count"] > 0
+    assert manifest["final_verification"]["review_gate_status"] == "preview_bypassed"
+    assert manifest["final_verification"]["docx_readable"] is True
     assert "Real Data Used" in text
     assert "provided_in_input" in json.dumps(manifest["data_lineage"])
 
