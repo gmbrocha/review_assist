@@ -4,7 +4,7 @@
 
 Move report-facing analysis from raw project features to comparison units and generate the exact standard deliverable tables. This sub-sprint is the main deterministic analysis and aggregation slice.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions.
 
 ## Outcome
 

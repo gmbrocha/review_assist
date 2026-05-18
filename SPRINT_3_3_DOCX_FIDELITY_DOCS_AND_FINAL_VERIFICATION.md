@@ -4,14 +4,14 @@
 
 Improve the editable DOCX export to match the example report formatting target and finish documentation/test alignment for the non-UI redirected pipeline.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions.
 
 ## Outcome
 
 By the end of Sprint 3.3:
 
 - DOCX export follows the example report style targets materially better.
-- Front matter, headings, captions, tables, figures, attachments, and footer behavior align with the canonical deliverable and style contract in `PLAN_REDIRECT_NEW.md`.
+- Front matter, headings, captions, tables, figures, attachments, and footer behavior align with the canonical deliverable and style contract in `CANONICAL_PLAN.md`.
 - Documentation reflects the new non-UI pipeline behavior.
 - Full test suite and trails smoke workflow pass or any residual risks are documented.
 
@@ -182,7 +182,7 @@ Do not spend excessive time on fragile Word field mechanics if it threatens the 
 
 Update affected docs:
 
-- `PLAN_REDIRECT_NEW.md`
+- `CANONICAL_PLAN.md`
 - `docs/WORKFLOW_MODEL.md`
 - `docs/CURRENT_STATE.md`
 - `docs/ARCHITECTURE.md`
@@ -196,7 +196,7 @@ Update affected docs:
 Docs must state:
 
 - no UI/webapp implemented.
-- `PLAN_REDIRECT_NEW.md` controlled duplicated near-term decisions for this phase.
+- `CANONICAL_PLAN.md` controlled duplicated near-term decisions for this phase.
 - matrix-driven deliverable items bound review volume.
 - default export requires terminal review statuses.
 - draft preview is internal/pre-review only.
@@ -273,7 +273,7 @@ Then run full suite.
 
 ## Acceptance Checklist
 
-- DOCX formatting is materially aligned with the canonical deliverable and style contract in `PLAN_REDIRECT_NEW.md`.
+- DOCX formatting is materially aligned with the canonical deliverable and style contract in `CANONICAL_PLAN.md`.
 - Front matter lists are generated from included deliverable items.
 - Tables and figures render inline in matrix order.
 - Attachments render in order.

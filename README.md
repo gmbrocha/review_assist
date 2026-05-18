@@ -20,7 +20,7 @@ The implementation surface is reusable Python services plus a CLI. No web app UI
 
 Key planning documents live at the repo root and under `docs/`:
 
-- `PLAN_REDIRECT_NEW.md`: canonical root drift-control plan; read before large implementation work. It defines the destination as filling the example environmental constraints report template with source-backed constraints, visuals, reviewable copy, tables, caveats, reviewed export content, and the future web app direction.
+- `CANONICAL_PLAN.md`: canonical root drift-control plan; read before large implementation work. It defines the destination as filling the example environmental constraints report template with source-backed constraints, visuals, reviewable copy, tables, caveats, reviewed export content, and the future web app direction.
 - `SPRINT_1_FOUNDATION_AND_CONTRACT.md`, `SPRINT_2_CONSTRAINTS_TABLES_AND_FIGURES.md`, and `SPRINT_3_REVIEW_EXPORT_AND_DOCX.md`: non-UI implementation sprints for the redirected backend/report pipeline.
 - `SPRINT_4_WEB_APP_AND_WIRING.md`: future web app and wiring sprint after the non-UI pipeline is complete.
 - `OVERALL_CONTEXT.md`: product philosophy and anti-drift context.
@@ -36,7 +36,7 @@ Key planning documents live at the repo root and under `docs/`:
 - `IMAGERY_REVIEW.md`: imagery observation philosophy.
 - `LLM_ASSISTED_SYNTHESIS.md`: GPT/LLM section-drafting insertion point and boundaries.
 - `docs/archive/FIRST_VERSION_PLAN.md`: superseded desktop GUI first-version plan retained for history; web app work is deferred behind the backend deliverable pipeline and captured as Sprint 4.
-- `docs/archive/PLAN_REDIRECT.md`, `docs/archive/DELIVERABLE_OUTLINE.md`, and `docs/archive/REPORT_GEN_SYSTEM_PROMPT.md`: superseded planning references retained for history; active planning has been consolidated into `PLAN_REDIRECT_NEW.md`.
+- `docs/archive/PLAN_REDIRECT.md`, `docs/archive/DELIVERABLE_OUTLINE.md`, and `docs/archive/REPORT_GEN_SYSTEM_PROMPT.md`: superseded planning references retained for history; active planning has been consolidated into `CANONICAL_PLAN.md`.
 
 ## Directory Notes
 

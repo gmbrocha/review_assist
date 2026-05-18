@@ -4,9 +4,9 @@ This repository is an early scaffold for an alternatives review workflow tool. F
 
 ## Project Rules
 
-- Before any large implementation, roadmap change, workflow change, report-generation change, source-acquisition change, review-queue change, export change, or architecture change, read `PLAN_REDIRECT_NEW.md` first. Treat it as the canonical drift-control document for this repo.
-- Treat `env_constraints_report_20260511_EXAMPLE_ONLY.docx`, as summarized and normalized in `PLAN_REDIRECT_NEW.md`, as the structural destination for generated deliverables. The goal is to fill that template with project-specific constraint findings, source-backed copy, visuals, tables, caveats, and reviewed export content.
-- If implementation direction feels ambiguous, return to `PLAN_REDIRECT_NEW.md` before coding. Align the change to the constraint engine plus review queue plus export path.
+- Before any large implementation, roadmap change, workflow change, report-generation change, source-acquisition change, review-queue change, export change, or architecture change, read `CANONICAL_PLAN.md` first. Treat it as the canonical drift-control document for this repo.
+- Treat `env_constraints_report_20260511_EXAMPLE_ONLY.docx`, as summarized and normalized in `CANONICAL_PLAN.md`, as the structural destination for generated deliverables. The goal is to fill that template with project-specific constraint findings, source-backed copy, visuals, tables, caveats, and reviewed export content.
+- If implementation direction feels ambiguous, return to `CANONICAL_PLAN.md` before coding. Align the change to the constraint engine plus review queue plus export path.
 - Do not implement broad features without explicit confirmation.
 - Keep scope narrow and tied to the requested task.
 - Prefer simple, inspectable code over complex frameworks or premature abstraction.
@@ -20,7 +20,7 @@ This repository is an early scaffold for an alternatives review workflow tool. F
 - Preserve source provenance, uncertainty, and review status in future data models.
 - Preserve the "no blank page" direction: future implementation should aim for comprehensive pre-review draft packages, not sparse isolated outputs.
 - Treat the review queue as the core domain model for the product. Every generated artifact should become a reviewable item with status, provenance, assumptions, editable content, and export eligibility.
-- Treat `PLAN_REDIRECT_NEW.md` as the canonical planning source. Keep `docs/WORKFLOW_MODEL.md` aligned to the workspace -> source status set -> populate for review -> review queue -> accepted export flow.
+- Treat `CANONICAL_PLAN.md` as the canonical planning source. Keep `docs/WORKFLOW_MODEL.md` aligned to the workspace -> source status set -> populate for review -> review queue -> accepted export flow.
 - Keep future web app UI code thin. Put workflow and GIS/report logic in services underneath the UI rather than burying it in route handlers or view callbacks.
 - Keep deterministic GIS/source checks separate from LLM-assisted synthesis.
 - Add or update tests with each implementation phase and each behavior-changing code change.

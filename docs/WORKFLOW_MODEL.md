@@ -1,6 +1,6 @@
 # Workflow Model
 
-This document is the aligned workflow model for the Alternatives Review Assistant. The canonical planning source is `../PLAN_REDIRECT_NEW.md`.
+This document is the aligned workflow model for the Alternatives Review Assistant. The canonical planning source is `../CANONICAL_PLAN.md`.
 
 The application is a local, workspace-oriented, human-supervised workflow accelerator. It is a source-aware report compiler and contextual review assistant. It is not a recommendation engine, black-box AI reviewer, autonomous environmental analyst, or final decision-maker.
 

@@ -4,7 +4,7 @@
 
 Create the first runtime artifacts after a project workspace receives inputs: input classification and project area context. This sub-sprint makes the required KMZ, bbox, county names, and NAIP/MARIS basemap source selection explicit before deeper source analysis.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions.
 
 ## Outcome
 

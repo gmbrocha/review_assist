@@ -4,7 +4,7 @@
 
 Implement the report-facing analysis layer on top of Sprint 1. This sprint converts comparison units and source data into exact deliverable tables, exact deliverable figures, and evidence packages while keeping raw GIS relationships out of the standard report path.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions. If current docs or existing service behavior duplicate and conflict with it, follow `PLAN_REDIRECT_NEW.md`.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions. If current docs or existing service behavior duplicate and conflict with it, follow `CANONICAL_PLAN.md`.
 
 ## Sprint Outcome
 

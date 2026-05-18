@@ -1,4 +1,4 @@
-# Canonical Plan Redirect: Review Assist Workflow
+# Review Assist Canonical Plan
 
 This is the canonical planning source for the current Review Assist implementation direction. It supersedes the older root planning documents for active planning; archived copies are retained only for historical context. If another active document duplicates or conflicts with this plan, this plan controls.
 
@@ -10,7 +10,7 @@ The immediate product concern is that the current generated deliverable can beco
 
 Active source hierarchy:
 
-- `PLAN_REDIRECT_NEW.md` is the canonical planning source.
+- `CANONICAL_PLAN.md` is the canonical planning source.
 - Sprint documents are implementation breakdowns derived from this plan.
 - `docs/WORKFLOW_MODEL.md`, `docs/ARCHITECTURE.md`, `docs/REPORT_ASSEMBLY.md`, `docs/MAP_GENERATION.md`, and related docs should be updated as implementation changes land.
 - Archived planning documents under `docs/archive/` are retained for history and should not drive new work.
@@ -371,7 +371,7 @@ Sprint execution protocol:
 
 Discussion items:
 
-- `PLAN_REDIRECT_NEW.md` is the canonical planning source. Future implementation docs should be reconciled to it as behavior changes land.
+- `CANONICAL_PLAN.md` is the canonical planning source. Future implementation docs should be reconciled to it as behavior changes land.
 - Future code changes should treat this document's canonical deliverable and prompt contracts as the human-readable source until machine-readable configs are created.
 
 ## Known Gaps Brought Forward

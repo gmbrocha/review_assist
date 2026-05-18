@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Build the web app UI and wire it to the services completed in Sprints 1 through 3. This sprint should not invent new GIS, report, review, or export behavior in the UI. The web app is a thin operator surface over the canonical pipeline defined in `PLAN_REDIRECT_NEW.md`.
+Build the web app UI and wire it to the services completed in Sprints 1 through 3. This sprint should not invent new GIS, report, review, or export behavior in the UI. The web app is a thin operator surface over the canonical pipeline defined in `CANONICAL_PLAN.md`.
 
 ## Prerequisites
 

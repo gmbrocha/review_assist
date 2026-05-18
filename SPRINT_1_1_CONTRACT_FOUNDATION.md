@@ -4,7 +4,7 @@
 
 Create the static contracts that all redirected pipeline work depends on. This sub-sprint is intentionally configuration and validation heavy. It should not implement source analysis, maps, review queue changes, exports, or UI.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source. Sprint 1.1 turns its deliverable and prompt contracts into machine-readable configuration and validation.
+`CANONICAL_PLAN.md` is the canonical planning source. Sprint 1.1 turns its deliverable and prompt contracts into machine-readable configuration and validation.
 
 ## Outcome
 
@@ -22,7 +22,7 @@ By the end of Sprint 1.1:
 
 - Add a concise precedence note to project docs touched in this sprint.
 - Preserve this rule:
-  - `PLAN_REDIRECT_NEW.md` controls current planning, deliverable shape, prompt intent, review policy, and export direction.
+  - `CANONICAL_PLAN.md` controls current planning, deliverable shape, prompt intent, review policy, and export direction.
   - Archived planning docs are historical references only.
 - Update only docs directly affected by Sprint 1.1 behavior.
 - Keep non-negotiables intact:
@@ -316,7 +316,7 @@ Run:
 - Prompt config exists and validates.
 - Loader services exist and are unit tested.
 - Dynamic comparison-unit section template is represented but not expanded yet.
-- Docs reflect `PLAN_REDIRECT_NEW.md` precedence.
+- Docs reflect `CANONICAL_PLAN.md` precedence.
 - No UI work is introduced.
 - No report generation behavior changes yet.
 - Focused tests pass.

@@ -4,7 +4,7 @@
 
 Finish the redirected non-UI pipeline by converting the matrix-driven deliverable package into bounded review items and reviewed exports. This sprint enforces the review gate, supports accepted/edited/replaced/declined outcomes, keeps draft preview internal, and improves DOCX output to match the example report format.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions. If older docs or current service behavior conflict with it, follow `PLAN_REDIRECT_NEW.md`.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions. If older docs or current service behavior conflict with it, follow `CANONICAL_PLAN.md`.
 
 ## Sprint Outcome
 
@@ -332,7 +332,7 @@ Manifest should include:
 
 ### 5.1 Page setup
 
-Match the canonical deliverable and style contract in `PLAN_REDIRECT_NEW.md`:
+Match the canonical deliverable and style contract in `CANONICAL_PLAN.md`:
 
 - Letter size, 8.5 x 11 inches.
 - 1 inch margins.
@@ -487,7 +487,7 @@ The standard populate workflow should run:
 
 Update docs affected by behavior:
 
-- `PLAN_REDIRECT_NEW.md`
+- `CANONICAL_PLAN.md`
 - `docs/WORKFLOW_MODEL.md`
 - `docs/CURRENT_STATE.md`
 - `docs/ARCHITECTURE.md`
@@ -502,7 +502,7 @@ Update docs affected by behavior:
 
 Docs must reflect:
 
-- `PLAN_REDIRECT_NEW.md` precedence for duplicated near-term decisions.
+- `CANONICAL_PLAN.md` precedence for duplicated near-term decisions.
 - Web app is future/out of scope for these sprints.
 - Default report export is review-gated.
 - Review queue item volume is deliverable-matrix bounded.

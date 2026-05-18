@@ -4,7 +4,7 @@
 
 Enforce the review-complete export gate and align package commands with the new bounded deliverable workflow. This sub-sprint changes export behavior but not DOCX styling fidelity beyond labels and manifest updates.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions.
 
 ## Outcome
 

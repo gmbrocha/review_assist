@@ -4,14 +4,14 @@
 
 Build the non-UI foundation for the redirected pipeline. This sprint does not implement the web app. It creates the static deliverable contract, prompt contract, input classification, project area artifact, and comparison-unit artifact that every later sprint uses.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source. Sprint 1 implements the non-UI foundation derived from that plan. Archived planning documents are historical references only.
+`CANONICAL_PLAN.md` is the canonical planning source. Sprint 1 implements the non-UI foundation derived from that plan. Archived planning documents are historical references only.
 
 ## Sprint Outcome
 
 By the end of this sprint, the repo should have:
 
-- A machine-readable deliverable matrix derived from the canonical deliverable contract in `PLAN_REDIRECT_NEW.md`.
-- A machine-readable prompt profile derived from the canonical prompt contract in `PLAN_REDIRECT_NEW.md`.
+- A machine-readable deliverable matrix derived from the canonical deliverable contract in `CANONICAL_PLAN.md`.
+- A machine-readable prompt profile derived from the canonical prompt contract in `CANONICAL_PLAN.md`.
 - A project input package classification artifact.
 - A first processing artifact for bbox, counties, basemap paths, and project area provenance.
 - A comparison-unit artifact separate from raw input features.
@@ -42,7 +42,7 @@ The work is service/CLI only. UI-facing needs should be represented as structure
 ### 1.1 Establish planning precedence
 
 - Add a short precedence note to durable project docs during implementation:
-  - `PLAN_REDIRECT_NEW.md` controls current planning, deliverable shape, prompt intent, review policy, and export direction.
+  - `CANONICAL_PLAN.md` controls current planning, deliverable shape, prompt intent, review policy, and export direction.
   - `docs/WORKFLOW_MODEL.md` remains the aligned workflow model after it is updated to match the canonical plan.
 - Search for duplicated conflicts in:
   - `docs/WORKFLOW_MODEL.md`
@@ -69,7 +69,7 @@ The work is service/CLI only. UI-facing needs should be represented as structure
 
 ### 1.3 Documentation acceptance criteria
 
-- A future engineer can read the root sprint docs plus `PLAN_REDIRECT_NEW.md` and know the near-term direction.
+- A future engineer can read the root sprint docs plus `CANONICAL_PLAN.md` and know the near-term direction.
 - No updated docs imply that raw GIS intersection volume is the report volume.
 - No updated docs imply that default export can bypass review.
 - No updated docs imply UI work is part of these three sprints.
@@ -79,7 +79,7 @@ The work is service/CLI only. UI-facing needs should be represented as structure
 ### 2.1 Create the matrix config
 
 - Add `config/deliverable_section_matrix.json`.
-- Treat `PLAN_REDIRECT_NEW.md` as the human-readable source.
+- Treat `CANONICAL_PLAN.md` as the human-readable source.
 - Add a loader module, likely `src/review_assist/deliverable_matrix.py`.
 - The loader must:
   - Read the config.
@@ -253,7 +253,7 @@ Add exactly these attachment targets:
 ### 3.1 Create prompt config
 
 - Add a machine-readable config, likely `config/report_generation_prompts.json`.
-- Use the canonical prompt contract in `PLAN_REDIRECT_NEW.md` as the human-readable source.
+- Use the canonical prompt contract in `CANONICAL_PLAN.md` as the human-readable source.
 - Keep prompts generic and structural.
 - Do not include example-project facts as current-project evidence.
 
@@ -540,7 +540,7 @@ Run:
 - `project_area.json` is generated.
 - `comparison_units.geojson` is generated.
 - `populate_for_review_run.json` records the new artifacts.
-- `PLAN_REDIRECT_NEW.md` precedence is reflected in updated docs.
+- `CANONICAL_PLAN.md` precedence is reflected in updated docs.
 - No UI work is introduced.
 - No report export behavior is changed yet except artifact availability.
 - Tests pass.

@@ -4,7 +4,7 @@
 
 Generate exact deliverable figure targets from the matrix and align evidence packages to the new bounded report workflow. This sub-sprint completes Sprint 2 by replacing unbounded source-context figure behavior with matrix-driven figure artifacts for the standard report path.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions.
 
 ## Outcome
 

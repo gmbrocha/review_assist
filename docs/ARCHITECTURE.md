@@ -2,7 +2,7 @@
 
 This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export packages, internal demo deliverable packages, real-data MVP deliverable guardrails, and populate-for-review orchestration. No production web app, final PDF export, template-grade DOCX layout, or production workflow exists yet.
 
-The canonical planning source is `../PLAN_REDIRECT_NEW.md`. `docs/WORKFLOW_MODEL.md` should remain aligned to that plan without over-engineering the architecture.
+The canonical planning source is `../CANONICAL_PLAN.md`. `docs/WORKFLOW_MODEL.md` should remain aligned to that plan without over-engineering the architecture.
 
 The system should stay modular enough to support multiple project types while avoiding premature complexity. The likely shape is a thin web app over small services that pass structured workspace, project context, source status, geometry, review item, map, table, narrative, and export artifacts between each other.
 

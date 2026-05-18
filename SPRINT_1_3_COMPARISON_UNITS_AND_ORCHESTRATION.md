@@ -4,7 +4,7 @@
 
 Separate raw input features from report-facing comparison units and integrate the Sprint 1 foundation into the orchestration path. This sub-sprint is the main geometry-risk slice for Sprint 1.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions.
 
 ## Outcome
 
@@ -202,7 +202,7 @@ Update docs touched by Sprint 1 behavior:
 - `docs/CURRENT_STATE.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ROADMAP.md`
-- `PLAN_REDIRECT_NEW.md` if Sprint 1 decisions need cleanup.
+- `CANONICAL_PLAN.md` if Sprint 1 decisions need cleanup.
 
 Docs should say:
 

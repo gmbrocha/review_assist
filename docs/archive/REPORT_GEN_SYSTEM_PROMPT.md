@@ -1,6 +1,6 @@
 # Archived Notice
 
-This document is retained for historical context only. Active report-generation prompt rules now live in `../../PLAN_REDIRECT_NEW.md`.
+This document is retained for historical context only. Active report-generation prompt rules now live in `../../CANONICAL_PLAN.md`.
 
 # Report Generation System Prompts
 
@@ -11,7 +11,7 @@ Do not use this file as source evidence. These prompts describe how to write eac
 Companion references:
 
 - `DELIVERABLE_OUTLINE.md` defines the deliverable structure, table targets, figure targets, attachment targets, and formatting target.
-- `PLAN_REDIRECT_NEW.md` defines the redirected pipeline, review queue, export gate, and evidence rules.
+- `CANONICAL_PLAN.md` defines the redirected pipeline, review queue, export gate, and evidence rules.
 
 ## Global System Prompt
 

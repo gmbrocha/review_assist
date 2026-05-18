@@ -4,7 +4,7 @@
 
 Create the bounded deliverable item layer and make the standard review queue use it. This sub-sprint turns the matrix-driven sections, tables, figures, attachments, and stubs into one review item per deliverable target.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions.
 
 ## Outcome
 

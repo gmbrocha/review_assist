@@ -2,7 +2,7 @@
 
 This roadmap is intentionally rough and may change as requirements are clarified.
 
-Before large implementation work, read `../PLAN_REDIRECT_NEW.md`. That document is the canonical drift-control destination for the app: use the example environmental constraints report as the structural template and build the system to fill that template with source-backed constraints, visuals, reviewable copy, tables, caveats, accepted export content, and the future web app direction.
+Before large implementation work, read `../CANONICAL_PLAN.md`. That document is the canonical drift-control destination for the app: use the example environmental constraints report as the structural template and build the system to fill that template with source-backed constraints, visuals, reviewable copy, tables, caveats, accepted export content, and the future web app direction.
 
 ## Core Product Shape: Constraint Engine Plus Review Queue
 

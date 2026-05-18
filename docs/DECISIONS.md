@@ -78,7 +78,7 @@ Phase 2B produces reviewable spatial relationship records with source and method
 
 ### 2026-05-14: The canonical workflow is workspace driven
 
-The product workflow is now defined as workspace creation/opening, user-added inputs, project context generation, needed source resolution, populate for review, review queue, and accepted-content export. `PLAN_REDIRECT_NEW.md` is the canonical planning source, and `docs/WORKFLOW_MODEL.md` should stay aligned to it.
+The product workflow is now defined as workspace creation/opening, user-added inputs, project context generation, needed source resolution, populate for review, review queue, and accepted-content export. `CANONICAL_PLAN.md` is the canonical planning source, and `docs/WORKFLOW_MODEL.md` should stay aligned to it.
 
 ### 2026-05-14: Project context is a persistent artifact
 

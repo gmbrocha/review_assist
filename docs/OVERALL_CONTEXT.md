@@ -14,7 +14,7 @@ The project is an alternatives review assistant for environmental/contextual pla
 
 The system helps generate structured, source-backed, pre-review report packages for human professionals reviewing multiple proposed project alternatives.
 
-The canonical planning source is `PLAN_REDIRECT_NEW.md`. Future planning and implementation should keep `docs/WORKFLOW_MODEL.md` aligned to the workspace, source-status, review-queue, and export flow defined there.
+The canonical planning source is `CANONICAL_PLAN.md`. Future planning and implementation should keep `docs/WORKFLOW_MODEL.md` aligned to the workspace, source-status, review-queue, and export flow defined there.
 
 The tool does not make recommendations or automatically select a preferred alternative.
 

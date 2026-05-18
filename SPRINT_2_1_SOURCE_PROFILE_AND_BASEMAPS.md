@@ -4,7 +4,7 @@
 
 Prepare source/profile behavior for the example-report-shaped pipeline and implement basemap selection/renderability support. This sub-sprint does not generate final deliverable tables or figures yet; it makes the source categories and basemap context available for them.
 
-`PLAN_REDIRECT_NEW.md` is the canonical planning source for duplicated or conflicting workflow decisions.
+`CANONICAL_PLAN.md` is the canonical planning source for duplicated or conflicting workflow decisions.
 
 ## Outcome
 
