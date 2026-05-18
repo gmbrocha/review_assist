@@ -4,7 +4,7 @@ This document is the aligned workflow model for the Alternatives Review Assistan
 
 The application is a local, workspace-oriented, human-supervised workflow accelerator. It is a source-aware report compiler and contextual review assistant. It is not a recommendation engine, black-box AI reviewer, autonomous environmental analyst, or final decision-maker.
 
-The core product shape is a constraint overlap engine feeding a review queue. The system first extracts project geometry from KMZ/KML or other supported inputs, classifies it as point/site, line/corridor, polygon/area, or mixed context, derives the analysis bounds, crops/loads relevant source material, and identifies objective constraints by project feature and resource category. The review queue then presents the resulting findings, maps, tables, caveats, source notes, and draft report sections as small editable items for human review and accepted-content export.
+The core product shape is a constraint overlap engine feeding a review queue. The system first extracts project geometry from KMZ/KML or other supported inputs, classifies it as point/site, line/corridor, polygon/area, or mixed context, derives raw normalized project features and report-facing comparison units, derives the analysis bounds, crops/loads relevant source material, and identifies objective constraints by project feature and resource category. The review queue then presents the resulting findings, maps, tables, caveats, source notes, and draft report sections as small editable items for human review and accepted-content export.
 
 The review queue is not an end in itself. A large number of generic review items does not mean the workflow is useful. The workflow should prefer source-backed, report-relevant constraint findings and draft sections over noisy placeholder volume.
 
@@ -50,6 +50,7 @@ The app should attempt to:
 - Parse project geometry.
 - Classify geometry as point/site, line/corridor, polygon/area, or mixed context.
 - Reconstruct full alternatives, routes, service areas, or project features from segmented line-string/polyline pieces where needed.
+- Generate comparison units for report-facing grouping while preserving raw input features as evidence.
 - Determine bounding box and project extent.
 - Detect alternatives, project locations, service points, service areas, corridors, routes, or contextual layers.
 - Identify provided local resources.
@@ -162,10 +163,12 @@ Current baseline:
 
 - `classify-input-package <project_dir>` writes `projects/<project_id>/context/input_package.json` with per-input classification, required-KMZ state, and reviewer-confirmation warnings for ambiguous inputs.
 - `build-project-area <project_dir>` writes `projects/<project_id>/context/project_area.json` with analysis bboxes, county detection, NAIP/MARIS basemap candidates, selected source paths, renderable sidecars, renderability status, warnings, and provenance.
-- `populate-for-review` runs input package classification, project geometry normalization, project area generation, context generation, optional local source materialization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
+- `build-comparison-units <project_dir>` writes `projects/<project_id>/intermediate/comparison_units.geojson` and `comparison_units.json`. These artifacts group segmented lines, point-heavy inputs, polygons, and mixed geometry into pre-review report-facing units without deleting or repurposing `project_features.geojson`.
+- `populate-for-review` runs input package classification, project geometry normalization, project area generation, comparison-unit generation, context generation, optional local source materialization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
 - It records `projects/<project_id>/context/input_package.json` and `projects/<project_id>/context/project_area.json` in the run manifest when those steps succeed.
 - It records `projects/<project_id>/intermediate/project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` in the run manifest when project geometry generation succeeds.
+- It records `projects/<project_id>/intermediate/comparison_units.geojson`, `comparison_units.json`, generated comparison-unit count, expected comparison-unit count, and expected-count status in the run manifest when comparison-unit generation succeeds.
 - It records project county names and basemap renderability status in the run manifest when project area generation succeeds.
 - It records `projects/<project_id>/constraints/constraint_results.json` in the run manifest when constraint analysis succeeds.
 - It can record `projects/<project_id>/source_materialization/local_source_materialization_manifest.json` in the run manifest when `--materialize-local-sources` is used.

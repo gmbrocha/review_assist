@@ -10,7 +10,7 @@ The product is not a generic report-item generator. The durable workflow is:
 
 1. Parse project geometry from KMZ/KML or later supported GIS inputs.
 2. Classify and normalize the input geometry as point/site, line/corridor, polygon/area, or mixed project context.
-3. Reconstruct meaningful project alternatives or service areas from the input geometry, including joining line-string/polyline pieces into full alternatives where needed.
+3. Reconstruct meaningful project alternatives or service areas from the input geometry, including joining line-string/polyline pieces into full alternatives where needed, and store them as report-facing comparison units separate from raw features.
 4. Derive the project analysis bounds from the normalized geometry plus configurable buffer assumptions.
 5. Load, acquire, or register relevant source layers and documents.
 6. Crop source layers to the project analysis bounds.
@@ -193,7 +193,7 @@ Current baseline:
 - `review-assist populate-for-review <project_dir>`
 - `review-assist populate-for-review <project_dir> --materialize-local-sources`
 - JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Runs project context generation, project geometry normalization, optional local source materialization, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, report section generation, and lean review queue generation.
+- Runs input package classification, project geometry normalization, project area generation, comparison-unit generation, project context generation, optional local source materialization, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, map generation, evidence package generation, report section generation, and lean review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict for the legacy raw spatial check path.
 - `--materialize-local-sources` clips configured local warehouse data into project-ready source layers before source status, inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - `--prepare-sources` resolves catalog gaps and runs supported required public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
@@ -301,14 +301,16 @@ This baseline feeds export compilation, but does not itself generate final concl
 Status: initial baseline complete.
 
 - `review-assist build-project-geometry <project_dir>` writes normalized project geometry artifacts under `intermediate/`.
+- `review-assist build-comparison-units <project_dir>` writes `intermediate/comparison_units.geojson` and `intermediate/comparison_units.json` as pre-review report-facing groupings while preserving raw `project_features.geojson`.
 - Geometry is classified as point/site, line/corridor, polygon/area, or mixed.
 - Segmented line strings are grouped by placemark name, style URL, and candidate label, then connected pieces are merged without inventing missing connections.
 - Point-heavy projects preserve individual point features and style/color grouping metadata.
+- Comparison units group segmented trail/corridor alternatives, point-heavy style/color groups, named polygons, and mixed geometry families; weak/fallback grouping and expected-count mismatches remain validation issues for reviewer confirmation.
 - `review-assist analyze-constraints <project_dir>` uses registered local source layers only, crops them to project analysis bounds, and writes `projects/<project_id>/constraints/constraint_results.json`.
 - Constraint results preserve project feature identity, source identity/category, relationship type, source feature labels, provenance, and available length/area/distance measurements.
 - `generate-findings` prefers constraint results when present.
 - `generate-tables` adds constraint summary, grouped constraint summary, hydrography crossing summary, FEMA flood hazard summary, USFWS critical habitat summary, and EPA/ECHO regulated facility summary tables when relevant constraint results exist.
-- `populate-for-review` now routes through constraint analysis before findings/tables/maps/sections/queue generation.
+- `populate-for-review` now records input package, project area, project geometry, comparison-unit, source, constraint, evidence, report, and review artifacts before finishing the review queue run manifest.
 - `generate-review-queue` defaults to useful report-facing items instead of source-inventory/source-status volume; source inventory notes are available with `--include-source-inventory`.
 
 This slice now feeds the evidence package/report section path. GPT, when enabled, is limited to report-section copy from structured evidence and remains downstream of deterministic constraint results.

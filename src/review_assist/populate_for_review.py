@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .comparison_units import ComparisonUnitError, build_comparison_units
 from .constraints import ConstraintAnalysisError, analyze_constraints
 from .evidence_package import EvidencePackageError, build_evidence_package
 from .findings import FindingGenerationError, generate_draft_findings
@@ -49,6 +50,7 @@ def populate_for_review(
     context: dict[str, Any] | None = None
     project_geometry: dict[str, Any] | None = None
     project_area: dict[str, Any] | None = None
+    comparison_units: dict[str, Any] | None = None
     source_materialization: dict[str, Any] | None = None
     source_acquisition: dict[str, Any] | None = None
     source_status: dict[str, Any] | None = None
@@ -73,6 +75,10 @@ def populate_for_review(
         steps.append(_step("project_area", "completed", artifact_path=project_area.get("output_path")))
         warnings.extend(_issue_warnings("project_area", project_area.get("validation_issues", [])))
         warnings.extend(_issue_warnings("project_area", project_area.get("warnings", [])))
+
+        comparison_units = build_comparison_units(project_dir)
+        steps.append(_step("comparison_units", "completed", artifact_path=comparison_units.get("output_path")))
+        warnings.extend(_issue_warnings("comparison_units", comparison_units.get("validation_issues", [])))
 
         context = generate_project_context(project_dir)
         steps.append(_step("project_context", "completed", artifact_path=context.get("context_path")))
@@ -137,6 +143,7 @@ def populate_for_review(
         steps.append(_step("review_queue", "completed", artifact_path=review_queue.get("output_path")))
     except (
         InputPackageError,
+        ComparisonUnitError,
         ProjectAreaError,
         ProjectContextError,
         ProjectGeometryError,
@@ -160,6 +167,7 @@ def populate_for_review(
                     input_package,
                     project_geometry,
                     project_area,
+                    comparison_units,
                     source_materialization,
                     materialize_local_sources,
                     source_acquisition,
@@ -186,6 +194,7 @@ def populate_for_review(
             context,
             project_geometry,
             project_area,
+            comparison_units,
             source_materialization,
             source_status,
             source_acquisition,
@@ -204,6 +213,7 @@ def populate_for_review(
             context,
             project_geometry,
             project_area,
+            comparison_units,
             source_materialization,
             source_status,
             source_acquisition,
@@ -228,6 +238,8 @@ def populate_for_review(
             "project_features": project_geometry.get("project_features_path") if project_geometry else None,
             "analysis_bounds": project_geometry.get("analysis_bounds_path") if project_geometry else None,
             "project_area": project_area.get("output_path") if project_area else None,
+            "comparison_units": comparison_units.get("comparison_units_path") if comparison_units else None,
+            "comparison_units_metadata": comparison_units.get("output_path") if comparison_units else None,
             "source_materialization": source_materialization.get("output_path") if source_materialization else None,
             "source_acquisition": source_acquisition.get("output_path") if source_acquisition else None,
             "source_status": source_status.get("output_path") if source_status else None,
@@ -242,6 +254,9 @@ def populate_for_review(
         },
         "gpt_drafting": report_sections.get("gpt_drafting") if report_sections else {},
         "constraint_count": constraints.get("constraint_count") if constraints else 0,
+        "comparison_unit_count": comparison_units.get("comparison_unit_count") if comparison_units else 0,
+        "expected_comparison_unit_count": comparison_units.get("expected_comparison_unit_count") if comparison_units else None,
+        "expected_count_status": comparison_units.get("expected_count_status") if comparison_units else None,
         "project_county_names": project_area.get("county_names") if project_area else [],
         "basemap_rendering_status": project_area.get("basemap_rendering_status") if project_area else None,
         "source_materialization_count": source_materialization.get("materialized_count") if source_materialization else 0,
@@ -318,6 +333,7 @@ def _failed_step_name(
     input_package: dict[str, Any] | None,
     project_geometry: dict[str, Any] | None,
     project_area: dict[str, Any] | None,
+    comparison_units: dict[str, Any] | None,
     source_materialization: dict[str, Any] | None,
     source_materialization_expected: bool,
     source_acquisition: dict[str, Any] | None,
@@ -338,6 +354,8 @@ def _failed_step_name(
         return "project_geometry"
     if project_area is None:
         return "project_area"
+    if comparison_units is None:
+        return "comparison_units"
     if context is None:
         return "project_context"
     if source_materialization_expected and source_materialization is None:

@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+from .comparison_units import ComparisonUnitError, build_comparison_units
 from .constraints import ConstraintAnalysisError, analyze_constraints
 from .deliverable_matrix import (
     DeliverableMatrixError,
@@ -90,6 +91,13 @@ def build_parser() -> argparse.ArgumentParser:
     geometry_parser = subparsers.add_parser("build-project-geometry", help="Normalize project geometry for constraint analysis.")
     geometry_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     geometry_parser.add_argument("--json", action="store_true", help="Print full JSON project geometry artifact to stdout.")
+
+    comparison_units_parser = subparsers.add_parser(
+        "build-comparison-units",
+        help="Build report-facing comparison units from normalized project inputs.",
+    )
+    comparison_units_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    comparison_units_parser.add_argument("--json", action="store_true", help="Print full JSON comparison unit metadata to stdout.")
 
     input_package_parser = subparsers.add_parser(
         "classify-input-package",
@@ -432,6 +440,25 @@ def build_project_geometry_command(project_dir: Path, print_json: bool) -> int:
     print(f"Built project geometry: {result['project_id']} ({result['project_name']})")
     print(f"Geometry role: {result['geometry_role']}")
     print(f"Features: {result['feature_count']}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def build_comparison_units_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = build_comparison_units(project_dir)
+    except ComparisonUnitError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Built comparison units: {result['project_id']} ({result['project_name']})")
+    print(f"Comparison units: {result['comparison_unit_count']}")
+    print(f"Expected count status: {result['expected_count_status']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
     print(f"Output: {result['output_path']}")
     return 0
 
@@ -1017,6 +1044,8 @@ def main(argv: list[str] | None = None) -> int:
         return analyze_project_command(args.project_dir, args.json)
     if args.command == "build-project-geometry":
         return build_project_geometry_command(args.project_dir, args.json)
+    if args.command == "build-comparison-units":
+        return build_comparison_units_command(args.project_dir, args.json)
     if args.command == "classify-input-package":
         return classify_input_package_command(args.project_dir, args.json)
     if args.command == "build-project-area":

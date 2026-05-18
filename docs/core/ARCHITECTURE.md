@@ -10,7 +10,7 @@ The active backend is Python service modules plus CLI commands. Project-specific
 
 1. Project workspace and manifest.
 2. Input package classification.
-3. Project geometry normalization and project area context.
+3. Project geometry normalization, project area context, and comparison-unit generation.
 4. Project context and source status resolution.
 5. Optional local source materialization and explicit public source acquisition.
 6. Source inventory and deterministic constraint analysis.
@@ -18,11 +18,11 @@ The active backend is Python service modules plus CLI commands. Project-specific
 8. Review queue generation.
 9. Reviewed-content export.
 
-Sprint 1.2 added explicit input package and project area artifacts before deeper analysis. Sprint 1.3 will add comparison units as the report-facing geometry layer.
+Sprint 1.2 added explicit input package and project area artifacts before deeper analysis. Sprint 1.3 added comparison units as a report-facing geometry layer while preserving raw normalized project features.
 
 ## Service Boundaries
 
-- Project/input/geometry: workspace manifests, input package classification, KMZ/KML parsing, normalized project features, analysis bounds, project area context.
+- Project/input/geometry: workspace manifests, input package classification, KMZ/KML parsing, normalized project features, analysis bounds, project area context, comparison units.
 - Source management: source catalog, project registries, materialization, acquisition, status, inventory.
 - Constraint engine: deterministic spatial overlays, buffers, crossings, proximity, measurements.
 - Evidence generation: findings, comparison tables, maps, evidence package, section drafts.

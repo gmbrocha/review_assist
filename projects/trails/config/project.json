@@ -14,6 +14,7 @@
   "assumptions": {
     "default_buffer_feet": 100,
     "input_crs": "EPSG:4326",
+    "expected_comparison_unit_count": 5,
     "review_stage": "phase_2_source_context"
   },
   "special_reviewer_instructions": "Use this as the initial project for KMZ/KML parsing, geometry inspection, and local source-context checks. Outputs remain pre-review drafts."

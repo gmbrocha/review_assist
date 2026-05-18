@@ -46,11 +46,11 @@ Each deferred item should include:
 ### Dynamic Wetlands/Waterbodies Comparison-Unit Sections
 
 - `Deferred item`: Expand the dynamic 3.1.1.x wetlands/waterbodies section template into one reviewable subsection per comparison unit.
-- `Why postponed`: Sprint 1.1 represented the template in the matrix only. Comparison-unit generation is planned for Sprint 1.3, and deliverable item expansion is planned for Sprint 3.1.
+- `Why postponed`: Sprint 1.1 represented the template in the matrix only. Sprint 1.3 now generates comparison-unit artifacts, but deliverable item expansion remains planned for Sprint 3.1.
 - `Affected sections/workflows`: Section 3.1.1 Wetlands and Waterbodies, dynamic 3.1.1.x subsections, Table 1, Figure 1, review queue item count control.
 - `Risk if forgotten`: Raw segments or individual hits could continue to appear as report/review units, reintroducing the oversized-report failure mode the redirect is meant to prevent.
-- `Temporary simplification`: The dynamic target is validated as a template and is not expanded into runtime section items yet.
-- `Target sprint/subunit`: Sprints 1.3 and 3.1.
+- `Temporary simplification`: Comparison units exist as pre-review artifacts and are recorded in populate manifests, but the dynamic target is not expanded into runtime section items yet.
+- `Target sprint/subunit`: Sprint 3.1.
 - `Status`: open.
 
 ## Resolved Deferred Items

@@ -10,8 +10,8 @@ The system is not a recommendation engine, final environmental review, regulator
 
 - Completed: Sprint 1.1 Contract Foundation.
 - Completed: Sprint 1.2 Project Intake Artifacts.
-- Active next implementation target: Sprint 1.3 Comparison Units and Orchestration.
-- Active Sprint 1.3 root doc: `SPRINT_1_3_COMPARISON_UNITS_AND_ORCHESTRATION.md`.
+- Completed: Sprint 1.3 Comparison Units and Orchestration.
+- Active next implementation target: not selected after Sprint 1.3 completion.
 
 ## Active Architectural State
 
@@ -20,7 +20,7 @@ Implemented baseline:
 - CLI/service-oriented backend, no production web app.
 - Project workspaces under `projects/<project_id>/`.
 - Input package classification, KMZ/KML inspection, normalized project geometry artifacts, and project area artifacts.
-- Project context, source status, source acquisition, local source materialization, source inventory, constraint analysis, findings, tables, vector-only maps, evidence packages, draft report sections, JSON review queue, Markdown/DOCX exports, demo/MVP package commands, populate-for-review orchestration.
+- Project context, comparison units, source status, source acquisition, local source materialization, source inventory, constraint analysis, findings, tables, vector-only maps, evidence packages, draft report sections, JSON review queue, Markdown/DOCX exports, demo/MVP package commands, populate-for-review orchestration.
 - Static Sprint 1.1 deliverable matrix and report prompt contract validation.
 
 Important current artifacts:
@@ -31,6 +31,8 @@ Important current artifacts:
 - `projects/<project_id>/intermediate/project_geometry.json`
 - `projects/<project_id>/intermediate/project_features.geojson`
 - `projects/<project_id>/intermediate/project_analysis_bounds.geojson`
+- `projects/<project_id>/intermediate/comparison_units.geojson`
+- `projects/<project_id>/intermediate/comparison_units.json`
 - `projects/<project_id>/context/project_area.json`
 - `projects/<project_id>/context/project_context.json`
 - `projects/<project_id>/source_status/source_status_set.json`
@@ -45,6 +47,7 @@ Important current artifacts:
 - The canonical deliverable matrix validates but is not wired into report generation, table generation, figure generation, review queue generation, or export.
 - The canonical prompt config validates but is not wired into section drafting.
 - NAIP/MARIS basemap provenance and renderability are recorded in `project_area.json`, but raster-backed map rendering is not implemented in the current pipeline.
+- Comparison units are generated and recorded by populate orchestration, but Sprint 2+ work still needs to wire them into constraint summaries, tables, figures, report item expansion, and export gating.
 - Default export behavior still needs the future matrix-bounded review-complete gate.
 - Missing/gated/manual/stale/failed sources must remain visible and reviewable.
 

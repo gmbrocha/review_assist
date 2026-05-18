@@ -64,6 +64,10 @@ def descendants(element: ET.Element, name: str) -> Iterable[ET.Element]:
             yield child
 
 
+def parent_map(root: ET.Element) -> dict[ET.Element, ET.Element]:
+    return {child: parent for parent in root.iter() for child in parent}
+
+
 def decode_xml(data: bytes) -> str:
     for encoding in ("utf-8-sig", "utf-8", "latin-1"):
         try:
@@ -146,6 +150,92 @@ def clean_label(value: str | None) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+def style_color_lookup(root: ET.Element) -> dict[str, str]:
+    styles: dict[str, str] = {}
+    style_maps: dict[str, str] = {}
+    for element in root.iter():
+        if local_name(element.tag) != "Style":
+            continue
+        style_id = element.attrib.get("id", "").strip()
+        if not style_id:
+            continue
+        color = first_style_color(element)
+        if color:
+            styles[f"#{style_id}"] = color
+
+    for element in root.iter():
+        if local_name(element.tag) != "StyleMap":
+            continue
+        style_map_id = element.attrib.get("id", "").strip()
+        if not style_map_id:
+            continue
+        mapped_url = style_map_url(element)
+        color = styles.get(mapped_url, "")
+        if color:
+            style_maps[f"#{style_map_id}"] = color
+
+    return {**styles, **style_maps}
+
+
+def first_style_color(style: ET.Element) -> str:
+    for child in style.iter():
+        if local_name(child.tag) == "color" and child.text:
+            return clean_label(child.text)
+    return ""
+
+
+def style_map_url(style_map: ET.Element) -> str:
+    fallback = ""
+    for pair in style_map:
+        if local_name(pair.tag) != "Pair":
+            continue
+        key = child_text(pair, "key")
+        url = clean_label(child_text(pair, "styleUrl"))
+        if not url:
+            continue
+        if key == "normal":
+            return url
+        if not fallback:
+            fallback = url
+    return fallback
+
+
+def folder_path_for(placemark: ET.Element, parents: dict[ET.Element, ET.Element]) -> list[str]:
+    folders: list[str] = []
+    current = parents.get(placemark)
+    while current is not None:
+        if local_name(current.tag) == "Folder":
+            folder_name = clean_label(child_text(current, "name"))
+            if folder_name:
+                folders.append(folder_name)
+        current = parents.get(current)
+    return list(reversed(folders))
+
+
+def selected_folder_group(folder_path: list[str]) -> str:
+    for folder_name in folder_path:
+        if _is_meaningful_folder_name(folder_name):
+            return folder_name
+    return ""
+
+
+def _is_meaningful_folder_name(value: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", "", value.strip().lower())
+    if not normalized:
+        return False
+    return normalized not in {
+        "0",
+        "00",
+        "default",
+        "folder",
+        "folders",
+        "layer",
+        "layers",
+        "level",
+        "levels",
+    }
+
+
 def parse_kml_document(source_path: Path, document: KmlDocument) -> tuple[list[dict[str, object]], list[BaseGeometry], int, list[ValidationIssue]]:
     rows: list[dict[str, object]] = []
     geometries: list[BaseGeometry] = []
@@ -155,11 +245,17 @@ def parse_kml_document(source_path: Path, document: KmlDocument) -> tuple[list[d
     except ET.ParseError as exc:
         raise IngestionError(f"Invalid KML XML in {source_path}:{document.entry_name}: {exc}") from exc
 
+    parents = parent_map(root)
+    style_colors = style_color_lookup(root)
     placemarks = list(descendants(root, "Placemark"))
     blank_name_count = 0
     for placemark_index, placemark in enumerate(placemarks):
         placemark_name = clean_label(child_text(placemark, "name"))
         style_url = clean_label(child_text(placemark, "styleUrl"))
+        folders = folder_path_for(placemark, parents)
+        folder_path = " > ".join(folders)
+        folder_group = selected_folder_group(folders)
+        style_color = style_colors.get(style_url, "")
         if not placemark_name:
             blank_name_count += 1
 
@@ -202,11 +298,18 @@ def parse_kml_document(source_path: Path, document: KmlDocument) -> tuple[list[d
             rows.append(
                 {
                     "source_file": str(source_path),
+                    "source_feature_id": (
+                        f"{source_path.name}:{document.entry_name}:"
+                        f"placemark-{placemark_index + 1}:geometry-{geometry_index + 1}"
+                    ),
                     "kml_entry": document.entry_name,
+                    "folder_path": folder_path,
+                    "folder_group": folder_group,
                     "placemark_index": placemark_index,
                     "geometry_index": geometry_index,
                     "placemark_name": placemark_name,
                     "style_url": style_url,
+                    "style_color": style_color,
                     "geometry_kind": geometry_kind,
                     "candidate_label": candidate_label,
                 }
