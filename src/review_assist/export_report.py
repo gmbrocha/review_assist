@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from .data_lineage import build_data_lineage
+from .deliverable_items import DeliverableItemsError, load_deliverable_items
+from .deliverable_matrix import REQUIRED_STUB_TEXT
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .review_queue import ReviewQueueError, generate_review_queue, load_review_queue
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
@@ -46,10 +48,22 @@ EXPORT_GROUP_TITLES = {
     "attachments": "Attachments",
 }
 UNRESOLVED_REQUIRED_SOURCE_STATUSES = {"missing", "downloadable", "needs_review", "gated", "stubbed", "failed"}
+TERMINAL_REVIEW_STATUSES = {"accepted", "edited", "replaced", "declined"}
+GATE_INCLUDED_NONTERMINAL_STATUSES = {"unable_to_verify"}
+GATE_PREVIEW_LIMIT = 10
 
 
 class ExportReportError(RuntimeError):
     """Raised when editable report export generation cannot complete."""
+
+
+class ExportGateError(ExportReportError):
+    """Raised when default export is blocked by incomplete deliverable review."""
+
+    def __init__(self, details: dict[str, Any]):
+        self.details = details
+        message = _review_gate_error_message(details)
+        super().__init__(message)
 
 
 def export_report(project_dir: Path, *, include_draft: bool = False, output_format: str = "markdown") -> dict[str, Any]:
@@ -71,6 +85,10 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
     now = _utc_now()
 
     items = _dict_list(queue.get("items", []))
+    review_gate = _review_gate_summary(project_dir, queue, items, include_draft=include_draft)
+    if not include_draft and review_gate["review_gate_status"] == "blocked":
+        raise ExportGateError(review_gate)
+
     included, skipped = _partition_export_items(items, include_draft=include_draft)
     included = sorted(included, key=_export_sort_key)
     data_lineage = build_data_lineage(project_dir, included_items=included)
@@ -80,6 +98,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         unresolved_required_sources,
         include_draft=include_draft,
     )
+    validation_issues.extend(_dict_list(review_gate.get("validation_issues", [])))
     validation_issues.extend(_dict_list(data_lineage.get("validation_issues", [])))
     if comparison_tables:
         validation_issues.extend(_dict_list(comparison_tables.get("validation_issues", [])))
@@ -146,9 +165,12 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "project_dir": str(project_dir),
         "created_at": now,
         "include_draft": include_draft,
+        "preview_mode": include_draft,
         "output_format": output_format,
         "output_formats": formats,
         "package_status": "internal_preview" if include_draft else "reviewed_content",
+        "review_gate_status": review_gate["review_gate_status"],
+        "review_gate": review_gate,
         "review_queue_path": queue.get("output_path"),
         "source_status_path": source_status.get("output_path"),
         "comparison_tables_path": comparison_tables.get("output_path") if comparison_tables else None,
@@ -156,12 +178,25 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "docx_path": str(docx_path) if "docx" in formats else None,
         "included_count": len(included),
         "skipped_count": len(skipped),
+        "included_item_count": len(included),
+        "skipped_item_count": len(skipped),
+        "review_item_count": review_gate["review_item_count"],
+        "terminal_review_item_count": review_gate["terminal_review_item_count"],
+        "unreviewed_item_count": review_gate["unreviewed_item_count"],
+        "declined_item_count": review_gate["declined_item_count"],
+        "deliverable_matrix_version": review_gate.get("deliverable_matrix_version", ""),
+        "expected_deliverable_item_count": review_gate.get("expected_deliverable_item_count"),
+        "actual_deliverable_item_count": review_gate.get("actual_deliverable_item_count"),
+        "stub_item_count": review_gate["stub_item_count"],
+        "unreviewed_items_preview": review_gate["unreviewed_items_preview"],
         "status_counts": dict(Counter(str(item.get("status", "")) for item in items)),
         "included_status_counts": dict(Counter(item["status"] for item in included)),
         "skipped_status_counts": dict(Counter(item["status"] for item in skipped)),
         "included_type_counts": dict(Counter(item["type"] for item in included)),
         "skipped_type_counts": dict(Counter(item["type"] for item in skipped)),
         "included_table_ids": sorted({str(item.get("table_id")) for item in included if item.get("table_id")}),
+        "included_figure_ids": sorted(_included_figure_ids(included)),
+        "included_attachment_ids": sorted(_included_attachment_ids(included)),
         "included_map_paths": sorted({_export_map_path(item) for item in included if _export_map_path(item)}),
         "export_figure_assets": figure_assets,
         "included_source_refs": sorted({ref for item in included for ref in _string_list(item.get("source_refs", []))}),
@@ -314,14 +349,177 @@ def _output_formats(output_format: str) -> list[str]:
     return [output_format]
 
 
+def _review_gate_summary(
+    project_dir: Path,
+    queue: dict[str, Any],
+    items: list[dict[str, Any]],
+    *,
+    include_draft: bool,
+) -> dict[str, Any]:
+    queue_mode = str(queue.get("queue_mode") or "")
+    metadata = _deliverable_items_metadata(project_dir, queue)
+    validation_issues: list[dict[str, Any]] = []
+    unreviewed: list[dict[str, Any]] = []
+    terminal_count = 0
+    declined_count = 0
+    export_includable_nonterminal_count = 0
+
+    if queue_mode != "deliverable_items":
+        issue = _issue(
+            "error",
+            "standard_review_queue_required",
+            "Default export requires the standard matrix-bounded deliverable review queue. Regenerate the queue without legacy/audit mode.",
+        )
+        validation_issues.append(issue)
+        unreviewed.append(
+            {
+                "id": "",
+                "title": "Standard deliverable review queue required",
+                "status": queue_mode or "unknown",
+                "reason": "standard_review_queue_required",
+            }
+        )
+
+    for item in items:
+        status = _normalized_status(item.get("status"))
+        item_id = str(item.get("id") or item.get("deliverable_item_id") or item.get("target_id") or "")
+        if status in TERMINAL_REVIEW_STATUSES:
+            if status == "declined":
+                declined_count += 1
+            if status == "replaced" and not _replacement_content(item):
+                unreviewed.append(_gate_item(item, "replacement_content_missing"))
+                validation_issues.append(_gate_issue("replacement_content_missing", item_id, "Review item is marked replaced but has no replacement content."))
+            else:
+                terminal_count += 1
+                if status == "edited" and not _edited_content(item):
+                    validation_issues.append(_gate_issue("edited_content_missing", item_id, "Review item is marked edited but has no edited content; export will fall back to generated content."))
+            continue
+        if status in GATE_INCLUDED_NONTERMINAL_STATUSES and _is_explicitly_export_includable(item):
+            export_includable_nonterminal_count += 1
+            continue
+        unreviewed.append(_gate_item(item, _gate_block_reason(item)))
+
+    if not items:
+        validation_issues.append(_issue("error", "no_review_queue_items", "Default export requires at least one standard deliverable review item."))
+        unreviewed.append({"id": "", "title": "No review queue items", "status": "missing", "reason": "no_review_queue_items"})
+
+    status = "preview_bypassed" if include_draft else ("blocked" if unreviewed else "passed")
+    return {
+        "review_gate_status": status,
+        "preview_mode": include_draft,
+        "queue_mode": queue_mode,
+        "review_item_count": len(items),
+        "terminal_review_item_count": terminal_count,
+        "export_includable_nonterminal_count": export_includable_nonterminal_count,
+        "unreviewed_item_count": len(unreviewed),
+        "declined_item_count": declined_count,
+        "stub_item_count": _stub_item_count(items),
+        "deliverable_matrix_version": metadata.get("matrix_version", ""),
+        "expected_deliverable_item_count": metadata.get("expected_item_count", len(items)),
+        "actual_deliverable_item_count": metadata.get("item_count", len(items)),
+        "unreviewed_items_preview": unreviewed[:GATE_PREVIEW_LIMIT],
+        "validation_issues": _dedupe_issues(validation_issues),
+        "message": (
+            "Internal preview bypassed the review-complete export gate."
+            if include_draft
+            else (
+                "Review-complete export gate passed."
+                if not unreviewed
+                else "Default export is blocked until all standard deliverable review items are accepted, edited, replaced, declined, or explicitly export-eligible unable-to-verify items."
+            )
+        ),
+    }
+
+
+def _deliverable_items_metadata(project_dir: Path, queue: dict[str, Any]) -> dict[str, Any]:
+    upstream = queue.get("upstream_artifacts", {}) if isinstance(queue.get("upstream_artifacts"), dict) else {}
+    path_value = upstream.get("deliverable_items_path")
+    if path_value:
+        path = Path(str(path_value))
+        if not path.is_absolute():
+            path = project_dir / path
+        if path.exists():
+            try:
+                artifact = load_deliverable_items(project_dir)
+                return {
+                    "matrix_version": artifact.get("matrix_version", ""),
+                    "expected_item_count": artifact.get("expected_item_count"),
+                    "item_count": artifact.get("item_count"),
+                }
+            except DeliverableItemsError:
+                pass
+    return _metadata_from_queue_items(queue)
+
+
+def _metadata_from_queue_items(queue: dict[str, Any]) -> dict[str, Any]:
+    items = _dict_list(queue.get("items", []))
+    matrix_version = ""
+    for item in items:
+        provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+        deliverable_provenance = provenance.get("deliverable_item_provenance", {}) if isinstance(provenance.get("deliverable_item_provenance"), dict) else {}
+        matrix_version = str(deliverable_provenance.get("matrix_version") or "")
+        if matrix_version:
+            break
+    return {
+        "matrix_version": matrix_version,
+        "expected_item_count": len(items),
+        "item_count": len(items),
+    }
+
+
+def _gate_item(item: dict[str, Any], reason: str) -> dict[str, str]:
+    return {
+        "id": str(item.get("id") or item.get("deliverable_item_id") or item.get("target_id") or ""),
+        "title": str(item.get("title") or ""),
+        "status": _normalized_status(item.get("status")),
+        "reason": reason,
+    }
+
+
+def _gate_block_reason(item: dict[str, Any]) -> str:
+    status = _normalized_status(item.get("status"))
+    if status == "unable_to_verify" and item.get("export_eligible") is not True:
+        return "unable_to_verify_not_export_eligible"
+    if status == "unable_to_verify" and not _best_export_content(item):
+        return "unable_to_verify_missing_content"
+    return f"status_{status or 'unknown'}"
+
+
+def _gate_issue(code: str, item_id: str, message: str) -> dict[str, str]:
+    return {
+        "severity": "warning",
+        "code": code,
+        "message": message,
+        "location": "review_queue/review_queue.json",
+        "item_id": item_id,
+    }
+
+
+def _review_gate_error_message(details: dict[str, Any]) -> str:
+    preview = details.get("unreviewed_items_preview", [])
+    examples = ", ".join(
+        f"{item.get('id') or 'unknown'} [{item.get('status')}]"
+        for item in _dict_list(preview)
+        if item.get("id") or item.get("status")
+    )
+    suffix = f" First unreviewed items: {examples}." if examples else ""
+    return (
+        "Default export is blocked by the review-complete gate: "
+        f"{details.get('unreviewed_item_count', 0)} of {details.get('review_item_count', 0)} deliverable review item(s) are not export-ready."
+        f"{suffix} Use --include-draft only for an internal/pre-review preview."
+    )
+
+
 def _include_item(item: dict[str, Any], *, include_draft: bool) -> bool:
-    status = str(item.get("status", ""))
+    status = _normalized_status(item.get("status"))
     if include_draft:
-        return status not in {"rejected", "declined"}
-    if status in {"accepted", "edited", "replaced"}:
+        return status != "declined"
+    if status in {"accepted", "edited"}:
         return bool(item.get("export_eligible", False))
+    if status == "replaced":
+        return bool(item.get("export_eligible", False)) and bool(_replacement_content(item))
     if status == "unable_to_verify":
-        return bool(item.get("export_eligible", False))
+        return _is_explicitly_export_includable(item)
     return False
 
 
@@ -341,15 +539,19 @@ def _partition_export_items(
 
 
 def _export_item(item: dict[str, Any]) -> dict[str, Any]:
-    replacement = str(item.get("replacement_content") or "").strip()
-    edited = str(item.get("edited_content") or "").strip()
-    generated = str(item.get("generated_content") or "").strip()
-    if str(item.get("status", "")) == "replaced" and replacement:
+    status = _normalized_status(item.get("status"))
+    generated = _generated_content(item)
+    edited = _edited_content(item)
+    replacement = _replacement_content(item)
+    if status == "replaced":
         content = replacement
         content_source = "replacement_content"
-    elif edited:
+    elif status == "edited" and edited:
         content = edited
         content_source = "edited_content"
+    elif status == "unable_to_verify":
+        content = _best_export_content(item)
+        content_source = "replacement_content" if replacement else ("edited_content" if edited else "generated_content")
     else:
         content = generated
         content_source = "generated_content"
@@ -362,7 +564,7 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "deliverable_item_id": str(item.get("deliverable_item_id") or item.get("id", "")),
         "type": str(item.get("type", "")),
         "title": str(item.get("title", "")),
-        "status": str(item.get("status", "")),
+        "status": status,
         "export_group": str(item.get("export_group") or _default_export_group(item)),
         "export_section": str(item.get("export_section", "")),
         "section_number": item.get("section_number") or matrix_target.get("section_number"),
@@ -400,19 +602,50 @@ def _skipped_item(item: dict[str, Any], *, include_draft: bool) -> dict[str, Any
         "id": str(item.get("id", "")),
         "type": str(item.get("type", "")),
         "title": str(item.get("title", "")),
-        "status": str(item.get("status", "")),
+        "status": _normalized_status(item.get("status")),
         "export_group": str(item.get("export_group") or _default_export_group(item)),
         "reason": _skip_reason(item, include_draft=include_draft),
     }
 
 
 def _skip_reason(item: dict[str, Any], *, include_draft: bool) -> str:
-    status = str(item.get("status", ""))
-    if include_draft and status in {"rejected", "declined"}:
+    status = _normalized_status(item.get("status"))
+    if include_draft and status == "declined":
         return "declined"
+    if status == "replaced" and not _replacement_content(item):
+        return "replacement_content_missing"
+    if status == "unable_to_verify" and not _best_export_content(item):
+        return "unable_to_verify_missing_content"
     if status in {"accepted", "edited", "replaced", "unable_to_verify"} and not item.get("export_eligible", False):
         return "not_export_eligible"
     return f"status_{status or 'unknown'}"
+
+
+def _normalized_status(value: Any) -> str:
+    status = str(value or "").strip()
+    if status == "rejected":
+        return "declined"
+    return status
+
+
+def _generated_content(item: dict[str, Any]) -> str:
+    return str(item.get("generated_content") or "").strip()
+
+
+def _edited_content(item: dict[str, Any]) -> str:
+    return str(item.get("edited_content") or "").strip()
+
+
+def _replacement_content(item: dict[str, Any]) -> str:
+    return str(item.get("replacement_content") or "").strip()
+
+
+def _best_export_content(item: dict[str, Any]) -> str:
+    return _replacement_content(item) or _edited_content(item) or _generated_content(item)
+
+
+def _is_explicitly_export_includable(item: dict[str, Any]) -> bool:
+    return bool(item.get("export_eligible", False)) and bool(_best_export_content(item))
 
 
 def _export_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
@@ -1306,6 +1539,27 @@ def _included_figure_ids(included: list[dict[str, Any]]) -> set[str]:
     return {_item_figure_id(item) for item in included if item.get("type") in {"map_figure", "figure"} and _item_figure_id(item)}
 
 
+def _included_attachment_ids(included: list[dict[str, Any]]) -> set[str]:
+    values: set[str] = set()
+    for item in included:
+        if item.get("attachment_id"):
+            values.add(str(item["attachment_id"]))
+        for attachment_id in _string_list(item.get("attachment_refs", [])):
+            values.add(attachment_id)
+        if item.get("type") == "attachment" and item.get("id"):
+            values.add(str(item["id"]))
+    return values
+
+
+def _stub_item_count(items: list[dict[str, Any]]) -> int:
+    count = 0
+    for item in items:
+        flags = set(_string_list(item.get("uncertainty_flags", [])))
+        if "deliverable_item_stub" in flags or _generated_content(item) == REQUIRED_STUB_TEXT:
+            count += 1
+    return count
+
+
 def _export_map_path(item: dict[str, Any]) -> str:
     return str(item.get("export_asset_path") or item.get("export_image_path") or item.get("image_path") or "")
 
@@ -1647,6 +1901,24 @@ def _issue(severity: str, code: str, message: str) -> dict[str, str]:
         "code": code,
         "message": message,
     }
+
+
+def _dedupe_issues(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+    for issue in issues:
+        key = (
+            str(issue.get("severity", "")),
+            str(issue.get("code", "")),
+            str(issue.get("message", "")),
+            str(issue.get("location", "")),
+            str(issue.get("item_id", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(issue)
+    return deduped
 
 
 def _dict_list(value: Any) -> list[dict[str, Any]]:

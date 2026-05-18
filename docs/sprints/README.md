@@ -4,12 +4,11 @@ Root-level sprint docs remain the active working style for not-yet-implemented s
 
 ## Active Sprint/Subunit
 
-- Sprint 3.2: `SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`
+- Sprint 3.3: `SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
 
 ## Planned Sprint/Subunits
 
 - Sprint 3 overview: `SPRINT_3_REVIEW_EXPORT_AND_DOCX.md`
-- Sprint 3.2: `SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`
 - Sprint 3.3: `SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
 - Sprint 4: `SPRINT_4_WEB_APP_AND_WIRING.md`
 - Roadmap reference: `docs/sprints/ROADMAP.md`
@@ -34,11 +33,12 @@ Root-level sprint docs remain the active working style for not-yet-implemented s
   - Implemented 13 exact matrix-backed deliverable figure targets, selected-sidecar basemap rendering/fallbacks, restricted cultural exclusion, Attachment A supporting panels, evidence package refs/summaries, CLI/populate wiring, and focused tests.
 - Sprint 3.1 Deliverable Items And Review Queue: `docs/archive/sprints/SPRINT_3_1_DELIVERABLE_ITEMS_AND_REVIEW_QUEUE.md`
   - Implemented matrix-backed deliverable item generation, dynamic wetlands/waterbodies comparison-unit child sections, prompt-contract-backed section drafting payloads, bounded default review queue generation, legacy/audit queue opt-in, expanded reviewer statuses, CLI/populate wiring, and focused tests.
+- Sprint 3.2 Export Gate And Package Commands: `docs/archive/sprints/SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`
+  - Implemented review-complete default export gating from the standard bounded review queue, reviewed-content selection rules, structured CLI gate failures, preview bypass metadata, package manifest gate summaries, demo/MVP package behavior, and focused tests.
 
 ## Deferred Work Linked To Sprints
 
 See `docs/governance/DEFERRED_WORK.md` for full detail.
 
-- Sprint 3.2: canonical deliverable matrix wiring into review-complete export gate and package manifests.
 - Sprint 3.3: DOCX fidelity docs and final verification.
 - Sprint 4: no backend deferred item should be newly routed here by default; Sprint 4 should consume the resolved Sprint 2/3 service contracts through a thin UI.

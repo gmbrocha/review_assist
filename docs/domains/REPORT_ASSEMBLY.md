@@ -2,9 +2,9 @@
 
 This document captures the pipeline for assembling editable pre-review report packages.
 
-A deterministic draft section baseline exists, optional GPT section drafting now runs from structured evidence when enabled, and the accepted-content export compiler writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first and blocks client-facing packages that contain mock/test fixture source evidence or no real source layers.
+A deterministic draft section baseline exists, optional GPT section drafting now runs from structured evidence when enabled, and the reviewed-content export compiler writes Markdown, DOCX, and an export manifest after the standard review queue passes the review-complete gate. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first, blocks packages that contain mock/test fixture source evidence or no real source layers, and records whether it produced reviewed output or internal preview output.
 
-Sprint 1.1 added static deliverable and prompt contracts at `config/deliverable_section_matrix.json` and `config/report_generation_prompts.json`, plus validation commands for those contracts. Sprint 2.2 wires the deliverable matrix into exact standard table generation at `projects/<project_id>/deliverable/tables.json`. Sprint 2.3 wires the matrix into exact standard figure generation at `projects/<project_id>/deliverable/figures.json` and evidence package refs. Sprint 3.1 wires the matrix and prompt contract into standard deliverable item generation at `projects/<project_id>/deliverable/deliverable_items.json` and makes the bounded review queue consume that artifact by default. Legacy `drafts/report_sections.json` remains available for compatibility/audit context.
+Sprint 1.1 added static deliverable and prompt contracts at `config/deliverable_section_matrix.json` and `config/report_generation_prompts.json`, plus validation commands for those contracts. Sprint 2.2 wires the deliverable matrix into exact standard table generation at `projects/<project_id>/deliverable/tables.json`. Sprint 2.3 wires the matrix into exact standard figure generation at `projects/<project_id>/deliverable/figures.json` and evidence package refs. Sprint 3.1 wires the matrix and prompt contract into standard deliverable item generation at `projects/<project_id>/deliverable/deliverable_items.json` and makes the bounded review queue consume that artifact by default. Sprint 3.2 wires the bounded queue into default export gating and package manifest review-gate summaries. Legacy `drafts/report_sections.json` remains available for compatibility/audit context.
 
 ## Goal
 
@@ -38,8 +38,8 @@ Canonical pipeline:
 7. Create matrix-backed deliverable items for sections, dynamic comparison-unit subsections, tables, figures, attachments, caveats, source gaps, and required stubs.
 8. Create a bounded review queue with one item per deliverable item.
 9. Human reviewer edits, accepts, replaces, declines, or marks items for verification.
-10. Compile accepted or explicitly included reviewed items.
-11. Export editable draft package.
+10. Compile accepted, edited, replaced, or explicitly export-includable reviewed items.
+11. Export editable reviewed package, or use `--include-draft` for internal/pre-review preview only.
 
 ## Section Assembly Pattern
 
@@ -156,11 +156,13 @@ The current CLI can compile reviewed queue items into editable Markdown and DOCX
 - Markdown: `projects/<project_id>/exports/environmental_constraints_report.md`
 - DOCX: `projects/<project_id>/exports/environmental_constraints_report.docx`
 
-Default export includes only queue items with `accepted`, `edited`, or `replaced` status and export eligibility. `replaced` items require replacement content. `unable_to_verify` items export only when explicitly marked export eligible. Draft, needs-review, needs-verification, and declined items are skipped.
+Default export is review-gated and fails before writing a reviewed-content package if any standard matrix-backed deliverable item is still `draft`, `needs_review`, `needs_verification`, `replaced` without replacement content, or `unable_to_verify` without explicit export eligibility and usable content. Gate failures are structured in CLI JSON mode and actionable in text mode, including unreviewed counts and a preview of blocking item IDs.
+
+When the gate passes, default export includes `accepted` generated content, `edited` reviewer content when present, `replaced` replacement content, and explicitly export-eligible `unable_to_verify` content. `edited` items without edited content fall back to generated content with a warning. `declined` and legacy `rejected` items are omitted.
 
 The `--include-draft` option is for internal preview only. It includes unaccepted non-declined items and marks the Markdown/DOCX output as an internal preview, not an external report.
 
-The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included table ids, included map paths, copied figure asset paths, generated package contents, and `mvp_quality` counts. DOCX export supports the bounded queue item types with a report-like MVP structure: title page, internal-preview notice/header/footer for draft exports, major-section page breaks, front-matter figure/table/attachment lists, duplicate section-heading cleanup, inline referenced table/figure rendering, figure captions/source notes/method notes, placeholders when referenced evidence is missing, source refs, uncertainty flags, caveats, and package contents.
+The export manifest records review gate status, preview mode, total/terminal/unreviewed/declined review item counts, included/skipped item counts, matrix version, expected/actual deliverable item counts, included table/figure/attachment IDs, stub counts, unreviewed-item previews, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included map paths, copied figure asset paths, generated package contents, and `mvp_quality` counts. DOCX export supports the bounded queue item types with a report-like MVP structure: title page, internal-preview notice/header/footer for draft exports, major-section page breaks, front-matter figure/table/attachment lists, duplicate section-heading cleanup, inline referenced table/figure rendering, figure captions/source notes/method notes, placeholders when referenced evidence is missing, source refs, uncertainty flags, caveats, and package contents.
 
 Export and deliverable manifests include `data_lineage` counts and records, the evidence package path, and GPT drafting status/counts when GPT-backed sections are present. The lineage model distinguishes project input geometry, registered local layers, user-provided input layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records. Generated source-gap caveats are stubs, not source-backed records.
 
@@ -176,7 +178,7 @@ The current CLI can create a client-showable internal preview package without to
 - Format option: `--format markdown|docx|both`
 - Manifest: `projects/<project_id>/exports/deliverable_package_manifest.json`
 
-This command runs `populate-for-review`, then exports `--include-draft` content in the requested format. It does not accept, edit, or otherwise mutate review item statuses. The output exists to demonstrate the report shape and should not be treated as reviewed deliverable content.
+This command runs `populate-for-review`, then exports `--include-draft` content in the requested format. It does not accept, edit, or otherwise mutate review item statuses. Its package manifest records the review-gate preview summary. The output exists to demonstrate the report shape and should not be treated as reviewed deliverable content.
 
 ## Real-Data MVP Deliverable Package
 
@@ -188,9 +190,9 @@ The current CLI can create a stricter MVP package intended to prove that the del
 - Guardrail option: `--fail-on-no-downloaded-sources` / `--no-fail-on-no-downloaded-sources`
 - Manifest: `projects/<project_id>/exports/deliverable_package_manifest.json`
 
-This command runs `populate-for-review --prepare-sources`, then exports `--include-draft` content in the requested format. It does not mutate review item statuses or auto-accept anything.
+This command runs `populate-for-review --prepare-sources`, then attempts default reviewed export if the standard queue is already review-complete. If the gate blocks, it falls back to `--include-draft` internal preview. It does not mutate review item statuses or auto-accept anything.
 
-By default, MVP export fails when no downloaded, provided, or registered real source layer is available. It also fails when included export content contains `test_fixture` provenance. The command may include clearly labeled stubs for missing, manual, gated, failed, or reviewer-needed categories, but those stubs are separated from source-backed evidence in the manifest and exported report. The deliverable manifest carries `mvp_quality` so reviewers can see real-source counts, source-backed constraint counts, copied figure assets, inline-rendered tables/figures, placeholder counts, unresolved source categories, GPT section counts, and warning counts.
+By default, MVP export fails when no downloaded, provided, or registered real source layer is available. It also fails when included export content contains `test_fixture` provenance. The command may include clearly labeled stubs for missing, manual, gated, failed, or reviewer-needed categories, but those stubs are separated from source-backed evidence in the manifest and exported report. The deliverable manifest carries review gate fields and `mvp_quality` so reviewers can see preview/reviewed status, real-source counts, source-backed constraint counts, copied figure assets, inline-rendered tables/figures, placeholder counts, unresolved source categories, GPT section counts, and warning counts.
 
 ## Narrative Sources
 
@@ -301,6 +303,7 @@ The compiled package manifest includes or should continue to include:
 - Demo package manifest path, when generated.
 - Review status summary.
 - Included/skipped queue item summaries.
+- Review gate status, preview state, and unreviewed item preview.
 - Known missing data.
 - Data lineage and authenticity counts.
 - Evidence package path.

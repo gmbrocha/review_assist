@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .data_lineage import build_data_lineage, mvp_blocking_issues
-from .export_report import EXPORT_DIR, ExportReportError, export_report
+from .export_report import EXPORT_DIR, ExportGateError, ExportReportError, export_report
 from .populate_for_review import PopulateForReviewError, populate_for_review
 from .review_queue import ReviewQueueError, load_review_queue
 
@@ -77,6 +77,7 @@ def build_demo_deliverable(
         "review_queue_path": queue.get("output_path"),
         "review_queue_item_count": len(items),
         "review_queue_status_counts": dict(Counter(str(item.get("status", "")) for item in items)),
+        **_review_gate_fields(export_manifest),
         "included_count": export_manifest.get("included_count", 0),
         "skipped_count": export_manifest.get("skipped_count", 0),
         "data_lineage": export_manifest.get("data_lineage", {}),
@@ -128,7 +129,10 @@ def build_mvp_deliverable(
         raise MvpDeliverableError(messages)
 
     try:
-        export_manifest = export_report(project_dir, include_draft=True, output_format=output_format)
+        try:
+            export_manifest = export_report(project_dir, include_draft=False, output_format=output_format)
+        except ExportGateError:
+            export_manifest = export_report(project_dir, include_draft=True, output_format=output_format)
         queue = load_review_queue(project_dir)
     except (ExportReportError, ReviewQueueError) as exc:
         raise MvpDeliverableError(str(exc)) from exc
@@ -141,7 +145,7 @@ def build_mvp_deliverable(
         "project_name": export_manifest.get("project_name") or populate_manifest.get("project_name"),
         "project_dir": str(project_dir),
         "created_at": _utc_now(),
-        "package_status": "internal_preview_real_data_mvp",
+        "package_status": "internal_preview_real_data_mvp" if export_manifest.get("preview_mode") else "reviewed_content_real_data_mvp",
         "prepare_sources": True,
         "include_optional_sources": include_optional_sources,
         "materialize_local_sources": materialize_local_sources,
@@ -159,6 +163,7 @@ def build_mvp_deliverable(
         "review_queue_path": queue.get("output_path"),
         "review_queue_item_count": len(items),
         "review_queue_status_counts": dict(Counter(str(item.get("status", "")) for item in items)),
+        **_review_gate_fields(export_manifest),
         "included_count": export_manifest.get("included_count", 0),
         "skipped_count": export_manifest.get("skipped_count", 0),
         "data_lineage": export_manifest.get("data_lineage", data_lineage),
@@ -171,6 +176,25 @@ def build_mvp_deliverable(
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return manifest
+
+
+def _review_gate_fields(export_manifest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "review_gate_status": export_manifest.get("review_gate_status"),
+        "preview_mode": export_manifest.get("preview_mode", False),
+        "review_item_count": export_manifest.get("review_item_count"),
+        "terminal_review_item_count": export_manifest.get("terminal_review_item_count"),
+        "unreviewed_item_count": export_manifest.get("unreviewed_item_count"),
+        "declined_item_count": export_manifest.get("declined_item_count"),
+        "deliverable_matrix_version": export_manifest.get("deliverable_matrix_version"),
+        "expected_deliverable_item_count": export_manifest.get("expected_deliverable_item_count"),
+        "actual_deliverable_item_count": export_manifest.get("actual_deliverable_item_count"),
+        "included_table_ids": export_manifest.get("included_table_ids", []),
+        "included_figure_ids": export_manifest.get("included_figure_ids", []),
+        "included_attachment_ids": export_manifest.get("included_attachment_ids", []),
+        "stub_item_count": export_manifest.get("stub_item_count"),
+        "unreviewed_items_preview": export_manifest.get("unreviewed_items_preview", []),
+    }
 
 
 def _utc_now() -> str:

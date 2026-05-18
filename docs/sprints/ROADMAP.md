@@ -193,14 +193,14 @@ Current baseline:
 - `review-assist populate-for-review <project_dir>`
 - `review-assist populate-for-review <project_dir> --materialize-local-sources`
 - JSON run manifest at `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
-- Runs input package classification, project geometry normalization, project area generation, comparison-unit generation, project context generation, optional local source materialization, source status resolution, source inventory generation, tolerant constraint analysis, report-facing comparison-unit constraint analysis, deterministic draft finding generation, comparison table generation, matrix-backed deliverable table/figure generation, legacy map generation, evidence package generation, report section generation, and lean review queue generation.
+- Runs input package classification, project geometry normalization, project area generation, comparison-unit generation, project context generation, optional local source materialization, source status resolution, source inventory generation, tolerant constraint analysis, report-facing comparison-unit constraint analysis, deterministic draft finding generation, comparison table generation, matrix-backed deliverable table/figure generation, legacy map generation, evidence package generation, report section generation, matrix-backed deliverable item generation, and bounded review queue generation.
 - Missing or unreadable local source layers are recorded as warnings/review items in populate mode while the standalone `analyze-project` command remains strict for the legacy raw spatial check path.
 - `--materialize-local-sources` clips configured local warehouse data into project-ready source layers before source status, inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - `--prepare-sources` resolves catalog gaps and runs supported required public downloaders before source status, source inventory, constraints, findings, tables, maps, sections, and review queue generation.
 - When `--materialize-local-sources` is combined with `--prepare-sources`, materialization runs before public download attempts so local warehouse data can satisfy source gaps.
 - `--include-optional-sources`, when paired with `--prepare-sources`, also downloads supported optional sources such as FEMA NFHL flood hazard.
 
-This baseline now includes matrix-backed deliverable tables/figures, vector-only legacy map generation through Phase 6C, report section generation with deterministic and optional GPT drafting through Phase 6D, evidence package generation, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C. `populate-for-review` does not create exports itself, implement web app review screens, replace legacy review queue items with canonical deliverable items, or enforce export gates.
+This baseline now includes matrix-backed deliverable tables/figures/items, bounded default review queue generation, review-complete export gating, vector-only legacy map generation through Phase 6C, report section generation with deterministic and optional GPT drafting through Phase 6D, evidence package generation, explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, and EPA/ECHO regulated facility source acquisition, and optional FEMA NFHL flood hazard acquisition through Phase 2C. `populate-for-review` does not create exports itself or implement web app review screens.
 
 ## Phase 6A: Deterministic Finding Templates
 
@@ -268,9 +268,9 @@ Current baseline:
 - Draft figures include legend, north arrow, scale bar where CRS units allow it, source note, CRS/method note, and visible draft/pre-review labeling.
 - Map figure records include captions, source notes, method notes, figure grouping, and related resource categories.
 - `populate-for-review` runs deliverable figure generation after deliverable tables and before evidence package generation; legacy map generation remains in the run.
-- Review queue generation converts map figures into `map_figure` items with deterministic IDs and preview metadata.
+- Standard review queue generation consumes matrix-backed deliverable figure items. Legacy map figures remain available only in explicit audit/legacy queue mode.
 
-This baseline does not implement basemap tiles, MrSID decoding, Google/ArcGIS acquisition, final panel map sheets, PDF/SVG exports, or final cartographic styling. Report export now copies included PNG figures into the export package, but final map-sheet package compilation and canonical export gating remain future work.
+This baseline does not implement basemap tiles, MrSID decoding, Google/ArcGIS acquisition, final panel map sheets, PDF/SVG exports, or final cartographic styling. Report export now copies included PNG figures into the export package, and canonical review-complete export gating is implemented for standard bounded queues. Final map-sheet package compilation remains future work.
 
 ## Phase 6D: Draft Report Sections and Evidence Package
 

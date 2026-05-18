@@ -21,7 +21,7 @@ from .deliverable_items import DeliverableItemsError, generate_deliverable_items
 from .deliverable_tables import DeliverableTableError, generate_deliverable_tables
 from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from .evidence_package import EvidencePackageError, build_evidence_package
-from .export_report import ExportReportError, export_report
+from .export_report import ExportGateError, ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
 from .input_package import InputPackageError, classify_input_package
 from .inspection import ProjectInspectionError, inspect_project
@@ -918,6 +918,18 @@ def generate_report_sections_command(
 def export_report_command(project_dir: Path, include_draft: bool, output_format: str, print_json: bool) -> int:
     try:
         result = export_report(project_dir, include_draft=include_draft, output_format=output_format)
+    except ExportGateError as exc:
+        if print_json:
+            print(json.dumps(exc.details, indent=2))
+        else:
+            print(f"error: {exc}", file=sys.stderr)
+            for item in exc.details.get("unreviewed_items_preview", []):
+                if isinstance(item, dict):
+                    print(
+                        f"  - {item.get('id') or 'unknown'} [{item.get('status', 'unknown')}]: {item.get('title', '')}",
+                        file=sys.stderr,
+                    )
+        return 1
     except ExportReportError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -928,6 +940,7 @@ def export_report_command(project_dir: Path, include_draft: bool, output_format:
 
     label = "preview export" if include_draft else "reviewed-content export"
     print(f"Generated {label}: {result['project_id']} ({result['project_name']})")
+    print(f"Review gate: {result.get('review_gate_status', 'unknown')}")
     print(f"Included items: {result['included_count']}")
     print(f"Skipped items: {result['skipped_count']}")
     print(f"Validation issues: {len(result['validation_issues'])}")

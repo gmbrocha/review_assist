@@ -12,7 +12,7 @@ from review_assist import deliverable as deliverable_module
 from review_assist.data_lineage import build_data_lineage
 from review_assist.deliverable import MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from review_assist.cli import main
-from review_assist.export_report import export_report
+from review_assist.export_report import ExportGateError, export_report
 from review_assist.populate_for_review import populate_for_review
 from review_assist.review_queue import load_review_queue, update_review_item
 
@@ -200,14 +200,56 @@ def docx_text(path: str | Path) -> str:
     return "\n".join(parts)
 
 
+def set_review_states(
+    project_dir: Path,
+    *,
+    default_status: str = "accepted",
+    overrides: dict[str, str | dict[str, Any]] | None = None,
+) -> None:
+    overrides = overrides or {}
+    queue = load_review_queue(project_dir)
+    for item in queue["items"]:
+        spec = overrides.get(item["id"]) or overrides.get(item.get("target_id", "")) or overrides.get(item.get("deliverable_item_id", ""))
+        if isinstance(spec, str):
+            spec = {"status": spec}
+        elif spec is None:
+            spec = {}
+        status = str(spec.get("status", default_status))
+        item["status"] = status
+        if "generated_content" in spec:
+            item["generated_content"] = spec["generated_content"]
+        if "edited_content" in spec:
+            item["edited_content"] = spec["edited_content"]
+        if "replacement_content" in spec:
+            item["replacement_content"] = spec["replacement_content"]
+        if "export_eligible" in spec:
+            item["export_eligible"] = bool(spec["export_eligible"])
+        elif status in {"accepted", "edited"}:
+            item["export_eligible"] = True
+        elif status == "replaced":
+            item["export_eligible"] = bool(str(item.get("replacement_content", "")).strip())
+        elif status == "unable_to_verify":
+            item["export_eligible"] = False
+        else:
+            item["export_eligible"] = False
+    Path(queue["output_path"]).write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
+
+
+def set_only_reviewed_items(project_dir: Path, overrides: dict[str, str | dict[str, Any]]) -> None:
+    set_review_states(project_dir, default_status="declined", overrides=overrides)
+
+
 def test_export_manifest_filters_reviewed_items_and_uses_edited_content(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
 
-    update_review_item(project_dir, "cover-title", status="accepted")
-    update_review_item(project_dir, "executive-summary", status="edited")
-    set_queue_item(project_dir, "executive-summary", edited_content="Reviewer edited executive summary.")
-    update_review_item(project_dir, "introduction", status="declined")
+    set_review_states(
+        project_dir,
+        overrides={
+            "executive-summary": {"status": "edited", "edited_content": "Reviewer edited executive summary."},
+            "introduction": "declined",
+        },
+    )
 
     manifest = export_report(project_dir)
     markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
@@ -215,9 +257,62 @@ def test_export_manifest_filters_reviewed_items_and_uses_edited_content(tmp_path
     assert "cover-title" in included_ids(manifest)
     assert "executive-summary" in included_ids(manifest)
     assert "introduction" not in included_ids(manifest)
-    assert "study-area" not in included_ids(manifest)
+    assert "study-area" in included_ids(manifest)
     assert "Reviewer edited executive summary." in markdown
     assert "INTERNAL PREVIEW EXPORT" not in markdown
+    assert manifest["review_gate_status"] == "passed"
+    assert manifest["preview_mode"] is False
+    assert manifest["unreviewed_item_count"] == 0
+    assert manifest["deliverable_matrix_version"]
+    assert manifest["expected_deliverable_item_count"] == manifest["actual_deliverable_item_count"]
+    assert manifest["included_table_ids"]
+    assert manifest["included_figure_ids"]
+    assert manifest["included_attachment_ids"]
+    assert manifest["stub_item_count"] > 0
+
+
+def test_export_edited_without_content_falls_back_with_warning(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir, overrides={"study-area": {"status": "edited", "edited_content": ""}})
+
+    manifest = export_report(project_dir)
+    exported = next(item for item in manifest["included_items"] if item["id"] == "study-area")
+
+    assert exported["content_source"] == "generated_content"
+    assert any(issue["code"] == "edited_content_missing" and issue["item_id"] == "study-area" for issue in manifest["validation_issues"])
+
+
+def test_export_replaced_requires_replacement_content_and_exports_replacement(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir, overrides={"study-area": {"status": "replaced", "replacement_content": ""}})
+
+    with pytest.raises(ExportGateError) as exc:
+        export_report(project_dir)
+    assert any(item["reason"] == "replacement_content_missing" for item in exc.value.details["unreviewed_items_preview"])
+
+    set_review_states(
+        project_dir,
+        overrides={"study-area": {"status": "replaced", "replacement_content": "Reviewer replacement study area."}},
+    )
+    manifest = export_report(project_dir)
+    exported = next(item for item in manifest["included_items"] if item["id"] == "study-area")
+
+    assert exported["content"] == "Reviewer replacement study area."
+    assert exported["content_source"] == "replacement_content"
+
+
+def test_export_legacy_rejected_status_is_omitted_as_declined(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir, overrides={"introduction": "rejected"})
+
+    manifest = export_report(project_dir)
+
+    assert "introduction" not in included_ids(manifest)
+    assert manifest["declined_item_count"] == 1
+    assert manifest["review_gate_status"] == "passed"
 
 
 def test_data_lineage_ignores_stale_download_manifest_without_active_registry_source(tmp_path: Path) -> None:
@@ -254,25 +349,47 @@ def test_export_includes_unable_to_verify_only_when_export_eligible(tmp_path: Pa
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
 
-    update_review_item(project_dir, "limitations-and-data-gaps", status="unable_to_verify")
-    first = export_report(project_dir)
-    assert "limitations-and-data-gaps" not in included_ids(first)
+    set_review_states(project_dir, overrides={"limitations-and-data-gaps": "unable_to_verify"})
+    with pytest.raises(ExportGateError) as exc:
+        export_report(project_dir)
+    assert exc.value.details["review_gate_status"] == "blocked"
+    assert any(item["id"] == "limitations-and-data-gaps" for item in exc.value.details["unreviewed_items_preview"])
 
-    update_review_item(project_dir, "limitations-and-data-gaps", status="unable_to_verify", export_eligible=True)
+    set_review_states(
+        project_dir,
+        overrides={"limitations-and-data-gaps": {"status": "unable_to_verify", "export_eligible": True}},
+    )
     second = export_report(project_dir)
     assert "limitations-and-data-gaps" in included_ids(second)
+    assert second["review_gate_status"] == "passed"
 
 
-def test_export_warns_when_no_accepted_sections_are_available(tmp_path: Path) -> None:
+def test_default_export_fails_when_review_gate_has_unreviewed_items(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
 
-    manifest = export_report(project_dir)
+    with pytest.raises(ExportGateError) as exc:
+        export_report(project_dir)
 
-    assert manifest["included_count"] == 0
-    assert any(issue["code"] == "no_accepted_report_sections" for issue in manifest["validation_issues"])
-    assert any(issue["code"] == "unresolved_required_source_gaps" for issue in manifest["validation_issues"])
-    assert "No review queue items met the export criteria" in Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+    details = exc.value.details
+    assert details["review_gate_status"] == "blocked"
+    assert details["review_item_count"] > 0
+    assert details["unreviewed_item_count"] > 0
+    assert details["unreviewed_items_preview"]
+    assert "include-draft" in str(exc.value)
+
+
+@pytest.mark.parametrize("status", ["draft", "needs_review", "needs_verification"])
+def test_default_export_gate_blocks_each_unreviewed_status(tmp_path: Path, status: str) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir, overrides={"study-area": status})
+
+    with pytest.raises(ExportGateError) as exc:
+        export_report(project_dir)
+
+    assert exc.value.details["review_gate_status"] == "blocked"
+    assert any(item["id"] == "study-area" and item["status"] == status for item in exc.value.details["unreviewed_items_preview"])
 
 
 def test_export_preview_includes_drafts_and_marks_markdown(tmp_path: Path) -> None:
@@ -283,6 +400,8 @@ def test_export_preview_includes_drafts_and_marks_markdown(tmp_path: Path) -> No
     markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
 
     assert manifest["include_draft"] is True
+    assert manifest["preview_mode"] is True
+    assert manifest["review_gate_status"] == "preview_bypassed"
     assert manifest["included_count"] > 0
     assert "study-area" in included_ids(manifest)
     assert "INTERNAL PREVIEW EXPORT" in markdown
@@ -376,13 +495,17 @@ def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_an
     project_dir = write_project(tmp_path)
     monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
     populate_for_review(project_dir, prepare_sources=True)
-    queue = load_review_queue(project_dir)
     finding_id = "wetlands-and-waterbodies"
     map_id = "figure-wetlands-waterbodies"
 
-    update_review_item(project_dir, finding_id, status="accepted")
-    update_review_item(project_dir, "table-wetlands-waterbodies", status="accepted")
-    update_review_item(project_dir, map_id, status="accepted")
+    set_only_reviewed_items(
+        project_dir,
+        {
+            finding_id: "accepted",
+            "table-wetlands-waterbodies": "accepted",
+            map_id: "accepted",
+        },
+    )
 
     manifest = export_report(project_dir)
     markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
@@ -407,13 +530,17 @@ def test_docx_export_with_nwi_backed_constraints_includes_accepted_evidence(
     project_dir = write_project(tmp_path)
     monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
     populate_for_review(project_dir, prepare_sources=True)
-    queue = load_review_queue(project_dir)
     finding_id = "wetlands-and-waterbodies"
     map_id = "figure-wetlands-waterbodies"
 
-    update_review_item(project_dir, finding_id, status="accepted")
-    update_review_item(project_dir, "table-wetlands-waterbodies", status="accepted")
-    update_review_item(project_dir, map_id, status="accepted")
+    set_only_reviewed_items(
+        project_dir,
+        {
+            finding_id: "accepted",
+            "table-wetlands-waterbodies": "accepted",
+            map_id: "accepted",
+        },
+    )
 
     manifest = export_report(project_dir, output_format="docx")
     text = docx_text(manifest["docx_path"])
@@ -439,9 +566,14 @@ def test_report_sections_render_related_table_and_figure_inline_without_standalo
     populate_for_review(project_dir, prepare_sources=True)
     map_id = "figure-wetlands-waterbodies"
 
-    update_review_item(project_dir, "wetlands-and-waterbodies", status="accepted")
-    update_review_item(project_dir, "table-wetlands-waterbodies", status="accepted")
-    update_review_item(project_dir, map_id, status="accepted")
+    set_only_reviewed_items(
+        project_dir,
+        {
+            "wetlands-and-waterbodies": "accepted",
+            "table-wetlands-waterbodies": "accepted",
+            map_id: "accepted",
+        },
+    )
 
     manifest = export_report(project_dir, output_format="docx")
     text = docx_text(manifest["docx_path"])
@@ -474,6 +606,10 @@ def test_export_preserves_reviewer_edit_after_regeneration(tmp_path: Path) -> No
     update_review_item(project_dir, "cover-title", status="edited")
     set_queue_item(project_dir, "cover-title", edited_content="Reviewer edited front matter.")
     populate_for_review(project_dir)
+    set_review_states(
+        project_dir,
+        overrides={"cover-title": {"status": "edited", "edited_content": "Reviewer edited front matter."}},
+    )
 
     manifest = export_report(project_dir)
     markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
@@ -495,6 +631,22 @@ def test_cli_export_report_text_and_json(tmp_path: Path, capsys: pytest.CaptureF
     assert json.loads(captured.out)["project_id"] == "test_project"
 
 
+def test_cli_export_report_gate_failure_text_and_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    assert main(["export-report", str(project_dir)]) == 1
+    captured = capsys.readouterr()
+    assert "review-complete gate" in captured.err
+    assert "wetlands-and-waterbodies" in captured.err or "cover-title" in captured.err
+
+    assert main(["export-report", str(project_dir), "--json"]) == 1
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["review_gate_status"] == "blocked"
+    assert payload["unreviewed_item_count"] > 0
+
+
 def test_build_demo_deliverable_writes_package_manifest_without_accepting_items(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
@@ -506,6 +658,9 @@ def test_build_demo_deliverable_writes_package_manifest_without_accepting_items(
     assert Path(manifest["markdown_path"]).exists()
     assert Path(manifest["docx_path"]).exists()
     assert "data_lineage" in manifest
+    assert manifest["preview_mode"] is True
+    assert manifest["review_gate_status"] == "preview_bypassed"
+    assert manifest["unreviewed_item_count"] > 0
     assert not any(item["status"] in {"accepted", "edited"} for item in queue["items"])
 
 
@@ -551,6 +706,9 @@ def test_build_mvp_deliverable_succeeds_with_real_provided_source_layers(tmp_pat
     text = docx_text(manifest["docx_path"])
 
     assert manifest["package_status"] == "internal_preview_real_data_mvp"
+    assert manifest["preview_mode"] is True
+    assert manifest["review_gate_status"] == "preview_bypassed"
+    assert manifest["unreviewed_item_count"] > 0
     assert manifest["data_lineage"]["counts"]["provided_in_input"] >= 4
     assert manifest["data_lineage"]["counts"]["test_or_mock"] == 0
     assert manifest["mvp_quality"]["real_source_count"] >= 4

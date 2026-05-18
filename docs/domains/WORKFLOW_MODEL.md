@@ -295,9 +295,11 @@ Current baseline:
 
 - `export-report <project_dir>` writes Markdown and/or DOCX report packages plus `projects/<project_id>/exports/export_manifest.json`.
 - `build-demo-deliverable <project_dir>` runs populate-for-review and preview export into an internal demo package manifest without accepting review items.
-- `build-mvp-deliverable <project_dir>` runs `populate-for-review --prepare-sources` and preview export into a real-data guarded MVP package manifest without accepting review items.
-- Default exports include accepted, edited, or replaced queue items only when export eligible, plus `unable_to_verify` items only when explicitly export eligible.
+- `build-mvp-deliverable <project_dir>` runs `populate-for-review --prepare-sources`, keeps real-data guardrails, attempts reviewed export when the queue is review-complete, and otherwise falls back to preview export without accepting review items.
+- Default exports are blocked by the standard bounded review queue until every matrix-backed deliverable item is terminal or explicitly export-includable.
+- When the gate passes, default exports include accepted, edited, or replaced queue items only when export eligible, plus `unable_to_verify` items only when explicitly export eligible and backed by usable generated, edited, or replacement content.
 - `--include-draft` creates an internal preview export that includes non-declined draft/unaccepted items and marks the Markdown/DOCX as non-final/pre-review.
+- Export and package manifests record review gate status, preview state, review item counts, unreviewed previews, deliverable matrix item counts, included table/figure/attachment IDs, and stub counts.
 - DOCX export renders referenced tables and figures inline inside report sections when those table/figure review items are included, avoids duplicate standalone rendering for those artifacts, and keeps missing visuals/tables as explicit placeholders.
 - Export and deliverable manifests include `data_lineage` so reviewers can distinguish real project inputs, registered/provided/downloaded source layers, manual/gated/missing stubs, and test/mock records.
 - Export and deliverable manifests include `mvp_quality` so reviewers can inspect real-source counts, source-backed constraints, included sections/tables/figures, inline-rendered evidence, placeholders, unresolved source categories, GPT section counts, and warning counts.
