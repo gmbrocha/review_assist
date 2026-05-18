@@ -9,12 +9,14 @@ from pathlib import Path
 
 from .comparison_units import ComparisonUnitError, build_comparison_units
 from .constraints import ConstraintAnalysisError, analyze_constraints
+from .deliverable_constraints import ComparisonUnitConstraintError, analyze_comparison_unit_constraints
 from .deliverable_matrix import (
     DeliverableMatrixError,
     ReportPromptConfigError,
     load_report_prompt_config,
     validate_deliverable_contract,
 )
+from .deliverable_tables import DeliverableTableError, generate_deliverable_tables
 from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from .evidence_package import EvidencePackageError, build_evidence_package
 from .export_report import ExportReportError, export_report
@@ -117,6 +119,13 @@ def build_parser() -> argparse.ArgumentParser:
     constraints_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     constraints_parser.add_argument("--json", action="store_true", help="Print full JSON constraint result to stdout.")
 
+    comparison_unit_constraints_parser = subparsers.add_parser(
+        "analyze-comparison-unit-constraints",
+        help="Run report-facing constraint checks by comparison unit.",
+    )
+    comparison_unit_constraints_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    comparison_unit_constraints_parser.add_argument("--json", action="store_true", help="Print full JSON comparison-unit constraint result to stdout.")
+
     context_parser = subparsers.add_parser("generate-context", help="Generate persistent project context for a workspace.")
     context_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     context_parser.add_argument("--json", action="store_true", help="Print full JSON context artifact to stdout.")
@@ -171,6 +180,13 @@ def build_parser() -> argparse.ArgumentParser:
     tables_parser = subparsers.add_parser("generate-tables", help="Generate comparison table artifacts.")
     tables_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     tables_parser.add_argument("--json", action="store_true", help="Print full JSON comparison tables artifact to stdout.")
+
+    deliverable_tables_parser = subparsers.add_parser(
+        "generate-deliverable-tables",
+        help="Generate exact matrix-backed deliverable table targets.",
+    )
+    deliverable_tables_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    deliverable_tables_parser.add_argument("--json", action="store_true", help="Print full JSON deliverable tables artifact to stdout.")
 
     maps_parser = subparsers.add_parser("generate-maps", help="Generate draft static map/figure artifacts.")
     maps_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -520,6 +536,25 @@ def analyze_constraints_command(project_dir: Path, print_json: bool) -> int:
     return 0
 
 
+def analyze_comparison_unit_constraints_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = analyze_comparison_unit_constraints(project_dir, tolerate_source_errors=True)
+    except ComparisonUnitConstraintError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    analyzed_count = sum(1 for source in result["sources"] if source["status"] == "analyzed")
+    print(f"Analyzed comparison-unit constraints: {result['project_id']} ({result['project_name']})")
+    print(f"Constraints: {result['constraint_count']}")
+    print(f"Analyzed local sources: {analyzed_count}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
 def generate_context_command(project_dir: Path, print_json: bool) -> int:
     try:
         context = generate_project_context(project_dir)
@@ -718,6 +753,23 @@ def generate_tables_command(project_dir: Path, print_json: bool) -> int:
         return 0
 
     print(f"Generated comparison tables: {result['project_id']} ({result['project_name']})")
+    print(f"Tables: {result['table_count']}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def generate_deliverable_tables_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = generate_deliverable_tables(project_dir)
+    except DeliverableTableError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated deliverable tables: {result['project_id']} ({result['project_name']})")
     print(f"Tables: {result['table_count']}")
     print(f"Output: {result['output_path']}")
     return 0
@@ -1052,6 +1104,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_project_area_command(args.project_dir, args.json)
     if args.command == "analyze-constraints":
         return analyze_constraints_command(args.project_dir, args.json)
+    if args.command == "analyze-comparison-unit-constraints":
+        return analyze_comparison_unit_constraints_command(args.project_dir, args.json)
     if args.command == "generate-context":
         return generate_context_command(args.project_dir, args.json)
     if args.command == "resolve-sources":
@@ -1072,6 +1126,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_findings_command(args.project_dir, args.json)
     if args.command == "generate-tables":
         return generate_tables_command(args.project_dir, args.json)
+    if args.command == "generate-deliverable-tables":
+        return generate_deliverable_tables_command(args.project_dir, args.json)
     if args.command == "generate-maps":
         return generate_maps_command(args.project_dir, args.json)
     if args.command == "build-evidence-package":

@@ -4,7 +4,7 @@ This document captures the pipeline for assembling editable pre-review report pa
 
 A deterministic draft section baseline exists, optional GPT section drafting now runs from structured evidence when enabled, and the accepted-content export compiler writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first and blocks client-facing packages that contain mock/test fixture source evidence or no real source layers.
 
-Sprint 1.1 added static deliverable and prompt contracts at `config/deliverable_section_matrix.json` and `config/report_generation_prompts.json`, plus validation commands for those contracts. These configs define the future canonical report shape, but current report section generation still uses the existing report section templates until later sprint work wires the new matrix into generation.
+Sprint 1.1 added static deliverable and prompt contracts at `config/deliverable_section_matrix.json` and `config/report_generation_prompts.json`, plus validation commands for those contracts. Sprint 2.2 wires the deliverable matrix into exact standard table generation at `projects/<project_id>/deliverable/tables.json`. Current report section generation still uses the existing report section templates until later sprint work wires the new matrix into section and review item generation.
 
 ## Goal
 
@@ -103,6 +103,17 @@ The evidence package includes data lineage, source acquisition provenance, sourc
 - `test_fixture_blocked`
 
 The evidence package is the bridge between hard GIS/source artifacts and narrative drafting. GPT should read this structured package rather than raw source files, root `sources/` paths, raw geometries, or unbounded prose.
+
+## Deliverable Tables
+
+The current CLI can generate the exact standard table targets from the canonical deliverable matrix:
+
+- Command: `review-assist generate-deliverable-tables <project_dir>`
+- Output: `projects/<project_id>/deliverable/tables.json`
+
+This artifact contains the four matrix table targets: wetlands/waterbodies, FEMA flood zones, income demographics, and demographic composition. It consumes comparison units and `constraints/comparison_unit_constraints.json`; raw `constraint_results.json` and broad `tables/comparison_tables.json` remain evidence/backward-compatible artifacts rather than standard deliverable rows.
+
+Unavailable, missing, restricted, manual, failed, unimplemented, or Census-key-missing sources produce explicit stubs with the canonical stub text and review-needed status. Source-backed rows preserve source refs, related comparison-unit constraint IDs, comparison unit IDs, provenance, uncertainty flags, buffer assumptions, and draft review status.
 
 ## Current Export Baseline
 

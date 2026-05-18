@@ -29,8 +29,8 @@ Each deferred item should include:
 - `Why postponed`: Sprint 1.1 intentionally added static config, loaders, validators, tests, and CLI validation only. It did not change report generation, review queue generation, table generation, figure generation, or export behavior.
 - `Affected sections/workflows`: Report section generation, deliverable tables, deliverable figures, deliverable items, review queue generation, export assembly, GPT-assisted section drafting.
 - `Risk if forgotten`: The legacy report profile/templates can continue to drive output while the canonical matrix only validates on the side, allowing output volume, section coverage, stub policy, and table/figure inventory to drift away from the redirected workflow.
-- `Temporary simplification`: Current outputs can still use `config/report_section_templates.json` and existing report/map/table artifacts rather than the canonical matrix-backed deliverable targets.
-- `Target sprint/subunit`: Sprint 2.2 for comparison-unit constraints and deliverable tables; Sprint 2.3 for deliverable figures and evidence refs; Sprint 3.1 for deliverable items/review queue; Sprint 3.2 for export gate/package manifests.
+- `Temporary simplification`: Sprint 2.2 now generates exact matrix-backed deliverable tables, but report sections, figures, review queue deliverable items, and export gates can still use legacy artifacts until their owning sprints wire the matrix into those paths.
+- `Target sprint/subunit`: Sprint 2.3 for deliverable figures and evidence refs; Sprint 3.1 for deliverable items/review queue; Sprint 3.2 for export gate/package manifests.
 - `Status`: open.
 
 ### Canonical Prompt Contract Wiring
@@ -53,14 +53,14 @@ Each deferred item should include:
 - `Target sprint/subunit`: Sprint 3.1.
 - `Status`: open.
 
-### Census Table Generation
+### Census Live Acquisition And MOE Handling
 
-- `Deferred item`: Generate Census TIGER/ACS demographic tables from the Sprint 2.1 Census source setup.
-- `Why postponed`: Sprint 2.1 intentionally represented the source requirement, `CENSUS_API_KEY` convention, 2024 ACS 5-year default, and missing-key stub/status behavior only. It did not implement ACS API calls, Census geometry selection, margin-of-error handling, or deliverable table rows.
-- `Affected sections/workflows`: Community/socioeconomic source status, source inventory, evidence packages, income demographics table, demographic composition table, report sections that cite demographic tables.
-- `Risk if forgotten`: Census requirements could appear visible while the deliverable tables remain empty or unsupported, or ACS values could be generated later without preserving geography, source year, and margin-of-error caveats.
-- `Temporary simplification`: Missing Census API key creates a visible stub/source status detail; no Census table values are generated.
-- `Target sprint/subunit`: Sprint 2.2.
+- `Deferred item`: Add live Census TIGER/ACS acquisition and fuller margin-of-error handling beyond registered local Census-like source tables.
+- `Why postponed`: Sprint 2.2 implemented demographic deliverable table generation from registered local `census_tiger_acs` source rows and honest stubs when Census data/API setup is unavailable. It did not add a TIGER downloader, live ACS API client, or complete MOE presentation rules.
+- `Affected sections/workflows`: Community/socioeconomic source status, source acquisition, source inventory, income demographics table, demographic composition table, report sections that cite demographic tables.
+- `Risk if forgotten`: A project without a registered local Census source will correctly show table stubs, but future users may expect `CENSUS_API_KEY` alone to populate ACS rows or may later add ACS values without source year/geography/MOE caveats.
+- `Temporary simplification`: Local/mock-ready Census source rows can populate the two demographic deliverable tables; otherwise the tables are explicit review-needed stubs.
+- `Target sprint/subunit`: Future source acquisition/data-quality hardening.
 - `Status`: open.
 
 ### Raster-Backed NAIP Figure Rendering
@@ -87,6 +87,14 @@ Each deferred item should include:
 
 - `Deferred item`: Implement the Sprint 2.1 source/profile/basemap setup for the example-report-shaped workflow.
 - `Resolution`: Implemented `environmental_constraints_example` as the default alternatives-review profile; added Sprint 2.1 source catalog entries and attachment/manual stubs; exposed per-source status details; represented missing Census API key as a visible stub; cataloged `maris_naip_2025_imagery`; added service-level MARIS/NAIP basemap indexing and `.tif`/`.tiff`/`.png` sidecar detection.
-- `Remaining limitation`: Census table generation, comparison-unit deliverable tables, raster-backed figures, panel maps, and exact deliverable evidence wiring remain deferred to Sprint 2.2 and Sprint 2.3.
+- `Remaining limitation`: Sprint 2.2 resolved comparison-unit deliverable tables and Census table stubs/local-source rows. Raster-backed figures, panel maps, exact deliverable evidence wiring, and live Census acquisition remain deferred to their owning future work.
 - `Target sprint/subunit`: Sprint 2.1.
+- `Status`: resolved.
+
+### Sprint 2.2 Comparison Constraints And Tables
+
+- `Deferred item`: Implement the Sprint 2.2 comparison-unit constraints and exact deliverable table targets.
+- `Resolution`: Implemented `constraints/comparison_unit_constraints.json`, source-specific normalization for NWI wetland classes, hydrography crossing de-duplication, FEMA flood-zone acreage aggregation, local Census-like ACS table rows, four exact matrix-backed deliverable tables at `deliverable/tables.json`, required stubs for unavailable sources, CLI commands, populate manifest wiring, docs, and focused tests.
+- `Remaining limitation`: Deliverable figures, raster-backed NAIP/MARIS rendering, panel maps, evidence package refs, review queue deliverable item expansion, export gating, and live Census acquisition remain deferred to their owning future work items.
+- `Target sprint/subunit`: Sprint 2.2.
 - `Status`: resolved.

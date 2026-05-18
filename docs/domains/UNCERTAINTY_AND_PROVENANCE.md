@@ -61,6 +61,7 @@ Examples:
 - Length through resource.
 - Distance to nearest feature.
 - Buffer intersection.
+- Comparison-unit wetland, stream-crossing, flood-zone, and demographic deliverable table values derived from source records.
 
 Treatment:
 
@@ -272,6 +273,8 @@ Findings should record:
 - Buffer width and units.
 - CRS used for buffering.
 - Whether the buffer represents trail width, study corridor, review distance, or another assumption.
+
+Sprint 2.2 comparison-unit constraints record `analysis_geometry_kind`, `buffer_feet`, `measurement_crs`, source refs, raw feature IDs, and uncertainty flags before exact deliverable table rows are generated. Raw project-feature constraints remain evidence and should not become standard report rows by default.
 
 ## MDAH and Cultural Resource Uncertainty
 

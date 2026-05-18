@@ -181,6 +181,8 @@ Current baseline:
 - It can record `projects/<project_id>/source_materialization/local_source_materialization_manifest.json` in the run manifest when `--materialize-local-sources` is used.
 - It can record `projects/<project_id>/source_acquisition/source_acquisition_manifest.json` in the run manifest when `--prepare-sources` is used.
 - It records `projects/<project_id>/source_inventory/source_inventory.json` and `projects/<project_id>/tables/comparison_tables.json` in the run manifest when those steps succeed.
+- It records `projects/<project_id>/constraints/comparison_unit_constraints.json` in the run manifest when report-facing comparison-unit constraint analysis succeeds. Raw project-feature constraints remain in `constraint_results.json` as evidence/backward-compatible context.
+- It records `projects/<project_id>/deliverable/tables.json` in the run manifest when the matrix-backed deliverable table targets generate or stub. The broad comparison tables remain evidence artifacts rather than exact standard deliverable rows.
 - It records `projects/<project_id>/findings/draft_findings.json` in the run manifest when finding generation succeeds.
 - It records `projects/<project_id>/maps/map_manifest.json` in the run manifest when map generation succeeds.
 - It records `projects/<project_id>/drafts/report_sections.json` in the run manifest when report section generation succeeds.

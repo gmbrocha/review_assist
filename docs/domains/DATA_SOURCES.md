@@ -96,6 +96,8 @@ Current local configuration files:
 - Generated source status sets: `projects/<project_id>/source_status/source_status_set.json`
 - Generated source inventories: `projects/<project_id>/source_inventory/source_inventory.json`
 - Generated comparison tables: `projects/<project_id>/tables/comparison_tables.json`
+- Generated comparison-unit constraints: `projects/<project_id>/constraints/comparison_unit_constraints.json`
+- Generated exact deliverable tables: `projects/<project_id>/deliverable/tables.json`
 
 ## Source Acquisition Manifest
 
@@ -454,7 +456,8 @@ Implementation status:
 - `CENSUS_API_KEY` is the configured environment variable convention for future ACS API calls.
 - 2024 ACS 5-year is the declared default future dataset.
 - Missing `CENSUS_API_KEY` creates visible stub/source-status detail and uncertainty flags rather than crashing source status, acquisition, inventory, or populate workflows.
-- Census tract/ACS table generation remains deferred to Sprint 2.2.
+- Sprint 2.2 deliverable table generation can read a registered local `census_tiger_acs` polygon/table source with tract/community labels and ACS-like fields, then populate the income and demographic-composition table targets.
+- If no registered local Census source is available, or Census setup is otherwise unavailable, the demographic deliverable tables are explicit review-needed stubs. Live Census API/TIGER acquisition and full margin-of-error handling remain unimplemented.
 
 ## Species, Habitat, and Ecology Sources
 
