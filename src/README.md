@@ -1,6 +1,6 @@
 # Source Directory
 
-This directory contains the Python package for local project ingestion, geometry inspection, project geometry normalization, source registry handling, source gap/acquisition handling, project context/source status artifacts, source inventory/provenance artifacts, legacy spatial relationship checks, constraint overlap/proximity analysis, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export package generation, internal demo deliverable package orchestration, real-data MVP deliverable guardrails, and populate-for-review orchestration.
+This directory contains the Python package for local project ingestion, geometry inspection, project geometry normalization, source registry handling, source gap/acquisition handling, project context/source status artifacts, source inventory/provenance artifacts, legacy spatial relationship checks, constraint overlap/proximity analysis, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, static deliverable/prompt contract validation, JSON-backed review queue items, Markdown/DOCX export package generation, internal demo deliverable package orchestration, real-data MVP deliverable guardrails, and populate-for-review orchestration.
 
 Current implementation scope:
 
@@ -8,6 +8,7 @@ Current implementation scope:
 - KMZ/KML geometry ingestion.
 - Geometry summaries and validation issues.
 - Report profile loading.
+- Deliverable matrix and report prompt contract loading/validation.
 - Project context artifact generation.
 - Global source catalog loading.
 - Project source registry loading and local source registration.

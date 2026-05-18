@@ -1,6 +1,6 @@
 # Architecture
 
-This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export packages, internal demo deliverable packages, real-data MVP deliverable guardrails, and populate-for-review orchestration. No production web app, final PDF export, template-grade DOCX layout, or production workflow exists yet.
+This document captures the current architecture direction. Prototype service and CLI implementations exist for ingestion, project geometry normalization, source catalog/registry handling, local source registration, opt-in source acquisition, legacy spatial relationship checks, constraint overlap/proximity analysis, project context/source status artifacts, source inventory/provenance artifacts, deterministic draft finding generation, comparison table artifacts, vector-only map artifacts, deterministic draft report section artifacts, JSON-backed review queue items, Markdown/DOCX export packages, internal demo deliverable packages, real-data MVP deliverable guardrails, static deliverable/prompt contract validation, and populate-for-review orchestration. No production web app, final PDF export, template-grade DOCX layout, or production workflow exists yet.
 
 The canonical planning source is `../CANONICAL_PLAN.md`. `docs/WORKFLOW_MODEL.md` should remain aligned to that plan without over-engineering the architecture.
 
@@ -28,6 +28,8 @@ Conceptual state objects:
 - Workspace/project manifest.
 - Project context artifact.
 - Source catalog.
+- Deliverable matrix.
+- Report prompt contract.
 - Source acquisition manifest.
 - Source status set.
 - Source inventory/provenance records.
@@ -42,7 +44,7 @@ Conceptual state objects:
 - Export manifest.
 - Data lineage records.
 
-The current code implements early versions of project manifests, report profiles, source catalog entries, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, Markdown/DOCX export manifests/reports, demo/MVP deliverable package manifests, data lineage summaries, and populate run manifests.
+The current code implements early versions of project manifests, report profiles, source catalog entries, deliverable matrix and report prompt contract loaders, project source registries, source acquisition manifests, project context artifacts, source status sets, source inventory records, normalized project geometry artifacts, constraint result artifacts, legacy spatial relationship records, deterministic draft finding records, comparison table records, vector-only map manifests/PNG figures, deterministic draft report section records, review queue persistence, Markdown/DOCX export manifests/reports, demo/MVP deliverable package manifests, data lineage summaries, and populate run manifests.
 
 ## Project Workspace Layer
 

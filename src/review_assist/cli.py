@@ -8,6 +8,12 @@ import sys
 from pathlib import Path
 
 from .constraints import ConstraintAnalysisError, analyze_constraints
+from .deliverable_matrix import (
+    DeliverableMatrixError,
+    ReportPromptConfigError,
+    load_report_prompt_config,
+    validate_deliverable_contract,
+)
 from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from .evidence_package import EvidencePackageError, build_evidence_package
 from .export_report import ExportReportError, export_report
@@ -259,6 +265,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Whether the item is eligible for export.",
     )
     update_item_parser.add_argument("--json", action="store_true", help="Print updated item JSON to stdout.")
+
+    matrix_parser = subparsers.add_parser("validate-deliverable-matrix", help="Validate the deliverable matrix contract.")
+    matrix_parser.add_argument("--json", action="store_true", help="Print full JSON validation summary to stdout.")
+
+    prompts_parser = subparsers.add_parser("validate-report-prompts", help="Validate the report prompt contract.")
+    prompts_parser.add_argument("--json", action="store_true", help="Print full JSON validation summary to stdout.")
 
     populate_parser = subparsers.add_parser("populate-for-review", help="Run the current workflow into the review queue.")
     populate_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -846,6 +858,62 @@ def update_review_item_command(
     return 0
 
 
+def validate_deliverable_matrix_command(print_json: bool) -> int:
+    try:
+        matrix = validate_deliverable_contract()
+        prompts = load_report_prompt_config()
+    except (DeliverableMatrixError, ReportPromptConfigError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    summary = _deliverable_contract_summary(matrix, prompts)
+    if print_json:
+        print(json.dumps(summary, indent=2))
+        return 0
+
+    print(f"Validated deliverable matrix: {summary['profile_id']} ({summary['matrix_version']})")
+    print(f"Sections: {summary['section_target_count']}")
+    print(f"Tables: {summary['table_target_count']}")
+    print(f"Figures: {summary['figure_target_count']}")
+    print(f"Attachments: {summary['attachment_target_count']}")
+    print(f"Prompts: {summary['prompt_count']}")
+    return 0
+
+
+def validate_report_prompts_command(print_json: bool) -> int:
+    try:
+        matrix = validate_deliverable_contract()
+        prompts = load_report_prompt_config()
+    except (DeliverableMatrixError, ReportPromptConfigError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    summary = _deliverable_contract_summary(matrix, prompts)
+    if print_json:
+        print(json.dumps(summary, indent=2))
+        return 0
+
+    print(f"Validated report prompts: {summary['profile_id']} ({summary['prompt_version']})")
+    print(f"Prompts: {summary['prompt_count']}")
+    print(f"Matrix sections covered: {summary['section_target_count']}")
+    print(f"Stub text: {summary['stub_text']}")
+    return 0
+
+
+def _deliverable_contract_summary(matrix, prompts) -> dict[str, object]:
+    return {
+        "profile_id": matrix.profile_id,
+        "matrix_version": matrix.matrix_version,
+        "prompt_version": prompts.prompt_version,
+        "stub_text": matrix.stub_text,
+        "section_target_count": len(matrix.section_targets),
+        "table_target_count": len(matrix.table_targets),
+        "figure_target_count": len(matrix.figure_targets),
+        "attachment_target_count": len(matrix.attachment_targets),
+        "prompt_count": len(prompts.prompts),
+    }
+
+
 def populate_for_review_command(
     project_dir: Path,
     print_json: bool,
@@ -962,6 +1030,10 @@ def main(argv: list[str] | None = None) -> int:
             args.export_eligible,
             args.json,
         )
+    if args.command == "validate-deliverable-matrix":
+        return validate_deliverable_matrix_command(args.json)
+    if args.command == "validate-report-prompts":
+        return validate_report_prompts_command(args.json)
     if args.command == "populate-for-review":
         if args.include_optional_sources and not args.prepare_sources:
             parser.error("--include-optional-sources requires --prepare-sources for populate-for-review.")

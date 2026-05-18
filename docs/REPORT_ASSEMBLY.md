@@ -4,6 +4,8 @@ This document captures the pipeline for assembling editable pre-review report pa
 
 A deterministic draft section baseline exists, optional GPT section drafting now runs from structured evidence when enabled, and the accepted-content export compiler writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first and blocks client-facing packages that contain mock/test fixture source evidence or no real source layers.
 
+Sprint 1.1 added static deliverable and prompt contracts at `config/deliverable_section_matrix.json` and `config/report_generation_prompts.json`, plus validation commands for those contracts. These configs define the future canonical report shape, but current report section generation still uses the existing report section templates until later sprint work wires the new matrix into generation.
+
 ## Goal
 
 The system should produce a comprehensive first-pass draft package so the reviewer is not starting from a blank page.
