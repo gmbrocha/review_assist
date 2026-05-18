@@ -293,13 +293,13 @@ def test_review_queue_includes_draft_findings_and_preserves_review_state(tmp_pat
     finding_id = findings_by_type(findings, "wetland_or_waterbody_relationship")[0]["finding_id"]
     item_id = f"draft-finding-{str(finding_id).replace('_', '-')}".lower()
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     draft_items = queue_items_by_type(queue, "draft_finding")
     assert any(item["id"] == item_id for item in draft_items)
 
     update_review_item(project_dir, item_id, status="accepted", note="Reviewed finding.")
     generate_draft_findings(project_dir)
-    regenerated = generate_review_queue(project_dir)
+    regenerated = generate_review_queue(project_dir, include_legacy_artifacts=True)
     reviewed_item = next(item for item in regenerated["items"] if item["id"] == item_id)
     assert reviewed_item["status"] == "accepted"
     assert reviewed_item["export_eligible"] is True

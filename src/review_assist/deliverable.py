@@ -118,7 +118,7 @@ def build_mvp_deliverable(
         raise MvpDeliverableError(str(exc)) from exc
 
     items = [item for item in queue.get("items", []) if isinstance(item, dict)]
-    data_lineage = build_data_lineage(project_dir, included_items=[item for item in items if item.get("status") != "rejected"])
+    data_lineage = build_data_lineage(project_dir, included_items=[item for item in items if item.get("status") not in {"rejected", "declined"}])
     blocking_issues = mvp_blocking_issues(
         data_lineage,
         fail_on_no_downloaded_sources=fail_on_no_downloaded_sources,

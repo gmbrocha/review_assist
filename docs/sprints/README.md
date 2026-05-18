@@ -4,12 +4,11 @@ Root-level sprint docs remain the active working style for not-yet-implemented s
 
 ## Active Sprint/Subunit
 
-- Sprint 3.1: `SPRINT_3_1_DELIVERABLE_ITEMS_AND_REVIEW_QUEUE.md`
+- Sprint 3.2: `SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`
 
 ## Planned Sprint/Subunits
 
 - Sprint 3 overview: `SPRINT_3_REVIEW_EXPORT_AND_DOCX.md`
-- Sprint 3.1: `SPRINT_3_1_DELIVERABLE_ITEMS_AND_REVIEW_QUEUE.md`
 - Sprint 3.2: `SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`
 - Sprint 3.3: `SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
 - Sprint 4: `SPRINT_4_WEB_APP_AND_WIRING.md`
@@ -33,11 +32,13 @@ Root-level sprint docs remain the active working style for not-yet-implemented s
   - Implemented report-facing comparison-unit constraints, source-specific table normalization, four exact matrix-backed deliverable table targets, Census stubs/local-source table rows, CLI/populate wiring, and focused tests.
 - Sprint 2.3 Figures, Evidence, And Validation: `docs/archive/sprints/SPRINT_2_3_FIGURES_EVIDENCE_AND_VALIDATION.md`
   - Implemented 13 exact matrix-backed deliverable figure targets, selected-sidecar basemap rendering/fallbacks, restricted cultural exclusion, Attachment A supporting panels, evidence package refs/summaries, CLI/populate wiring, and focused tests.
+- Sprint 3.1 Deliverable Items And Review Queue: `docs/archive/sprints/SPRINT_3_1_DELIVERABLE_ITEMS_AND_REVIEW_QUEUE.md`
+  - Implemented matrix-backed deliverable item generation, dynamic wetlands/waterbodies comparison-unit child sections, prompt-contract-backed section drafting payloads, bounded default review queue generation, legacy/audit queue opt-in, expanded reviewer statuses, CLI/populate wiring, and focused tests.
 
 ## Deferred Work Linked To Sprints
 
 See `docs/governance/DEFERRED_WORK.md` for full detail.
 
-- Sprint 3.1: canonical deliverable matrix and prompt contract wiring into deliverable items, dynamic comparison-unit sections, section drafting, and bounded review queue generation.
 - Sprint 3.2: canonical deliverable matrix wiring into review-complete export gate and package manifests.
+- Sprint 3.3: DOCX fidelity docs and final verification.
 - Sprint 4: no backend deferred item should be newly routed here by default; Sprint 4 should consume the resolved Sprint 2/3 service contracts through a thin UI.

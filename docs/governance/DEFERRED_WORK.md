@@ -25,32 +25,12 @@ Each deferred item should include:
 
 ### Canonical Deliverable Contract Wiring
 
-- `Deferred item`: Wire the Sprint 1.1 deliverable matrix into report-facing generation.
-- `Why postponed`: Sprint 1.1 intentionally added static config, loaders, validators, tests, and CLI validation only. It did not change report generation, review queue generation, table generation, figure generation, or export behavior.
-- `Affected sections/workflows`: Report section generation, deliverable items, review queue generation, export assembly, GPT-assisted section drafting.
-- `Risk if forgotten`: The legacy report profile/templates can continue to drive output while the canonical matrix only validates on the side, allowing output volume, section coverage, stub policy, and table/figure inventory to drift away from the redirected workflow.
-- `Temporary simplification`: Sprint 2.2 now generates exact matrix-backed deliverable tables, and Sprint 2.3 now generates exact matrix-backed deliverable figures plus evidence refs. Report sections, review queue deliverable items, and export gates can still use legacy artifacts until their owning sprints wire the matrix into those paths.
-- `Target sprint/subunit`: Sprint 3.1 for deliverable items/review queue; Sprint 3.2 for export gate/package manifests.
-- `Status`: open.
-
-### Canonical Prompt Contract Wiring
-
-- `Deferred item`: Wire `config/report_generation_prompts.json` into GPT-assisted and deterministic section generation.
-- `Why postponed`: Sprint 1.1 created and validated the prompt contract but did not replace the existing section drafting prompt flow.
-- `Affected sections/workflows`: GPT-assisted report sections, deterministic section fallback, evidence package inputs, review queue section items.
-- `Risk if forgotten`: Prompt guardrails may remain validated but inactive, increasing the chance that section drafting behavior diverges from the canonical no-ranking, no-selection, no-final-determination, source-backed-only contract.
-- `Temporary simplification`: The prompt contract is machine-readable and test-covered, but current report drafting still uses existing implementation pathways.
-- `Target sprint/subunit`: Sprint 3.1.
-- `Status`: open.
-
-### Dynamic Wetlands/Waterbodies Comparison-Unit Sections
-
-- `Deferred item`: Expand the dynamic 3.1.1.x wetlands/waterbodies section template into one reviewable subsection per comparison unit.
-- `Why postponed`: Sprint 1.1 represented the template in the matrix only. Sprint 1.3 now generates comparison-unit artifacts, but deliverable item expansion remains planned for Sprint 3.1.
-- `Affected sections/workflows`: Section 3.1.1 Wetlands and Waterbodies, dynamic 3.1.1.x subsections, Table 1, Figure 1, review queue item count control.
-- `Risk if forgotten`: Raw segments or individual hits could continue to appear as report/review units, reintroducing the oversized-report failure mode the redirect is meant to prevent.
-- `Temporary simplification`: Comparison units exist as pre-review artifacts and are recorded in populate manifests, but the dynamic target is not expanded into runtime section items yet.
-- `Target sprint/subunit`: Sprint 3.1.
+- `Deferred item`: Wire the Sprint 1.1 deliverable matrix into review-complete export gating and package manifests.
+- `Why postponed`: Sprint 3.1 now wires the matrix into standard deliverable item generation and bounded review queue generation. Export gate/package enforcement is intentionally owned by Sprint 3.2.
+- `Affected sections/workflows`: Reviewed-content export assembly, package manifests, export readiness validation.
+- `Risk if forgotten`: Reviewed exports could be packaged before every required matrix-backed item is reviewed, replaced, declined, or explicitly resolved, allowing package completeness to drift away from the redirected workflow.
+- `Temporary simplification`: Sprint 2.2 generates exact matrix-backed deliverable tables, Sprint 2.3 generates exact matrix-backed deliverable figures plus evidence refs, and Sprint 3.1 generates exact matrix-backed deliverable items plus the bounded review queue. Current exports can still preview or compile reviewed queue items, but they do not yet enforce matrix completeness as a gate.
+- `Target sprint/subunit`: Sprint 3.2 for export gate/package manifests.
 - `Status`: open.
 
 ### Census Live Acquisition And MOE Handling
@@ -93,8 +73,32 @@ Each deferred item should include:
 
 - `Deferred item`: Implement matrix-backed deliverable figures and align them with evidence package refs.
 - `Resolution`: Implemented `deliverable/figures.json`, 13 exact main figure records in matrix order, explicit source/implementation stubs, selected-sidecar basemap rendering/fallbacks, restricted cultural exclusion, Attachment A supporting panel maps outside the main figure count, CLI/populate wiring, evidence package table/figure refs, compact row/figure/constraint summaries, GPT-safe payload handling, docs, and focused tests.
-- `Remaining limitation`: Legacy report section generation and review queue generation still do not expand canonical matrix deliverable items. Export gates and reviewed-package manifest enforcement remain deferred to Sprint 3.1 and Sprint 3.2. Local NAIP warehouses that are `.sid`-only remain provenance-only and produce vector-only figures or stubs; GeoTIFF rendering depends on optional `rasterio`.
+- `Remaining limitation`: Export gates and reviewed-package manifest enforcement remain deferred to Sprint 3.2. Local NAIP warehouses that are `.sid`-only remain provenance-only and produce vector-only figures or stubs; GeoTIFF rendering depends on optional `rasterio`.
 - `Target sprint/subunit`: Sprint 2.3.
+- `Status`: resolved.
+
+### Sprint 3.1 Deliverable Items And Review Queue
+
+- `Deferred item`: Implement matrix-backed deliverable item generation, prompt-contract section drafting payloads, dynamic wetlands/waterbodies comparison-unit child sections, and bounded default review queue generation.
+- `Resolution`: Implemented `deliverable/deliverable_items.json`, generation/loading/validation service and CLI, dynamic wetlands/waterbodies children from comparison units, deliverable table/figure/attachment item refs, prompt-contract metadata in section drafting requests, compact validation summaries, default review queue generation from deliverable items, legacy/audit queue opt-in with `include_legacy_artifacts` / `--include-legacy-artifacts`, terminal statuses `accepted`, `edited`, `replaced`, and `declined`, legacy `rejected` normalization to `declined`, replacement-content validation, populate manifest wiring, docs, and focused tests.
+- `Remaining limitation`: Sprint 3.2 still owns review-complete export gating and package manifest enforcement. Sprint 3.3 still owns DOCX fidelity/final verification docs. Legacy `drafts/report_sections.json`, raw findings, raw comparison tables, and legacy `maps/map_manifest.json` remain available as compatibility/audit artifacts, not the standard queue source.
+- `Target sprint/subunit`: Sprint 3.1.
+- `Status`: resolved.
+
+### Canonical Prompt Contract Wiring
+
+- `Deferred item`: Wire `config/report_generation_prompts.json` into GPT-assisted and deterministic section generation.
+- `Resolution`: Sprint 3.1 wires prompt-config metadata into standard deliverable item section drafting requests, including matrix target metadata, prompt key, global/section constraints, allowed inputs, citation policy, and structured evidence only. GPT-safe evidence payload safeguards remain in place.
+- `Remaining limitation`: Legacy `generate-report-sections` remains available for compatibility/audit context and may still use its existing report-section pathways. Future prompt tuning and reviewer-controlled rewrite flows remain outside Sprint 3.1.
+- `Target sprint/subunit`: Sprint 3.1.
+- `Status`: resolved.
+
+### Dynamic Wetlands/Waterbodies Comparison-Unit Sections
+
+- `Deferred item`: Expand the dynamic 3.1.1.x wetlands/waterbodies section template into one reviewable subsection per comparison unit.
+- `Resolution`: Sprint 3.1 expands the matrix dynamic template into stable `wetlands-waterbodies-{comparison_unit_id}` deliverable items, with section numbers/titles derived from matrix patterns and comparison-unit IDs preserved for review/export context.
+- `Remaining limitation`: Export completeness gating for these dynamic items remains Sprint 3.2.
+- `Target sprint/subunit`: Sprint 3.1.
 - `Status`: resolved.
 
 ### Raster-Backed NAIP Figure Rendering

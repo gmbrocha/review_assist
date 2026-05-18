@@ -73,6 +73,7 @@ class SectionDraftRequest:
     purpose: str
     resource_category: str
     deterministic_content: str
+    target_id: str = ""
     related_finding_ids: list[str] = field(default_factory=list)
     related_table_ids: list[str] = field(default_factory=list)
     related_figure_ids: list[str] = field(default_factory=list)
@@ -82,6 +83,12 @@ class SectionDraftRequest:
     evidence_bundle: dict[str, Any] = field(default_factory=dict)
     validation_issues: list[dict[str, Any]] = field(default_factory=list)
     project_context: dict[str, Any] = field(default_factory=dict)
+    matrix_target: dict[str, Any] = field(default_factory=dict)
+    prompt_key: str = ""
+    prompt: dict[str, Any] = field(default_factory=dict)
+    global_prompt: dict[str, Any] = field(default_factory=dict)
+    allowed_inputs: list[str] = field(default_factory=list)
+    citation_policy: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -213,10 +220,19 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
         "prompt_version": PROMPT_VERSION,
         "section": {
             "section_id": request.section_id,
+            "target_id": request.target_id or request.section_id,
             "section_type": request.section_type,
             "title": request.title,
             "purpose": request.purpose,
             "resource_category": request.resource_category,
+            "prompt_key": request.prompt_key,
+        },
+        "matrix_target": request.matrix_target,
+        "prompt_contract": {
+            "global_prompt": request.global_prompt,
+            "section_prompt": request.prompt,
+            "allowed_inputs": request.allowed_inputs,
+            "citation_policy": request.citation_policy,
         },
         "project": {
             "project_id": request.project_context.get("project_id"),

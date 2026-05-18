@@ -11,6 +11,7 @@ import pytest
 from review_assist import section_drafting
 from review_assist.cli import main
 from review_assist.deliverable import build_mvp_deliverable
+from review_assist.deliverable_items import generate_deliverable_items
 from review_assist.env_config import (
     GptConfigurationError,
     gpt_draft_max_payload_bytes,
@@ -129,6 +130,36 @@ def test_report_sections_use_mocked_gpt_provider_and_record_provenance(
     assert front_matter["provenance"]["gpt_model"] == "gpt-test"
     assert front_matter["provenance"]["input_digest"]
     assert "gpt_drafted_pre_review" in front_matter["uncertainty_flags"]
+
+
+def test_deliverable_item_gpt_payload_includes_prompt_contract_and_matrix_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    captured: dict[str, Any] = {}
+
+    def capture_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+        captured.setdefault("payload", payload)
+        return fake_gpt_response(self, payload)
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("GPT_DRAFTING_WORKERS", "1")
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", capture_gpt_response)
+
+    result = generate_deliverable_items(project_dir, gpt_drafting=True, gpt_model="gpt-test")
+    payload = captured["payload"]
+    serialized = json.dumps(payload)
+
+    assert result["gpt_drafting"]["enabled"] is True
+    assert payload["matrix_target"]["target_id"]
+    assert payload["section"]["prompt_key"]
+    assert payload["prompt_contract"]["global_prompt"]["prompt_key"] == "global"
+    assert payload["prompt_contract"]["section_prompt"]["prompt_key"] == payload["section"]["prompt_key"]
+    assert payload["prompt_contract"]["allowed_inputs"]
+    assert payload["prompt_contract"]["citation_policy"]
+    assert "coordinates" not in serialized
+    assert r"F:\Desktop\review_assist\sources" not in serialized
 
 
 def test_gpt_payload_sanitizes_raw_geometries_and_source_paths(monkeypatch: pytest.MonkeyPatch) -> None:

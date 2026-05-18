@@ -17,6 +17,7 @@ from .deliverable_matrix import (
     validate_deliverable_contract,
 )
 from .deliverable_figures import DeliverableFigureError, generate_deliverable_figures
+from .deliverable_items import DeliverableItemsError, generate_deliverable_items
 from .deliverable_tables import DeliverableTableError, generate_deliverable_tables
 from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from .evidence_package import EvidencePackageError, build_evidence_package
@@ -196,6 +197,15 @@ def build_parser() -> argparse.ArgumentParser:
     deliverable_figures_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     deliverable_figures_parser.add_argument("--json", action="store_true", help="Print full JSON deliverable figures artifact to stdout.")
 
+    deliverable_items_parser = subparsers.add_parser(
+        "generate-deliverable-items",
+        help="Generate matrix-backed deliverable item targets for bounded review.",
+    )
+    deliverable_items_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    deliverable_items_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    deliverable_items_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
+    deliverable_items_parser.add_argument("--json", action="store_true", help="Print full JSON deliverable items artifact to stdout.")
+
     maps_parser = subparsers.add_parser("generate-maps", help="Generate draft static map/figure artifacts.")
     maps_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     maps_parser.add_argument("--json", action="store_true", help="Print full JSON map manifest to stdout.")
@@ -294,7 +304,12 @@ def build_parser() -> argparse.ArgumentParser:
     queue_parser.add_argument(
         "--include-source-inventory",
         action="store_true",
-        help="Include source inventory note items in addition to the lean review queue.",
+        help="Audit mode add-on: include source inventory note items with legacy raw-artifact queue generation.",
+    )
+    queue_parser.add_argument(
+        "--include-legacy-artifacts",
+        action="store_true",
+        help="Generate legacy/audit queue items from raw findings, tables, maps, report sections, and validation artifacts.",
     )
     queue_parser.add_argument("--json", action="store_true", help="Print full JSON review queue to stdout.")
 
@@ -307,6 +322,8 @@ def build_parser() -> argparse.ArgumentParser:
     update_item_parser.add_argument("item_id", help="Review queue item id.")
     update_item_parser.add_argument("--status", required=True, help="New review status.")
     update_item_parser.add_argument("--note", help="Reviewer note to append.")
+    update_item_parser.add_argument("--edited-content", help="Reviewer-edited content for edited review items.")
+    update_item_parser.add_argument("--replacement-content", help="Reviewer replacement content for replaced review items.")
     update_item_parser.add_argument(
         "--export-eligible",
         choices=("true", "false"),
@@ -697,9 +714,18 @@ def materialize_local_sources_command(project_dir: Path, replace: bool, print_js
     return 0
 
 
-def generate_review_queue_command(project_dir: Path, include_source_inventory: bool, print_json: bool) -> int:
+def generate_review_queue_command(
+    project_dir: Path,
+    include_source_inventory: bool,
+    include_legacy_artifacts: bool,
+    print_json: bool,
+) -> int:
     try:
-        queue = generate_review_queue(project_dir, include_source_inventory=include_source_inventory)
+        queue = generate_review_queue(
+            project_dir,
+            include_source_inventory=include_source_inventory,
+            include_legacy_artifacts=include_legacy_artifacts,
+        )
     except ReviewQueueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -709,6 +735,7 @@ def generate_review_queue_command(project_dir: Path, include_source_inventory: b
         return 0
 
     print(f"Generated review queue: {queue['project_id']} ({queue['project_name']})")
+    print(f"Mode: {queue.get('queue_mode', 'deliverable_items')}")
     print(f"Items: {queue['item_count']}")
     print(f"Output: {queue['output_path']}")
     return 0
@@ -797,6 +824,31 @@ def generate_deliverable_figures_command(project_dir: Path, print_json: bool) ->
     print(f"Generated deliverable figures: {result['project_id']} ({result['project_name']})")
     print(f"Figures: {result['figure_count']}")
     print(f"Attachment supporting figures: {result['attachment_supporting_figure_count']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def generate_deliverable_items_command(
+    project_dir: Path,
+    print_json: bool,
+    no_gpt_drafting: bool = False,
+    gpt_model: str | None = None,
+) -> int:
+    try:
+        result = generate_deliverable_items(project_dir, gpt_drafting=False if no_gpt_drafting else None, gpt_model=gpt_model)
+    except DeliverableItemsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Generated deliverable items: {result['project_id']} ({result['project_name']})")
+    print(f"Items: {result['item_count']}")
+    print(f"Expected items: {result['expected_item_count']}")
+    print(f"GPT drafting: {result.get('gpt_drafting', {}).get('enabled', False)}")
     print(f"Validation issues: {len(result['validation_issues'])}")
     print(f"Output: {result['output_path']}")
     return 0
@@ -996,6 +1048,8 @@ def update_review_item_command(
     status: str,
     note: str | None,
     export_eligible: str | None,
+    edited_content: str | None,
+    replacement_content: str | None,
     print_json: bool,
 ) -> int:
     try:
@@ -1005,6 +1059,8 @@ def update_review_item_command(
             status=status,
             note=note,
             export_eligible=_optional_bool(export_eligible),
+            edited_content=edited_content,
+            replacement_content=replacement_content,
         )
     except ReviewQueueError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1157,6 +1213,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_deliverable_tables_command(args.project_dir, args.json)
     if args.command == "generate-deliverable-figures":
         return generate_deliverable_figures_command(args.project_dir, args.json)
+    if args.command == "generate-deliverable-items":
+        return generate_deliverable_items_command(args.project_dir, args.json, args.no_gpt_drafting, args.gpt_model)
     if args.command == "generate-maps":
         return generate_maps_command(args.project_dir, args.json)
     if args.command == "build-evidence-package":
@@ -1190,7 +1248,7 @@ def main(argv: list[str] | None = None) -> int:
             args.gpt_model,
         )
     if args.command == "generate-review-queue":
-        return generate_review_queue_command(args.project_dir, args.include_source_inventory, args.json)
+        return generate_review_queue_command(args.project_dir, args.include_source_inventory, args.include_legacy_artifacts, args.json)
     if args.command == "list-review-queue":
         return list_review_queue_command(args.project_dir, args.json)
     if args.command == "update-review-item":
@@ -1200,6 +1258,8 @@ def main(argv: list[str] | None = None) -> int:
             args.status,
             args.note,
             args.export_eligible,
+            args.edited_content,
+            args.replacement_content,
             args.json,
         )
     if args.command == "validate-deliverable-matrix":

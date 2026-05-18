@@ -118,12 +118,14 @@ def test_populate_for_review_writes_manifest_and_review_queue(tmp_path: Path) ->
     assert result["artifact_paths"]["draft_findings"].endswith("draft_findings.json")
     assert result["artifact_paths"]["deliverable_tables"].endswith("tables.json")
     assert result["artifact_paths"]["deliverable_figures"].endswith("figures.json")
+    assert result["artifact_paths"]["deliverable_items"].endswith("deliverable_items.json")
     assert result["artifact_paths"]["review_queue"].endswith("review_queue.json")
     assert "project_county_names" in result
     assert "basemap_rendering_status" in result
     assert result["comparison_unit_count"] == 1
     assert result["deliverable_table_count"] == 4
     assert result["deliverable_figure_count"] == 13
+    assert result["deliverable_item_count"] > 0
     assert result["expected_count_status"] == "not_configured"
     assert result["review_queue_item_count"] > 0
 
@@ -140,8 +142,7 @@ def test_populate_for_review_tolerates_missing_local_source_and_creates_review_i
     assert result["status"] == "completed"
     assert any(warning["code"] == "missing_local_source_file" for warning in result["warnings"])
     queue = load_review_queue(project_dir)
-    validation_items = item_by_type(queue, "validation_issue")
-    assert any("missing_local_source_file" in item["uncertainty_flags"] for item in validation_items)
+    assert any(issue["code"] == "missing_local_source_file" for issue in queue["validation_issues"])
 
 
 def test_populate_for_review_tolerates_unreadable_local_source_and_creates_review_item(tmp_path: Path) -> None:
@@ -157,8 +158,7 @@ def test_populate_for_review_tolerates_unreadable_local_source_and_creates_revie
     assert result["status"] == "completed"
     assert any(warning["code"] == "unreadable_local_source_file" for warning in result["warnings"])
     queue = load_review_queue(project_dir)
-    validation_items = item_by_type(queue, "validation_issue")
-    assert any("unreadable_local_source_file" in item["uncertainty_flags"] for item in validation_items)
+    assert any(issue["code"] == "unreadable_local_source_file" for issue in queue["validation_issues"])
 
 
 def test_populate_for_review_errors_for_missing_manifest(tmp_path: Path) -> None:

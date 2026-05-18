@@ -305,10 +305,13 @@ def test_full_pipeline_uses_constraints_for_findings_sections_and_lean_queue(tmp
 
     assert result["constraint_count"] == 1
     assert Path(result["artifact_paths"]["constraint_results"]).exists()
-    assert "draft_finding" in item_types
-    assert "report_section" in item_types
+    assert "section_text" in item_types
+    assert "table" in item_types
+    assert "figure" in item_types
+    assert "draft_finding" not in item_types
+    assert "report_section" not in item_types
     assert "source_inventory_note" not in item_types
-    assert any(item["type"] == "draft_finding" and "Wetland A" in item["generated_content"] for item in queue["items"])
+    assert any(item["id"] == "wetlands-and-waterbodies" for item in queue["items"])
 
 
 def test_review_queue_preserves_state_across_constraint_regeneration(tmp_path: Path) -> None:
@@ -326,7 +329,7 @@ def test_review_queue_preserves_state_across_constraint_regeneration(tmp_path: P
     write_registry(project_dir, "usfws_nwi_wetlands", "wetlands.geojson")
     populate_for_review(project_dir)
     queue = generate_review_queue(project_dir)
-    finding_id = next(item["id"] for item in queue["items"] if item["type"] == "draft_finding")
+    finding_id = "wetlands-and-waterbodies"
 
     update_review_item(project_dir, finding_id, status="accepted", note="Reviewed.")
     populate_for_review(project_dir)

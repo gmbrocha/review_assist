@@ -10,6 +10,7 @@ from shapely.geometry import Point
 
 from review_assist.cli import main
 from review_assist.constraints import analyze_constraints
+from review_assist.deliverable_items import load_deliverable_items
 from review_assist.review_queue import (
     REQUIRED_ITEM_FIELDS,
     ReviewQueueError,
@@ -116,26 +117,44 @@ def items_by_type(queue: dict[str, object], item_type: str) -> list[dict[str, ob
     return [item for item in queue["items"] if item["type"] == item_type]  # type: ignore[index]
 
 
-def test_generate_review_queue_writes_artifact_and_source_items(tmp_path: Path) -> None:
+def test_generate_review_queue_writes_bounded_deliverable_item_queue(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
 
     queue = generate_review_queue(project_dir)
+    deliverable_items = load_deliverable_items(project_dir)
 
     assert (project_dir / "review_queue" / "review_queue.json").exists()
     assert queue["project_id"] == "test_project"
+    assert queue["queue_mode"] == "deliverable_items"
     assert queue["item_count"] == len(queue["items"])
+    assert queue["item_count"] == deliverable_items["item_count"]
     assert all(REQUIRED_ITEM_FIELDS.issubset(item) for item in queue["items"])
 
+    wetlands = item_by_id(queue, "wetlands-and-waterbodies")
+    assert wetlands["type"] == "section_text"
+    assert wetlands["deliverable_item_id"] == "wetlands-and-waterbodies"
+    assert wetlands["target_id"] == "wetlands-and-waterbodies"
+    assert wetlands["related_table_ids"] == ["table-wetlands-waterbodies"]
+    assert wetlands["related_figure_ids"] == ["figure-wetlands-waterbodies"]
+    assert wetlands["status"] == "needs_review"
+    assert not items_by_type(queue, "draft_finding")
+    assert not items_by_type(queue, "comparison_table")
+    assert not items_by_type(queue, "spatial_relationship")
+    assert not items_by_type(queue, "no_mapped_relationships")
+    assert not items_by_type(queue, "source_inventory_note")
+
+
+def test_legacy_review_queue_mode_still_writes_source_and_validation_items(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
+
+    assert queue["queue_mode"] == "legacy_audit"
     wetlands = item_by_id(queue, "missing-data-wetlands-waterbodies")
     assert wetlands["type"] == "missing_data_placeholder"
     assert wetlands["status"] == "needs_review"
     assert wetlands["provenance"]["artifact"] == "source_status_set"  # type: ignore[index]
     assert "source_not_downloaded" in wetlands["uncertainty_flags"]  # type: ignore[operator]
-
-    cultural_placeholder = item_by_id(queue, "missing-data-cultural-historic")
-    assert cultural_placeholder["type"] == "missing_data_placeholder"
-    assert cultural_placeholder["status"] == "needs_verification"
-    assert "mdah_restricted_archaeology" in cultural_placeholder["source_refs"]  # type: ignore[operator]
 
     validation_items = items_by_type(queue, "validation_issue")
     assert validation_items
@@ -148,7 +167,7 @@ def test_generate_review_queue_creates_spatial_relationship_item(tmp_path: Path)
     write_registry(project_dir, "usfws_nwi_wetlands", "wetlands.geojson")
     analyze_project(project_dir)
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     spatial_items = items_by_type(queue, "spatial_relationship")
     assert len(spatial_items) == 1
@@ -165,7 +184,7 @@ def test_generate_review_queue_omits_direct_spatial_items_when_constraints_exist
     analyze_project(project_dir)
     analyze_constraints(project_dir)
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     assert not items_by_type(queue, "spatial_relationship")
 
@@ -176,7 +195,7 @@ def test_generate_review_queue_creates_no_mapped_relationship_item(tmp_path: Pat
     write_registry(project_dir, "epa_envirofacts_echo", "far.geojson")
     analyze_project(project_dir)
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     item = item_by_id(queue, "no-mapped-relationships-epa-envirofacts-echo")
     assert item["type"] == "no_mapped_relationships"
@@ -188,12 +207,12 @@ def test_update_review_item_validates_status_and_missing_items(tmp_path: Path) -
     project_dir = write_project(tmp_path)
 
     with pytest.raises(ReviewQueueError, match="Missing review queue"):
-        update_review_item(project_dir, "missing-data-wetlands-waterbodies", status="accepted")
+        update_review_item(project_dir, "wetlands-and-waterbodies", status="accepted")
 
     generate_review_queue(project_dir)
 
     with pytest.raises(ReviewQueueError, match="Unsupported review status"):
-        update_review_item(project_dir, "missing-data-wetlands-waterbodies", status="done")
+        update_review_item(project_dir, "wetlands-and-waterbodies", status="done")
 
     with pytest.raises(ReviewQueueError, match="Review item not found"):
         update_review_item(project_dir, "missing-item", status="accepted")
@@ -202,7 +221,7 @@ def test_update_review_item_validates_status_and_missing_items(tmp_path: Path) -
 def test_update_review_item_appends_notes_and_enforces_export_rules(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     generate_review_queue(project_dir)
-    item_id = "missing-data-wetlands-waterbodies"
+    item_id = "wetlands-and-waterbodies"
 
     item = update_review_item(project_dir, item_id, status="accepted", note="Looks usable.")
     assert item["export_eligible"] is True
@@ -212,23 +231,36 @@ def test_update_review_item_appends_notes_and_enforces_export_rules(tmp_path: Pa
     assert len(item["reviewer_notes"]) == 2
 
     with pytest.raises(ReviewQueueError, match="Only these statuses"):
-        update_review_item(project_dir, item_id, status="rejected", export_eligible=True)
+        update_review_item(project_dir, item_id, status="declined", export_eligible=True)
 
     item = update_review_item(project_dir, item_id, status="rejected")
+    assert item["status"] == "declined"
     assert item["export_eligible"] is False
 
     item = update_review_item(project_dir, item_id, status="unable_to_verify", export_eligible=True)
     assert item["export_eligible"] is True
 
+    item = update_review_item(project_dir, item_id, status="edited", edited_content="Reviewer edited wetlands text.")
+    assert item["edited_content"] == "Reviewer edited wetlands text."
+
+    item = update_review_item(project_dir, item_id, status="replaced")
+    assert item["export_eligible"] is False
+    assert any(issue["code"] == "replacement_content_missing" for issue in item["validation_issues"])
+
+    item = update_review_item(project_dir, item_id, status="replaced", replacement_content="Reviewer replacement text.")
+    assert item["replacement_content"] == "Reviewer replacement text."
+    assert item["export_eligible"] is True
+    assert not any(issue["code"] == "replacement_content_missing" for issue in item["validation_issues"])
+
 
 def test_generate_review_queue_preserves_existing_review_state(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     generate_review_queue(project_dir)
-    update_review_item(project_dir, "missing-data-wetlands-waterbodies", status="accepted", note="Reviewed.")
+    update_review_item(project_dir, "wetlands-and-waterbodies", status="accepted", note="Reviewed.")
 
     regenerated = generate_review_queue(project_dir)
 
-    item = item_by_id(regenerated, "missing-data-wetlands-waterbodies")
+    item = item_by_id(regenerated, "wetlands-and-waterbodies")
     assert item["status"] == "accepted"
     assert item["export_eligible"] is True
     assert len(item["reviewer_notes"]) == 1
@@ -244,7 +276,7 @@ def test_cli_review_queue_commands(tmp_path: Path, capsys: pytest.CaptureFixture
             [
                 "update-review-item",
                 str(project_dir),
-                "missing-data-wetlands-waterbodies",
+                "wetlands-and-waterbodies",
                 "--status",
                 "accepted",
                 "--note",
@@ -260,8 +292,12 @@ def test_cli_review_queue_commands(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "Updated review item" in captured.out
 
     queue = load_review_queue(project_dir)
-    item = item_by_id(queue, "missing-data-wetlands-waterbodies")
+    item = item_by_id(queue, "wetlands-and-waterbodies")
     assert item["status"] == "accepted"
+
+    assert main(["generate-review-queue", str(project_dir), "--include-legacy-artifacts"]) == 0
+    legacy = load_review_queue(project_dir)
+    assert legacy["queue_mode"] == "legacy_audit"
 
 
 def test_cli_review_queue_json_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

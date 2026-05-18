@@ -317,8 +317,8 @@ def _output_formats(output_format: str) -> list[str]:
 def _include_item(item: dict[str, Any], *, include_draft: bool) -> bool:
     status = str(item.get("status", ""))
     if include_draft:
-        return status != "rejected"
-    if status in {"accepted", "edited"}:
+        return status not in {"rejected", "declined"}
+    if status in {"accepted", "edited", "replaced"}:
         return bool(item.get("export_eligible", False))
     if status == "unable_to_verify":
         return bool(item.get("export_eligible", False))
@@ -341,38 +341,55 @@ def _partition_export_items(
 
 
 def _export_item(item: dict[str, Any]) -> dict[str, Any]:
-    content = str(item.get("edited_content") or "").strip() or str(item.get("generated_content") or "").strip()
+    replacement = str(item.get("replacement_content") or "").strip()
+    edited = str(item.get("edited_content") or "").strip()
+    generated = str(item.get("generated_content") or "").strip()
+    if str(item.get("status", "")) == "replaced" and replacement:
+        content = replacement
+        content_source = "replacement_content"
+    elif edited:
+        content = edited
+        content_source = "edited_content"
+    else:
+        content = generated
+        content_source = "generated_content"
     assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+    matrix_target = assumptions.get("matrix_target", {}) if isinstance(assumptions.get("matrix_target"), dict) else {}
     provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
     return {
         "id": str(item.get("id", "")),
+        "target_id": str(item.get("target_id") or item.get("id", "")),
+        "deliverable_item_id": str(item.get("deliverable_item_id") or item.get("id", "")),
         "type": str(item.get("type", "")),
         "title": str(item.get("title", "")),
         "status": str(item.get("status", "")),
         "export_group": str(item.get("export_group") or _default_export_group(item)),
         "export_section": str(item.get("export_section", "")),
+        "section_number": item.get("section_number") or matrix_target.get("section_number"),
         "section_order": _optional_int(item.get("section_order") or assumptions.get("section_order")),
         "content": content,
-        "content_source": "edited_content" if str(item.get("edited_content") or "").strip() else "generated_content",
+        "content_source": content_source,
         "source_refs": _string_list(item.get("source_refs", [])),
         "uncertainty_flags": _string_list(item.get("uncertainty_flags", [])),
         "visual_slots": _string_list(assumptions.get("visual_slots", [])),
         "table_slots": _string_list(assumptions.get("table_slots", [])),
         "related_figure_ids": _string_list(item.get("related_figure_ids", [])),
         "related_table_ids": _string_list(item.get("related_table_ids", [])),
-        "image_path": item.get("image_path"),
+        "image_path": item.get("image_path") or assumptions.get("image_path"),
         "figure_id": item.get("figure_id"),
         "figure_type": item.get("figure_type"),
-        "caption": item.get("caption"),
-        "source_note": item.get("source_note"),
-        "method_note": item.get("method_note"),
+        "caption": item.get("caption") or assumptions.get("caption"),
+        "source_note": item.get("source_note") or assumptions.get("source_note"),
+        "method_note": item.get("method_note") or assumptions.get("method_note"),
         "map_elements": _string_list(item.get("map_elements", [])),
         "figure_group": item.get("figure_group"),
         "related_resource_categories": _string_list(item.get("related_resource_categories", [])),
         "table_id": item.get("table_id"),
-        "columns": _string_list(item.get("columns", [])),
-        "rows_preview": _dict_list(item.get("rows_preview", [])),
-        "row_count": item.get("row_count"),
+        "columns": _string_list(item.get("columns", [])) or _string_list(assumptions.get("columns", [])),
+        "rows_preview": _dict_list(item.get("rows_preview", [])) or _dict_list(assumptions.get("rows_preview", [])),
+        "row_count": item.get("row_count") if item.get("row_count") is not None else assumptions.get("row_count"),
+        "attachment_id": item.get("attachment_id"),
+        "attachment_refs": _string_list(item.get("attachment_refs", [])) or _string_list(matrix_target.get("attachment_refs", [])),
         "artifact_path": provenance.get("artifact_path"),
         "provenance": provenance,
     }
@@ -391,9 +408,9 @@ def _skipped_item(item: dict[str, Any], *, include_draft: bool) -> dict[str, Any
 
 def _skip_reason(item: dict[str, Any], *, include_draft: bool) -> str:
     status = str(item.get("status", ""))
-    if include_draft and status == "rejected":
-        return "rejected"
-    if status in {"accepted", "edited", "unable_to_verify"} and not item.get("export_eligible", False):
+    if include_draft and status in {"rejected", "declined"}:
+        return "declined"
+    if status in {"accepted", "edited", "replaced", "unable_to_verify"} and not item.get("export_eligible", False):
         return "not_export_eligible"
     return f"status_{status or 'unknown'}"
 
@@ -402,7 +419,7 @@ def _export_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
     group = str(item.get("export_group", ""))
     group_index = EXPORT_GROUP_ORDER.index(group) if group in EXPORT_GROUP_ORDER else len(EXPORT_GROUP_ORDER)
     item_type = str(item.get("type", ""))
-    type_index = 0 if item_type == "report_section" else 1
+    type_index = 0 if item_type in {"report_section", "section_text"} else 1
     section_order = item.get("section_order")
     order = int(section_order) if isinstance(section_order, int) else 9999
     return (group_index, type_index, order, str(item.get("title", "")))
@@ -415,9 +432,9 @@ def _export_validation_issues(
     include_draft: bool,
 ) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
-    if not include_draft and not any(item["type"] == "report_section" for item in included):
+    if not include_draft and not any(item["type"] in {"report_section", "section_text"} for item in included):
         issues.append(_issue("warning", "no_accepted_report_sections", "No accepted or edited report sections were available for export."))
-    if not include_draft and not any(item["type"] == "map_figure" for item in included):
+    if not include_draft and not any(item["type"] in {"map_figure", "figure"} for item in included):
         issues.append(_issue("warning", "no_accepted_maps", "No accepted or edited map figures were available for export."))
     if unresolved_required_sources:
         categories = ", ".join(str(item.get("category")) for item in unresolved_required_sources)
@@ -489,6 +506,7 @@ def _markdown_report(
         return "\n".join(lines)
 
     table_lookup = _tables_by_id(comparison_tables)
+    table_lookup.update(_included_tables_by_id(included))
     figure_lookup = _figures_by_id(map_manifest, included)
     included_table_ids = _included_table_ids(included)
     included_figure_ids = _included_figure_ids(included)
@@ -539,7 +557,7 @@ def _markdown_item(
     content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), str(item.get("title", "")))
     if content:
         lines.extend([content, ""])
-    if item.get("type") == "report_section" and not _is_front_matter_item(item):
+    if item.get("type") in {"report_section", "section_text"} and not _is_front_matter_item(item):
         lines.extend(
             _markdown_inline_evidence(
                 item,
@@ -551,11 +569,14 @@ def _markdown_item(
                 rendered_figure_ids=rendered_figure_ids if rendered_figure_ids is not None else set(),
             )
         )
-    if item.get("type") == "report_section" and _is_front_matter_item(item):
+    front_matter_list_kind = _front_matter_list_kind(item)
+    if front_matter_list_kind:
+        lines.extend(_markdown_front_matter_list(front_matter_list_kind, all_included_items or []))
+    elif item.get("type") in {"report_section", "section_text"} and _is_front_matter_item(item):
         lines.extend(_markdown_front_matter_lists(all_included_items or []))
-    if item.get("type") == "map_figure":
+    if item.get("type") in {"map_figure", "figure"}:
         lines.extend(_markdown_embedded_figure(item))
-    if item.get("type") == "comparison_table":
+    if item.get("type") in {"comparison_table", "table"}:
         details = []
         if item.get("table_id"):
             details.append(f"table id `{item['table_id']}`")
@@ -670,8 +691,8 @@ def _markdown_alt_text(value: str) -> str:
 
 
 def _markdown_front_matter_lists(included: list[dict[str, Any]]) -> list[str]:
-    figures = [item for item in included if item.get("type") == "map_figure"]
-    tables = [item for item in included if item.get("type") == "comparison_table"]
+    figures = [item for item in included if item.get("type") in {"map_figure", "figure"}]
+    tables = [item for item in included if item.get("type") in {"comparison_table", "table"}]
     lines = ["List of Figures", ""]
     if figures:
         lines.extend(f"- {item.get('title')} (`{_item_figure_id(item)}`)" for item in figures)
@@ -694,6 +715,25 @@ def _markdown_front_matter_lists(included: list[dict[str, Any]]) -> list[str]:
         ]
     )
     return lines
+
+
+def _markdown_front_matter_list(kind: str, included: list[dict[str, Any]]) -> list[str]:
+    if kind == "figures":
+        figures = [item for item in included if item.get("type") in {"map_figure", "figure"}]
+        if figures:
+            return [*[f"- {item.get('title')} (`{_item_figure_id(item)}`)" for item in figures], ""]
+        return ["- No figure items are included in this export.", ""]
+    if kind == "tables":
+        tables = [item for item in included if item.get("type") in {"comparison_table", "table"}]
+        if tables:
+            return [*[f"- {item.get('title')} (`{item.get('table_id')}`)" for item in tables], ""]
+        return ["- No table items are included in this export.", ""]
+    if kind == "attachments":
+        attachments = _front_matter_attachment_items(included)
+        if attachments:
+            return [*[f"- {_attachment_list_label(item)}" for item in attachments], ""]
+        return ["- No attachment items are included in this export.", ""]
+    return []
 
 
 def _markdown_data_lineage(data_lineage: dict[str, Any]) -> list[str]:
@@ -784,6 +824,7 @@ def _write_docx_report(
     document = Document()
     _configure_docx_document(document, include_draft=include_draft)
     table_lookup = _tables_by_id(comparison_tables)
+    table_lookup.update(_included_tables_by_id(included))
     figure_lookup = _figures_by_id(map_manifest, included)
     included_table_ids = _included_table_ids(included)
     included_figure_ids = _included_figure_ids(included)
@@ -942,7 +983,7 @@ def _add_docx_item(
     all_included_items: list[dict[str, Any]] | None = None,
 ) -> None:
     item_type = str(item.get("type", ""))
-    heading_level = 2 if item_type == "report_section" else 3
+    heading_level = 2 if item_type in {"report_section", "section_text"} else 3
     if not suppress_heading:
         document.add_heading(str(item.get("title") or "Untitled Item"), level=heading_level)
 
@@ -952,14 +993,17 @@ def _add_docx_item(
     else:
         document.add_paragraph("No generated or reviewer-edited content was available for this item.")
 
-    if item_type == "comparison_table":
+    if item_type in {"comparison_table", "table"}:
         _add_docx_comparison_table(document, item, table_lookup)
-    elif item_type == "map_figure":
+    elif item_type in {"map_figure", "figure"}:
         _add_docx_map_figure(document, item, project_dir, image_width)
     else:
-        if item_type == "report_section" and _is_front_matter_item(item):
+        front_matter_list_kind = _front_matter_list_kind(item)
+        if front_matter_list_kind:
+            _add_docx_front_matter_list(document, front_matter_list_kind, all_included_items or [])
+        elif item_type in {"report_section", "section_text"} and _is_front_matter_item(item):
             _add_docx_front_matter_lists(document, all_included_items or [])
-        elif item_type == "report_section":
+        elif item_type in {"report_section", "section_text"}:
             _add_docx_inline_evidence(
                 document=document,
                 item=item,
@@ -1019,8 +1063,8 @@ def _add_docx_inline_evidence(
 
 
 def _add_docx_front_matter_lists(document: Any, included: list[dict[str, Any]]) -> None:
-    figures = [item for item in included if item.get("type") == "map_figure"]
-    tables = [item for item in included if item.get("type") == "comparison_table"]
+    figures = [item for item in included if item.get("type") in {"map_figure", "figure"}]
+    tables = [item for item in included if item.get("type") in {"comparison_table", "table"}]
     document.add_heading("List of Figures", level=2)
     if figures:
         for item in figures:
@@ -1040,6 +1084,30 @@ def _add_docx_front_matter_lists(document: Any, included: list[dict[str, Any]]) 
         "Attachment C: Agency Consultation Letters or reviewer-provided coordination records.",
     ):
         document.add_paragraph(label, style="List Bullet")
+
+
+def _add_docx_front_matter_list(document: Any, kind: str, included: list[dict[str, Any]]) -> None:
+    if kind == "figures":
+        figures = [item for item in included if item.get("type") in {"map_figure", "figure"}]
+        if figures:
+            for item in figures:
+                document.add_paragraph(f"{item.get('title')} ({_item_figure_id(item)})", style="List Bullet")
+        else:
+            document.add_paragraph("No figure items are included in this export.", style="List Bullet")
+    elif kind == "tables":
+        tables = [item for item in included if item.get("type") in {"comparison_table", "table"}]
+        if tables:
+            for item in tables:
+                document.add_paragraph(f"{item.get('title')} ({item.get('table_id')})", style="List Bullet")
+        else:
+            document.add_paragraph("No table items are included in this export.", style="List Bullet")
+    elif kind == "attachments":
+        attachments = _front_matter_attachment_items(included)
+        if attachments:
+            for item in attachments:
+                document.add_paragraph(_attachment_list_label(item), style="List Bullet")
+        else:
+            document.add_paragraph("No attachment items are included in this export.", style="List Bullet")
 
 
 def _add_docx_content(document: Any, content: str) -> None:
@@ -1182,6 +1250,22 @@ def _tables_by_id(comparison_tables: dict[str, Any] | None) -> dict[str, dict[st
     }
 
 
+def _included_tables_by_id(included: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    tables: dict[str, dict[str, Any]] = {}
+    for item in included:
+        if item.get("type") not in {"comparison_table", "table"} or not item.get("table_id"):
+            continue
+        table_id = str(item.get("table_id"))
+        tables[table_id] = {
+            "table_id": table_id,
+            "title": item.get("title") or table_id,
+            "columns": _string_list(item.get("columns", [])),
+            "rows": _dict_list(item.get("rows_preview", [])),
+            "row_count": item.get("row_count"),
+        }
+    return tables
+
+
 def _figures_by_id(map_manifest: dict[str, Any] | None, included: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     figures: dict[str, dict[str, Any]] = {}
     if map_manifest is not None:
@@ -1190,7 +1274,7 @@ def _figures_by_id(map_manifest: dict[str, Any] | None, included: list[dict[str,
             if figure_id:
                 figures[figure_id] = figure
     for item in included:
-        if item.get("type") != "map_figure":
+        if item.get("type") not in {"map_figure", "figure"}:
             continue
         figure_id = _item_figure_id(item)
         if not figure_id:
@@ -1215,11 +1299,11 @@ def _figures_by_id(map_manifest: dict[str, Any] | None, included: list[dict[str,
 
 
 def _included_table_ids(included: list[dict[str, Any]]) -> set[str]:
-    return {str(item.get("table_id")) for item in included if item.get("type") == "comparison_table" and item.get("table_id")}
+    return {str(item.get("table_id")) for item in included if item.get("type") in {"comparison_table", "table"} and item.get("table_id")}
 
 
 def _included_figure_ids(included: list[dict[str, Any]]) -> set[str]:
-    return {_item_figure_id(item) for item in included if item.get("type") == "map_figure" and _item_figure_id(item)}
+    return {_item_figure_id(item) for item in included if item.get("type") in {"map_figure", "figure"} and _item_figure_id(item)}
 
 
 def _export_map_path(item: dict[str, Any]) -> str:
@@ -1245,22 +1329,58 @@ def _standalone_rendered_inline(
     planned_inline_table_ids: set[str],
     planned_inline_figure_ids: set[str],
 ) -> bool:
-    if item.get("type") == "comparison_table" and str(item.get("table_id") or "") in planned_inline_table_ids:
+    if item.get("type") in {"comparison_table", "table"} and str(item.get("table_id") or "") in planned_inline_table_ids:
         return True
-    if item.get("type") == "map_figure" and _item_figure_id(item) in planned_inline_figure_ids:
+    if item.get("type") in {"map_figure", "figure"} and _item_figure_id(item) in planned_inline_figure_ids:
         return True
     return False
 
 
 def _suppress_item_heading(item: dict[str, Any]) -> bool:
-    if item.get("type") != "report_section":
+    if item.get("type") not in {"report_section", "section_text"}:
         return False
     group_title = EXPORT_GROUP_TITLES.get(str(item.get("export_group", "")), "")
     return _normalized_heading(str(item.get("title", ""))) == _normalized_heading(group_title)
 
 
 def _is_front_matter_item(item: dict[str, Any]) -> bool:
-    return item.get("type") == "report_section" and str(item.get("export_group")) == "front_matter"
+    return item.get("type") in {"report_section", "section_text", "front_matter"} and str(item.get("export_group")) == "front_matter"
+
+
+def _front_matter_list_kind(item: dict[str, Any]) -> str:
+    target_id = str(item.get("target_id") or item.get("id") or "").strip()
+    return {
+        "list-of-figures": "figures",
+        "list-of-tables": "tables",
+        "list-of-attachments": "attachments",
+    }.get(target_id, "")
+
+
+def _front_matter_attachment_items(included: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in included:
+        if item.get("type") != "attachment":
+            continue
+        section_number = str(item.get("section_number") or "").strip()
+        item_id = str(item.get("id") or item.get("target_id") or "")
+        if not section_number and item.get("attachment_id"):
+            continue
+        key = section_number or item_id
+        if key in seen:
+            continue
+        seen.add(key)
+        items.append(item)
+    return items
+
+
+def _attachment_list_label(item: dict[str, Any]) -> str:
+    section_number = str(item.get("section_number") or "").strip()
+    title = str(item.get("title") or item.get("attachment_id") or item.get("id") or "Attachment").strip()
+    suffix = "." if not title.endswith(".") else ""
+    if section_number:
+        return f"{section_number}: {title}{suffix}"
+    return f"{title}{suffix}"
 
 
 def _strip_duplicate_leading_heading(content: str, title: str) -> str:
@@ -1315,18 +1435,19 @@ def _evidence_package_path(queue: dict[str, Any]) -> Any:
 
 
 def _gpt_drafting_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
-    section_items = [item for item in items if item.get("type") == "report_section"]
+    section_items = [item for item in items if item.get("type") in {"report_section", "section_text"}]
     gpt_items = []
     models = set()
     rejected = 0
     for item in section_items:
-        provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
-        section_provenance = provenance.get("section_provenance", {}) if isinstance(provenance.get("section_provenance"), dict) else {}
+        section_provenance = _item_drafting_provenance(item)
         if section_provenance.get("draft_provider") != "openai_responses":
             continue
         gpt_items.append(item)
         if section_provenance.get("gpt_model"):
             models.add(str(section_provenance.get("gpt_model")))
+        elif section_provenance.get("model"):
+            models.add(str(section_provenance.get("model")))
         if section_provenance.get("gpt_output_accepted") is False:
             rejected += 1
     return {
@@ -1336,6 +1457,18 @@ def _gpt_drafting_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
         "rejected_section_count": rejected,
         "models": sorted(models),
     }
+
+
+def _item_drafting_provenance(item: dict[str, Any]) -> dict[str, Any]:
+    provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+    section_provenance = provenance.get("section_provenance", {}) if isinstance(provenance.get("section_provenance"), dict) else {}
+    if section_provenance:
+        return section_provenance
+    deliverable_provenance = provenance.get("deliverable_item_provenance", {}) if isinstance(provenance.get("deliverable_item_provenance"), dict) else {}
+    drafting = deliverable_provenance.get("drafting", {}) if isinstance(deliverable_provenance.get("drafting"), dict) else {}
+    if drafting:
+        return drafting
+    return provenance.get("drafting", {}) if isinstance(provenance.get("drafting"), dict) else {}
 
 
 def _docx_cell_text(value: Any) -> str:
@@ -1380,6 +1513,7 @@ def _mvp_quality_summary(
     included_table_ids = _included_table_ids(included)
     included_figure_ids = _included_figure_ids(included)
     table_lookup = _tables_by_id(comparison_tables)
+    table_lookup.update(_included_tables_by_id(included))
     figure_lookup = _figures_by_id(map_manifest, included)
     inline_table_ids = _inline_table_ids(included, included_table_ids, table_lookup)
     inline_figure_ids = _inline_figure_ids(included, included_figure_ids, figure_lookup)
@@ -1395,7 +1529,7 @@ def _mvp_quality_summary(
     return {
         "real_source_count": int(data_lineage.get("real_source_count", 0)),
         "source_backed_constraint_count": int(data_lineage.get("source_backed_constraint_count", 0)),
-        "included_section_count": sum(1 for item in included if item.get("type") == "report_section"),
+        "included_section_count": sum(1 for item in included if item.get("type") in {"report_section", "section_text"}),
         "included_table_count": len(included_table_ids),
         "included_figure_count": len(included_figure_ids),
         "copied_figure_asset_count": len(figure_assets or []),
@@ -1444,10 +1578,10 @@ def _inline_table_ids(
 ) -> set[str]:
     values: set[str] = set()
     for item in included:
-        if item.get("type") != "report_section":
+        if item.get("type") not in {"report_section", "section_text"}:
             continue
         for table_id in _string_list(item.get("related_table_ids", [])):
-            if table_id in included_table_ids and table_id in table_lookup:
+            if table_id in included_table_ids:
                 values.add(table_id)
     return values
 
@@ -1459,7 +1593,7 @@ def _inline_figure_ids(
 ) -> set[str]:
     values: set[str] = set()
     for item in included:
-        if item.get("type") != "report_section":
+        if item.get("type") not in {"report_section", "section_text"}:
             continue
         for figure_id in _string_list(item.get("related_figure_ids", [])):
             if figure_id in included_figure_ids and figure_id in figure_lookup:
@@ -1485,7 +1619,7 @@ def _export_placeholder_count(
         for figure_id in related_figures:
             if figure_id not in included_figure_ids or figure_id not in figure_lookup:
                 count += 1
-        if item.get("type") == "report_section":
+        if item.get("type") in {"report_section", "section_text"}:
             visual_slots = set(_string_list(item.get("visual_slots", [])))
             table_slots = set(_string_list(item.get("table_slots", [])))
             if visual_slots and not related_figures:
@@ -1498,7 +1632,7 @@ def _export_placeholder_count(
 def _placeholder_resource_sections(included: list[dict[str, Any]]) -> set[str]:
     section_ids: set[str] = set()
     for item in included:
-        if item.get("type") != "report_section" or item.get("export_group") != "resource_sections":
+        if item.get("type") not in {"report_section", "section_text"} or item.get("export_group") != "resource_sections":
             continue
         if item.get("source_refs") or item.get("related_table_ids") or item.get("related_figure_ids"):
             continue

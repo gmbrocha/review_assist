@@ -4,7 +4,7 @@ This document captures the pipeline for assembling editable pre-review report pa
 
 A deterministic draft section baseline exists, optional GPT section drafting now runs from structured evidence when enabled, and the accepted-content export compiler writes Markdown, DOCX, and an export manifest. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first and blocks client-facing packages that contain mock/test fixture source evidence or no real source layers.
 
-Sprint 1.1 added static deliverable and prompt contracts at `config/deliverable_section_matrix.json` and `config/report_generation_prompts.json`, plus validation commands for those contracts. Sprint 2.2 wires the deliverable matrix into exact standard table generation at `projects/<project_id>/deliverable/tables.json`. Sprint 2.3 wires the matrix into exact standard figure generation at `projects/<project_id>/deliverable/figures.json` and evidence package refs. Current report section generation still uses the existing report section templates until later sprint work wires the new matrix into section and review item generation.
+Sprint 1.1 added static deliverable and prompt contracts at `config/deliverable_section_matrix.json` and `config/report_generation_prompts.json`, plus validation commands for those contracts. Sprint 2.2 wires the deliverable matrix into exact standard table generation at `projects/<project_id>/deliverable/tables.json`. Sprint 2.3 wires the matrix into exact standard figure generation at `projects/<project_id>/deliverable/figures.json` and evidence package refs. Sprint 3.1 wires the matrix and prompt contract into standard deliverable item generation at `projects/<project_id>/deliverable/deliverable_items.json` and makes the bounded review queue consume that artifact by default. Legacy `drafts/report_sections.json` remains available for compatibility/audit context.
 
 ## Goal
 
@@ -35,10 +35,11 @@ Canonical pipeline:
 4. Resolve source status set.
 5. Build normalized project geometry and run objective constraint analysis from registered source layers.
 6. Populate for review.
-7. Create review queue items for findings, tables, figures, narrative, caveats, source notes, and missing-data placeholders.
-8. Human reviewer edits, accepts, rejects, or marks items for verification.
-9. Compile accepted or explicitly included reviewed items.
-10. Export editable draft package.
+7. Create matrix-backed deliverable items for sections, dynamic comparison-unit subsections, tables, figures, attachments, caveats, source gaps, and required stubs.
+8. Create a bounded review queue with one item per deliverable item.
+9. Human reviewer edits, accepts, replaces, declines, or marks items for verification.
+10. Compile accepted or explicitly included reviewed items.
+11. Export editable draft package.
 
 ## Section Assembly Pattern
 
@@ -79,13 +80,13 @@ The generator creates no-blank-page section drafts from existing structured arti
 
 Current section drafts follow the example report structure more closely: front matter, executive summary, introduction/study area, methodology/data sources, mapping and analysis procedures, limitations/data gaps, environmental constraints inventory, resource sections, comparison/maps, conclusion/next steps, attachments, and reviewer follow-up.
 
-The active provider is deterministic unless root `.env` enables GPT with `GPT_DRAFTING=1`. When enabled, the OpenAI provider uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`, sends only structured evidence and deterministic baseline copy, and stores provider/model/prompt/schema/input digest/output digest provenance. GPT calls default to two parallel section-drafting workers through `GPT_DRAFTING_WORKERS=2`. Raw source files, geometries, GeoJSON feature dumps, shapefile paths, and root `sources/` paths are withheld from GPT payloads. GPT output remains a `report_section` review queue item and is never auto-accepted.
+The active provider is deterministic unless root `.env` enables GPT with `GPT_DRAFTING=1`. When enabled, the OpenAI provider uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`, sends only structured evidence and deterministic baseline copy, and stores provider/model/prompt/schema/input digest/output digest provenance. GPT calls default to two parallel section-drafting workers through `GPT_DRAFTING_WORKERS=2`. Raw source files, geometries, GeoJSON feature dumps, shapefile paths, and root `sources/` paths are withheld from GPT payloads. GPT output remains draft/pre-review content on a standard deliverable item or legacy `report_section` item and is never auto-accepted.
 
 Resource sections now cite related finding, table, and figure IDs where structured artifacts exist, including source-backed wetlands, hydrography, soils/SSURGO map units, flood hazard, USFWS critical habitat, and EPA/ECHO regulated facility summaries. Introduction/study-area/methodology sections reference the project overview figure, the constraints inventory references the combined environmental constraints overview when available, and resource sections reference matching source-context figures. Missing or failed source categories still generate caveats rather than unsupported conclusions.
 
 GPT guardrails reject or flag unknown cited finding/table/figure/source IDs and prohibited recommendation/ranking/scoring/selection/rejection/final-determination/jurisdictional/field-verification language. If GPT is enabled but the API key is missing, the command fails clearly instead of silently pretending GPT ran. If GPT is disabled or `--no-gpt-drafting` is supplied, deterministic sections remain the active path.
 
-These sections are not final exports. They become `report_section` review queue items and require human review before reviewed-content export.
+These legacy sections are not final exports. The standard review queue now uses matrix-backed deliverable items; legacy `report_section` items remain available for compatibility/audit workflows and still require human review before any reviewed-content export.
 
 ## Evidence Package
 
@@ -131,6 +132,19 @@ Unavailable source data or unsupported rendering produces explicit stubs with th
 
 Deliverable figures may use selected MARIS/NAIP `.png`, `.tif`, or `.tiff` sidecars when available. `.sid` paths are provenance only. Restricted archaeology locations are never rendered or exposed; restricted cultural status is represented by `restricted_source_not_mapped`.
 
+## Deliverable Items
+
+The current CLI can generate the standard reviewable deliverable item layer from the canonical deliverable matrix:
+
+- Command: `review-assist generate-deliverable-items <project_dir>`
+- Output: `projects/<project_id>/deliverable/deliverable_items.json`
+
+This artifact contains static section/front-matter/attachment-section targets, one dynamic wetlands/waterbodies child section per comparison unit, the four deliverable table targets, the 13 deliverable figure targets, and the three required attachment targets. Stable `deliverable_item_id` / `target_id` values are used as the standard review queue item IDs.
+
+Deliverable items carry matrix target metadata, prompt key and prompt-contract constraints, source refs, table/figure/attachment refs, comparison-unit IDs, compact source-gap and upstream validation summaries, provenance, uncertainty flags, stub state, review status, and export eligibility. Required missing or unimplemented content uses the canonical stub text rather than unsupported narrative.
+
+GPT-enabled deliverable item drafting receives only structured evidence, prompt metadata, and matrix target context. Raw geometries, full feature dumps, and root `sources/` paths remain excluded from GPT-bound payloads.
+
 ## Current Export Baseline
 
 The current CLI can compile reviewed queue items into editable Markdown and DOCX packages:
@@ -142,11 +156,11 @@ The current CLI can compile reviewed queue items into editable Markdown and DOCX
 - Markdown: `projects/<project_id>/exports/environmental_constraints_report.md`
 - DOCX: `projects/<project_id>/exports/environmental_constraints_report.docx`
 
-Default export includes only queue items with `accepted` or `edited` status and export eligibility. `unable_to_verify` items export only when explicitly marked export eligible. Draft, needs-review, needs-verification, and rejected items are skipped.
+Default export includes only queue items with `accepted`, `edited`, or `replaced` status and export eligibility. `replaced` items require replacement content. `unable_to_verify` items export only when explicitly marked export eligible. Draft, needs-review, needs-verification, and declined items are skipped.
 
-The `--include-draft` option is for internal preview only. It includes unaccepted non-rejected items and marks the Markdown/DOCX output as an internal preview, not an external report.
+The `--include-draft` option is for internal preview only. It includes unaccepted non-declined items and marks the Markdown/DOCX output as an internal preview, not an external report.
 
-The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included table ids, included map paths, copied figure asset paths, generated package contents, and `mvp_quality` counts. DOCX export now uses a more report-like MVP structure with a title page, internal-preview notice/header/footer for draft exports, major-section page breaks, front-matter figure/table/attachment lists, duplicate section-heading cleanup, inline referenced table/figure rendering, figure captions/source notes/method notes, placeholders when referenced evidence is missing, source refs, uncertainty flags, caveats, and package contents.
+The export manifest records included/skipped item counts, status/type counts, unresolved required source gaps, missing accepted sections, missing accepted maps, output paths, included table ids, included map paths, copied figure asset paths, generated package contents, and `mvp_quality` counts. DOCX export supports the bounded queue item types with a report-like MVP structure: title page, internal-preview notice/header/footer for draft exports, major-section page breaks, front-matter figure/table/attachment lists, duplicate section-heading cleanup, inline referenced table/figure rendering, figure captions/source notes/method notes, placeholders when referenced evidence is missing, source refs, uncertainty flags, caveats, and package contents.
 
 Export and deliverable manifests include `data_lineage` counts and records, the evidence package path, and GPT drafting status/counts when GPT-backed sections are present. The lineage model distinguishes project input geometry, registered local layers, user-provided input layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records. Generated source-gap caveats are stubs, not source-backed records.
 
@@ -256,7 +270,7 @@ Potential exports:
 
 DOCX is important because the example deliverable is a Word report. The current DOCX baseline proves package assembly and editability, renders referenced evidence more deliberately, and is closer to the example report shape, but it is still MVP formatting rather than final template fidelity.
 
-Exports should compile accepted or explicitly included reviewed content only. Rejected items remain in the review record but should not export.
+Exports should compile accepted or explicitly included reviewed content only. Declined items remain in the review record but should not export.
 
 ## LLM-Assisted Drafting Insertion Points
 

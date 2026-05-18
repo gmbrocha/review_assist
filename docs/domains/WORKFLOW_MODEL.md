@@ -170,7 +170,7 @@ Current baseline:
 - `classify-input-package <project_dir>` writes `projects/<project_id>/context/input_package.json` with per-input classification, required-KMZ state, and reviewer-confirmation warnings for ambiguous inputs.
 - `build-project-area <project_dir>` writes `projects/<project_id>/context/project_area.json` with analysis bboxes, county detection, NAIP/MARIS basemap candidates, selected source paths, renderable sidecars, renderability status, warnings, and provenance. Basemap indexing is service-level behavior in `src/review_assist/basemaps.py`; `.sid` files are provenance only unless `.tif`, `.tiff`, or `.png` sidecars exist.
 - `build-comparison-units <project_dir>` writes `projects/<project_id>/intermediate/comparison_units.geojson` and `comparison_units.json`. These artifacts group segmented lines, point-heavy inputs, polygons, and mixed geometry into pre-review report-facing units without deleting or repurposing `project_features.geojson`.
-- `populate-for-review` runs input package classification, project geometry normalization, project area generation, comparison-unit generation, context generation, optional local source materialization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
+- `populate-for-review` runs input package classification, project geometry normalization, project area generation, comparison-unit generation, context generation, optional local source materialization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, matrix-backed deliverable table/figure generation, evidence package generation, legacy report section generation, matrix-backed deliverable item generation, and bounded review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
 - It records `projects/<project_id>/context/input_package.json` and `projects/<project_id>/context/project_area.json` in the run manifest when those steps succeed.
 - It records `projects/<project_id>/intermediate/project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` in the run manifest when project geometry generation succeeds.
@@ -183,9 +183,11 @@ Current baseline:
 - It records `projects/<project_id>/source_inventory/source_inventory.json` and `projects/<project_id>/tables/comparison_tables.json` in the run manifest when those steps succeed.
 - It records `projects/<project_id>/constraints/comparison_unit_constraints.json` in the run manifest when report-facing comparison-unit constraint analysis succeeds. Raw project-feature constraints remain in `constraint_results.json` as evidence/backward-compatible context.
 - It records `projects/<project_id>/deliverable/tables.json` in the run manifest when the matrix-backed deliverable table targets generate or stub. The broad comparison tables remain evidence artifacts rather than exact standard deliverable rows.
+- It records `projects/<project_id>/deliverable/figures.json` in the run manifest when the matrix-backed deliverable figure targets generate or stub. Legacy source-context `maps/map_manifest.json` remains an audit/evidence artifact.
 - It records `projects/<project_id>/findings/draft_findings.json` in the run manifest when finding generation succeeds.
 - It records `projects/<project_id>/maps/map_manifest.json` in the run manifest when map generation succeeds.
 - It records `projects/<project_id>/drafts/report_sections.json` in the run manifest when report section generation succeeds.
+- It records `projects/<project_id>/deliverable/deliverable_items.json` in the run manifest when the matrix-backed deliverable item targets generate or stub. The standard review queue consumes these items by default.
 - Missing or unreadable local source layers become warnings and reviewable validation/caveat items rather than blocking review queue generation.
 - It downloads only explicitly requested supported sources. It records NAIP/MARIS source-path provenance and renderability status but does not render basemap/imagery-backed maps or create exports itself. GPT section drafting may run when `GPT_DRAFTING=1`, but only after structured evidence exists and only for reviewable section copy.
 
@@ -193,9 +195,9 @@ Current baseline:
 
 The review queue is the core workflow object.
 
-Every generated artifact becomes a reviewable item. Nothing should skip the review queue.
+Every generated report-facing deliverable item becomes a reviewable item. Raw evidence artifacts remain available for audit and provenance, but they do not flood the standard queue by default.
 
-Review queue items should be small enough for a reviewer to accept, reject, or edit independently. For report generation, that generally means resource-specific findings, subsection drafts, map/table previews, caveats, and provenance notes rather than one monolithic report draft.
+Review queue items should be small enough for a reviewer to accept, decline, replace, or edit independently. For report generation, that generally means matrix-backed section, table, figure, attachment, caveat, and provenance items rather than one monolithic report draft.
 
 Reviewable item examples:
 
@@ -224,6 +226,13 @@ Conceptual review item fields:
 - `export_eligible`
 - `export_section`
 - `export_group`
+- `deliverable_item_id`
+- `target_id`
+- `replacement_content`
+- `table_id`
+- `figure_id`
+- `attachment_id`
+- `comparison_unit_ids`
 
 Suggested statuses:
 
@@ -231,15 +240,19 @@ Suggested statuses:
 - `needs_review`
 - `accepted`
 - `edited`
-- `rejected`
+- `replaced`
+- `declined`
 - `needs_verification`
 - `unable_to_verify`
+
+Legacy `rejected` status is accepted on load and normalized to `declined`.
 
 Reviewer actions:
 
 - Edit.
 - Accept.
-- Reject.
+- Decline.
+- Replace.
 - Request rewrite.
 - Mark for verification.
 - Mark unable to verify.
@@ -249,9 +262,10 @@ The review queue is the human-in-the-loop control boundary. It is not a side pan
 
 Current baseline:
 
-- `generate-review-queue` creates a lean JSON review queue from deterministic draft findings, comparison tables, map figures, report sections, report-relevant missing-data placeholders, and validation issues. Source inventory notes can still be included explicitly for audit/review workflows.
+- `generate-deliverable-items` creates `projects/<project_id>/deliverable/deliverable_items.json` from the canonical deliverable matrix, comparison units, deliverable tables, deliverable figures, attachment targets, evidence refs, source-gap status, and prompt contract metadata.
+- `generate-review-queue` creates a bounded JSON review queue with one item per deliverable item by default. Raw findings, broad comparison tables, legacy map figures, spatial relationships, source inventory notes, and validation/source audit items remain available only through explicit legacy/audit mode.
 - `list-review-queue` summarizes item status/type counts and item eligibility.
-- `update-review-item` supports status changes, reviewer notes, and export eligibility flags.
+- `update-review-item` supports status changes, reviewer notes, edited content, replacement content, and export eligibility flags.
 - The baseline is still service/CLI only; web app review screens, basemap/imagery maps, PDF export, reviewer-facing GPT controls, and final template-grade DOCX layout remain future work.
 
 ## Export Compilation
@@ -275,15 +289,15 @@ Target exports may eventually include:
 - Appendix packages.
 - Map packages.
 
-The system should compile accepted content only. Rejected items remain in the review record but do not export. Items needing verification or unable to verify may export only if the reviewer explicitly includes them with caveat language.
+The system should compile accepted content only. Declined items remain in the review record but do not export. Items needing verification or unable to verify may export only if the reviewer explicitly includes them with caveat language.
 
 Current baseline:
 
 - `export-report <project_dir>` writes Markdown and/or DOCX report packages plus `projects/<project_id>/exports/export_manifest.json`.
 - `build-demo-deliverable <project_dir>` runs populate-for-review and preview export into an internal demo package manifest without accepting review items.
 - `build-mvp-deliverable <project_dir>` runs `populate-for-review --prepare-sources` and preview export into a real-data guarded MVP package manifest without accepting review items.
-- Default exports include accepted or edited queue items only, plus `unable_to_verify` items only when explicitly export eligible.
-- `--include-draft` creates an internal preview export that includes non-rejected draft/unaccepted items and marks the Markdown/DOCX as non-final/pre-review.
+- Default exports include accepted, edited, or replaced queue items only when export eligible, plus `unable_to_verify` items only when explicitly export eligible.
+- `--include-draft` creates an internal preview export that includes non-declined draft/unaccepted items and marks the Markdown/DOCX as non-final/pre-review.
 - DOCX export renders referenced tables and figures inline inside report sections when those table/figure review items are included, avoids duplicate standalone rendering for those artifacts, and keeps missing visuals/tables as explicit placeholders.
 - Export and deliverable manifests include `data_lineage` so reviewers can distinguish real project inputs, registered/provided/downloaded source layers, manual/gated/missing stubs, and test/mock records.
 - Export and deliverable manifests include `mvp_quality` so reviewers can inspect real-source counts, source-backed constraints, included sections/tables/figures, inline-rendered evidence, placeholders, unresolved source categories, GPT section counts, and warning counts.

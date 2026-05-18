@@ -671,7 +671,7 @@ def test_failed_nwi_downloader_records_nonfatal_failed_status(tmp_path: Path) ->
     failed_finding = next(item for item in findings["findings"] if item["resource_category"] == "wetlands_waterbodies")
     assert failed_finding["assumptions"]["source_status"] == "failed"
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     missing_item = next(item for item in queue["items"] if item["id"] == "missing-data-wetlands-waterbodies")
     assert missing_item["assumptions"]["source_status"] == "failed"
 
@@ -726,7 +726,7 @@ def test_failed_fema_downloader_records_nonfatal_failed_status_and_caveats(tmp_p
     assert flood_section["review_status"] == "needs_review"
     assert "source_download_failed" in flood_section["uncertainty_flags"]
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     missing_item = next(item for item in queue["items"] if item["id"] == "missing-data-flood-hazard")
     assert missing_item["assumptions"]["source_status"] == "failed"
 
@@ -758,7 +758,7 @@ def test_failed_critical_habitat_downloader_records_nonfatal_failed_status_and_c
     assert species_section["review_status"] == "needs_verification"
     assert "source_download_failed" in species_section["uncertainty_flags"]
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     missing_item = next(item for item in queue["items"] if item["id"] == "missing-data-species-habitat")
     assert missing_item["assumptions"]["source_status"] == "failed"
 
@@ -790,7 +790,7 @@ def test_failed_echo_downloader_records_nonfatal_failed_status_and_caveats(tmp_p
     assert regulated_section["review_status"] == "needs_review"
     assert "source_download_failed" in regulated_section["uncertainty_flags"]
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     missing_item = next(item for item in queue["items"] if item["id"] == "missing-data-regulated-facilities")
     assert missing_item["assumptions"]["source_status"] == "failed"
 
@@ -974,7 +974,7 @@ def test_prepare_sources_feeds_downloaded_sources_into_constraints_findings_tabl
     tables = generate_comparison_tables(project_dir)
     maps = generate_maps(project_dir)
     sections = generate_report_sections(project_dir)
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     assert source_gap(acquisition, "usfws_nwi_wetlands")["status"] == "downloaded"
     assert source_gap(acquisition, "usgs_nhd_hydrography")["status"] == "downloaded"
@@ -1031,7 +1031,7 @@ def test_prepare_sources_with_optional_feeds_fema_into_downstream_artifacts(tmp_
     tables = generate_comparison_tables(project_dir)
     maps = generate_maps(project_dir)
     sections = generate_report_sections(project_dir)
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     assert acquisition["include_optional_sources"] is True
     assert source_gap(acquisition, "epa_envirofacts_echo")["status"] == "downloaded"

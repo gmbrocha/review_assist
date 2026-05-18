@@ -4,7 +4,7 @@ This document captures the current GPT/LLM boundary.
 
 ## Current Baseline
 
-GPT-backed drafting is implemented for report sections only. It runs after deterministic project geometry, source acquisition, source status, source inventory, constraint analysis, findings, tables, maps, and evidence package generation.
+GPT-backed drafting is implemented for pre-review section copy used by legacy report sections and standard matrix-backed deliverable items. It runs after deterministic project geometry, source acquisition, source status, source inventory, constraint analysis, deliverable tables/figures, and evidence package generation.
 
 Implemented controls:
 
@@ -15,13 +15,15 @@ Implemented controls:
 - Missing `OPENAI_API_KEY` fails clearly when GPT is enabled.
 - `.env` is ignored by Git; `.env.example` contains placeholders only.
 
-The active GPT task is pre-review section copy. GPT does not run source acquisition, geometry normalization, constraint analysis, measurements, review decisions, or export acceptance.
+The active GPT task is pre-review section copy. GPT does not run source acquisition, geometry normalization, constraint analysis, measurements, review decisions, review queue status changes, or export acceptance.
 
 ## Structured Inputs
 
 GPT section drafting receives a bounded request:
 
 - Report section metadata and purpose.
+- Matrix target metadata when drafting a deliverable item.
+- Prompt key, global/section prompt constraints, allowed inputs, and citation policy from `config/report_generation_prompts.json`.
 - Deterministic baseline copy.
 - Related finding IDs.
 - Related table IDs.
@@ -46,7 +48,7 @@ GPT must return structured section output with:
 - Cited source refs.
 - Caveats.
 
-Generated sections remain `report_section` review queue items. They are not auto-accepted and do not bypass reviewer status, reviewer edits, or export eligibility.
+Generated sections become reviewable `section_text` deliverable items in the standard queue or legacy `report_section` review queue items in audit/compatibility flows. They are not auto-accepted and do not bypass reviewer status, reviewer edits, replacement content, or export eligibility.
 
 ## Guardrails
 
@@ -79,7 +81,7 @@ GPT-drafted sections store:
 - Evidence package path.
 - Validation warnings.
 
-Export and deliverable manifests summarize GPT drafting status and counts when GPT-backed sections are present.
+Export and deliverable manifests summarize GPT drafting status and counts when GPT-backed sections are present. Deliverable item provenance also records prompt-contract metadata and structured-evidence request digests.
 
 ## Boundaries
 

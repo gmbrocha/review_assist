@@ -248,7 +248,7 @@ def test_generate_maps_records_source_render_error_and_continues(tmp_path: Path,
     assert [figure["figure_id"] for figure in manifest["figures"]] == ["project-overview"]
     assert any(issue["code"] == "source_map_render_error" for issue in manifest["validation_issues"])
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     validation_item = item_by_id(queue, "validation-map-generation-001-source-map-render-error")
     assert validation_item["type"] == "validation_issue"
     assert validation_item["source_refs"] == ["usfws_nwi_wetlands"]
@@ -298,7 +298,7 @@ def test_load_map_manifest_rejects_invalid_artifacts(tmp_path: Path) -> None:
 def test_review_queue_includes_map_items_and_preserves_state(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     generate_maps(project_dir)
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     item = item_by_id(queue, "map-figure-project-overview")
     assert item["type"] == "map_figure"
@@ -307,7 +307,7 @@ def test_review_queue_includes_map_items_and_preserves_state(tmp_path: Path) -> 
 
     update_review_item(project_dir, "map-figure-project-overview", status="accepted", note="Figure reviewed.")
     generate_maps(project_dir)
-    regenerated = generate_review_queue(project_dir)
+    regenerated = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     item = item_by_id(regenerated, "map-figure-project-overview")
     assert item["status"] == "accepted"
@@ -322,7 +322,7 @@ def test_review_queue_fails_for_malformed_map_manifest(tmp_path: Path) -> None:
     manifest_path.write_text('{"figures": [{"figure_id": "broken"}]}', encoding="utf-8")
 
     with pytest.raises(ReviewQueueError, match="missing required fields"):
-        generate_review_queue(project_dir)
+        generate_review_queue(project_dir, include_legacy_artifacts=True)
 
 
 def test_cli_generate_maps_text_and_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -344,5 +344,5 @@ def test_populate_for_review_manifest_includes_maps(tmp_path: Path) -> None:
 
     assert result["artifact_paths"]["map_manifest"].endswith("map_manifest.json")
     assert any(step["name"] == "map_generation" and step["status"] == "completed" for step in result["steps"])
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     assert item_by_id(queue, "map-figure-project-overview")["type"] == "map_figure"

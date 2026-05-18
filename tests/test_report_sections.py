@@ -253,7 +253,7 @@ def test_load_report_sections_rejects_malformed_artifact(tmp_path: Path) -> None
     with pytest.raises(ReportSectionGenerationError, match="missing required fields"):
         load_report_sections(project_dir)
     with pytest.raises(ReviewQueueError, match="missing required fields"):
-        generate_review_queue(project_dir)
+        generate_review_queue(project_dir, include_legacy_artifacts=True)
 
 
 def test_load_report_sections_rejects_boolean_section_order(tmp_path: Path) -> None:
@@ -280,7 +280,7 @@ def test_review_queue_includes_report_sections_and_preserves_state(tmp_path: Pat
     project_dir = write_project(tmp_path)
     generate_report_sections(project_dir)
 
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     item = item_by_id(queue, "report-section-wetlands-and-waterbodies")
     assert item["type"] == "report_section"
     assert item["section_id"] == "wetlands-and-waterbodies"
@@ -288,7 +288,7 @@ def test_review_queue_includes_report_sections_and_preserves_state(tmp_path: Pat
 
     update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted", note="Section reviewed.")
     generate_report_sections(project_dir)
-    regenerated = generate_review_queue(project_dir)
+    regenerated = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     reviewed = item_by_id(regenerated, "report-section-wetlands-and-waterbodies")
     assert reviewed["status"] == "accepted"
@@ -299,7 +299,7 @@ def test_review_queue_includes_report_sections_and_preserves_state(tmp_path: Pat
 def test_review_queue_updates_untouched_stale_draft_section_status(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     generate_report_sections(project_dir)
-    queue = generate_review_queue(project_dir)
+    queue = generate_review_queue(project_dir, include_legacy_artifacts=True)
     item = item_by_id(queue, "report-section-limitations-and-missing-data")
     assert item["status"] == "needs_verification"
 
@@ -307,7 +307,7 @@ def test_review_queue_updates_untouched_stale_draft_section_status(tmp_path: Pat
     item["export_eligible"] = False
     Path(queue["output_path"]).write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")  # type: ignore[arg-type]
 
-    regenerated = generate_review_queue(project_dir)
+    regenerated = generate_review_queue(project_dir, include_legacy_artifacts=True)
 
     assert item_by_id(regenerated, "report-section-limitations-and-missing-data")["status"] == "needs_verification"
 

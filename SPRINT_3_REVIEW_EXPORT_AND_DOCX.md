@@ -33,7 +33,7 @@ The review and export behavior should be service/CLI only.
 
 ## Sub-Sprint Breakdown
 
-- `SPRINT_3_1_DELIVERABLE_ITEMS_AND_REVIEW_QUEUE.md`: deliverable item artifact, matrix-driven section text, bounded review queue, and terminal status behavior.
+- Sprint 3.1 complete and archived at `docs/archive/sprints/SPRINT_3_1_DELIVERABLE_ITEMS_AND_REVIEW_QUEUE.md`: deliverable item artifact, matrix-driven section text, bounded review queue, and terminal status behavior.
 - `SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`: default export review gate, export inclusion rules, preview behavior, package commands, and export manifest updates.
 - `SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`: DOCX formatting fidelity, docs alignment, and full end-to-end verification.
 
@@ -48,6 +48,7 @@ This sprint assumes these artifacts exist:
 - `projects/<project_id>/intermediate/comparison_units.geojson`
 - `projects/<project_id>/deliverable/tables.json`
 - `projects/<project_id>/deliverable/figures.json`
+- `projects/<project_id>/deliverable/deliverable_items.json`
 - updated `projects/<project_id>/evidence/evidence_package.json`
 
 ## Workstream 1: Deliverable Items Artifact

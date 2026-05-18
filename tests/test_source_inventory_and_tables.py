@@ -269,7 +269,7 @@ def test_load_comparison_tables_rejects_malformed_artifact(tmp_path: Path) -> No
     with pytest.raises(TableGenerationError, match="missing required fields"):
         load_comparison_tables(project_dir)
     with pytest.raises(ReviewQueueError, match="missing required fields"):
-        generate_review_queue(project_dir)
+        generate_review_queue(project_dir, include_legacy_artifacts=True)
 
 
 def test_load_comparison_tables_rejects_count_and_status_mismatch(tmp_path: Path) -> None:

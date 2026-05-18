@@ -178,7 +178,7 @@ def add_supported_real_source_inputs(project_dir: Path) -> None:
 def set_queue_item(project_dir: Path, item_id: str, **updates: Any) -> None:
     queue = load_review_queue(project_dir)
     for item in queue["items"]:
-        if item["id"] == item_id:
+        if item["id"] == item_id or item.get("target_id") == item_id or item.get("deliverable_item_id") == item_id:
             item.update(updates)
             Path(queue["output_path"]).write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
             return
@@ -204,18 +204,18 @@ def test_export_manifest_filters_reviewed_items_and_uses_edited_content(tmp_path
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
 
-    update_review_item(project_dir, "report-section-front-matter", status="accepted")
-    update_review_item(project_dir, "report-section-executive-summary", status="edited")
-    set_queue_item(project_dir, "report-section-executive-summary", edited_content="Reviewer edited executive summary.")
-    update_review_item(project_dir, "report-section-introduction", status="rejected")
+    update_review_item(project_dir, "cover-title", status="accepted")
+    update_review_item(project_dir, "executive-summary", status="edited")
+    set_queue_item(project_dir, "executive-summary", edited_content="Reviewer edited executive summary.")
+    update_review_item(project_dir, "introduction", status="declined")
 
     manifest = export_report(project_dir)
     markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
 
-    assert "report-section-front-matter" in included_ids(manifest)
-    assert "report-section-executive-summary" in included_ids(manifest)
-    assert "report-section-introduction" not in included_ids(manifest)
-    assert "report-section-study-area" not in included_ids(manifest)
+    assert "cover-title" in included_ids(manifest)
+    assert "executive-summary" in included_ids(manifest)
+    assert "introduction" not in included_ids(manifest)
+    assert "study-area" not in included_ids(manifest)
     assert "Reviewer edited executive summary." in markdown
     assert "INTERNAL PREVIEW EXPORT" not in markdown
 
@@ -254,13 +254,13 @@ def test_export_includes_unable_to_verify_only_when_export_eligible(tmp_path: Pa
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
 
-    update_review_item(project_dir, "report-section-limitations-and-missing-data", status="unable_to_verify")
+    update_review_item(project_dir, "limitations-and-data-gaps", status="unable_to_verify")
     first = export_report(project_dir)
-    assert "report-section-limitations-and-missing-data" not in included_ids(first)
+    assert "limitations-and-data-gaps" not in included_ids(first)
 
-    update_review_item(project_dir, "report-section-limitations-and-missing-data", status="unable_to_verify", export_eligible=True)
+    update_review_item(project_dir, "limitations-and-data-gaps", status="unable_to_verify", export_eligible=True)
     second = export_report(project_dir)
-    assert "report-section-limitations-and-missing-data" in included_ids(second)
+    assert "limitations-and-data-gaps" in included_ids(second)
 
 
 def test_export_warns_when_no_accepted_sections_are_available(tmp_path: Path) -> None:
@@ -284,7 +284,7 @@ def test_export_preview_includes_drafts_and_marks_markdown(tmp_path: Path) -> No
 
     assert manifest["include_draft"] is True
     assert manifest["included_count"] > 0
-    assert "report-section-study-area" in included_ids(manifest)
+    assert "study-area" in included_ids(manifest)
     assert "INTERNAL PREVIEW EXPORT" in markdown
 
 
@@ -314,7 +314,7 @@ def test_export_strips_duplicate_report_section_headings(tmp_path: Path) -> None
     populate_for_review(project_dir)
     set_queue_item(
         project_dir,
-        "report-section-front-matter",
+        "cover-title",
         generated_content="# Front Matter\n\nBody without duplicate heading.",
     )
 
@@ -336,9 +336,9 @@ def test_docx_export_front_matter_lists_included_figures_tables_and_attachments(
     text = docx_text(manifest["docx_path"])
 
     assert "List of Figures" in text
-    assert "Project Overview" in text
+    assert "Wetlands and Waterbodies in and near the Study Corridor" in text
     assert "List of Tables" in text
-    assert "Source Status Matrix" in text
+    assert "Descriptions of Wetlands and Waterbodies Present within the Study Corridor" in text
     assert "List of Attachments" in text
     assert "Attachment A: Project Maps." in text
 
@@ -357,13 +357,13 @@ def test_export_format_both_writes_markdown_and_docx(tmp_path: Path) -> None:
 def test_docx_export_embeds_table_content_and_missing_figure_placeholder(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
-    set_queue_item(project_dir, "map-figure-project-overview", image_path=str(project_dir / "missing-map.png"))
+    set_queue_item(project_dir, "figure-wetlands-waterbodies", image_path=str(project_dir / "missing-map.png"))
 
     manifest = export_report(project_dir, include_draft=True, output_format="docx")
     text = docx_text(manifest["docx_path"])
 
-    assert "category" in text
-    assert "wetlands_waterbodies" in text
+    assert "Descriptions of Wetlands and Waterbodies Present within the Study Corridor" in text
+    assert "Table placeholder: this table currently has no rows." in text
     assert "Figure placeholder: figure file was not available" in text
     assert any(issue["code"] == "missing_export_figure_asset" for issue in manifest["validation_issues"])
     assert manifest["mvp_quality"]["missing_figure_asset_warning_count"] >= 1
@@ -377,23 +377,21 @@ def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_an
     monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
     populate_for_review(project_dir, prepare_sources=True)
     queue = load_review_queue(project_dir)
-    finding_id = next(item["id"] for item in queue["items"] if item["type"] == "draft_finding" and "Wetland" in item["title"])
-    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and str(item.get("figure_id", "")).startswith("source-context"))
+    finding_id = "wetlands-and-waterbodies"
+    map_id = "figure-wetlands-waterbodies"
 
     update_review_item(project_dir, finding_id, status="accepted")
-    update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted")
-    update_review_item(project_dir, "comparison-table-constraint-summary", status="accepted")
+    update_review_item(project_dir, "table-wetlands-waterbodies", status="accepted")
     update_review_item(project_dir, map_id, status="accepted")
 
     manifest = export_report(project_dir)
     markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
 
     assert finding_id in included_ids(manifest)
-    assert "report-section-wetlands-and-waterbodies" in included_ids(manifest)
-    assert "comparison-table-constraint-summary" in included_ids(manifest)
+    assert "table-wetlands-waterbodies" in included_ids(manifest)
     assert map_id in included_ids(manifest)
     assert manifest["data_lineage"]["counts"]["test_or_mock"] > 0
-    assert "Mock NWI Wetland" in markdown
+    assert "table-wetlands-waterbodies" in markdown
     assert "Map file:" in markdown
     assert "Caption:" in markdown
     assert "Source note:" in markdown
@@ -410,20 +408,19 @@ def test_docx_export_with_nwi_backed_constraints_includes_accepted_evidence(
     monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
     populate_for_review(project_dir, prepare_sources=True)
     queue = load_review_queue(project_dir)
-    finding_id = next(item["id"] for item in queue["items"] if item["type"] == "draft_finding" and "Wetland" in item["title"])
-    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and str(item.get("figure_id", "")).startswith("source-context"))
+    finding_id = "wetlands-and-waterbodies"
+    map_id = "figure-wetlands-waterbodies"
 
     update_review_item(project_dir, finding_id, status="accepted")
-    update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted")
-    update_review_item(project_dir, "comparison-table-constraint-summary", status="accepted")
+    update_review_item(project_dir, "table-wetlands-waterbodies", status="accepted")
     update_review_item(project_dir, map_id, status="accepted")
 
     manifest = export_report(project_dir, output_format="docx")
     text = docx_text(manifest["docx_path"])
 
     assert finding_id in included_ids(manifest)
-    assert "Mock NWI Wetland" in text
-    assert "Constraint Summary" in text
+    assert "Wetlands and Waterbodies" in text
+    assert "Descriptions of Wetlands and Waterbodies" in text
     assert "Figure file:" in text
     assert "Caption:" in text
     assert "Source note:" in text
@@ -440,22 +437,21 @@ def test_report_sections_render_related_table_and_figure_inline_without_standalo
     project_dir = write_project(tmp_path)
     monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
     populate_for_review(project_dir, prepare_sources=True)
-    queue = load_review_queue(project_dir)
-    map_id = next(item["id"] for item in queue["items"] if item["type"] == "map_figure" and str(item.get("figure_id", "")).startswith("source-context"))
+    map_id = "figure-wetlands-waterbodies"
 
-    update_review_item(project_dir, "report-section-wetlands-and-waterbodies", status="accepted")
-    update_review_item(project_dir, "comparison-table-constraint-summary", status="accepted")
+    update_review_item(project_dir, "wetlands-and-waterbodies", status="accepted")
+    update_review_item(project_dir, "table-wetlands-waterbodies", status="accepted")
     update_review_item(project_dir, map_id, status="accepted")
 
     manifest = export_report(project_dir, output_format="docx")
     text = docx_text(manifest["docx_path"])
 
-    assert "Table: Constraint Summary" in text
-    assert "Figure: Source Context:" in text
-    assert "Generated draft map figure" not in text
-    assert manifest["mvp_quality"]["inline_rendered_table_ids"] == ["constraint-summary"]
+    assert "Table: Descriptions of Wetlands and Waterbodies" in text
+    assert "Figure file:" in text
+    assert "Generated deliverable figure" not in text
+    assert manifest["mvp_quality"]["inline_rendered_table_ids"] == ["table-wetlands-waterbodies"]
     assert manifest["mvp_quality"]["inline_rendered_figure_count"] == 1
-    assert manifest["mvp_quality"]["copied_figure_asset_ids"] == ["source-context-usfws-nwi-wetlands"]
+    assert manifest["mvp_quality"]["copied_figure_asset_ids"] == ["figure-wetlands-waterbodies"]
 
 
 def test_export_warns_when_existing_map_manifest_cannot_be_loaded(tmp_path: Path) -> None:
@@ -475,8 +471,8 @@ def test_export_preserves_reviewer_edit_after_regeneration(tmp_path: Path) -> No
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
 
-    update_review_item(project_dir, "report-section-front-matter", status="edited")
-    set_queue_item(project_dir, "report-section-front-matter", edited_content="Reviewer edited front matter.")
+    update_review_item(project_dir, "cover-title", status="edited")
+    set_queue_item(project_dir, "cover-title", edited_content="Reviewer edited front matter.")
     populate_for_review(project_dir)
 
     manifest = export_report(project_dir)

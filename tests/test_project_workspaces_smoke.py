@@ -59,17 +59,23 @@ def test_active_projects_populate_for_review(tmp_path: Path) -> None:
         item_types = {item["type"] for item in queue["items"]}
 
         assert result["status"] == "completed"
-        assert all(warning.get("stage") in {"project_area", "deliverable_figures", "evidence_package"} for warning in result["warnings"])
+        assert all(
+            warning.get("stage") in {"project_area", "deliverable_figures", "deliverable_items", "evidence_package"}
+            for warning in result["warnings"]
+        )
         assert result["artifact_paths"]["input_package"].endswith("input_package.json")
         assert result["artifact_paths"]["project_area"].endswith("project_area.json")
         assert result["artifact_paths"]["constraint_results"].endswith("constraint_results.json")
         assert result["artifact_paths"]["deliverable_figures"].endswith("figures.json")
+        assert result["artifact_paths"]["deliverable_items"].endswith("deliverable_items.json")
         assert result["deliverable_figure_count"] == 13
+        assert result["deliverable_item_count"] > 0
         assert "project_county_names" in result
         assert "basemap_rendering_status" in result
         assert json.loads(Path(result["artifact_paths"]["project_geometry"]).read_text(encoding="utf-8"))["geometry_role"] == expected_geometry_role
         assert queue["item_count"] == result["review_queue_item_count"]
-        assert {"draft_finding", "comparison_table", "map_figure", "report_section"} <= item_types
+        assert {"section_text", "table", "figure", "attachment"} <= item_types
+        assert not {"draft_finding", "comparison_table", "map_figure", "report_section"}.intersection(item_types)
         assert "source_inventory_note" not in item_types
         assert Path(result["artifact_paths"]["review_queue"]).exists()
         assert json.loads(Path(result["output_path"]).read_text(encoding="utf-8"))["status"] == "completed"

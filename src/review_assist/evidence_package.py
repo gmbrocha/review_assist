@@ -828,6 +828,13 @@ def _validation_issues(
     issues = list(_dict_list(data_lineage.get("validation_issues", [])))
     issues.extend(_dict_list(source_acquisition.get("validation_issues", [])))
     issues.extend(_dict_list(constraints.get("validation_issues", [])))
+    for source in _dict_list(constraints.get("sources", [])):
+        source_id = str(source.get("source_id", ""))
+        for issue in _dict_list(source.get("validation_issues", [])):
+            record = dict(issue)
+            if source_id and not record.get("source_id"):
+                record["source_id"] = source_id
+            issues.append(record)
     issues.extend(_dict_list(deliverable_tables.get("validation_issues", [])))
     issues.extend(_dict_list(deliverable_figures.get("validation_issues", [])))
     for item in _dict_list(source_status.get("statuses", [])):

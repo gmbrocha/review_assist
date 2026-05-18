@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, load_constraint_results
+from .deliverable_items import DELIVERABLE_ITEMS_PATH, DeliverableItemsError, generate_deliverable_items, load_deliverable_items
 from .findings import FINDINGS_PATH, FindingGenerationError, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
@@ -27,27 +28,39 @@ SUPPORTED_STATUSES = {
     "accepted",
     "edited",
     "rejected",
+    "replaced",
+    "declined",
     "needs_verification",
     "unable_to_verify",
 }
-EXPORT_TRUE_STATUSES = {"accepted", "edited", "unable_to_verify"}
+EXPORT_TRUE_STATUSES = {"accepted", "edited", "replaced", "unable_to_verify"}
 MISSING_DATA_STATUSES = {"missing", "gated", "stubbed", "needs_review", "downloadable", "failed"}
 REQUIRED_ITEM_FIELDS = {
     "id",
     "project_id",
     "type",
+    "deliverable_item_id",
+    "target_id",
     "title",
     "generated_content",
     "edited_content",
+    "replacement_content",
     "status",
     "export_eligible",
     "export_section",
     "export_group",
+    "section_order",
+    "heading_level",
+    "table_id",
+    "figure_id",
+    "attachment_id",
+    "comparison_unit_ids",
     "assumptions",
     "provenance",
     "source_refs",
     "uncertainty_flags",
     "reviewer_notes",
+    "validation_issues",
     "created_at",
     "updated_at",
 }
@@ -57,47 +70,43 @@ class ReviewQueueError(RuntimeError):
     """Raised when review queue generation or updates cannot complete."""
 
 
-def generate_review_queue(project_dir: Path, *, include_source_inventory: bool = False) -> dict[str, Any]:
+def generate_review_queue(
+    project_dir: Path,
+    *,
+    include_source_inventory: bool = False,
+    include_legacy_artifacts: bool = False,
+) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     now = _utc_now()
     context = _load_or_generate_context(project_dir)
-    source_status = _load_or_generate_source_status(project_dir)
-    source_inventory = _load_optional_source_inventory(project_dir)
-    constraints = _load_optional_constraint_results(project_dir)
-    spatial = _load_optional_spatial_relationships(project_dir)
-    draft_findings = _load_optional_draft_findings(project_dir)
-    comparison_tables = _load_optional_comparison_tables(project_dir)
-    map_manifest = _load_optional_map_manifest(project_dir)
-    report_sections = _load_optional_report_sections(project_dir)
     existing = _load_existing_queue(project_dir)
+    legacy_mode = include_legacy_artifacts or include_source_inventory
+    deliverable_items = _load_or_generate_deliverable_items(project_dir) if not legacy_mode else None
 
-    items = _build_review_items(
-        project_id=str(context["project_id"]),
-        now=now,
-        context=context,
-        source_status=source_status,
-        source_inventory=source_inventory,
-        constraints=constraints,
-        spatial=spatial,
-        draft_findings=draft_findings,
-        comparison_tables=comparison_tables,
-        map_manifest=map_manifest,
-        report_sections=report_sections,
-        include_source_inventory=include_source_inventory,
-    )
-    if existing is not None:
-        existing_items = {item["id"]: item for item in existing["items"]}
-        items = [_merge_existing_review_state(item, existing_items, now) for item in items]
-
-    output_path = project_dir / REVIEW_QUEUE_PATH
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    queue = {
-        "project_id": context["project_id"],
-        "project_name": context["project_name"],
-        "project_dir": str(project_dir),
-        "created_at": existing["created_at"] if existing else now,
-        "updated_at": now,
-        "upstream_artifacts": {
+    if legacy_mode:
+        source_status = _load_or_generate_source_status(project_dir)
+        source_inventory = _load_optional_source_inventory(project_dir)
+        constraints = _load_optional_constraint_results(project_dir)
+        spatial = _load_optional_spatial_relationships(project_dir)
+        draft_findings = _load_optional_draft_findings(project_dir)
+        comparison_tables = _load_optional_comparison_tables(project_dir)
+        map_manifest = _load_optional_map_manifest(project_dir)
+        report_sections = _load_optional_report_sections(project_dir)
+        items = _build_legacy_review_items(
+            project_id=str(context["project_id"]),
+            now=now,
+            context=context,
+            source_status=source_status,
+            source_inventory=source_inventory,
+            constraints=constraints,
+            spatial=spatial,
+            draft_findings=draft_findings,
+            comparison_tables=comparison_tables,
+            map_manifest=map_manifest,
+            report_sections=report_sections,
+            include_source_inventory=include_source_inventory,
+        )
+        upstream_artifacts = {
             "project_context_path": context.get("context_path"),
             "source_status_path": source_status.get("output_path"),
             "source_inventory_path": source_inventory.get("output_path") if source_inventory else None,
@@ -108,9 +117,49 @@ def generate_review_queue(project_dir: Path, *, include_source_inventory: bool =
             "map_manifest_path": map_manifest.get("output_path") if map_manifest else None,
             "report_sections_path": report_sections.get("output_path") if report_sections else None,
             "evidence_package_path": _nested_value(report_sections, "upstream_artifacts", "evidence_package_path") if report_sections else None,
-        },
+            "deliverable_items_path": None,
+        }
+        validation_issues: list[dict[str, Any]] = []
+    else:
+        items = _build_deliverable_review_items(
+            project_id=str(context["project_id"]),
+            now=now,
+            deliverable_items=deliverable_items or {},
+        )
+        upstream = deliverable_items.get("upstream_artifacts", {}) if isinstance(deliverable_items, dict) else {}
+        upstream_artifacts = {
+            "project_context_path": context.get("context_path"),
+            "deliverable_items_path": deliverable_items.get("output_path") if deliverable_items else None,
+            "deliverable_tables_path": upstream.get("deliverable_tables_path") if isinstance(upstream, dict) else None,
+            "deliverable_figures_path": upstream.get("deliverable_figures_path") if isinstance(upstream, dict) else None,
+            "evidence_package_path": upstream.get("evidence_package_path") if isinstance(upstream, dict) else None,
+            "report_sections_path": None,
+            "source_status_path": None,
+            "source_inventory_path": None,
+            "constraint_results_path": None,
+            "spatial_relationships_path": None,
+            "draft_findings_path": None,
+            "comparison_tables_path": None,
+            "map_manifest_path": None,
+        }
+        validation_issues = _dict_list(deliverable_items.get("validation_issues", [])) if deliverable_items else []
+    if existing is not None:
+        existing_items = _existing_item_lookup(existing)
+        items = [_merge_existing_review_state(item, existing_items, now) for item in items]
+
+    output_path = project_dir / REVIEW_QUEUE_PATH
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    queue = {
+        "project_id": context["project_id"],
+        "project_name": context["project_name"],
+        "project_dir": str(project_dir),
+        "created_at": existing["created_at"] if existing else now,
+        "updated_at": now,
+        "queue_mode": "legacy_audit" if legacy_mode else "deliverable_items",
+        "upstream_artifacts": upstream_artifacts,
         "item_count": len(items),
         "items": items,
+        "validation_issues": _queue_validation_issues(items, validation_issues),
         "output_path": str(output_path),
     }
     _validate_queue(queue)
@@ -160,7 +209,10 @@ def update_review_item(
     status: str,
     note: str | None = None,
     export_eligible: bool | None = None,
+    edited_content: str | None = None,
+    replacement_content: str | None = None,
 ) -> dict[str, Any]:
+    status = _normalize_status(status)
     if status not in SUPPORTED_STATUSES:
         raise ReviewQueueError(f"Unsupported review status '{status}'.")
 
@@ -173,17 +225,27 @@ def update_review_item(
         raise ReviewQueueError(f"Only these statuses may be export eligible: {allowed}.")
 
     item["status"] = status
+    if edited_content is not None:
+        item["edited_content"] = edited_content
+    if replacement_content is not None:
+        item["replacement_content"] = replacement_content
     if export_eligible is None:
         item["export_eligible"] = _default_export_eligible(status)
     else:
         item["export_eligible"] = bool(export_eligible)
-    if status == "rejected":
+    if status == "declined":
         item["export_eligible"] = False
+    if status == "replaced" and not str(item.get("replacement_content", "")).strip():
+        item["export_eligible"] = False
+        item["validation_issues"] = _with_replacement_issue(_dict_list(item.get("validation_issues", [])), item_id)
+    else:
+        item["validation_issues"] = _without_replacement_issue(_dict_list(item.get("validation_issues", [])))
 
     if note is not None and note.strip():
         item["reviewer_notes"].append({"created_at": now, "note": note.strip()})
     item["updated_at"] = now
     queue["updated_at"] = now
+    queue["validation_issues"] = _queue_validation_issues(_dict_list(queue.get("items", [])), _dict_list(queue.get("validation_issues", [])))
     _validate_queue(queue)
     Path(queue["output_path"]).write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
     return item
@@ -295,7 +357,82 @@ def _load_existing_queue(project_dir: Path) -> dict[str, Any] | None:
     return load_review_queue(project_dir)
 
 
-def _build_review_items(
+def _load_or_generate_deliverable_items(project_dir: Path) -> dict[str, Any]:
+    try:
+        if (project_dir / DELIVERABLE_ITEMS_PATH).exists():
+            return load_deliverable_items(project_dir)
+        return generate_deliverable_items(project_dir)
+    except DeliverableItemsError as exc:
+        raise ReviewQueueError(str(exc)) from exc
+
+
+def _build_deliverable_review_items(
+    *,
+    project_id: str,
+    now: str,
+    deliverable_items: dict[str, Any],
+) -> list[dict[str, Any]]:
+    return [
+        _deliverable_review_item(project_id, now, deliverable_items, item)
+        for item in _dict_list(deliverable_items.get("items", []))
+    ]
+
+
+def _deliverable_review_item(
+    project_id: str,
+    now: str,
+    deliverable_items: dict[str, Any],
+    deliverable_item: dict[str, Any],
+) -> dict[str, Any]:
+    item_id = str(deliverable_item.get("deliverable_item_id") or deliverable_item.get("target_id") or "deliverable-item")
+    status = _normalize_status(str(deliverable_item.get("review_status", "draft")))
+    return _review_item(
+        item_id=item_id,
+        project_id=project_id,
+        item_type=str(deliverable_item.get("review_item_type") or deliverable_item.get("target_type") or "deliverable_item"),
+        title=str(deliverable_item.get("title") or item_id),
+        generated_content=str(deliverable_item.get("generated_content", "")),
+        status=status,
+        export_section=str(deliverable_item.get("target_id") or item_id),
+        export_group=str(deliverable_item.get("export_group") or "resource_sections"),
+        assumptions={
+            **(deliverable_item.get("assumptions", {}) if isinstance(deliverable_item.get("assumptions"), dict) else {}),
+            "section_order": deliverable_item.get("section_order"),
+            "heading_level": deliverable_item.get("heading_level"),
+            "resource_category": deliverable_item.get("resource_category"),
+            "target_type": deliverable_item.get("target_type"),
+        },
+        provenance={
+            "artifact": "deliverable_items",
+            "artifact_path": deliverable_items.get("output_path"),
+            "deliverable_item_id": item_id,
+            "target_id": deliverable_item.get("target_id"),
+            "deliverable_item_provenance": deliverable_item.get("provenance", {}),
+            "review_before_export": True,
+        },
+        source_refs=_string_list(deliverable_item.get("source_refs", [])),
+        uncertainty_flags=_string_list(deliverable_item.get("uncertainty_flags", [])),
+        now=now,
+        extra={
+            "deliverable_item_id": item_id,
+            "target_id": str(deliverable_item.get("target_id") or item_id),
+            "section_order": deliverable_item.get("section_order"),
+            "heading_level": deliverable_item.get("heading_level"),
+            "resource_category": deliverable_item.get("resource_category"),
+            "table_id": str(deliverable_item.get("table_id") or ""),
+            "figure_id": str(deliverable_item.get("figure_id") or ""),
+            "attachment_id": str(deliverable_item.get("attachment_id") or ""),
+            "comparison_unit_ids": _string_list(deliverable_item.get("comparison_unit_ids", [])),
+            "related_finding_ids": _string_list(deliverable_item.get("related_finding_ids", [])),
+            "related_constraint_ids": _string_list(deliverable_item.get("related_constraint_ids", [])),
+            "related_table_ids": _string_list(deliverable_item.get("related_table_ids", [])),
+            "related_figure_ids": _string_list(deliverable_item.get("related_figure_ids", [])),
+            "validation_issues": _dict_list(deliverable_item.get("validation_issues", [])),
+        },
+    )
+
+
+def _build_legacy_review_items(
     *,
     project_id: str,
     now: str,
@@ -763,40 +900,76 @@ def _review_item(
     now: str,
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    extra = dict(extra or {})
+    status = _normalize_status(status)
     item = {
         "id": item_id,
         "project_id": project_id,
         "type": item_type,
+        "deliverable_item_id": str(extra.get("deliverable_item_id", "")),
+        "target_id": str(extra.get("target_id", "")),
         "title": title,
         "generated_content": generated_content,
         "edited_content": "",
+        "replacement_content": "",
         "status": status,
         "export_eligible": _default_export_eligible(status),
         "export_section": export_section,
         "export_group": export_group or _default_export_group(item_type, export_section),
+        "section_order": extra.get("section_order"),
+        "heading_level": extra.get("heading_level"),
+        "table_id": str(extra.get("table_id", "")),
+        "figure_id": str(extra.get("figure_id", "")),
+        "attachment_id": str(extra.get("attachment_id", "")),
+        "comparison_unit_ids": _string_list(extra.get("comparison_unit_ids", [])),
         "assumptions": assumptions,
         "provenance": provenance,
         "source_refs": source_refs,
         "uncertainty_flags": uncertainty_flags,
         "reviewer_notes": [],
+        "validation_issues": _dict_list(extra.get("validation_issues", [])),
         "created_at": now,
         "updated_at": now,
     }
-    if extra:
-        item.update(extra)
+    for key, value in extra.items():
+        if key not in item:
+            item[key] = value
     return item
 
 
+def _existing_item_lookup(queue: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for item in _dict_list(queue.get("items", [])):
+        for key in (
+            str(item.get("id", "")),
+            str(item.get("deliverable_item_id", "")),
+            str(item.get("target_id", "")),
+        ):
+            if key and key not in lookup:
+                lookup[key] = item
+    return lookup
+
+
 def _merge_existing_review_state(item: dict[str, Any], existing_items: dict[str, dict[str, Any]], now: str) -> dict[str, Any]:
-    existing = existing_items.get(item["id"])
+    existing = (
+        existing_items.get(str(item.get("id", "")))
+        or existing_items.get(str(item.get("deliverable_item_id", "")))
+        or existing_items.get(str(item.get("target_id", "")))
+    )
     if existing is None:
         return item
-    item["created_at"] = existing["created_at"]
+    item["created_at"] = existing.get("created_at", item["created_at"])
     if _should_preserve_existing_review_state(existing, item):
-        item["status"] = existing["status"]
-        item["export_eligible"] = existing["export_eligible"]
-        item["edited_content"] = existing["edited_content"]
-        item["reviewer_notes"] = existing["reviewer_notes"]
+        item["status"] = _normalize_status(existing.get("status", item["status"]))
+        item["export_eligible"] = bool(existing.get("export_eligible", item["export_eligible"]))
+        item["edited_content"] = str(existing.get("edited_content", ""))
+        item["replacement_content"] = str(existing.get("replacement_content", ""))
+        item["reviewer_notes"] = existing.get("reviewer_notes", []) if isinstance(existing.get("reviewer_notes"), list) else []
+        if item["status"] == "replaced" and not item["replacement_content"].strip():
+            item["export_eligible"] = False
+            item["validation_issues"] = _with_replacement_issue(_dict_list(item.get("validation_issues", [])), item["id"])
+        else:
+            item["validation_issues"] = _without_replacement_issue(_dict_list(item.get("validation_issues", [])))
     item["updated_at"] = now
     return item
 
@@ -806,11 +979,13 @@ def _should_preserve_existing_review_state(existing: dict[str, Any], regenerated
         return True
     if str(existing.get("edited_content", "")).strip():
         return True
+    if str(existing.get("replacement_content", "")).strip():
+        return True
     if existing.get("export_eligible") is True:
         return True
-    existing_status = str(existing.get("status", ""))
+    existing_status = _normalize_status(existing.get("status", ""))
     regenerated_status = str(regenerated.get("status", ""))
-    if existing_status in {"accepted", "edited", "rejected", "unable_to_verify"}:
+    if existing_status in {"accepted", "edited", "replaced", "declined", "unable_to_verify"}:
         return True
     if existing_status == "needs_verification" and regenerated_status in {"draft", "needs_review"}:
         return True
@@ -821,7 +996,12 @@ def _should_preserve_existing_review_state(existing: dict[str, Any], regenerated
 
 def _find_item(queue: dict[str, Any], item_id: str) -> dict[str, Any]:
     for item in queue["items"]:
-        if item["id"] == item_id:
+        identifiers = {
+            str(item.get("id", "")),
+            str(item.get("deliverable_item_id", "")),
+            str(item.get("target_id", "")),
+        }
+        if item_id in identifiers:
             return item
     raise ReviewQueueError(f"Review item not found: {item_id}")
 
@@ -832,6 +1012,10 @@ def _validate_queue(queue: dict[str, Any]) -> None:
     items = queue.get("items")
     if not isinstance(items, list):
         raise ReviewQueueError("Review queue requires an 'items' list.")
+    if queue.get("item_count") != len(items):
+        raise ReviewQueueError("Review queue item_count does not match items.")
+    if not isinstance(queue.get("validation_issues", []), list):
+        raise ReviewQueueError("Review queue validation_issues must be a list.")
     seen_ids: set[str] = set()
     for item in items:
         if not isinstance(item, dict):
@@ -852,27 +1036,49 @@ def _validate_queue(queue: dict[str, Any]) -> None:
             raise ReviewQueueError(f"Review item '{item_id}' export_eligible must be true or false.")
         if item["export_eligible"] and status not in EXPORT_TRUE_STATUSES:
             raise ReviewQueueError(f"Review item '{item_id}' cannot be export eligible with status '{status}'.")
+        if status == "replaced" and not str(item.get("replacement_content", "")).strip() and item["export_eligible"]:
+            raise ReviewQueueError(f"Review item '{item_id}' cannot be export eligible as replaced without replacement_content.")
         if not isinstance(item["export_group"], str) or not item["export_group"].strip():
             raise ReviewQueueError(f"Review item '{item_id}' export_group must be a non-empty string.")
         if not isinstance(item["reviewer_notes"], list):
             raise ReviewQueueError(f"Review item '{item_id}' reviewer_notes must be a list.")
+        if not isinstance(item["comparison_unit_ids"], list):
+            raise ReviewQueueError(f"Review item '{item_id}' comparison_unit_ids must be a list.")
+        if not isinstance(item["validation_issues"], list):
+            raise ReviewQueueError(f"Review item '{item_id}' validation_issues must be a list.")
 
 
 def _normalize_queue_compat(queue: Any) -> None:
     if not isinstance(queue, dict):
         return
+    queue.setdefault("validation_issues", [])
+    queue.setdefault("queue_mode", "legacy_audit")
     items = queue.get("items")
     if not isinstance(items, list):
         return
+    queue["item_count"] = len(items)
     for item in items:
         if not isinstance(item, dict):
             continue
+        item["status"] = _normalize_status(item.get("status", "draft"))
         if not isinstance(item.get("export_group"), str) or not str(item.get("export_group")).strip():
             item["export_group"] = _default_export_group(str(item.get("type", "")), str(item.get("export_section", "")))
+        item.setdefault("deliverable_item_id", "")
+        item.setdefault("target_id", item.get("deliverable_item_id") or "")
+        item.setdefault("replacement_content", "")
+        item.setdefault("section_order", None)
+        item.setdefault("heading_level", None)
+        item.setdefault("table_id", "")
+        item.setdefault("figure_id", "")
+        item.setdefault("attachment_id", "")
+        item.setdefault("comparison_unit_ids", [])
+        item.setdefault("validation_issues", [])
+        item.setdefault("edited_content", "")
+        item.setdefault("reviewer_notes", [])
 
 
 def _default_export_eligible(status: str) -> bool:
-    return status in {"accepted", "edited"}
+    return status in {"accepted", "edited", "replaced"}
 
 
 def _default_export_group(item_type: str, export_section: str) -> str:
@@ -887,7 +1093,7 @@ def _default_export_group(item_type: str, export_section: str) -> str:
         "attachments",
     }:
         return export_section
-    if item_type in {"map_figure", "comparison_table", "draft_finding", "spatial_relationship", "no_mapped_relationships"}:
+    if item_type in {"map_figure", "comparison_table", "draft_finding", "spatial_relationship", "no_mapped_relationships", "figure", "table"}:
         return "constraints_inventory"
     if item_type in {"source_inventory_note", "source_status_note", "missing_data_placeholder"}:
         return "methodology"
@@ -900,6 +1106,59 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _normalize_status(value: Any) -> str:
+    status = str(value or "draft")
+    if status == "rejected":
+        return "declined"
+    return status
+
+
+def _queue_validation_issues(items: list[dict[str, Any]], existing: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    issues = [issue for issue in _dict_list(existing or []) if issue.get("code") != "replacement_content_missing"]
+    for item in items:
+        issues.extend(_dict_list(item.get("validation_issues", [])))
+        if item.get("status") == "replaced" and not str(item.get("replacement_content", "")).strip():
+            issues.append(_replacement_issue(str(item.get("id", ""))))
+    return _dedupe_issues(issues)
+
+
+def _with_replacement_issue(issues: list[dict[str, Any]], item_id: str) -> list[dict[str, Any]]:
+    return _dedupe_issues([*_without_replacement_issue(issues), _replacement_issue(item_id)])
+
+
+def _without_replacement_issue(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [issue for issue in issues if issue.get("code") != "replacement_content_missing"]
+
+
+def _replacement_issue(item_id: str) -> dict[str, str]:
+    return {
+        "severity": "warning",
+        "code": "replacement_content_missing",
+        "message": f"Review item '{item_id}' is marked replaced but has no replacement_content.",
+        "location": str(REVIEW_QUEUE_PATH),
+        "item_id": item_id,
+    }
+
+
+def _dedupe_issues(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str, str, str]] = set()
+    result: list[dict[str, Any]] = []
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        key = (
+            str(issue.get("code", "")),
+            str(issue.get("location", "")),
+            str(issue.get("message", "")),
+            str(issue.get("item_id", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(issue)
+    return result
 
 
 def _nested_string(value: Any, key: str) -> str:

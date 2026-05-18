@@ -16,6 +16,7 @@ Every generated report-facing artifact should become a review queue item before 
 - Report paragraphs.
 - Comparison tables.
 - Figures/maps.
+- Matrix-backed deliverable section/table/figure/attachment items.
 - Caveats.
 - Source notes.
 - Source inventory/provenance notes when included for audit review.
@@ -39,13 +40,19 @@ The item requires human review before it can be used.
 
 A human reviewer has accepted the item for use in the review package.
 
-### rejected
+### declined
 
-A human reviewer has rejected the item. Rejected items remain in the review record but should not export.
+A human reviewer has declined the item. Declined items remain in the review record but should not export.
+
+Legacy queue files may still contain `rejected`; loading normalizes that status to `declined`.
 
 ### edited
 
 A human reviewer has modified the item. Edited content should be treated as reviewer-approved only when the reviewer marks it eligible for export.
+
+### replaced
+
+A human reviewer has replaced the generated item with replacement content. Replaced items should export only when replacement content exists and the item is export eligible.
 
 ### needs_verification
 
@@ -65,9 +72,18 @@ Current JSON-backed review queue items support:
 - `title`
 - `generated_content`
 - `edited_content`
+- `replacement_content`
 - `status`
 - `export_eligible`
 - `export_section`
+- `deliverable_item_id`
+- `target_id`
+- `section_order`
+- `heading_level`
+- `table_id`
+- `figure_id`
+- `attachment_id`
+- `comparison_unit_ids`
 - `assumptions`
 - `provenance`
 - `source_refs`
@@ -84,11 +100,14 @@ The current CLI baseline writes review queue state to:
 
 Current commands:
 
+- `review-assist generate-deliverable-items <project_dir>`
 - `review-assist generate-review-queue <project_dir>`
 - `review-assist list-review-queue <project_dir>`
-- `review-assist update-review-item <project_dir> <item_id> --status <status> [--note "..."] [--export-eligible true|false]`
+- `review-assist update-review-item <project_dir> <item_id> --status <status> [--note "..."] [--edited-content "..."] [--replacement-content "..."] [--export-eligible true|false]`
 
-The current generator defaults to a lean review queue. It creates review items from deterministic draft findings, comparison tables, draft map figures, deterministic draft report sections, report-relevant missing-data placeholders, no-mapped-relationship checks, and validation issues, including constraint-analysis warnings and failed source-acquisition caveats propagated through source status. Source inventory/provenance records can be included explicitly with `--include-source-inventory`; source status records and generic inventory notes are not default readiness signals.
+The current generator defaults to a bounded review queue with one item per matrix-backed deliverable item from `projects/<project_id>/deliverable/deliverable_items.json`. It preserves reviewer state by stable `deliverable_item_id` / `target_id`, normalizes legacy `rejected` status to `declined`, and records validation issues when `replaced` lacks replacement content.
+
+Raw draft findings, broad comparison tables, legacy source-context map figures, spatial relationship items, no-mapped relationship checks, validation/source audit items, and source inventory/provenance records remain reachable only through explicit audit mode, including `--include-legacy-artifacts`; `--include-source-inventory` is an audit-mode add-on.
 
 Deterministic draft findings are generated at:
 
@@ -109,7 +128,7 @@ Deterministic draft report sections are generated at:
 
 Current section generation creates no-blank-page draft sections from structured workflow artifacts through a deterministic section-drafting provider. These sections are not final report prose and are not exportable unless they pass through review queue status and export-eligibility rules.
 
-The current baseline does not generate basemap/imagery-backed maps, final report tables, template-grade DOCX layout, or PDF exports. It does generate descriptive comparison table artifacts, draft PNG map figures, deterministic or GPT-assisted draft section artifacts, and Markdown/DOCX export packages. Exported content remains pre-review unless the included queue items have been accepted, edited, or explicitly marked export eligible by a reviewer.
+The current baseline does not generate template-grade DOCX layout, PDF exports, or final review-complete export gates. It does generate descriptive comparison table artifacts, matrix-backed deliverable tables/figures/items, deterministic or GPT-assisted draft section artifacts, bounded review queue items, and Markdown/DOCX export packages. Exported content remains pre-review unless the included queue items have been accepted, edited, replaced with content, or explicitly marked export eligible by a reviewer.
 
 ## Policy Notes
 
