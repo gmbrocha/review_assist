@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Overview - Review Assist{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>Overview</h1>
+  <p>Project, source, populate, and validation status from existing backend artifacts.</p>
+</section>
+
+<section class="summary-grid">
+  <div class="metric"><span>Inputs</span><strong>{{ summary.input_package.input_count }}</strong></div>
+  <div class="metric"><span>Comparison Units</span><strong>{{ summary.comparison_units.comparison_unit_count }}</strong></div>
+  <div class="metric"><span>Populate</span><strong>{{ summary.populate.status }}</strong></div>
+  <div class="metric"><span>Review Items</span><strong>{{ summary.populate.review_queue_item_count }}</strong></div>
+</section>
+
+<section class="panel">
+  <h2>Project Metadata</h2>
+  <dl class="details">
+    <dt>Name</dt><dd>{{ summary.manifest.name }}</dd>
+    <dt>Project ID</dt><dd>{{ summary.manifest.project_id }}</dd>
+    <dt>Type</dt><dd>{{ summary.manifest.project_type }}</dd>
+    <dt>Description</dt><dd>{{ summary.manifest.description or 'Not provided' }}</dd>
+    <dt>Report Profile</dt><dd>{{ summary.context.report_profile or summary.manifest.report_profile or 'Default' }}</dd>
+  </dl>
+</section>
+
+<section class="panel">
+  <div class="section-title-row">
+    <h2>Create Review Queue</h2>
+    <form method="post" action="{{ url_for('populate') }}">
+      <button class="primary" type="submit">Create Review Queue</button>
+    </form>
+  </div>
+  <p class="muted">Runs the existing populate-for-review backend service with deterministic drafting. This does not export a report.</p>
+  {% if summary.populate.critical_error %}
+    <p class="issue">{{ summary.populate.critical_error }}</p>
+  {% endif %}
+</section>
+
+<section class="table-section">
+  <h2>Source Status</h2>
+  <table>
+    <thead><tr><th>Category</th><th>Status</th><th>Requirement</th><th>Sources</th><th>Notes</th></tr></thead>
+    <tbody>
+      {% for row in summary.source_status.rows %}
+      <tr>
+        <td>{{ row.category }}</td>
+        <td><span class="status">{{ row.status }}</span></td>
+        <td>{{ row.requirement }}</td>
+        <td>{{ row.source_ids|join(', ') }}</td>
+        <td>{{ row.notes }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty">Source status has not been generated.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Validation And Warnings</h2>
+  {% if summary.validation_issues %}
+  <ul class="issue-list">
+    {% for issue in summary.validation_issues %}
+      <li><strong>{{ issue.stage }}</strong> {{ issue.code }}: {{ issue.message }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="empty">No validation issues are recorded in the overview artifacts.</p>
+  {% endif %}
+</section>
+{% endblock %}

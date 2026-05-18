@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Export Readiness - Review Assist{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>Export Readiness</h1>
+  <p>Reviewed export is blocked until the standard bounded review queue passes the review-complete gate.</p>
+</section>
+
+<section class="summary-grid">
+  <div class="metric"><span>Gate</span><strong>{{ readiness.review_gate_status }}</strong></div>
+  <div class="metric"><span>Review Items</span><strong>{{ readiness.review_item_count }}</strong></div>
+  <div class="metric"><span>Unreviewed</span><strong>{{ readiness.unreviewed_item_count }}</strong></div>
+  <div class="metric"><span>Declined</span><strong>{{ readiness.declined_item_count }}</strong></div>
+</section>
+
+<section class="panel">
+  <p>{{ readiness.message }}</p>
+</section>
+
+<section class="panel">
+  <h2>Actions</h2>
+  <form method="post" action="{{ url_for('preview_export') }}" class="inline-form">
+    <button type="submit">Create Internal Preview</button>
+  </form>
+  <form method="post" action="{{ url_for('reviewed_export') }}" class="inline-form">
+    <button class="primary" type="submit" {% if not readiness.can_export %}disabled{% endif %}>Create Reviewed Export</button>
+  </form>
+  <p class="muted">Internal preview is pre-review and separate from reviewed export.</p>
+</section>
+
+{% if readiness.blockers %}
+<section class="table-section">
+  <h2>Export Blockers</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Status</th><th>Reason</th></tr></thead>
+    <tbody>
+      {% for item in readiness.blockers %}
+      <tr><td>{{ item.id }} - {{ item.title }}</td><td>{{ item.status }}</td><td>{{ item.reason }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Compactness Budget</h2>
+  {% if readiness.compactness_budget %}
+  <dl class="details">
+    {% for key, value in readiness.compactness_budget.items() %}
+      <dt>{{ key }}</dt><dd>{{ value }}</dd>
+    {% endfor %}
+  </dl>
+  {% else %}
+    <p class="empty">No compactness budget has been recorded yet. Run a preview or reviewed export after the review queue exists.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Final Verification</h2>
+  {% if readiness.final_verification %}
+    <p><strong>Status:</strong> {{ readiness.final_verification.status }}</p>
+    {% if readiness.final_verification.issues %}
+    <ul class="issue-list">
+      {% for issue in readiness.final_verification.issues %}
+        <li>{{ issue.severity }} {{ issue.code }}: {{ issue.message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  {% else %}
+    <p class="empty">No final verification summary has been recorded yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

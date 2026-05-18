@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Package Outputs - Review Assist{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>Package Outputs</h1>
+  <p>Generated package artifacts exposed from export manifests only. Arbitrary project file browsing is not available.</p>
+</section>
+
+<section class="summary-grid">
+  <div class="metric"><span>Export Manifest</span><strong>{{ 'available' if outputs.export_manifest.exists else 'missing' }}</strong></div>
+  <div class="metric"><span>Package Manifest</span><strong>{{ 'available' if outputs.package_manifest.exists else 'missing' }}</strong></div>
+  <div class="metric"><span>Final Verification</span><strong>{{ outputs.final_verification.status or 'not_run' }}</strong></div>
+</section>
+
+<section class="table-section">
+  <h2>Artifacts</h2>
+  <table>
+    <thead><tr><th>Artifact</th><th>Kind</th><th>Path</th><th></th></tr></thead>
+    <tbody>
+      {% for artifact in outputs.artifacts %}
+      <tr>
+        <td>{{ artifact.label }}</td>
+        <td>{{ artifact.kind }}</td>
+        <td><code>{{ artifact.relative_path }}</code></td>
+        <td><a class="button" href="{{ url_for('artifact', project=selected_project_key, path=artifact.relative_path) }}">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty">No exposed export/package artifacts are available yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Final Verification</h2>
+  {% if outputs.final_verification %}
+    <p><strong>Status:</strong> {{ outputs.final_verification.status }}</p>
+    {% if outputs.final_verification.issues %}
+    <ul class="issue-list">
+      {% for issue in outputs.final_verification.issues %}
+        <li>{{ issue.severity }} {{ issue.code }}: {{ issue.message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  {% else %}
+    <p class="empty">No final verification summary is available.</p>
+  {% endif %}
+</section>
+{% endblock %}

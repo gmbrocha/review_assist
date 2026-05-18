@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - Review Assist{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>Projects</h1>
+  <p>Select a local project workspace. Project creation and upload workflows remain deferred until a safe input-staging convention is implemented.</p>
+</section>
+
+<section class="table-section">
+  <table>
+    <thead>
+      <tr>
+        <th>Project</th>
+        <th>Workspace</th>
+        <th>Pipeline</th>
+        <th>Export Gate</th>
+        <th>Modified</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for project in projects %}
+      <tr>
+        <td>
+          <strong>{{ project.name }}</strong>
+          <div class="muted">{{ project.project_id }}</div>
+          {% if project.error %}<div class="issue">{{ project.error }}</div>{% endif %}
+        </td>
+        <td><code>{{ project.path }}</code></td>
+        <td><span class="status">{{ project.status }}</span></td>
+        <td><span class="status">{{ project.review_gate_status }}</span></td>
+        <td>{{ project.modified_at }}</td>
+        <td>
+          <form method="post" action="{{ url_for('select_project') }}">
+            <input type="hidden" name="project_key" value="{{ project.project_key }}">
+            <button type="submit">Select</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">No project workspaces were found under the configured projects directory.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

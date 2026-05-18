@@ -51,6 +51,17 @@ Framework decision criteria:
 - No forced cloud deployment.
 - Clean separation from GIS/report services.
 
+Sprint 4 Pass 1 stack decision:
+
+- Use Flask/Jinja for a local-first, server-rendered web UI shell.
+- Keep UI access behind `review_assist.web.adapter`; route handlers should remain presentation/control flow only.
+- Keep raw/audit artifacts out of the default workflow. Expose generated outputs only through manifest-listed artifact links with project-root path safety.
+
+Sprint 4 Pass 1 implementation status:
+
+- Implemented: app shell, left navigation, project list/selection, overview/source/populate status, bounded standard review queue, review item detail/actions, export readiness, preview/reviewed export triggers, package outputs, manifest-listed artifact links, and project-root path safety tests.
+- Remaining: project creation, upload/staging, richer progress handling, advanced audit browsing, UI polish, and any production/deployment concerns. These should stay thin over service contracts and should not make raw/audit artifacts part of the default review/export path.
+
 ## Information Architecture
 
 The app should use left-side navigation with four main tabs:

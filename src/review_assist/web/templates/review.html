@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Review Queue - Review Assist{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>Review Queue</h1>
+  <p>Standard bounded deliverable review items only. Legacy audit artifacts are not shown in the default workflow.</p>
+</section>
+
+{% if error %}
+  <section class="panel"><p class="issue">{{ error }}</p></section>
+{% elif queue %}
+  <section class="summary-grid">
+    <div class="metric"><span>Total Items</span><strong>{{ queue.item_count }}</strong></div>
+    <div class="metric"><span>Remaining</span><strong>{{ queue.remaining_count }}</strong></div>
+    <div class="metric"><span>Queue Mode</span><strong>{{ queue.queue_mode }}</strong></div>
+  </section>
+
+  <section class="table-section">
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Item</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Refs</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in queue["items"] %}
+        <tr>
+          <td>{{ item.section_order }}</td>
+          <td>
+            <strong>{{ item.title }}</strong>
+            <div class="muted">{{ item.id }}</div>
+          </td>
+          <td>{{ item.type }}</td>
+          <td><span class="status">{{ item.status }}</span></td>
+          <td>
+            {% if item.table_id %}<span class="tag">{{ item.table_id }}</span>{% endif %}
+            {% if item.figure_id %}<span class="tag">{{ item.figure_id }}</span>{% endif %}
+            {% if item.attachment_id %}<span class="tag">{{ item.attachment_id }}</span>{% endif %}
+          </td>
+          <td><a class="button" href="{{ url_for('review_detail', item_id=item.id) }}">Review</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+{% endblock %}

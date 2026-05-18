@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.title }} - Review Assist{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>{{ item.title }}</h1>
+  <p>{{ item.type }} | {{ item.status }} | {{ item.id }}</p>
+</section>
+
+<section class="summary-grid">
+  <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if item.export_eligible else 'no' }}</strong></div>
+  <div class="metric"><span>Table</span><strong>{{ item.table_id or 'none' }}</strong></div>
+  <div class="metric"><span>Figure</span><strong>{{ item.figure_id or 'none' }}</strong></div>
+  <div class="metric"><span>Attachment</span><strong>{{ item.attachment_id or 'none' }}</strong></div>
+</section>
+
+<section class="panel">
+  <h2>Reviewed Content Candidate</h2>
+  <pre class="content-preview">{{ item.generated_content or 'No generated content recorded.' }}</pre>
+</section>
+
+{% if item.table_preview.table_id %}
+<section class="table-section">
+  <h2>Table Preview</h2>
+  <p class="muted">Preview rows only; full table detail remains in the deliverable table artifact.</p>
+  <table>
+    <thead>
+      <tr>{% for column in item.table_preview.columns %}<th>{{ column }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for row in item.table_preview.rows %}
+      <tr>{% for column in item.table_preview.columns %}<td>{{ row.get(column, '') }}</td>{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if item.table_preview.row_count %}
+    <p class="muted">Showing {{ item.table_preview.preview_count }} preview rows of {{ item.table_preview.row_count }} total rows.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if item.figure.figure_id %}
+<section class="panel">
+  <h2>Figure Reference</h2>
+  {% if item.figure.artifact_link_path %}
+    <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=item.figure.artifact_link_path) }}" alt="{{ item.figure.figure_id }}">
+  {% else %}
+    <p class="empty">No renderable figure image is currently available. The export path will use the reviewed placeholder or stub.</p>
+  {% endif %}
+  <dl class="details">
+    <dt>Caption</dt><dd>{{ item.figure.caption or 'Not recorded' }}</dd>
+    <dt>Source Note</dt><dd>{{ item.figure.source_note or 'Not recorded' }}</dd>
+    <dt>Method Note</dt><dd>{{ item.figure.method_note or 'Not recorded' }}</dd>
+  </dl>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Evidence And Validation Summary</h2>
+  <dl class="details">
+    <dt>Source Refs</dt><dd>{{ item.source_refs|join(', ') if item.source_refs else 'None recorded' }}</dd>
+    <dt>Comparison Units</dt><dd>{{ item.comparison_unit_ids|join(', ') if item.comparison_unit_ids else 'None recorded' }}</dd>
+    <dt>Artifact</dt><dd>{{ item.provenance.artifact_path or 'Not recorded' }}</dd>
+  </dl>
+  {% if item.validation_issues %}
+  <ul class="issue-list">
+    {% for issue in item.validation_issues %}
+      <li>{{ issue.code }}: {{ issue.message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Review Action</h2>
+  <form method="post" class="review-form">
+    <label>Status
+      <select name="status">
+        <option value="accepted">accept</option>
+        <option value="edited">edit and accept</option>
+        <option value="replaced">replace</option>
+        <option value="declined">decline</option>
+        <option value="unable_to_verify">unable to verify</option>
+      </select>
+    </label>
+    <label>Edited content
+      <textarea name="edited_content" rows="6">{{ item.edited_content }}</textarea>
+    </label>
+    <label>Replacement content
+      <textarea name="replacement_content" rows="6">{{ item.replacement_content }}</textarea>
+    </label>
+    <label class="checkbox"><input type="checkbox" name="export_eligible" value="1"> Export eligible when unable to verify</label>
+    <label>Reviewer note
+      <textarea name="note" rows="3"></textarea>
+    </label>
+    <button class="primary" type="submit">Save Review Action</button>
+  </form>
+</section>
+{% endblock %}

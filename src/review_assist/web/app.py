@@ -1,0 +1,201 @@
+"""Flask app entrypoint for the local Review Assist web UI."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Any
+
+from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
+
+from review_assist.web import adapter
+
+
+def create_app(*, project_root: str | Path | None = None, testing: bool = False) -> Flask:
+    """Create the local web UI application."""
+
+    app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY=os.environ.get("REVIEW_ASSIST_WEB_SECRET", "review-assist-local-dev"),
+        PROJECT_ROOT=str(adapter.project_root_path(project_root)),
+        TESTING=testing,
+    )
+
+    @app.context_processor
+    def inject_layout_context() -> dict[str, Any]:
+        selected_key = session.get("project_key", "")
+        selected_project = _selected_project_ref(app, selected_key) if selected_key else None
+        return {
+            "selected_project_key": selected_key,
+            "selected_project": selected_project,
+        }
+
+    @app.get("/")
+    def index() -> Any:
+        return redirect(url_for("projects"))
+
+    @app.get("/projects")
+    def projects() -> str:
+        return render_template(
+            "projects.html",
+            active_page="projects",
+            projects=adapter.list_projects(app.config["PROJECT_ROOT"]),
+        )
+
+    @app.post("/projects/select")
+    def select_project() -> Any:
+        project_key = request.form.get("project_key", "")
+        try:
+            adapter.resolve_project_dir(app.config["PROJECT_ROOT"], project_key)
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("projects"))
+        session["project_key"] = project_key
+        flash("Project selected.", "success")
+        return redirect(url_for("overview"))
+
+    @app.get("/overview")
+    def overview() -> str:
+        project_dir = _selected_project_dir_or_none(app)
+        if project_dir is None:
+            return render_template("empty_project.html", active_page="overview", title="Overview")
+        summary = adapter.project_summary(project_dir)
+        return render_template("overview.html", active_page="overview", summary=summary)
+
+    @app.post("/overview/populate")
+    def populate() -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            result = adapter.run_populate(project_dir)
+            flash(f"Create Review Queue completed with {result.get('review_queue_item_count', 0)} review items.", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("overview"))
+
+    @app.get("/review")
+    def review_queue() -> str:
+        project_dir = _selected_project_dir_or_none(app)
+        if project_dir is None:
+            return render_template("empty_project.html", active_page="review", title="Review Queue")
+        try:
+            queue = adapter.review_queue_summary(project_dir)
+        except adapter.WebAdapterError as exc:
+            return render_template("review.html", active_page="review", queue=None, error=str(exc))
+        status_filter = request.args.get("status", "")
+        if status_filter:
+            queue = {**queue, "items": [item for item in queue["items"] if item["status"] == status_filter]}
+        return render_template("review.html", active_page="review", queue=queue, error="")
+
+    @app.get("/review/<item_id>")
+    def review_detail(item_id: str) -> str:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            item = adapter.review_item_detail(project_dir, item_id)
+        except adapter.WebAdapterError as exc:
+            abort(404, str(exc))
+        return render_template("review_detail.html", active_page="review", item=item)
+
+    @app.post("/review/<item_id>")
+    def review_update(item_id: str) -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        status = str(request.form.get("status") or "")
+        try:
+            adapter.save_review_action(
+                project_dir,
+                item_id,
+                status=status,
+                note=request.form.get("note") or None,
+                edited_content=request.form.get("edited_content") if status == "edited" else None,
+                replacement_content=request.form.get("replacement_content") if status == "replaced" else None,
+                export_eligible=("export_eligible" in request.form) if status == "unable_to_verify" else None,
+            )
+            flash("Review item updated.", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("review_detail", item_id=item_id))
+
+    @app.get("/export")
+    def export_status() -> str:
+        project_dir = _selected_project_dir_or_none(app)
+        if project_dir is None:
+            return render_template("empty_project.html", active_page="export", title="Export Readiness")
+        readiness = adapter.export_readiness(project_dir)
+        return render_template("export.html", active_page="export", readiness=readiness)
+
+    @app.post("/export/preview")
+    def preview_export() -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            result = adapter.run_export(project_dir, preview=True)
+            flash(f"Internal preview export created: {result.get('review_gate_status', 'preview_bypassed')}.", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("export_status"))
+
+    @app.post("/export/reviewed")
+    def reviewed_export() -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            result = adapter.run_export(project_dir, preview=False)
+            flash(f"Reviewed export created: {result.get('review_gate_status', 'passed')}.", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("export_status"))
+
+    @app.get("/outputs")
+    def outputs() -> str:
+        project_dir = _selected_project_dir_or_none(app)
+        if project_dir is None:
+            return render_template("empty_project.html", active_page="outputs", title="Package Outputs")
+        return render_template("outputs.html", active_page="outputs", outputs=adapter.package_outputs(project_dir))
+
+    @app.get("/artifact")
+    def artifact() -> Any:
+        project_key = request.args.get("project", session.get("project_key", ""))
+        relative_path = request.args.get("path", "")
+        try:
+            project_dir = adapter.resolve_project_dir(app.config["PROJECT_ROOT"], project_key)
+            path = adapter.resolve_artifact_path(project_dir, relative_path)
+        except adapter.WebAdapterError:
+            abort(404)
+        return send_file(path, as_attachment=False)
+
+    return app
+
+
+def _selected_project_ref(app: Flask, project_key: str) -> adapter.ProjectRef | None:
+    for project in adapter.list_projects(app.config["PROJECT_ROOT"]):
+        if project.project_key == project_key:
+            return project
+    return None
+
+
+def _selected_project_dir_or_none(app: Flask) -> Path | None:
+    project_key = session.get("project_key")
+    if not project_key:
+        return None
+    try:
+        return adapter.resolve_project_dir(app.config["PROJECT_ROOT"], str(project_key))
+    except adapter.WebAdapterError:
+        session.pop("project_key", None)
+        return None
+
+
+def _selected_project_dir_or_abort(app: Flask) -> Path:
+    project_dir = _selected_project_dir_or_none(app)
+    if project_dir is None:
+        abort(400, "No project selected.")
+    return project_dir
+
+
+def main() -> None:
+    """Run the local development server."""
+
+    app = create_app(project_root=os.environ.get("REVIEW_ASSIST_PROJECT_ROOT"))
+    host = os.environ.get("REVIEW_ASSIST_WEB_HOST", "127.0.0.1")
+    port = int(os.environ.get("REVIEW_ASSIST_WEB_PORT", "8765"))
+    app.run(host=host, port=port, debug=False)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()

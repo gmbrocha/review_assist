@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Review Assist{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>{{ title }}</h1>
+  <p>Select an existing project workspace before using this workflow area.</p>
+</section>
+<section class="panel">
+  <a class="button primary" href="{{ url_for('projects') }}">Go to Projects</a>
+</section>
+{% endblock %}

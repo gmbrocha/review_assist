@@ -14,7 +14,7 @@ The review queue is the core workflow object. Every generated artifact should be
 
 The project has completed Phase 0 scaffold/planning, Phase 1 KMZ/KML ingestion, the first Phase 2A/2B source-context baseline, the Phase 2C catalog-driven source acquisition baseline with explicit NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard downloaders, local Mississippi source warehouse materialization for NWI wetlands, USFWS Critical Habitat, SSURGO soils, MDOT/rail transportation, utility infrastructure, county/boundary context, public cultural context, community facilities, and conservation/recreation lands, Phase 3 project context/source status artifacts, an initial Phase 4 JSON-backed review queue baseline, Phase 5 populate-for-review orchestration, Phase 6A deterministic finding generation, Phase 6B source provenance/comparison tables, Phase 6C vector-only map/figure generation with matrix-backed deliverable figures, Phase 6D report sections with deterministic and optional GPT drafting, evidence package generation, the first Markdown/DOCX export compiler, internal demo/MVP deliverable package commands, real-data guarded MVP deliverable quality metadata, the first constraint-engine baseline, and the Sprint 1.1 deliverable/prompt contract validators. The current CLI can inspect project KMZ/KML inputs, normalize project geometry into point/site, line/corridor, polygon/area, or mixed feature artifacts, list the source catalog, register local source layers, materialize ignored Mississippi warehouse layers into project-ready GeoJSON, resolve source gaps, explicitly download NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL flood hazard, run legacy spatial relationship checks, run constraint overlap/proximity checks, validate the canonical deliverable matrix and report prompt contracts, generate workflow artifacts, generate deterministic draft findings, generate source inventory/table/map/section/evidence artifacts, generate exact matrix-backed deliverable table and figure artifacts, optionally use GPT for source-grounded report section drafting, populate a lean review queue, create/update review queue items, export accepted/edited review items to Markdown/DOCX plus an export manifest, create an internal preview demo deliverable package, and create a real-data guarded MVP deliverable package.
 
-The implementation surface is reusable Python services plus a CLI. No web app UI, broad external API integration, source downloads beyond opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard, scoring, PDF export, basemap/imagery acquisition, or production workflow has been implemented. GPT is limited to report-section copy from structured evidence and never replaces geometry, local source materialization, source acquisition, constraint analysis, measurements, review decisions, or export acceptance.
+The implementation surface is reusable Python services plus a CLI and a local-first Sprint 4 Pass 1 Flask/Jinja web UI shell. The web UI lists/selects project workspaces, shows overview/source/populate status, displays the bounded standard review queue, updates review item state through backend services, shows export readiness/final verification/compactness budget, runs preview or reviewed export through the existing export service, and exposes only manifest-listed output artifacts. No authentication, hosted deployment, broad external API integration, source downloads beyond opt-in NWI, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and optional FEMA NFHL flood hazard, scoring, PDF export, basemap/imagery acquisition, raw/audit artifact review workflow, or production workflow has been implemented. GPT is limited to report-section copy from structured evidence and never replaces geometry, local source materialization, source acquisition, constraint analysis, measurements, review decisions, or export acceptance.
 
 ## Documentation Map
 
@@ -52,6 +52,14 @@ Inspect a project workspace:
 .\.venv\Scripts\review-assist.exe inspect-project projects/trails
 .\.venv\Scripts\review-assist.exe inspect-project projects/conexon_projects
 ```
+
+Launch the local web UI shell:
+
+```powershell
+.\.venv\Scripts\review-assist-web.exe
+```
+
+The UI runs at `http://127.0.0.1:8765` by default. Set `REVIEW_ASSIST_PROJECT_ROOT`, `REVIEW_ASSIST_WEB_HOST`, or `REVIEW_ASSIST_WEB_PORT` to override the project root or bind address for local development.
 
 Validate the static Sprint 1.1 deliverable and prompt contracts:
 

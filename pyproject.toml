@@ -9,6 +9,7 @@ description = "Local alternatives review workflow prototype"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
+    "Flask>=3.0",
     "geopandas>=1.0",
     "matplotlib>=3.9",
     "openai>=2.0",
@@ -27,6 +28,10 @@ dev = [
 
 [project.scripts]
 review-assist = "review_assist.cli:main"
+review-assist-web = "review_assist.web.app:main"
+
+[tool.setuptools.package-data]
+review_assist = ["web/templates/*.html", "web/static/*.css"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
