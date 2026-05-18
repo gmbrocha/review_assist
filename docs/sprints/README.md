@@ -27,7 +27,7 @@ Root-level sprint docs remain the active working style for now. This index is th
 
 - Sprint 1.1 Contract Foundation: `docs/archive/sprints/SPRINT_1_1_CONTRACT_FOUNDATION.md`
   - Implemented static deliverable matrix, report prompt config, loaders/validators, CLI validators, and focused tests.
-- Sprint 1.2 Project Intake Artifacts: `SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`
+- Sprint 1.2 Project Intake Artifacts: `docs/archive/sprints/SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`
   - Implemented input package classification, project area artifact generation, county detection, NAIP/MARIS basemap provenance/renderability status, CLI commands, populate integration, and focused tests.
 
 ## Deferred Work Linked To Sprints

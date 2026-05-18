@@ -50,7 +50,7 @@ For each sprint subunit unless the user changes the protocol:
 3. Run focused tests and then broader tests when appropriate.
 4. Audit the work, fix issues, and rerun affected tests.
 5. Update affected permanent docs and deferred work.
-6. Commit and push the completed subunit before starting the next one.
+6. Move the completed sprint/subunit planning doc from the repo root into `docs/archive/sprints/`, update sprint/archive indexes, then commit and push the completed subunit before starting the next one.
 
 ## Documentation And Testing
 

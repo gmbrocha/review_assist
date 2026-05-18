@@ -34,7 +34,7 @@ The work is service/CLI only. UI-facing needs should be represented as structure
 ## Sub-Sprint Breakdown
 
 - `docs/archive/sprints/SPRINT_1_1_CONTRACT_FOUNDATION.md`: implemented Sprint 1.1 historical reference for deliverable matrix, prompt config, loaders, validation, and precedence docs.
-- `SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`: input package classification, project area artifact, county detection, and NAIP/MARIS basemap provenance.
+- `docs/archive/sprints/SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`: implemented Sprint 1.2 historical reference for input package classification, project area artifact, county detection, and NAIP/MARIS basemap provenance.
 - `SPRINT_1_3_COMPARISON_UNITS_AND_ORCHESTRATION.md`: comparison-unit model, line/point grouping, populate integration, and Sprint 1 documentation/test completion.
 
 ## Workstream 1: Document And Precedence Alignment

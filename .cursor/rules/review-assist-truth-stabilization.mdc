@@ -31,6 +31,10 @@ Cold context:
 - completed sprint plans
 - historical/superseded planning records
 
+Sprint resolution rule:
+
+- After a sprint/subunit is implemented, move its root planning doc into `docs/archive/sprints/` and update the sprint/archive indexes. Completed sprint plans are cold context.
+
 Before implementation, classify the change as `SAFE LAYER CHANGE`, `DOMAIN EXTENSION`, `DOMAIN CORRECTION`, or `DANGEROUS PATCH`.
 
 Mandatory workflows live in:

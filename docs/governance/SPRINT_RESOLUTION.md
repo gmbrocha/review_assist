@@ -15,6 +15,10 @@ The sprint resolution pass must document:
 - what limitations remain explicit
 - what remains deferred
 
+## Sprint Document Archival
+
+After a sprint or subunit is implemented, move its root planning document into `docs/archive/sprints/` and update all current indexes that point to it. Completed sprint plans are cold historical context and should not remain in the repo root as active working docs.
+
 ## Permanent Documentation Targets
 
 Update as applicable:
