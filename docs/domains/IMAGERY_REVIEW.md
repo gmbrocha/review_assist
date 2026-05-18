@@ -2,7 +2,7 @@
 
 This document defines the future philosophy for aerial imagery, basemaps, and visual observations.
 
-No imagery acquisition, computer vision, or production overlay workflow is implemented yet.
+No imagery acquisition, computer vision, raster rendering, or production overlay workflow is implemented yet. The current backend can index local MARIS/NAIP 2025 county folders, select matching source paths for project counties, and record whether selected imagery has renderable sidecars in `context/project_area.json`.
 
 ## Purpose
 
@@ -58,6 +58,13 @@ Selection should consider:
 - Attribution.
 - Repeatability.
 - Export quality.
+
+Current implemented selection context:
+
+- `build-project-area` checks materialized MARIS boundary context, existing project context, and NAIP/MARIS metadata extents to identify county names.
+- Matching county folders under `sources/aerial_base_maps/maris_naip_2025` are recorded as basemap candidates.
+- `.sid` files are stored as selected source/provenance paths, while `.tif`, `.tiff`, and `.png` sidecars are tracked as renderable paths.
+- This does not create imagery observations or authoritative source corrections.
 
 ## Imagery vs. Authoritative Layers
 

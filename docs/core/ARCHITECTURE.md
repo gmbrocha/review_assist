@@ -9,19 +9,20 @@ The active backend is Python service modules plus CLI commands. Project-specific
 ## Primary Flow
 
 1. Project workspace and manifest.
-2. Input inspection and project geometry normalization.
-3. Project context and source status resolution.
-4. Optional local source materialization and explicit public source acquisition.
-5. Source inventory and deterministic constraint analysis.
-6. Draft findings, tables, maps, evidence package, and report sections.
-7. Review queue generation.
-8. Reviewed-content export.
+2. Input package classification.
+3. Project geometry normalization and project area context.
+4. Project context and source status resolution.
+5. Optional local source materialization and explicit public source acquisition.
+6. Source inventory and deterministic constraint analysis.
+7. Draft findings, tables, maps, evidence package, and report sections.
+8. Review queue generation.
+9. Reviewed-content export.
 
-Sprint 1.2 will add explicit input package and project area artifacts before deeper analysis. Sprint 1.3 will add comparison units as the report-facing geometry layer.
+Sprint 1.2 added explicit input package and project area artifacts before deeper analysis. Sprint 1.3 will add comparison units as the report-facing geometry layer.
 
 ## Service Boundaries
 
-- Project/input/geometry: workspace manifests, KMZ/KML parsing, normalized project features, analysis bounds.
+- Project/input/geometry: workspace manifests, input package classification, KMZ/KML parsing, normalized project features, analysis bounds, project area context.
 - Source management: source catalog, project registries, materialization, acquisition, status, inventory.
 - Constraint engine: deterministic spatial overlays, buffers, crossings, proximity, measurements.
 - Evidence generation: findings, comparison tables, maps, evidence package, section drafts.

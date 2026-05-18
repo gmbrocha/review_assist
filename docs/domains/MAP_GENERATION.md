@@ -1,6 +1,6 @@
 # Map Generation
 
-This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented, including project overview, source-context figures, a combined constraints overview where analyzed source layers exist, report figure metadata, and export-package figure asset copying. Production cartography, basemaps, imagery, panel sheets, PDF/SVG map sheets, and final cartographic styling remain future work.
+This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented, including project overview, source-context figures, a combined constraints overview where analyzed source layers exist, report figure metadata, and export-package figure asset copying. Project area generation now records NAIP/MARIS basemap source-path provenance and renderability status, but production cartography, basemap rendering, imagery rendering, panel sheets, PDF/SVG map sheets, and final cartographic styling remain future work.
 
 ## Purpose
 
@@ -30,6 +30,7 @@ Current artifacts:
 
 - `projects/<project_id>/maps/map_manifest.json`
 - `projects/<project_id>/maps/figures/*.png`
+- `projects/<project_id>/context/project_area.json` records project-area basemap source candidates and renderability status for future map rendering.
 
 Current behavior:
 
@@ -47,7 +48,7 @@ Current limits:
 
 - No basemap tiles.
 - No raster imagery.
-- No NAIP, Google, ArcGIS, USGS, state imagery, or county imagery acquisition.
+- No NAIP, Google, ArcGIS, USGS, state imagery, or county imagery rendering/acquisition. Local MARIS/NAIP source paths may be recorded in `project_area.json`.
 - No panel maps.
 - No PDF/SVG map sheet export.
 - No final cartographic styling.

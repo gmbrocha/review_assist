@@ -10,7 +10,9 @@ from typing import Any
 from .constraints import ConstraintAnalysisError, analyze_constraints
 from .evidence_package import EvidencePackageError, build_evidence_package
 from .findings import FindingGenerationError, generate_draft_findings
+from .input_package import InputPackageError, classify_input_package
 from .maps import MapGenerationError, generate_maps
+from .project_area import ProjectAreaError, build_project_area
 from .project_geometry import ProjectGeometryError, build_project_geometry
 from .project_context import ProjectContextError, generate_project_context
 from .report_sections import ReportSectionGenerationError, generate_report_sections
@@ -43,8 +45,10 @@ def populate_for_review(
     steps: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     critical_error: str | None = None
+    input_package: dict[str, Any] | None = None
     context: dict[str, Any] | None = None
     project_geometry: dict[str, Any] | None = None
+    project_area: dict[str, Any] | None = None
     source_materialization: dict[str, Any] | None = None
     source_acquisition: dict[str, Any] | None = None
     source_status: dict[str, Any] | None = None
@@ -58,11 +62,20 @@ def populate_for_review(
     review_queue: dict[str, Any] | None = None
 
     try:
-        context = generate_project_context(project_dir)
-        steps.append(_step("project_context", "completed", artifact_path=context.get("context_path")))
+        input_package = classify_input_package(project_dir)
+        steps.append(_step("input_package", "completed", artifact_path=input_package.get("output_path")))
+        warnings.extend(_issue_warnings("input_package", input_package.get("validation_issues", [])))
 
         project_geometry = build_project_geometry(project_dir)
         steps.append(_step("project_geometry", "completed", artifact_path=project_geometry.get("output_path")))
+
+        project_area = build_project_area(project_dir)
+        steps.append(_step("project_area", "completed", artifact_path=project_area.get("output_path")))
+        warnings.extend(_issue_warnings("project_area", project_area.get("validation_issues", [])))
+        warnings.extend(_issue_warnings("project_area", project_area.get("warnings", [])))
+
+        context = generate_project_context(project_dir)
+        steps.append(_step("project_context", "completed", artifact_path=context.get("context_path")))
 
         if materialize_local_sources:
             source_materialization = materialize_project_local_sources(project_dir)
@@ -123,6 +136,8 @@ def populate_for_review(
         review_queue = generate_review_queue(project_dir)
         steps.append(_step("review_queue", "completed", artifact_path=review_queue.get("output_path")))
     except (
+        InputPackageError,
+        ProjectAreaError,
         ProjectContextError,
         ProjectGeometryError,
         SourceMaterializationError,
@@ -142,7 +157,9 @@ def populate_for_review(
             _step(
                 _failed_step_name(
                     context,
+                    input_package,
                     project_geometry,
+                    project_area,
                     source_materialization,
                     materialize_local_sources,
                     source_acquisition,
@@ -165,8 +182,10 @@ def populate_for_review(
     manifest = {
         "project_id": _first_value(
             "project_id",
+            input_package,
             context,
             project_geometry,
+            project_area,
             source_materialization,
             source_status,
             source_acquisition,
@@ -181,8 +200,10 @@ def populate_for_review(
         ),
         "project_name": _first_value(
             "project_name",
+            input_package,
             context,
             project_geometry,
+            project_area,
             source_materialization,
             source_status,
             source_acquisition,
@@ -201,10 +222,12 @@ def populate_for_review(
         "status": "failed" if critical_error else "completed",
         "steps": steps,
         "artifact_paths": {
+            "input_package": input_package.get("output_path") if input_package else None,
             "project_context": context.get("context_path") if context else None,
             "project_geometry": project_geometry.get("output_path") if project_geometry else None,
             "project_features": project_geometry.get("project_features_path") if project_geometry else None,
             "analysis_bounds": project_geometry.get("analysis_bounds_path") if project_geometry else None,
+            "project_area": project_area.get("output_path") if project_area else None,
             "source_materialization": source_materialization.get("output_path") if source_materialization else None,
             "source_acquisition": source_acquisition.get("output_path") if source_acquisition else None,
             "source_status": source_status.get("output_path") if source_status else None,
@@ -219,12 +242,14 @@ def populate_for_review(
         },
         "gpt_drafting": report_sections.get("gpt_drafting") if report_sections else {},
         "constraint_count": constraints.get("constraint_count") if constraints else 0,
+        "project_county_names": project_area.get("county_names") if project_area else [],
+        "basemap_rendering_status": project_area.get("basemap_rendering_status") if project_area else None,
         "source_materialization_count": source_materialization.get("materialized_count") if source_materialization else 0,
         "source_materialization_enabled": materialize_local_sources,
         "source_acquisition_download_count": source_acquisition.get("download_count") if source_acquisition else 0,
         "source_acquisition_include_optional_sources": include_optional_sources if prepare_sources else False,
         "review_queue_item_count": review_queue.get("item_count") if review_queue else 0,
-        "warnings": warnings,
+        "warnings": _dedupe_warnings(warnings),
         "critical_error": critical_error,
     }
     output_path = project_dir / POPULATE_FOR_REVIEW_PATH
@@ -270,9 +295,29 @@ def _issue_warnings(
     return warnings
 
 
+def _dedupe_warnings(warnings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str, str, str, str]] = set()
+    result: list[dict[str, Any]] = []
+    for warning in warnings:
+        key = (
+            str(warning.get("stage", "")),
+            str(warning.get("code", "")),
+            str(warning.get("location", "")),
+            str(warning.get("message", "")),
+            str(warning.get("source_id", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(warning)
+    return result
+
+
 def _failed_step_name(
     context: dict[str, Any] | None,
+    input_package: dict[str, Any] | None,
     project_geometry: dict[str, Any] | None,
+    project_area: dict[str, Any] | None,
     source_materialization: dict[str, Any] | None,
     source_materialization_expected: bool,
     source_acquisition: dict[str, Any] | None,
@@ -287,10 +332,14 @@ def _failed_step_name(
     report_sections: dict[str, Any] | None,
     review_queue: dict[str, Any] | None,
 ) -> str:
-    if context is None:
-        return "project_context"
+    if input_package is None:
+        return "input_package"
     if project_geometry is None:
         return "project_geometry"
+    if project_area is None:
+        return "project_area"
+    if context is None:
+        return "project_context"
     if source_materialization_expected and source_materialization is None:
         return "source_materialization"
     if source_acquisition_expected and source_acquisition is None:

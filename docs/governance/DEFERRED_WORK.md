@@ -53,12 +53,12 @@ Each deferred item should include:
 - `Target sprint/subunit`: Sprints 1.3 and 3.1.
 - `Status`: open.
 
-### Sprint 1.2 Project Intake Artifacts Not Present In Current Checkout
+## Resolved Deferred Items
+
+### Sprint 1.2 Project Intake Artifacts
 
 - `Deferred item`: Implement the Sprint 1.2 project intake artifacts: `context/input_package.json`, `context/project_area.json`, input classification CLI, project area CLI, NAIP/MARIS basemap provenance, and populate integration.
-- `Why postponed`: The Sprint 1.2 plan exists, but the current `main` checkout does not contain `src/review_assist/input_package.py`, `src/review_assist/project_area.py`, the related CLI commands, tests, or populate integration.
-- `Affected sections/workflows`: Project setup, required KMZ validation, bbox/county detection, NAIP basemap provenance, populate-for-review manifest, source/profile preparation for later tables and figures.
-- `Risk if forgotten`: Later sprints may assume project area, county names, and basemap status artifacts exist when they do not, hiding missing-KMZ and basemap renderability issues from the workflow.
-- `Temporary simplification`: The current workflow still uses existing project context and project geometry artifacts directly; it does not yet create the explicit input package or project area context required by the redirected workflow.
+- `Resolution`: Implemented as service-layer artifacts and CLI commands; `populate-for-review` now records input package and project area artifact paths, detected counties, basemap renderability status, and related warnings.
+- `Remaining limitation`: NAIP/MARIS imagery is indexed for provenance and renderability only; raster-backed map rendering remains deferred.
 - `Target sprint/subunit`: Sprint 1.2.
-- `Status`: open.
+- `Status`: resolved.

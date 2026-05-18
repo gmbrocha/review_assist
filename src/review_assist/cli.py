@@ -18,11 +18,13 @@ from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_d
 from .evidence_package import EvidencePackageError, build_evidence_package
 from .export_report import ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
+from .input_package import InputPackageError, classify_input_package
 from .inspection import ProjectInspectionError, inspect_project
 from .maps import MapGenerationError, generate_maps
 from .populate_for_review import PopulateForReviewError, populate_for_review
-from .project_geometry import ProjectGeometryError, build_project_geometry
 from .project_context import ProjectContextError, generate_project_context
+from .project_area import ProjectAreaError, build_project_area
+from .project_geometry import ProjectGeometryError, build_project_geometry
 from .report_sections import ReportSectionGenerationError, generate_report_sections
 from .review_queue import (
     ReviewQueueError,
@@ -88,6 +90,20 @@ def build_parser() -> argparse.ArgumentParser:
     geometry_parser = subparsers.add_parser("build-project-geometry", help="Normalize project geometry for constraint analysis.")
     geometry_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     geometry_parser.add_argument("--json", action="store_true", help="Print full JSON project geometry artifact to stdout.")
+
+    input_package_parser = subparsers.add_parser(
+        "classify-input-package",
+        help="Classify configured project inputs and write the input package artifact.",
+    )
+    input_package_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    input_package_parser.add_argument("--json", action="store_true", help="Print full JSON input package artifact to stdout.")
+
+    project_area_parser = subparsers.add_parser(
+        "build-project-area",
+        help="Build project area, county, and basemap provenance context.",
+    )
+    project_area_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    project_area_parser.add_argument("--json", action="store_true", help="Print full JSON project area artifact to stdout.")
 
     constraints_parser = subparsers.add_parser("analyze-constraints", help="Run constraint overlap/proximity checks for a project.")
     constraints_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -416,6 +432,44 @@ def build_project_geometry_command(project_dir: Path, print_json: bool) -> int:
     print(f"Built project geometry: {result['project_id']} ({result['project_name']})")
     print(f"Geometry role: {result['geometry_role']}")
     print(f"Features: {result['feature_count']}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def classify_input_package_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = classify_input_package(project_dir)
+    except InputPackageError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Classified input package: {result['project_id']} ({result['project_name']})")
+    print(f"Inputs: {result['input_count']}")
+    print(f"Required KMZ present: {result['required_kmz_present']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
+
+
+def build_project_area_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = build_project_area(project_dir)
+    except ProjectAreaError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Built project area: {result['project_id']} ({result['project_name']})")
+    print(f"Counties: {', '.join(result['county_names']) if result['county_names'] else '(none detected)'}")
+    print(f"Basemap rendering: {result['basemap_rendering_status']}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
     print(f"Output: {result['output_path']}")
     return 0
 
@@ -963,6 +1017,10 @@ def main(argv: list[str] | None = None) -> int:
         return analyze_project_command(args.project_dir, args.json)
     if args.command == "build-project-geometry":
         return build_project_geometry_command(args.project_dir, args.json)
+    if args.command == "classify-input-package":
+        return classify_input_package_command(args.project_dir, args.json)
+    if args.command == "build-project-area":
+        return build_project_area_command(args.project_dir, args.json)
     if args.command == "analyze-constraints":
         return analyze_constraints_command(args.project_dir, args.json)
     if args.command == "generate-context":

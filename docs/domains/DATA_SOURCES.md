@@ -82,6 +82,8 @@ Current local configuration files:
 - Local source materializer config: `config/local_source_materializers.json`
 - Project source registries: `projects/<project_id>/config/sources.json`
 - Report profile source requirements: `config/report_profiles.json`
+- Generated input package classifications: `projects/<project_id>/context/input_package.json`
+- Generated project area and basemap provenance: `projects/<project_id>/context/project_area.json`
 - Generated source materialization manifests: `projects/<project_id>/source_materialization/local_source_materialization_manifest.json`
 - Generated project-ready materialized layers: `projects/<project_id>/layers/<source_id>/<source_id>.geojson`
 - Generated source acquisition manifests: `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`
@@ -390,6 +392,8 @@ Potential findings:
 Important caveat:
 
 - Imagery observations are review items, not authoritative facts.
+- The current Sprint 1.2 implementation indexes local MARIS/NAIP 2025 county folders under `sources/aerial_base_maps/maris_naip_2025`, records matching county source paths and renderability status in `project_area.json`, and treats `.sid` files as source/provenance unless a renderable `.tif`, `.tiff`, or `.png` sidecar exists.
+- This indexing does not perform raster rendering, imagery interpretation, source-layer materialization, or map generation.
 
 Reference:
 
@@ -822,6 +826,7 @@ Important limitations:
 
 - Imagery observations should remain review items, not authoritative facts.
 - Source, capture date, tile/service, attribution, and licensing constraints must be tracked where available.
+- The current local MARIS/NAIP workflow records selected `.sid` paths separately from renderable sidecars and marks `.sid`-only selections as `selected_not_renderable`.
 - Do not implement Google API usage without explicit approval because Maps Static API requires API keys and billing.
 - Google imagery requires visible attribution to Google Earth and third-party imagery providers when used.
 

@@ -4,9 +4,9 @@ Root-level sprint docs remain the active working style for now. This index is th
 
 ## Active Sprint/Subunit
 
-- Sprint 1.2: `SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`
-  - Status: active next implementation target, not implemented in the current checkout.
-  - Purpose: input package classification, project area artifact, county detection, NAIP/MARIS basemap provenance, populate integration.
+- Sprint 1.3: `SPRINT_1_3_COMPARISON_UNITS_AND_ORCHESTRATION.md`
+  - Status: active next implementation target.
+  - Purpose: comparison-unit processing and orchestration over project features.
 
 ## Planned Sprint/Subunits
 
@@ -27,12 +27,13 @@ Root-level sprint docs remain the active working style for now. This index is th
 
 - Sprint 1.1 Contract Foundation: `docs/archive/sprints/SPRINT_1_1_CONTRACT_FOUNDATION.md`
   - Implemented static deliverable matrix, report prompt config, loaders/validators, CLI validators, and focused tests.
+- Sprint 1.2 Project Intake Artifacts: `SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`
+  - Implemented input package classification, project area artifact generation, county detection, NAIP/MARIS basemap provenance/renderability status, CLI commands, populate integration, and focused tests.
 
 ## Deferred Work Linked To Sprints
 
 See `docs/governance/DEFERRED_WORK.md` for full detail.
 
-- Sprint 1.2: project intake artifacts missing in current checkout.
 - Sprint 1.3 and Sprint 3.1: dynamic 3.1.1.x comparison-unit section expansion.
 - Sprints 2.2, 2.3, 3.1, 3.2: canonical deliverable matrix wiring into generation/review/export.
 - Sprint 3.1: canonical prompt contract wiring into section drafting.

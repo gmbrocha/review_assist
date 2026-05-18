@@ -45,7 +45,7 @@ def test_active_project_source_registries_only_reference_catalog_sources() -> No
         assert registry_source_ids
 
 
-def test_active_projects_populate_for_review_without_warnings(tmp_path: Path) -> None:
+def test_active_projects_populate_for_review(tmp_path: Path) -> None:
     for project_dir, expected_geometry_role in (
         (PROJECTS_DIR / "trails", "line_corridor"),
         (PROJECTS_DIR / "conexon_projects", "point_site"),
@@ -59,8 +59,12 @@ def test_active_projects_populate_for_review_without_warnings(tmp_path: Path) ->
         item_types = {item["type"] for item in queue["items"]}
 
         assert result["status"] == "completed"
-        assert result["warnings"] == []
+        assert all(warning.get("stage") in {"project_area"} for warning in result["warnings"])
+        assert result["artifact_paths"]["input_package"].endswith("input_package.json")
+        assert result["artifact_paths"]["project_area"].endswith("project_area.json")
         assert result["artifact_paths"]["constraint_results"].endswith("constraint_results.json")
+        assert "project_county_names" in result
+        assert "basemap_rendering_status" in result
         assert json.loads(Path(result["artifact_paths"]["project_geometry"]).read_text(encoding="utf-8"))["geometry_role"] == expected_geometry_role
         assert queue["item_count"] == result["review_queue_item_count"]
         assert {"draft_finding", "comparison_table", "map_figure", "report_section"} <= item_types

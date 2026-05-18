@@ -160,9 +160,13 @@ GPT/LLM calls are acceptable here for draft narrative generation, summarization,
 
 Current baseline:
 
-- `populate-for-review` runs context generation, project geometry normalization, optional local source materialization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
+- `classify-input-package <project_dir>` writes `projects/<project_id>/context/input_package.json` with per-input classification, required-KMZ state, and reviewer-confirmation warnings for ambiguous inputs.
+- `build-project-area <project_dir>` writes `projects/<project_id>/context/project_area.json` with analysis bboxes, county detection, NAIP/MARIS basemap candidates, selected source paths, renderable sidecars, renderability status, warnings, and provenance.
+- `populate-for-review` runs input package classification, project geometry normalization, project area generation, context generation, optional local source materialization, optional source acquisition, source status resolution, source inventory generation, tolerant constraint analysis, deterministic draft finding generation, comparison table generation, vector-only map generation, evidence package generation, report section generation, and lean review queue generation.
 - It writes `projects/<project_id>/populate_for_review/populate_for_review_run.json`.
+- It records `projects/<project_id>/context/input_package.json` and `projects/<project_id>/context/project_area.json` in the run manifest when those steps succeed.
 - It records `projects/<project_id>/intermediate/project_geometry.json`, `project_features.geojson`, and `project_analysis_bounds.geojson` in the run manifest when project geometry generation succeeds.
+- It records project county names and basemap renderability status in the run manifest when project area generation succeeds.
 - It records `projects/<project_id>/constraints/constraint_results.json` in the run manifest when constraint analysis succeeds.
 - It can record `projects/<project_id>/source_materialization/local_source_materialization_manifest.json` in the run manifest when `--materialize-local-sources` is used.
 - It can record `projects/<project_id>/source_acquisition/source_acquisition_manifest.json` in the run manifest when `--prepare-sources` is used.
@@ -171,7 +175,7 @@ Current baseline:
 - It records `projects/<project_id>/maps/map_manifest.json` in the run manifest when map generation succeeds.
 - It records `projects/<project_id>/drafts/report_sections.json` in the run manifest when report section generation succeeds.
 - Missing or unreadable local source layers become warnings and reviewable validation/caveat items rather than blocking review queue generation.
-- It downloads only explicitly requested supported sources. It does not render basemap/imagery-backed maps or create exports itself. GPT section drafting may run when `GPT_DRAFTING=1`, but only after structured evidence exists and only for reviewable section copy.
+- It downloads only explicitly requested supported sources. It records NAIP/MARIS source-path provenance and renderability status but does not render basemap/imagery-backed maps or create exports itself. GPT section drafting may run when `GPT_DRAFTING=1`, but only after structured evidence exists and only for reviewable section copy.
 
 ## Review Queue
 
