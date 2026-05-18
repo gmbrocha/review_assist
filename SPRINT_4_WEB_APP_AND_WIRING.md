@@ -60,7 +60,11 @@ Sprint 4 Pass 1 stack decision:
 Sprint 4 Pass 1 implementation status:
 
 - Implemented: app shell, left navigation, project list/selection, overview/source/populate status, bounded standard review queue, review item detail/actions, export readiness, preview/reviewed export triggers, package outputs, manifest-listed artifact links, and project-root path safety tests.
-- Remaining: project creation, upload/staging, richer progress handling, advanced audit browsing, UI polish, and any production/deployment concerns. These should stay thin over service contracts and should not make raw/audit artifacts part of the default review/export path.
+
+Sprint 4 Pass 2A implementation status:
+
+- Implemented: safe draft project creation, staged uploads under `staging/uploads/`, commit into `inputs/` plus valid `config/project.json`, input classification through the existing input-package service, missing-input readiness blockers, and lightweight synchronous latest-run status for classify/populate/export actions.
+- Remaining: richer progress handling, role correction UI, advanced audit browsing, UI polish, project archive flow, background execution, and any production/deployment concerns. These should stay thin over service contracts and should not make raw/audit artifacts part of the default review/export path.
 
 ## Information Architecture
 

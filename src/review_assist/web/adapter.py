@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from werkzeug.utils import secure_filename
 
 from review_assist.comparison_units import COMPARISON_UNITS_METADATA_PATH
 from review_assist.deliverable import DEMO_DELIVERABLE_MANIFEST_PATH
@@ -24,11 +27,19 @@ from review_assist.export_report import (
     ExportReportError,
     export_report,
 )
-from review_assist.input_package import INPUT_PACKAGE_PATH
+from review_assist.input_package import (
+    DOCUMENT_EXTENSIONS,
+    IMAGERY_EXTENSIONS,
+    INPUT_PACKAGE_PATH,
+    PROJECT_GEOMETRY_EXTENSIONS,
+    SOURCE_LAYER_EXTENSIONS,
+    InputPackageError,
+    classify_input_package,
+)
 from review_assist.populate_for_review import POPULATE_FOR_REVIEW_PATH, PopulateForReviewError, populate_for_review
 from review_assist.project_area import PROJECT_AREA_PATH
 from review_assist.project_context import PROJECT_CONTEXT_PATH
-from review_assist.projects import MANIFEST_PATH, ProjectManifestError, load_project_manifest
+from review_assist.projects import MANIFEST_PATH, ProjectInput, ProjectManifest, ProjectManifestError, load_project_manifest, save_project_manifest
 from review_assist.review_queue import REVIEW_QUEUE_PATH, ReviewQueueError, load_review_queue, update_review_item
 from review_assist.source_status import SOURCE_STATUS_PATH
 
@@ -46,6 +57,35 @@ RAW_LEGACY_ITEM_TYPES = {
 TERMINAL_STATUSES = {"accepted", "edited", "replaced", "declined"}
 BLOCKING_STATUSES = {"draft", "needs_review", "needs_verification"}
 PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+WINDOWS_RESERVED_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9",
+}
+DRAFT_PROJECT_PATH = Path("config/project_draft.json")
+STAGING_UPLOADS_DIR = Path("staging/uploads")
+INPUTS_DIR = Path("inputs")
+WEB_RUN_STATUS_PATH = Path("web_runs/latest_run.json")
+ALLOWED_UPLOAD_EXTENSIONS = PROJECT_GEOMETRY_EXTENSIONS | SOURCE_LAYER_EXTENSIONS | DOCUMENT_EXTENSIONS | IMAGERY_EXTENSIONS
 REVIEW_PREVIEW_TEXT_LIMIT = 1200
 REVIEW_TABLE_PREVIEW_LIMIT = 5
 
@@ -65,6 +105,7 @@ class ProjectRef:
     modified_at: str
     status: str
     review_gate_status: str
+    is_draft: bool = False
     error: str = ""
 
 
@@ -83,17 +124,24 @@ def list_projects(project_root: str | Path | None = None) -> list[ProjectRef]:
     projects: list[ProjectRef] = []
     for child in sorted((item for item in root.iterdir() if item.is_dir()), key=lambda item: item.name.lower()):
         manifest_path = child / MANIFEST_PATH
-        if not manifest_path.exists():
+        draft_path = child / DRAFT_PROJECT_PATH
+        if not manifest_path.exists() and not draft_path.exists():
             continue
         error = ""
         project_id = child.name
         name = child.name
-        try:
-            manifest = load_project_manifest(child)
-            project_id = manifest.project_id
-            name = manifest.name
-        except ProjectManifestError as exc:
-            error = str(exc)
+        is_draft = not manifest_path.exists()
+        if manifest_path.exists():
+            try:
+                manifest = load_project_manifest(child)
+                project_id = manifest.project_id
+                name = manifest.name
+            except ProjectManifestError as exc:
+                error = str(exc)
+        elif draft_path.exists():
+            draft = _load_json(draft_path)
+            project_id = str(draft.get("project_id") or child.name)
+            name = str(draft.get("name") or child.name)
         projects.append(
             ProjectRef(
                 project_key=child.name,
@@ -103,26 +151,91 @@ def list_projects(project_root: str | Path | None = None) -> list[ProjectRef]:
                 modified_at=_modified_at(child),
                 status=_project_pipeline_status(child),
                 review_gate_status=_manifest_gate_status(child),
+                is_draft=is_draft,
                 error=error,
             )
         )
     return projects
 
 
+def create_draft_project(
+    project_root: str | Path | None,
+    *,
+    project_id: str,
+    name: str,
+    description: str = "",
+) -> dict[str, Any]:
+    """Create a draft workspace without writing config/project.json."""
+
+    key = validate_project_key(project_id)
+    project_name = str(name or "").strip()
+    if not project_name:
+        raise WebAdapterError("Project name is required.")
+    root = project_root_path(project_root)
+    project_dir = (root / key).resolve()
+    if not _is_relative_to(project_dir, root):
+        raise WebAdapterError("Project path escapes the configured project root.")
+    if project_dir.exists():
+        raise WebAdapterError("A project with this id already exists.")
+
+    now = _utc_now()
+    (project_dir / "config").mkdir(parents=True, exist_ok=False)
+    (project_dir / STAGING_UPLOADS_DIR).mkdir(parents=True, exist_ok=True)
+    (project_dir / INPUTS_DIR).mkdir(parents=True, exist_ok=True)
+    (project_dir / WEB_RUN_STATUS_PATH.parent).mkdir(parents=True, exist_ok=True)
+    draft = {
+        "project_id": key,
+        "name": project_name,
+        "description": str(description or ""),
+        "project_type": "alternatives_review",
+        "assumptions": {
+            "default_buffer_feet": 100,
+            "input_crs": "EPSG:4326",
+        },
+        "status": "draft_setup",
+        "created_at": now,
+        "updated_at": now,
+    }
+    _write_json(project_dir / DRAFT_PROJECT_PATH, draft)
+    return {
+        "project_key": key,
+        "project_dir": str(project_dir),
+        "draft_path": str(project_dir / DRAFT_PROJECT_PATH),
+        "draft": draft,
+    }
+
+
+def validate_project_key(value: str) -> str:
+    """Validate and return a project root child name."""
+
+    key = str(value or "").strip()
+    if not key:
+        raise WebAdapterError("Project id is required.")
+    if key in {".", ".."} or key.startswith(".") or key.endswith("."):
+        raise WebAdapterError("Project id cannot be hidden, relative, or end with a dot.")
+    if "/" in key or "\\" in key or Path(key).is_absolute():
+        raise WebAdapterError("Project id cannot contain path separators.")
+    if not PROJECT_ID_RE.fullmatch(key):
+        raise WebAdapterError("Project id may use only letters, numbers, dot, dash, and underscore.")
+    _reject_reserved_name(key, "Project id")
+    return key
+
+
 def resolve_project_dir(project_root: str | Path | None, project_key: str) -> Path:
     """Resolve a selected project key to a direct child of project_root."""
 
-    key = str(project_key or "").strip()
-    if not key or not PROJECT_ID_RE.fullmatch(key) or key in {".", ".."}:
-        raise WebAdapterError("Invalid project id.")
+    try:
+        key = validate_project_key(project_key)
+    except WebAdapterError as exc:
+        raise WebAdapterError("Invalid project id.") from exc
     root = project_root_path(project_root)
     project_dir = (root / key).resolve()
     if not _is_relative_to(project_dir, root):
         raise WebAdapterError("Project path escapes the configured project root.")
     if not project_dir.is_dir():
         raise WebAdapterError("Project does not exist.")
-    if not (project_dir / MANIFEST_PATH).exists():
-        raise WebAdapterError("Project manifest is missing.")
+    if not (project_dir / MANIFEST_PATH).exists() and not (project_dir / DRAFT_PROJECT_PATH).exists():
+        raise WebAdapterError("Project manifest or draft metadata is missing.")
     return project_dir
 
 
@@ -183,6 +296,8 @@ def project_summary(project_dir: Path) -> dict[str, Any]:
             "project_type": context.get("project_type") if isinstance(context, dict) else None,
             "report_profile": context.get("report_profile") if isinstance(context, dict) else None,
         },
+        "setup": setup_status(project_dir),
+        "latest_run": latest_run_status(project_dir),
         "validation_issues": validation_issues,
     }
 
@@ -190,10 +305,206 @@ def project_summary(project_dir: Path) -> dict[str, Any]:
 def run_populate(project_dir: Path) -> dict[str, Any]:
     """Run the existing populate-for-review service with conservative defaults."""
 
+    _write_run_status(project_dir, action="populate_for_review", status="started", message="Create Review Queue started.")
     try:
-        return populate_for_review(project_dir, gpt_drafting=False)
+        result = populate_for_review(project_dir, gpt_drafting=False)
     except PopulateForReviewError as exc:
+        _write_run_status(
+            project_dir,
+            action="populate_for_review",
+            status="failed",
+            message="Create Review Queue failed.",
+            error=str(exc),
+        )
         raise WebAdapterError(str(exc)) from exc
+    _write_run_status(
+        project_dir,
+        action="populate_for_review",
+        status="completed",
+        message=f"Create Review Queue completed with {result.get('review_queue_item_count', 0)} review items.",
+        artifact_path=str(result.get("output_path") or ""),
+    )
+    return result
+
+
+def setup_status(project_dir: Path) -> dict[str, Any]:
+    """Return draft/staged input readiness for setup screens."""
+
+    draft = _load_json(project_dir / DRAFT_PROJECT_PATH)
+    manifest_exists = (project_dir / MANIFEST_PATH).exists()
+    input_package = _load_json(project_dir / INPUT_PACKAGE_PATH)
+    staged = get_staged_inputs(project_dir)
+    blockers: list[dict[str, str]] = []
+    if not manifest_exists:
+        blockers.append({"code": "project_manifest_missing", "message": "Commit at least one staged input to create config/project.json."})
+    if not manifest_exists and not staged:
+        blockers.append({"code": "staged_input_missing", "message": "Upload at least one KMZ/KML project input before creating the review queue."})
+    if manifest_exists and input_package and not input_package.get("required_kmz_present", False):
+        blockers.append({"code": "required_kmz_missing", "message": "At least one committed KMZ project-geometry input is required."})
+    return {
+        "is_draft": not manifest_exists,
+        "manifest_exists": manifest_exists,
+        "draft": draft,
+        "staged_inputs": staged,
+        "staged_input_count": len(staged),
+        "committed_input_count": _manifest_summary(project_dir).get("input_count", 0),
+        "input_package_status": _artifact_status(input_package),
+        "required_kmz_present": bool(input_package.get("required_kmz_present", False)) if input_package else False,
+        "blockers": blockers,
+    }
+
+
+def get_staged_inputs(project_dir: Path) -> list[dict[str, Any]]:
+    """List staged uploads under staging/uploads without recursive browsing."""
+
+    staging_dir = _safe_project_subdir(project_dir, STAGING_UPLOADS_DIR)
+    if not staging_dir.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for path in sorted((item for item in staging_dir.iterdir() if item.is_file()), key=lambda item: item.name.lower()):
+        rows.append(
+            {
+                "filename": path.name,
+                "relative_path": path.relative_to(project_dir.resolve()).as_posix(),
+                "extension": path.suffix.lower(),
+                "size_bytes": path.stat().st_size,
+                "proposed_role": _default_input_role(path.name),
+            }
+        )
+    return rows
+
+
+def stage_upload(project_dir: Path, upload: Any) -> dict[str, Any]:
+    """Save one uploaded file into the selected project's staging area."""
+
+    filename = _safe_upload_filename(getattr(upload, "filename", ""))
+    extension = Path(filename).suffix.lower()
+    if extension not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise WebAdapterError(f"Unsupported upload type '{extension}'.")
+    staging_dir = _safe_project_subdir(project_dir, STAGING_UPLOADS_DIR)
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    target = (staging_dir / filename).resolve()
+    if not _is_relative_to(target, staging_dir):
+        raise WebAdapterError("Upload path escapes the staging directory.")
+    if target.exists():
+        raise WebAdapterError(f"Upload already exists in staging: {filename}")
+    committed_target = (project_dir.resolve() / INPUTS_DIR / filename).resolve()
+    if committed_target.exists():
+        raise WebAdapterError(f"An input with this filename already exists: {filename}")
+    upload.save(target)
+    return {
+        "filename": filename,
+        "relative_path": target.relative_to(project_dir.resolve()).as_posix(),
+        "size_bytes": target.stat().st_size,
+        "proposed_role": _default_input_role(filename),
+    }
+
+
+def commit_staged_inputs(project_dir: Path) -> dict[str, Any]:
+    """Move staged uploads into inputs/ and write a valid project manifest."""
+
+    staged = get_staged_inputs(project_dir)
+    if not staged:
+        raise WebAdapterError("No staged inputs are available to commit.")
+    draft = _load_json(project_dir / DRAFT_PROJECT_PATH)
+    existing_manifest: ProjectManifest | None = None
+    if (project_dir / MANIFEST_PATH).exists():
+        try:
+            existing_manifest = load_project_manifest(project_dir)
+        except ProjectManifestError as exc:
+            raise WebAdapterError(str(exc)) from exc
+    project_id = str((existing_manifest.project_id if existing_manifest else draft.get("project_id")) or project_dir.name)
+    name = str((existing_manifest.name if existing_manifest else draft.get("name")) or project_id)
+    description = str((existing_manifest.description if existing_manifest else draft.get("description")) or "")
+    project_type = str((existing_manifest.project_type if existing_manifest else draft.get("project_type")) or "alternatives_review")
+    assumptions = (
+        dict(existing_manifest.assumptions)
+        if existing_manifest
+        else dict(draft.get("assumptions", {"default_buffer_feet": 100, "input_crs": "EPSG:4326"}))
+    )
+    inputs = list(existing_manifest.inputs) if existing_manifest else []
+
+    staging_dir = _safe_project_subdir(project_dir, STAGING_UPLOADS_DIR)
+    inputs_dir = _safe_project_subdir(project_dir, INPUTS_DIR)
+    inputs_dir.mkdir(parents=True, exist_ok=True)
+
+    moves: list[tuple[Path, Path, ProjectInput]] = []
+    for staged_input in staged:
+        filename = _safe_upload_filename(staged_input["filename"])
+        source = (staging_dir / filename).resolve()
+        destination = (inputs_dir / filename).resolve()
+        if not _is_relative_to(source, staging_dir) or not source.exists():
+            raise WebAdapterError(f"Staged upload is missing or unsafe: {filename}")
+        if not _is_relative_to(destination, inputs_dir):
+            raise WebAdapterError("Committed input path escapes the inputs directory.")
+        if destination.exists():
+            raise WebAdapterError(f"Committed input already exists: {filename}")
+        input_record = ProjectInput(
+            path=f"{INPUTS_DIR.as_posix()}/{filename}",
+            role=_default_input_role(filename),
+            description=f"Uploaded via local web UI: {filename}",
+        )
+        moves.append((source, destination, input_record))
+
+    for source, destination, input_record in moves:
+        shutil.move(str(source), str(destination))
+        inputs.append(input_record)
+
+    manifest = ProjectManifest(
+        project_id=project_id,
+        name=name,
+        description=description,
+        project_type=project_type,
+        inputs=inputs,
+        assumptions=assumptions,
+        special_reviewer_instructions=existing_manifest.special_reviewer_instructions if existing_manifest else "",
+        report_profile=existing_manifest.report_profile if existing_manifest else None,
+    )
+    save_project_manifest(project_dir, manifest)
+    if draft:
+        draft["status"] = "manifest_created"
+        draft["updated_at"] = _utc_now()
+        _write_json(project_dir / DRAFT_PROJECT_PATH, draft)
+    input_package = classify_project_inputs(project_dir)
+    return {
+        "project_id": manifest.project_id,
+        "project_name": manifest.name,
+        "committed_count": len(moves),
+        "manifest_path": str(project_dir / MANIFEST_PATH),
+        "input_package_path": input_package.get("output_path"),
+        "input_package": input_package,
+    }
+
+
+def classify_project_inputs(project_dir: Path) -> dict[str, Any]:
+    """Run the existing input package classifier for committed manifest inputs."""
+
+    _write_run_status(project_dir, action="classify_inputs", status="started", message="Input classification started.")
+    try:
+        result = classify_input_package(project_dir)
+    except InputPackageError as exc:
+        _write_run_status(
+            project_dir,
+            action="classify_inputs",
+            status="failed",
+            message="Input classification failed.",
+            error=str(exc),
+        )
+        raise WebAdapterError(str(exc)) from exc
+    _write_run_status(
+        project_dir,
+        action="classify_inputs",
+        status="completed",
+        message=f"Input classification completed with {result.get('input_count', 0)} configured inputs.",
+        artifact_path=str(result.get("output_path") or ""),
+    )
+    return result
+
+
+def latest_run_status(project_dir: Path) -> dict[str, Any]:
+    """Load the latest lightweight web run status."""
+
+    return _load_json(project_dir / WEB_RUN_STATUS_PATH)
 
 
 def review_queue_summary(project_dir: Path) -> dict[str, Any]:
@@ -305,6 +616,7 @@ def export_readiness(project_dir: Path) -> dict[str, Any]:
             "compactness_budget": {},
             "final_verification": {},
             "preview_mode": False,
+            "latest_run": latest_run_status(project_dir),
         }
     items = _dict_list(queue.get("items", []))
     standard_items = [item for item in items if str(item.get("type", "")) not in RAW_LEGACY_ITEM_TYPES]
@@ -327,18 +639,48 @@ def export_readiness(project_dir: Path) -> dict[str, Any]:
         "final_verification": manifest.get("final_verification", {}) if isinstance(manifest, dict) else {},
         "preview_mode": bool(manifest.get("preview_mode", False)) if isinstance(manifest, dict) else False,
         "last_export_manifest": _manifest_summary_row(project_dir, EXPORT_MANIFEST_PATH, manifest),
+        "latest_run": latest_run_status(project_dir),
     }
 
 
 def run_export(project_dir: Path, *, preview: bool) -> dict[str, Any]:
     """Run preview or reviewed export through the existing export service."""
 
+    action = "preview_export" if preview else "reviewed_export"
+    _write_run_status(
+        project_dir,
+        action=action,
+        status="started",
+        message="Internal preview export started." if preview else "Reviewed export started.",
+    )
     try:
-        return export_report(project_dir, include_draft=preview, output_format="both")
+        result = export_report(project_dir, include_draft=preview, output_format="both")
     except ExportGateError as exc:
+        _write_run_status(
+            project_dir,
+            action=action,
+            status="failed",
+            message="Export is blocked by the review-complete gate." if not preview else "Internal preview export failed.",
+            error=str(exc),
+        )
         raise WebAdapterError(str(exc)) from exc
     except ExportReportError as exc:
+        _write_run_status(
+            project_dir,
+            action=action,
+            status="failed",
+            message="Export failed.",
+            error=str(exc),
+        )
         raise WebAdapterError(str(exc)) from exc
+    _write_run_status(
+        project_dir,
+        action=action,
+        status="completed",
+        message="Internal preview export completed." if preview else "Reviewed export completed.",
+        artifact_path=str(result.get("output_path") or ""),
+    )
+    return result
 
 
 def package_outputs(project_dir: Path) -> dict[str, Any]:
@@ -383,6 +725,19 @@ def _manifest_summary(project_dir: Path) -> dict[str, Any]:
     try:
         manifest = load_project_manifest(project_dir)
     except ProjectManifestError as exc:
+        draft = _load_json(project_dir / DRAFT_PROJECT_PATH)
+        if draft:
+            return {
+                "project_id": draft.get("project_id") or project_dir.name,
+                "name": draft.get("name") or project_dir.name,
+                "description": draft.get("description") or "",
+                "project_type": draft.get("project_type") or "alternatives_review",
+                "input_count": 0,
+                "assumptions": draft.get("assumptions", {}) if isinstance(draft.get("assumptions"), dict) else {},
+                "report_profile": None,
+                "manifest_status": "draft",
+                "error": "",
+            }
         return {
             "project_id": project_dir.name,
             "name": project_dir.name,
@@ -390,6 +745,7 @@ def _manifest_summary(project_dir: Path) -> dict[str, Any]:
             "project_type": "",
             "input_count": 0,
             "assumptions": {},
+            "manifest_status": "missing",
             "error": str(exc),
         }
     return {
@@ -400,6 +756,7 @@ def _manifest_summary(project_dir: Path) -> dict[str, Any]:
         "input_count": len(manifest.inputs),
         "assumptions": manifest.assumptions,
         "report_profile": manifest.report_profile,
+        "manifest_status": "valid",
         "error": "",
     }
 
@@ -528,6 +885,8 @@ def _manifest_gate_status(project_dir: Path) -> str:
 
 
 def _project_pipeline_status(project_dir: Path) -> str:
+    if not (project_dir / MANIFEST_PATH).exists() and (project_dir / DRAFT_PROJECT_PATH).exists():
+        return "draft_setup"
     populate_manifest = _load_json(project_dir / POPULATE_FOR_REVIEW_PATH)
     if isinstance(populate_manifest, dict) and populate_manifest:
         return str(populate_manifest.get("status") or "unknown")
@@ -629,6 +988,85 @@ def _safe_relative_path(project_dir: Path, value: str) -> Path:
     return relative
 
 
+def _safe_project_subdir(project_dir: Path, relative_path: Path) -> Path:
+    root = project_dir.resolve()
+    path = (root / relative_path).resolve()
+    if not _is_relative_to(path, root):
+        raise WebAdapterError("Project subdirectory escapes the selected project.")
+    return path
+
+
+def _safe_upload_filename(value: str) -> str:
+    original = str(value or "").strip()
+    if not original:
+        raise WebAdapterError("Upload filename is required.")
+    if "/" in original or "\\" in original or Path(original).is_absolute():
+        raise WebAdapterError("Upload filename cannot contain path separators.")
+    if original in {".", ".."} or original.startswith("."):
+        raise WebAdapterError("Upload filename cannot be hidden or relative.")
+    safe = secure_filename(original)
+    if not safe or safe in {".", ".."} or safe.startswith("."):
+        raise WebAdapterError("Upload filename is not safe.")
+    if safe != original:
+        raise WebAdapterError("Upload filename contains unsupported characters.")
+    _reject_reserved_name(safe, "Upload filename")
+    return safe
+
+
+def _default_input_role(filename: str) -> str:
+    extension = Path(filename).suffix.lower()
+    if extension in PROJECT_GEOMETRY_EXTENSIONS:
+        return "alternatives"
+    if extension in SOURCE_LAYER_EXTENSIONS:
+        return "source_layer"
+    if extension in DOCUMENT_EXTENSIONS:
+        return "supporting_report"
+    if extension in IMAGERY_EXTENSIONS:
+        return "imagery_or_basemap"
+    return "unknown"
+
+
+def _reject_reserved_name(value: str, label: str) -> None:
+    stem = Path(value).stem.upper()
+    if stem in WINDOWS_RESERVED_NAMES:
+        raise WebAdapterError(f"{label} uses a reserved Windows name.")
+
+
+def _write_run_status(
+    project_dir: Path,
+    *,
+    action: str,
+    status: str,
+    message: str,
+    artifact_path: str = "",
+    error: str = "",
+) -> dict[str, Any]:
+    now = _utc_now()
+    existing = latest_run_status(project_dir)
+    started_at = existing.get("started_at") if existing.get("action") == action and existing.get("status") == "started" else now
+    record = {
+        "action": action,
+        "status": status,
+        "started_at": started_at,
+        "completed_at": now if status in {"completed", "failed"} else "",
+        "message": message,
+        "artifact_path": artifact_path,
+        "error": _short_error(error),
+    }
+    _write_json(project_dir / WEB_RUN_STATUS_PATH, record)
+    return record
+
+
+def _short_error(value: str) -> str:
+    text = " ".join(str(value or "").split())
+    return text[:500]
+
+
+def _write_json(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
 def _compact_assumptions(assumptions: dict[str, Any]) -> dict[str, Any]:
     allowed = {
         "resource_category",
@@ -670,6 +1108,10 @@ def _load_json(path: Path) -> dict[str, Any]:
     except (json.JSONDecodeError, OSError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _dict_list(value: Any) -> list[dict[str, Any]]:

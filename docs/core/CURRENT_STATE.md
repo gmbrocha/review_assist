@@ -23,7 +23,7 @@ The system is not a recommendation engine, final environmental review, regulator
 
 Implemented baseline:
 
-- CLI/service-oriented backend plus a local-first Sprint 4 Pass 1 Flask/Jinja web UI shell.
+- CLI/service-oriented backend plus a local-first Sprint 4 Flask/Jinja web UI shell.
 - Project workspaces under `projects/<project_id>/`.
 - Input package classification, KMZ/KML inspection, normalized project geometry artifacts, and project area artifacts.
 - Project context, comparison units, source status, source acquisition, local source materialization, source inventory, constraint analysis, findings, tables, vector-only maps, evidence packages, draft report sections, JSON review queue, Markdown/DOCX exports, demo/MVP package commands, populate-for-review orchestration.
@@ -34,7 +34,7 @@ Implemented baseline:
 - The standard review queue now consumes `deliverable_items.json` by default and creates one bounded review item per deliverable item. Legacy raw finding/table/map/spatial/source-inventory queue behavior remains available only through explicit audit mode.
 - Default reviewed-content export is gated by the standard bounded review queue. `export-report` without `--include-draft` blocks until every standard deliverable item is terminal or explicitly export-includable; `--include-draft` remains an internal/pre-review preview bypass. Export and package manifests record review gate status, review counts, matrix item counts, included table/figure/attachment IDs, stub counts, preview state, compactness budget, and final verification summary.
 - DOCX export now applies Sprint 3.3 baseline page setup, core Word styles, matrix-ordered headings, title/front-matter metadata, bounded editable table previews, figure captions/source/method notes, missing-figure placeholders, attachment ordering, and DOCX readability checks while preserving Markdown/DOCX compactness guardrails.
-- The Sprint 4 Pass 1 web UI exposes existing backend contracts through a thin adapter layer: project workspace listing/selection, overview/source/populate status, bounded standard review queue, review item detail/actions, export readiness, preview/reviewed export triggers, compactness budget/final verification display, and manifest-listed package outputs. Route handlers call adapter/service functions and do not parse raw GIS/evidence artifacts or report assembly internals.
+- The Sprint 4 web UI exposes existing backend contracts through a thin adapter layer: draft project creation, staged uploads, committed input classification, project workspace listing/selection, overview/source/populate status, bounded standard review queue, review item detail/actions, export readiness, preview/reviewed export triggers, compactness budget/final verification display, and manifest-listed package outputs. Route handlers call adapter/service functions and do not parse raw GIS/evidence artifacts or report assembly internals.
 - `deliverable_figures.py` remains the orchestration entry point; figure target specs, artifact validation, basemap sidecar loading, and rendering/layout helpers are split into focused `deliverable_figure_*` modules.
 - Report-facing comparison-unit constraint analysis at `projects/<project_id>/constraints/comparison_unit_constraints.json`; raw project-feature constraints remain available as evidence at `projects/<project_id>/constraints/constraint_results.json`.
 - `environmental_constraints_example` is the default profile for `alternatives_review`; `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use.
@@ -73,7 +73,7 @@ Important current artifacts:
 ## Known Immediate Constraints
 
 - Do not implement product code during documentation architecture tasks.
-- The web UI is Pass 1 only: no authentication, deployment, multi-user workflow, project upload/create/archive flow, PDF export, advanced audit browser, or raw/audit review workflow is implemented.
+- The web UI is still local-first Sprint 4 work: no authentication, deployment, multi-user workflow, archive flow, PDF export, advanced audit browser, background job system, or raw/audit review workflow is implemented.
 - The canonical deliverable matrix validates and now drives exact deliverable table, figure, deliverable item, bounded review queue generation, review-complete export gating, and package manifest review-gate summaries.
 - The canonical prompt config validates and is wired into standard deliverable item section drafting payloads. Legacy `drafts/report_sections.json` remains available for compatibility/audit context.
 - Compactness and DOCX fidelity regression tests protect the standard deliverable path from raw-artifact body dumps, unbounded table rendering, overlong generated section content, malformed DOCX output, and missing final verification status.

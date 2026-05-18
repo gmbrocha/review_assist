@@ -5,7 +5,24 @@
 {% block content %}
 <section class="page-heading">
   <h1>Projects</h1>
-  <p>Select a local project workspace. Project creation and upload workflows remain deferred until a safe input-staging convention is implemented.</p>
+  <p>Select a local project workspace or create a draft workspace for staged uploads.</p>
+</section>
+
+<section class="panel">
+  <h2>Create Draft Project</h2>
+  <form method="post" action="{{ url_for('create_project') }}" class="review-form">
+    <label>Project ID
+      <input name="project_id" required pattern="[A-Za-z0-9_.-]+" placeholder="example_project">
+    </label>
+    <label>Project Name
+      <input name="name" required placeholder="Example Project">
+    </label>
+    <label>Description
+      <textarea name="description" rows="3"></textarea>
+    </label>
+    <button class="primary" type="submit">Create Draft Project</button>
+  </form>
+  <p class="muted">Draft projects do not write <code>config/project.json</code> until at least one staged input is committed.</p>
 </section>
 
 <section class="table-section">
@@ -26,6 +43,7 @@
         <td>
           <strong>{{ project.name }}</strong>
           <div class="muted">{{ project.project_id }}</div>
+          {% if project.is_draft %}<div class="tag">draft setup</div>{% endif %}
           {% if project.error %}<div class="issue">{{ project.error }}</div>{% endif %}
         </td>
         <td><code>{{ project.path }}</code></td>

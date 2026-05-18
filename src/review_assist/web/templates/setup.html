@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Project Setup - Review Assist{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>Project Setup</h1>
+  <p>Stage local inputs, commit them into the existing project convention, and classify configured inputs through the backend service.</p>
+</section>
+
+<section class="summary-grid">
+  <div class="metric"><span>Manifest</span><strong>{{ 'valid' if setup.manifest_exists else 'draft' }}</strong></div>
+  <div class="metric"><span>Staged Files</span><strong>{{ setup.staged_input_count }}</strong></div>
+  <div class="metric"><span>Committed Inputs</span><strong>{{ setup.committed_input_count }}</strong></div>
+  <div class="metric"><span>KMZ Ready</span><strong>{{ 'yes' if setup.required_kmz_present else 'no' }}</strong></div>
+</section>
+
+{% if setup.blockers %}
+<section class="panel">
+  <h2>Setup Blockers</h2>
+  <ul class="issue-list">
+    {% for blocker in setup.blockers %}
+      <li>{{ blocker.code }}: {{ blocker.message }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Upload To Staging</h2>
+  <form method="post" action="{{ url_for('upload_inputs') }}" enctype="multipart/form-data" class="review-form">
+    <label>Input files
+      <input type="file" name="files" multiple>
+    </label>
+    <button class="primary" type="submit">Stage Uploads</button>
+  </form>
+  <p class="muted">Supported initial uploads follow existing input conventions: KMZ/KML project geometry, GIS/source files, documents, and imagery/basemap files. Filenames must be simple local filenames.</p>
+</section>
+
+<section class="table-section">
+  <h2>Staged Files</h2>
+  <table>
+    <thead><tr><th>File</th><th>Role</th><th>Size</th><th>Path</th></tr></thead>
+    <tbody>
+      {% for item in setup.staged_inputs %}
+      <tr>
+        <td>{{ item.filename }}</td>
+        <td>{{ item.proposed_role }}</td>
+        <td>{{ item.size_bytes }}</td>
+        <td><code>{{ item.relative_path }}</code></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty">No files are staged.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="{{ url_for('commit_inputs') }}" class="inline-form">
+    <button type="submit" {% if not setup.staged_inputs %}disabled{% endif %}>Commit Staged Inputs</button>
+  </form>
+  <form method="post" action="{{ url_for('classify_inputs') }}" class="inline-form">
+    <button type="submit" {% if not setup.manifest_exists %}disabled{% endif %}>Classify Committed Inputs</button>
+  </form>
+</section>
+{% endblock %}

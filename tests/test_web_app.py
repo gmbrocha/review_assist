@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import io
+import json
 from pathlib import Path
 
 import pytest
 
 from review_assist.export_report import export_report
 from review_assist.populate_for_review import populate_for_review
+from review_assist.projects import load_project_manifest
 from review_assist.review_queue import generate_review_queue, load_review_queue
+from review_assist.web import adapter
 from review_assist.web.app import create_app
 
 from test_deliverable_compactness import _write_large_deliverable_table
-from test_export_report import set_review_states, write_project
+from test_export_report import kml_document, kmz_bytes, set_review_states, write_project
 
 
 @pytest.fixture
@@ -28,6 +32,15 @@ def _populated_project(tmp_path: Path) -> Path:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
     return project_dir
+
+
+def _valid_kmz_upload() -> io.BytesIO:
+    kml = kml_document(
+        """
+        <Placemark><name>Route A</name><LineString><coordinates>-90.0000,32.0000,0 -89.9900,32.0000,0</coordinates></LineString></Placemark>
+        """
+    )
+    return io.BytesIO(kmz_bytes(kml))
 
 
 def test_app_loads_with_no_selected_project_empty_state(app_client) -> None:
@@ -53,6 +66,64 @@ def test_project_list_and_select(tmp_path: Path) -> None:
     assert b"Test Project" in response.data
 
 
+def test_safe_draft_project_creation_succeeds_without_manifest(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+
+    response = client.post(
+        "/projects/create",
+        data={"project_id": "fresh_project", "name": "Fresh Project", "description": "New local review"},
+        follow_redirects=True,
+    )
+    project_dir = tmp_path / "fresh_project"
+
+    assert response.status_code == 200
+    assert b"Project Setup" in response.data
+    assert (project_dir / "config" / "project_draft.json").exists()
+    assert (project_dir / "staging" / "uploads").is_dir()
+    assert (project_dir / "inputs").is_dir()
+    assert not (project_dir / "config" / "project.json").exists()
+    with client.session_transaction() as session:
+        assert session["project_key"] == "fresh_project"
+
+
+def test_invalid_project_names_and_duplicates_are_rejected(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+
+    bad = client.post(
+        "/projects/create",
+        data={"project_id": "../bad", "name": "Bad"},
+        follow_redirects=True,
+    )
+    assert bad.status_code == 200
+    assert b"Project id" in bad.data
+    assert not (tmp_path / "bad").exists()
+
+    trailing_dot = client.post(
+        "/projects/create",
+        data={"project_id": "bad.", "name": "Bad"},
+        follow_redirects=True,
+    )
+    assert trailing_dot.status_code == 200
+    assert b"end with a dot" in trailing_dot.data
+    assert not (tmp_path / "bad.").exists()
+
+    first = client.post(
+        "/projects/create",
+        data={"project_id": "fresh_project", "name": "Fresh Project"},
+        follow_redirects=True,
+    )
+    duplicate = client.post(
+        "/projects/create",
+        data={"project_id": "fresh_project", "name": "Fresh Project Again"},
+        follow_redirects=True,
+    )
+    assert first.status_code == 200
+    assert duplicate.status_code == 200
+    assert b"already exists" in duplicate.data
+
+
 def test_project_selection_rejects_traversal(tmp_path: Path) -> None:
     write_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)
@@ -64,6 +135,123 @@ def test_project_selection_rejects_traversal(tmp_path: Path) -> None:
     assert b"Invalid project id" in response.data
     with client.session_transaction() as session:
         assert "project_key" not in session
+
+
+def test_upload_staging_saves_inside_project_and_rejects_traversal(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
+
+    response = client.post(
+        "/setup/upload",
+        data={"files": (_valid_kmz_upload(), "routes.kmz")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    staged_path = tmp_path / "fresh_project" / "staging" / "uploads" / "routes.kmz"
+
+    assert response.status_code == 200
+    assert staged_path.exists()
+    assert staged_path.resolve().is_relative_to((tmp_path / "fresh_project").resolve())
+    assert b"routes.kmz" in response.data
+
+    traversal = client.post(
+        "/setup/upload",
+        data={"files": (io.BytesIO(b"bad"), "../escape.kmz")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    assert traversal.status_code == 200
+    assert b"path separators" in traversal.data
+    assert not (tmp_path / "escape.kmz").exists()
+
+
+def test_duplicate_upload_behavior_is_explicit(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
+    client.post(
+        "/setup/upload",
+        data={"files": (_valid_kmz_upload(), "routes.kmz")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    duplicate = client.post(
+        "/setup/upload",
+        data={"files": (_valid_kmz_upload(), "routes.kmz")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    assert duplicate.status_code == 200
+    assert b"already exists in staging" in duplicate.data
+
+
+def test_commit_staged_inputs_creates_valid_manifest_and_classification(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
+    client.post(
+        "/setup/upload",
+        data={"files": (_valid_kmz_upload(), "routes.kmz")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    response = client.post("/setup/commit", follow_redirects=True)
+    project_dir = tmp_path / "fresh_project"
+    manifest = load_project_manifest(project_dir)
+    input_package = json.loads((project_dir / "context" / "input_package.json").read_text(encoding="utf-8"))
+
+    assert response.status_code == 200
+    assert b"Committed 1 input" in response.data
+    assert manifest.project_id == "fresh_project"
+    assert manifest.inputs[0].path == "inputs/routes.kmz"
+    assert (project_dir / "inputs" / "routes.kmz").exists()
+    assert not (project_dir / "staging" / "uploads" / "routes.kmz").exists()
+    assert input_package["required_kmz_present"] is True
+
+
+def test_classification_route_calls_adapter_service(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    called: dict[str, Path] = {}
+
+    def fake_classify(path: Path) -> dict[str, object]:
+        called["path"] = path
+        return {"input_count": 1, "output_path": str(project_dir / "context" / "input_package.json")}
+
+    monkeypatch.setattr(adapter, "classify_project_inputs", fake_classify)
+
+    response = client.post("/setup/classify", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert called["path"] == project_dir.resolve()
+    assert b"Input classification completed" in response.data
+
+
+def test_missing_required_input_and_populate_failure_are_user_visible_without_traceback(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
+
+    setup = client.get("/setup")
+    assert setup.status_code == 200
+    assert b"staged_input_missing" in setup.data
+
+    response = client.post("/overview/populate", follow_redirects=True)
+    status_path = tmp_path / "fresh_project" / "web_runs" / "latest_run.json"
+    latest_run = json.loads(status_path.read_text(encoding="utf-8"))
+
+    assert response.status_code == 200
+    assert b"Latest Run Status" in response.data
+    assert b"failed" in response.data
+    assert b"Traceback" not in response.data
+    assert latest_run["action"] == "populate_for_review"
+    assert latest_run["status"] == "failed"
 
 
 def test_overview_displays_project_populate_and_source_status(tmp_path: Path) -> None:
@@ -192,6 +380,32 @@ def test_preview_export_shows_compactness_and_final_verification(tmp_path: Path)
     assert "Compactness Budget" in text
     assert "Final Verification" in text
     assert "preview_bypassed" in text
+    assert "Latest Run Status" in text
+    assert "preview_export" in text
+
+
+def test_reviewed_export_failure_and_success_status_without_traceback(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    failed = client.post("/export/reviewed", follow_redirects=True)
+    failed_text = failed.data.decode()
+    failed_status = json.loads((project_dir / "web_runs" / "latest_run.json").read_text(encoding="utf-8"))
+    assert failed.status_code == 200
+    assert "Export is blocked" in failed_text
+    assert "Traceback" not in failed_text
+    assert failed_status["action"] == "reviewed_export"
+    assert failed_status["status"] == "failed"
+
+    set_review_states(project_dir)
+    succeeded = client.post("/export/reviewed", follow_redirects=True)
+    success_status = json.loads((project_dir / "web_runs" / "latest_run.json").read_text(encoding="utf-8"))
+    assert succeeded.status_code == 200
+    assert "Reviewed export created" in succeeded.data.decode()
+    assert success_status["action"] == "reviewed_export"
+    assert success_status["status"] == "completed"
 
 
 def test_outputs_expose_manifest_artifacts_without_path_traversal(tmp_path: Path) -> None:
@@ -216,3 +430,27 @@ def test_outputs_expose_manifest_artifacts_without_path_traversal(tmp_path: Path
 
     bad_project = client.get(f"/artifact?project=..&path={relative_markdown}")
     assert bad_project.status_code == 404
+
+
+def test_fresh_project_flow_reaches_standard_bounded_review_queue(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
+    client.post(
+        "/setup/upload",
+        data={"files": (_valid_kmz_upload(), "routes.kmz")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    client.post("/setup/commit", follow_redirects=True)
+    populated = client.post("/overview/populate", follow_redirects=True)
+    review = client.get("/review")
+    review_text = review.data.decode()
+
+    assert populated.status_code == 200
+    assert b"Create Review Queue completed" in populated.data
+    assert review.status_code == 200
+    assert "deliverable_items" in review_text
+    assert "draft_finding" not in review_text
+    assert "spatial_relationship" not in review_text
+    assert "source_inventory_note" not in review_text

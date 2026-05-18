@@ -54,6 +54,69 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
         flash("Project selected.", "success")
         return redirect(url_for("overview"))
 
+    @app.post("/projects/create")
+    def create_project() -> Any:
+        try:
+            result = adapter.create_draft_project(
+                app.config["PROJECT_ROOT"],
+                project_id=request.form.get("project_id", ""),
+                name=request.form.get("name", ""),
+                description=request.form.get("description", ""),
+            )
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("projects"))
+        session["project_key"] = result["project_key"]
+        flash("Draft project workspace created. Upload and commit at least one input to create config/project.json.", "success")
+        return redirect(url_for("setup"))
+
+    @app.get("/setup")
+    def setup() -> str:
+        project_dir = _selected_project_dir_or_none(app)
+        if project_dir is None:
+            return render_template("empty_project.html", active_page="setup", title="Project Setup")
+        return render_template("setup.html", active_page="setup", setup=adapter.setup_status(project_dir))
+
+    @app.post("/setup/upload")
+    def upload_inputs() -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        uploads = request.files.getlist("files")
+        if not uploads or all(not upload.filename for upload in uploads):
+            flash("Choose at least one file to upload.", "error")
+            return redirect(url_for("setup"))
+        saved_count = 0
+        for upload in uploads:
+            if not upload.filename:
+                continue
+            try:
+                adapter.stage_upload(project_dir, upload)
+                saved_count += 1
+            except adapter.WebAdapterError as exc:
+                flash(str(exc), "error")
+        if saved_count:
+            flash(f"Staged {saved_count} uploaded file(s).", "success")
+        return redirect(url_for("setup"))
+
+    @app.post("/setup/commit")
+    def commit_inputs() -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            result = adapter.commit_staged_inputs(project_dir)
+            flash(f"Committed {result.get('committed_count', 0)} input file(s) and classified project inputs.", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("setup"))
+
+    @app.post("/setup/classify")
+    def classify_inputs() -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            result = adapter.classify_project_inputs(project_dir)
+            flash(f"Input classification completed with {result.get('input_count', 0)} configured input(s).", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("setup"))
+
     @app.get("/overview")
     def overview() -> str:
         project_dir = _selected_project_dir_or_none(app)

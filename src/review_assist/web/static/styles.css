@@ -283,7 +283,10 @@ code {
 }
 
 textarea,
-select {
+select,
+input[type="text"],
+input[type="file"],
+input:not([type]) {
   border: 1px solid var(--line);
   border-radius: 6px;
   font: inherit;
