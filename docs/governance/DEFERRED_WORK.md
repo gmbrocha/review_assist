@@ -30,7 +30,7 @@ Each deferred item should include:
 - `Affected sections/workflows`: Report section generation, deliverable tables, deliverable figures, deliverable items, review queue generation, export assembly, GPT-assisted section drafting.
 - `Risk if forgotten`: The legacy report profile/templates can continue to drive output while the canonical matrix only validates on the side, allowing output volume, section coverage, stub policy, and table/figure inventory to drift away from the redirected workflow.
 - `Temporary simplification`: Current outputs can still use `config/report_section_templates.json` and existing report/map/table artifacts rather than the canonical matrix-backed deliverable targets.
-- `Target sprint/subunit`: Sprints 2.2, 2.3, 3.1, and 3.2.
+- `Target sprint/subunit`: Sprint 2.2 for comparison-unit constraints and deliverable tables; Sprint 2.3 for deliverable figures and evidence refs; Sprint 3.1 for deliverable items/review queue; Sprint 3.2 for export gate/package manifests.
 - `Status`: open.
 
 ### Canonical Prompt Contract Wiring

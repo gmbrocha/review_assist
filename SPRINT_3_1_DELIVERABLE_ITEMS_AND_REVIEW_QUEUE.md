@@ -37,6 +37,14 @@ Existing code:
 - `section_drafting.py`
 - `review_queue.py`
 
+## Deferred Work Intake
+
+This subunit owns the Sprint 3.1 portions of `docs/governance/DEFERRED_WORK.md`:
+
+- Wire the canonical deliverable matrix into deliverable item generation and bounded standard review queue generation.
+- Wire `config/report_generation_prompts.json` into deterministic/GPT section drafting while preserving structured-evidence-only GPT inputs.
+- Expand the dynamic 3.1.1.x wetlands/waterbodies target into one reviewable subsection per comparison unit.
+
 ## Implementation Tasks
 
 ### 1. Deliverable Item Service

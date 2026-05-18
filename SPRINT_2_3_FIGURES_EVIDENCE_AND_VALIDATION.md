@@ -41,6 +41,13 @@ Existing code:
 - `evidence_package.py`
 - export figure asset conventions.
 
+## Deferred Work Intake
+
+This subunit owns the Sprint 2.3 portion of `docs/governance/DEFERRED_WORK.md`:
+
+- Wire the canonical deliverable matrix into exact deliverable figure targets.
+- Update evidence packages to reference comparison units, deliverable tables, and deliverable figures while keeping raw maps/tables as evidence rather than standard report volume.
+
 ## Implementation Tasks
 
 ### 1. Deliverable Figure Service

@@ -31,6 +31,13 @@ Existing code:
 - `deliverable.py`
 - CLI package commands.
 
+## Deferred Work Intake
+
+This subunit owns the Sprint 3.2 export/package portion of `docs/governance/DEFERRED_WORK.md`:
+
+- Use the canonical deliverable matrix and deliverable item counts to enforce the review-complete export gate.
+- Record matrix version, expected/actual deliverable item counts, included tables/figures/attachments, and gate status in export/demo/MVP manifests.
+
 ## Implementation Tasks
 
 ### 1. Review Completeness Check

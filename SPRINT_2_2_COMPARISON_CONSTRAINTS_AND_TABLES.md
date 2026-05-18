@@ -37,6 +37,13 @@ Existing code:
 - `source_materialization.py`
 - source acquisition/downloaders.
 
+## Deferred Work Intake
+
+This subunit owns the Sprint 2.2 portion of `docs/governance/DEFERRED_WORK.md`:
+
+- Wire the canonical deliverable matrix into comparison-unit constraint aggregation and exact deliverable table generation.
+- Keep raw project-feature constraints and existing broad comparison tables available as evidence/backward-compatible artifacts, not standard report volume.
+
 ## Implementation Tasks
 
 ### 1. Report-Facing Constraint Service

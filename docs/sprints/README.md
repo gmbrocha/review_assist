@@ -1,6 +1,6 @@
 # Sprint Index
 
-Root-level sprint docs remain the active working style for now. This index is the routing layer so agents do not need to scan every sprint file.
+Root-level sprint docs remain the active working style for not-yet-implemented sprints. This index is the routing layer so agents do not need to scan every sprint file.
 
 ## Active Sprint/Subunit
 
@@ -8,7 +8,6 @@ Root-level sprint docs remain the active working style for now. This index is th
 
 ## Planned Sprint/Subunits
 
-- Sprint 1 overview: `SPRINT_1_FOUNDATION_AND_CONTRACT.md`
 - Sprint 2 overview: `SPRINT_2_CONSTRAINTS_TABLES_AND_FIGURES.md`
 - Sprint 2.1: `SPRINT_2_1_SOURCE_PROFILE_AND_BASEMAPS.md`
 - Sprint 2.2: `SPRINT_2_2_COMPARISON_CONSTRAINTS_AND_TABLES.md`
@@ -22,6 +21,8 @@ Root-level sprint docs remain the active working style for now. This index is th
 
 ## Completed Sprint/Subunits
 
+- Sprint 1 Foundation and Deliverable Contract: `docs/archive/sprints/SPRINT_1_FOUNDATION_AND_CONTRACT.md`
+  - Completed the non-UI Sprint 1 foundation across Sprint 1.1, 1.2, and 1.3.
 - Sprint 1.1 Contract Foundation: `docs/archive/sprints/SPRINT_1_1_CONTRACT_FOUNDATION.md`
   - Implemented static deliverable matrix, report prompt config, loaders/validators, CLI validators, and focused tests.
 - Sprint 1.2 Project Intake Artifacts: `docs/archive/sprints/SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`
@@ -33,6 +34,8 @@ Root-level sprint docs remain the active working style for now. This index is th
 
 See `docs/governance/DEFERRED_WORK.md` for full detail.
 
-- Sprint 3.1: dynamic 3.1.1.x comparison-unit section expansion.
-- Sprints 2.2, 2.3, 3.1, 3.2: canonical deliverable matrix wiring into generation/review/export.
-- Sprint 3.1: canonical prompt contract wiring into section drafting.
+- Sprint 2.2: canonical deliverable matrix wiring into comparison-unit constraints and exact deliverable tables.
+- Sprint 2.3: canonical deliverable matrix wiring into exact deliverable figures and evidence package refs.
+- Sprint 3.1: canonical deliverable matrix and prompt contract wiring into deliverable items, dynamic comparison-unit sections, section drafting, and bounded review queue generation.
+- Sprint 3.2: canonical deliverable matrix wiring into review-complete export gate and package manifests.
+- Sprint 4: no backend deferred item should be newly routed here by default; Sprint 4 should consume the resolved Sprint 2/3 service contracts through a thin UI.

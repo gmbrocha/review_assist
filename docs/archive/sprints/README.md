@@ -6,6 +6,7 @@ Active, not-yet-implemented sprint documents should remain in the project root s
 
 Current archived sprint records include:
 
+- `docs/archive/sprints/SPRINT_1_FOUNDATION_AND_CONTRACT.md`
 - `docs/archive/sprints/SPRINT_1_1_CONTRACT_FOUNDATION.md`
 - `docs/archive/sprints/SPRINT_1_2_PROJECT_INTAKE_ARTIFACTS.md`
 - `docs/archive/sprints/SPRINT_1_3_COMPARISON_UNITS_AND_ORCHESTRATION.md`

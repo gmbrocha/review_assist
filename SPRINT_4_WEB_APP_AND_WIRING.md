@@ -18,6 +18,8 @@ Sprint 4 should start only after these backend capabilities exist:
 - Reviewed DOCX export package.
 - Service and CLI tests for the non-UI pipeline.
 
+Sprint 4 should not inherit unresolved backend deferred work from `docs/governance/DEFERRED_WORK.md` unless explicitly re-scoped. The active deferred items are routed to Sprints 2.2, 2.3, 3.1, and 3.2 so the web app can remain a thin operator surface over completed service contracts.
+
 ## Non-Goals
 
 Do not use Sprint 4 to:
