@@ -37,6 +37,7 @@ from .section_drafting import (
 
 DELIVERABLE_ITEMS_PATH = Path("deliverable/deliverable_items.json")
 STATIC_SECTION_TARGET_TYPES = {"front_matter", "section", "subsection", "attachment"}
+GENERATED_CONTENT_WARNING_CHAR_LIMIT = 4_000
 SUPPORTED_REVIEW_STATUSES = {
     "draft",
     "needs_review",
@@ -740,6 +741,20 @@ def _base_item(
     validation_issues: list[dict[str, Any]],
 ) -> dict[str, Any]:
     status = _normalized_review_status(review_status)
+    issues = list(validation_issues)
+    if len(generated_content) > GENERATED_CONTENT_WARNING_CHAR_LIMIT:
+        issues.append(
+            _issue(
+                "warning",
+                "deliverable_item_content_over_budget",
+                (
+                    f"Deliverable item '{deliverable_item_id}' generated content is {len(generated_content)} characters; "
+                    f"compact report sections should stay under {GENERATED_CONTENT_WARNING_CHAR_LIMIT} characters unless reviewed."
+                ),
+                str(DELIVERABLE_ITEMS_PATH),
+                target_id,
+            )
+        )
     return {
         "deliverable_item_id": deliverable_item_id,
         "target_id": target_id,
@@ -769,7 +784,7 @@ def _base_item(
         "stub_text": REQUIRED_STUB_TEXT if is_stub else "",
         "review_status": status,
         "export_eligible": status in {"accepted", "edited", "replaced", "unable_to_verify"},
-        "validation_issues": _dedupe_issues(validation_issues),
+        "validation_issues": _dedupe_issues(issues),
     }
 
 

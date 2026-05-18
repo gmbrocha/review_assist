@@ -126,6 +126,11 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         map_manifest=map_manifest,
         figure_assets=figure_assets,
     )
+    compactness_budget = _compactness_budget(
+        included=included,
+        review_gate=review_gate,
+        mvp_quality=mvp_quality,
+    )
 
     if "markdown" in formats:
         markdown = _markdown_report(
@@ -205,6 +210,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "evidence_package_path": _evidence_package_path(queue),
         "gpt_drafting": _gpt_drafting_summary(items),
         "mvp_quality": mvp_quality,
+        "compactness_budget": compactness_budget,
         "package_contents": _package_contents(queue, output_paths={
             "markdown_report": str(markdown_path) if "markdown" in formats else None,
             "docx_report": str(docx_path) if "docx" in formats else None,
@@ -876,6 +882,8 @@ def _markdown_embedded_table(table: dict[str, Any]) -> list[str]:
     title = str(table.get("title") or table_id)
     rows = _dict_list(table.get("rows", []))
     columns = _string_list(table.get("columns", []))
+    row_count = _optional_int(table.get("row_count"))
+    total_rows = row_count if row_count is not None else len(rows)
     if not columns:
         columns = sorted({str(key) for row in rows for key in row})
     lines = [f"Table: {title} (`{table_id}`)", ""]
@@ -890,8 +898,8 @@ def _markdown_embedded_table(table: dict[str, Any]) -> list[str]:
     lines.append("| " + " | ".join("---" for _ in columns) + " |")
     for row in rendered_rows:
         lines.append("| " + " | ".join(_markdown_cell(row.get(column)) for column in columns) + " |")
-    if len(rows) > len(rendered_rows):
-        lines.append(f"Table preview limited to {len(rendered_rows)} of {len(rows)} rows. Full table data remains in the table artifact.")
+    if total_rows > len(rendered_rows):
+        lines.append(f"Table preview limited to {len(rendered_rows)} of {total_rows} rows. Full table data remains in the table artifact.")
     lines.append("")
     return lines
 
@@ -1373,6 +1381,8 @@ def _add_docx_comparison_table(
 
     columns = _string_list(source_table.get("columns", []))
     rows = _dict_list(source_table.get("rows", []))
+    row_count = _optional_int(source_table.get("row_count"))
+    total_rows = row_count if row_count is not None else len(rows)
     if not columns:
         columns = sorted({str(key) for row in rows for key in row})
     if not columns:
@@ -1392,9 +1402,9 @@ def _add_docx_comparison_table(
         cells = table.add_row().cells
         for index, column in enumerate(columns):
             cells[index].text = _docx_cell_text(row.get(column))
-    if len(rows) > DOCX_TABLE_ROW_LIMIT:
+    if total_rows > len(rendered_rows):
         document.add_paragraph(
-            f"Table preview limited to {DOCX_TABLE_ROW_LIMIT} of {len(rows)} rows. Full table data remains in the table artifact."
+            f"Table preview limited to {len(rendered_rows)} of {total_rows} rows. Full table data remains in the table artifact."
         )
 
 
@@ -1558,6 +1568,41 @@ def _stub_item_count(items: list[dict[str, Any]]) -> int:
         if "deliverable_item_stub" in flags or _generated_content(item) == REQUIRED_STUB_TEXT:
             count += 1
     return count
+
+
+def _compactness_budget(
+    *,
+    included: list[dict[str, Any]],
+    review_gate: dict[str, Any],
+    mvp_quality: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "included_section_count": int(mvp_quality.get("included_section_count", 0)),
+        "included_table_count": int(mvp_quality.get("included_table_count", 0)),
+        "included_figure_count": int(mvp_quality.get("included_figure_count", 0)),
+        "included_attachment_count": len({str(item.get("attachment_id")) for item in included if item.get("attachment_id")}),
+        "stub_item_count": int(review_gate.get("stub_item_count", 0)),
+        "rendered_table_preview_row_count": _rendered_table_preview_row_count(included),
+        "approximate_body_character_count": sum(len(str(item.get("content") or "")) for item in included),
+        "review_gate_status": review_gate.get("review_gate_status"),
+        "expected_deliverable_item_count": review_gate.get("expected_deliverable_item_count"),
+        "actual_deliverable_item_count": review_gate.get("actual_deliverable_item_count"),
+        "included_item_count": len(included),
+    }
+
+
+def _rendered_table_preview_row_count(included: list[dict[str, Any]]) -> int:
+    total = 0
+    for item in included:
+        if item.get("type") not in {"comparison_table", "table"}:
+            continue
+        rows_preview = _dict_list(item.get("rows_preview", []))
+        if not rows_preview:
+            assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+            rows_preview = _dict_list(assumptions.get("rows_preview", []))
+        if rows_preview:
+            total += len(rows_preview[:DOCX_TABLE_ROW_LIMIT])
+    return total
 
 
 def _export_map_path(item: dict[str, Any]) -> str:
