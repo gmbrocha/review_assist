@@ -507,6 +507,10 @@ def _dict_field(value: Any, key: str, error_type: type[RuntimeError]) -> dict[st
 
 def _ensure_unique(values: list[str], label: str, error_type: type[RuntimeError]) -> None:
     seen: set[str] = set()
-    duplicates = sorted({value for value in values if value in seen or seen.add(value)})
+    duplicates: set[str] = set()
+    for value in values:
+        if value in seen:
+            duplicates.add(value)
+        seen.add(value)
     if duplicates:
-        raise error_type(f"Duplicate {label} id(s): {', '.join(duplicates)}")
+        raise error_type(f"Duplicate {label} id(s): {', '.join(sorted(duplicates))}")

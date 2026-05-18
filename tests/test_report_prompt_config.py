@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import json
-from pathlib import Path
 
 import pytest
 
@@ -11,8 +10,11 @@ from review_assist.deliverable_matrix import (
     DELIVERABLE_MATRIX_PATH,
     REPORT_PROMPTS_PATH,
     REQUIRED_STUB_TEXT,
+    DeliverableMatrixConfig,
     DeliverableMatrixError,
     ReportPromptConfigError,
+    ReportPromptConfig,
+    _validate_matrix_prompt_refs,
     load_deliverable_matrix,
     load_report_prompt_config,
     validate_deliverable_contract,
@@ -26,12 +28,6 @@ def _default_matrix_data() -> dict[str, object]:
 
 def _default_prompt_data() -> dict[str, object]:
     return json.loads((repo_root() / REPORT_PROMPTS_PATH).read_text(encoding="utf-8"))
-
-
-def _write_json(tmp_path: Path, name: str, data: dict[str, object]) -> Path:
-    path = tmp_path / name
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    return path
 
 
 def test_report_prompt_config_loads_default_config() -> None:
@@ -83,28 +79,26 @@ def test_global_prompt_has_required_guardrails() -> None:
         assert term in guardrails
 
 
-def test_contract_rejects_missing_prompt_key(tmp_path: Path) -> None:
+def test_contract_rejects_missing_prompt_key() -> None:
     matrix_data = copy.deepcopy(_default_matrix_data())
     prompt_data = copy.deepcopy(_default_prompt_data())
     matrix_data["section_targets"][0]["prompt_key"] = "missing-prompt"  # type: ignore[index]
+    matrix = DeliverableMatrixConfig.from_dict(matrix_data)
+    prompts = ReportPromptConfig.from_dict(prompt_data)
 
     with pytest.raises(DeliverableMatrixError, match="missing report prompt key"):
-        validate_deliverable_contract(
-            _write_json(tmp_path, "deliverable_section_matrix.json", matrix_data),
-            _write_json(tmp_path, "report_generation_prompts.json", prompt_data),
-        )
+        _validate_matrix_prompt_refs(matrix, prompts)
 
 
-def test_contract_rejects_unknown_prompt_target_ref(tmp_path: Path) -> None:
+def test_contract_rejects_unknown_prompt_target_ref() -> None:
     matrix_data = copy.deepcopy(_default_matrix_data())
     prompt_data = copy.deepcopy(_default_prompt_data())
     prompt_data["prompts"][1]["target_ids"] = ["missing-target"]  # type: ignore[index]
+    matrix = DeliverableMatrixConfig.from_dict(matrix_data)
+    prompts = ReportPromptConfig.from_dict(prompt_data)
 
     with pytest.raises(ReportPromptConfigError, match="unknown matrix target"):
-        validate_deliverable_contract(
-            _write_json(tmp_path, "deliverable_section_matrix.json", matrix_data),
-            _write_json(tmp_path, "report_generation_prompts.json", prompt_data),
-        )
+        _validate_matrix_prompt_refs(matrix, prompts)
 
 
 def test_validate_deliverable_matrix_cli_json(capsys: pytest.CaptureFixture[str]) -> None:

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import copy
 import json
-from pathlib import Path
 
 import pytest
 
 from review_assist.deliverable_matrix import (
     DELIVERABLE_MATRIX_PATH,
     REQUIRED_STUB_TEXT,
+    DeliverableMatrixConfig,
     DeliverableMatrixError,
     load_deliverable_matrix,
 )
@@ -17,12 +17,6 @@ from review_assist.source_catalog import repo_root
 
 def _default_matrix_data() -> dict[str, object]:
     return json.loads((repo_root() / DELIVERABLE_MATRIX_PATH).read_text(encoding="utf-8"))
-
-
-def _write_matrix(tmp_path: Path, data: dict[str, object]) -> Path:
-    path = tmp_path / "deliverable_section_matrix.json"
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    return path
 
 
 def test_deliverable_matrix_loads_default_config() -> None:
@@ -73,33 +67,33 @@ def test_deliverable_matrix_has_dynamic_wetlands_template() -> None:
     assert dynamic.prompt_key == "wetlands-waterbodies-alternative-detail"
 
 
-def test_deliverable_matrix_rejects_invalid_table_ref(tmp_path: Path) -> None:
+def test_deliverable_matrix_rejects_invalid_table_ref() -> None:
     data = copy.deepcopy(_default_matrix_data())
     data["section_targets"][0]["table_refs"] = ["missing-table"]  # type: ignore[index]
 
     with pytest.raises(DeliverableMatrixError, match="unknown table target"):
-        load_deliverable_matrix(_write_matrix(tmp_path, data))
+        DeliverableMatrixConfig.from_dict(data)
 
 
-def test_deliverable_matrix_rejects_invalid_figure_ref(tmp_path: Path) -> None:
+def test_deliverable_matrix_rejects_invalid_figure_ref() -> None:
     data = copy.deepcopy(_default_matrix_data())
     data["section_targets"][0]["figure_refs"] = ["missing-figure"]  # type: ignore[index]
 
     with pytest.raises(DeliverableMatrixError, match="unknown figure target"):
-        load_deliverable_matrix(_write_matrix(tmp_path, data))
+        DeliverableMatrixConfig.from_dict(data)
 
 
-def test_deliverable_matrix_rejects_invalid_attachment_ref(tmp_path: Path) -> None:
+def test_deliverable_matrix_rejects_invalid_attachment_ref() -> None:
     data = copy.deepcopy(_default_matrix_data())
     data["section_targets"][0]["attachment_refs"] = ["missing-attachment"]  # type: ignore[index]
 
     with pytest.raises(DeliverableMatrixError, match="unknown attachment target"):
-        load_deliverable_matrix(_write_matrix(tmp_path, data))
+        DeliverableMatrixConfig.from_dict(data)
 
 
-def test_deliverable_matrix_rejects_required_target_without_stub(tmp_path: Path) -> None:
+def test_deliverable_matrix_rejects_required_target_without_stub() -> None:
     data = copy.deepcopy(_default_matrix_data())
     data["section_targets"][0]["stub_when_missing"] = False  # type: ignore[index]
 
     with pytest.raises(DeliverableMatrixError, match="stub_when_missing"):
-        load_deliverable_matrix(_write_matrix(tmp_path, data))
+        DeliverableMatrixConfig.from_dict(data)
