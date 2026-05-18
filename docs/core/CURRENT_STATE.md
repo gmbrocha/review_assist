@@ -27,6 +27,7 @@ Implemented baseline:
 - Static Sprint 1.1 deliverable matrix and report prompt contract validation.
 - Matrix-backed Sprint 2.2 deliverable table generation at `projects/<project_id>/deliverable/tables.json`, with four exact table targets generated or stubbed from `config/deliverable_section_matrix.json`.
 - Matrix-backed Sprint 2.3 deliverable figure generation at `projects/<project_id>/deliverable/figures.json`, with 13 exact main figure targets generated or stubbed from `config/deliverable_section_matrix.json`.
+- `deliverable_figures.py` remains the orchestration entry point; figure target specs, artifact validation, basemap sidecar loading, and rendering/layout helpers are split into focused `deliverable_figure_*` modules.
 - Report-facing comparison-unit constraint analysis at `projects/<project_id>/constraints/comparison_unit_constraints.json`; raw project-feature constraints remain available as evidence at `projects/<project_id>/constraints/constraint_results.json`.
 - `environmental_constraints_example` is the default profile for `alternatives_review`; `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use.
 - Source status and source inventory now include per-source detail statuses for registered local, local materialized, downloaded, manual, restricted, failed, unimplemented, missing, optional, stubbed, and selected-but-not-renderable sources.

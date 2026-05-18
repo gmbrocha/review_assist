@@ -11,7 +11,7 @@ from shapely.geometry import LineString, Point, Polygon
 
 import review_assist.project_area as project_area_module
 from review_assist.cli import main
-from review_assist.deliverable_figures import generate_deliverable_figures, load_deliverable_figures
+from review_assist.deliverable_figures import DeliverableFigureError, generate_deliverable_figures, load_deliverable_figures
 from review_assist.deliverable_matrix import REQUIRED_STUB_TEXT, load_deliverable_matrix
 from review_assist.populate_for_review import populate_for_review
 
@@ -266,6 +266,144 @@ def test_panel_records_are_attachment_supporting_not_main_figures(
     assert result["attachment_supporting_figure_count"] > 0
     main_ids = {figure["figure_id"] for figure in result["figures"]}
     assert all(panel["figure_id"] not in main_ids for panel in result["attachment_supporting_figures"])
+
+
+def test_deliverable_figure_artifact_contract_fields_for_main_and_panel_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path, coordinates="-90.5000,32.0000,0 -89.5000,32.0000,0")
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+
+    result = generate_deliverable_figures(project_dir)
+
+    required_main_fields = {
+        "figure_id",
+        "type",
+        "figure_type",
+        "figure_number",
+        "title",
+        "section_target_id",
+        "image_path",
+        "file_format",
+        "caption",
+        "source_note",
+        "method_note",
+        "map_elements",
+        "figure_group",
+        "related_resource_categories",
+        "shown_layers",
+        "source_refs",
+        "layer_refs",
+        "related_constraint_ids",
+        "comparison_unit_ids",
+        "provenance",
+        "uncertainty_flags",
+        "is_stub",
+        "stub_text",
+        "review_status",
+        "validation_issues",
+    }
+    required_panel_fields = {
+        "figure_id",
+        "type",
+        "figure_type",
+        "title",
+        "section_target_id",
+        "image_path",
+        "file_format",
+        "caption",
+        "source_note",
+        "method_note",
+        "map_elements",
+        "figure_group",
+        "shown_layers",
+        "source_refs",
+        "provenance",
+        "uncertainty_flags",
+        "review_status",
+        "validation_issues",
+    }
+
+    assert result["figures"]
+    assert result["attachment_supporting_figures"]
+    assert all(required_main_fields <= set(figure) for figure in result["figures"])
+    assert all(required_panel_fields <= set(panel) for panel in result["attachment_supporting_figures"])
+    assert all(figure["file_format"] == "png" for figure in result["figures"])
+    assert all(panel["file_format"] == "png" for panel in result["attachment_supporting_figures"])
+
+
+def test_deliverable_figures_top_level_contract_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+
+    result = generate_deliverable_figures(project_dir)
+
+    assert {
+        "project_id",
+        "project_name",
+        "project_dir",
+        "created_at",
+        "matrix_version",
+        "figure_count",
+        "figures",
+        "attachment_supporting_figure_count",
+        "attachment_supporting_figures",
+        "validation_issues",
+        "upstream_artifacts",
+        "output_path",
+    } <= set(result)
+    assert result["figure_count"] == 13
+    assert result["attachment_supporting_figure_count"] == len(result["attachment_supporting_figures"])
+    assert result["output_path"].endswith("deliverable\\figures.json") or result["output_path"].endswith("deliverable/figures.json")
+    assert result["upstream_artifacts"]["deliverable_matrix_path"] == "config/deliverable_section_matrix.json"
+
+
+def test_load_deliverable_figures_round_trip_and_validates_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    written = generate_deliverable_figures(project_dir)
+
+    loaded = load_deliverable_figures(project_dir)
+    assert loaded["figure_count"] == written["figure_count"]
+    assert [figure["figure_id"] for figure in loaded["figures"]] == [figure["figure_id"] for figure in written["figures"]]
+
+    path = project_dir / "deliverable" / "figures.json"
+    corrupted = json.loads(path.read_text(encoding="utf-8"))
+    corrupted["figure_count"] = 12
+    path.write_text(json.dumps(corrupted, indent=2) + "\n", encoding="utf-8")
+
+    with pytest.raises(DeliverableFigureError, match="figure_count"):
+        load_deliverable_figures(project_dir)
+
+
+def test_load_deliverable_figures_validates_attachment_panel_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path, coordinates="-90.5000,32.0000,0 -89.5000,32.0000,0")
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    written = generate_deliverable_figures(project_dir)
+
+    assert written["attachment_supporting_figures"]
+    path = project_dir / "deliverable" / "figures.json"
+    corrupted = json.loads(path.read_text(encoding="utf-8"))
+    del corrupted["attachment_supporting_figures"][0]["caption"]
+    path.write_text(json.dumps(corrupted, indent=2) + "\n", encoding="utf-8")
+
+    with pytest.raises(DeliverableFigureError, match="Attachment supporting figure is missing required fields"):
+        load_deliverable_figures(project_dir)
 
 
 def test_cli_and_populate_manifest_include_deliverable_figures(

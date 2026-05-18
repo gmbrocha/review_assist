@@ -4,23 +4,29 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
-from pyproj import CRS, Transformer
 from shapely.geometry import box
 
 from .basemaps import MARIS_NAIP_SOURCE_ID, MARIS_NAIP_SOURCE_NAME
 from .comparison_units import ComparisonUnitError, build_comparison_units, load_comparison_units
+from .deliverable_figure_basemaps import load_basemap
+from .deliverable_figure_contract import DeliverableFigureError, validate_deliverable_figures
+from .deliverable_figure_rendering import panel_bounds, render_map
+from .deliverable_figure_specs import (
+    MAX_PANEL_COUNT,
+    MISSING_SOURCE_STATUSES,
+    PANEL_ASPECT_THRESHOLD,
+    PUBLIC_CULTURAL_SOURCE_IDS,
+    RESTRICTED_CULTURAL_SOURCE_ID,
+    TARGET_SPECS,
+    UNIMPLEMENTED_SOURCE_STATUSES,
+    USABLE_SOURCE_STATUSES,
+    TargetFigureSpec,
+)
 from .deliverable_constraints import (
     COMPARISON_UNIT_CONSTRAINTS_PATH,
     ComparisonUnitConstraintError,
@@ -28,7 +34,7 @@ from .deliverable_constraints import (
     load_comparison_unit_constraints,
 )
 from .deliverable_matrix import REQUIRED_STUB_TEXT, DeliverableMatrixError, FigureTarget, load_deliverable_matrix
-from .maps import FIGURES_DIR, MAP_ELEMENT_BASELINE, PROJECT_COLORS, SOURCE_CATEGORY_COLORS
+from .maps import FIGURES_DIR, MAP_ELEMENT_BASELINE
 from .project_area import PROJECT_AREA_PATH, ProjectAreaError, build_project_area, load_project_area
 from .projects import ProjectManifestError, load_project_manifest
 from .source_catalog import SourceCatalogError, load_source_catalog
@@ -36,106 +42,6 @@ from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source
 
 
 DELIVERABLE_FIGURES_PATH = Path("deliverable/figures.json")
-SUPPORTED_REVIEW_STATUSES = {
-    "draft",
-    "needs_review",
-    "accepted",
-    "edited",
-    "rejected",
-    "needs_verification",
-    "unable_to_verify",
-}
-USABLE_SOURCE_STATUSES = {
-    "analyzed",
-    "analyzed_empty",
-    "downloaded",
-    "local_materialized",
-    "provided_in_input",
-    "registered_local",
-}
-UNIMPLEMENTED_SOURCE_STATUSES = {"unimplemented", "manual", "stubbed"}
-MISSING_SOURCE_STATUSES = {
-    "missing",
-    "source_missing",
-    "source_unreadable",
-    "failed",
-    "downloadable",
-    "optional",
-    "gated",
-    "restricted",
-    "unsupported_download",
-    "needs_review",
-    "selected_not_renderable",
-}
-RESTRICTED_CULTURAL_SOURCE_ID = "mdah_restricted_archaeology"
-PUBLIC_CULTURAL_SOURCE_IDS = {"maris_public_cultural_context", "mdah_public_historic_resources"}
-RENDERABLE_BASEMAP_SUFFIXES = {".tif", ".tiff", ".png"}
-PANEL_ASPECT_THRESHOLD = 2.75
-MAX_PANEL_COUNT = 6
-
-
-class DeliverableFigureError(RuntimeError):
-    """Raised when deliverable figure generation or loading cannot complete."""
-
-
-@dataclass(frozen=True)
-class TargetFigureSpec:
-    source_ids: tuple[str, ...]
-    filter_tokens: tuple[str, ...] = ()
-    source_unimplemented_note: str = ""
-    prefer_basemap: bool = False
-
-
-TARGET_SPECS: dict[str, TargetFigureSpec] = {
-    "figure-wetlands-waterbodies": TargetFigureSpec(
-        ("usfws_nwi_wetlands", "usgs_nhd_hydrography"),
-        prefer_basemap=True,
-    ),
-    "figure-fema-flood-zones": TargetFigureSpec(
-        ("fema_nfhl_flood_hazard",),
-        prefer_basemap=True,
-    ),
-    "figure-streams-impaired-waters": TargetFigureSpec(
-        ("usgs_nhd_hydrography",),
-        source_unimplemented_note="303(d) impaired-water layer rendering is not implemented for Sprint 2.3; hydrography is shown when available.",
-    ),
-    "figure-cultural-resources": TargetFigureSpec(
-        ("maris_public_cultural_context", "mdah_public_historic_resources"),
-    ),
-    "figure-fire-ems-stations": TargetFigureSpec(
-        ("maris_community_facilities", "hifld_community_infrastructure"),
-        ("fire", "ems", "emergency", "rescue"),
-    ),
-    "figure-government-offices": TargetFigureSpec(
-        ("maris_community_facilities", "hifld_community_infrastructure"),
-        ("government", "courthouse", "city hall", "town hall", "municipal", "county", "office", "civic"),
-    ),
-    "figure-schools-childcare": TargetFigureSpec(
-        ("maris_community_facilities", "hifld_community_infrastructure", "census_tiger_acs"),
-        ("school", "childcare", "child care", "daycare", "day care", "education", "college", "university"),
-    ),
-    "figure-health-care-facilities": TargetFigureSpec(
-        ("maris_community_facilities", "hifld_community_infrastructure"),
-        ("hospital", "clinic", "health", "medical", "urgent care", "nursing"),
-    ),
-    "figure-places-of-worship": TargetFigureSpec(
-        ("maris_community_facilities", "hifld_community_infrastructure"),
-        ("worship", "church", "synagogue", "mosque", "temple", "chapel"),
-    ),
-    "figure-public-water-supply-wells": TargetFigureSpec(
-        ("mdeq_public_water_supply_wells",),
-    ),
-    "figure-energy-infrastructure": TargetFigureSpec(
-        ("local_utility_infrastructure",),
-        ("electric", "transmission", "substation", "pipeline", "power", "energy", "utility"),
-    ),
-    "figure-hazardous-waste-sites": TargetFigureSpec(
-        ("epa_envirofacts_echo", "mdeq_environmental_context", "mississippi_oil_gas_wells"),
-    ),
-    "figure-census-tracts": TargetFigureSpec(
-        ("census_tiger_acs",),
-    ),
-}
 
 
 def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
@@ -240,7 +146,7 @@ def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
         },
         "output_path": str(output_path),
     }
-    _validate_deliverable_figures(result, str(output_path))
+    validate_deliverable_figures(result, str(output_path))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     return result
@@ -256,7 +162,7 @@ def load_deliverable_figures(project_dir: Path) -> dict[str, Any]:
         raise DeliverableFigureError(f"Invalid deliverable figures JSON: {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise DeliverableFigureError(f"Deliverable figures artifact must be a JSON object: {path}")
-    _validate_deliverable_figures(data, str(path))
+    validate_deliverable_figures(data, str(path))
     return data
 
 
@@ -543,7 +449,7 @@ def _figure_for_target(
                 validation_issues=validation_issues,
             )
 
-    basemap = _load_basemap(project_area, analysis_crs) if spec.prefer_basemap else {"layer": None, "issues": [], "flags": [], "shown_layer": None}
+    basemap = load_basemap(project_area, analysis_crs) if spec.prefer_basemap else {"layer": None, "issues": [], "flags": [], "shown_layer": None}
     validation_issues.extend(_dict_list(basemap.get("issues", [])))
     uncertainty_flags.update(_string_list(basemap.get("flags", [])))
 
@@ -551,7 +457,7 @@ def _figure_for_target(
     source_note = _source_note(layer_records, basemap)
     method_note = _method_note(analysis_crs, include_basemap=bool(basemap.get("layer")))
     try:
-        _render_map(
+        render_map(
             output_path=image_path,
             title=target.title,
             unit_gdf=unit_gdf,
@@ -794,362 +700,6 @@ def _deliverable_figure(
     }
 
 
-def _load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, Any]:
-    selected_paths = _string_list(project_area.get("selected_basemap_paths", []))
-    renderable_paths = [path for path in _string_list(project_area.get("renderable_basemap_paths", [])) if Path(path).suffix.lower() in RENDERABLE_BASEMAP_SUFFIXES]
-    if not selected_paths and not renderable_paths:
-        return {"layer": None, "issues": [], "flags": ["vector_only_no_basemap"], "shown_layer": None, "source_ref": None}
-    if selected_paths and not renderable_paths:
-        return {
-            "layer": None,
-            "issues": [
-                _issue(
-                    "warning",
-                    "basemap_selected_not_renderable",
-                    "Selected MARIS/NAIP imagery is MrSID provenance only; no renderable sidecar was selected for figure rendering.",
-                    str(project_area.get("output_path") or ""),
-                    source_id=MARIS_NAIP_SOURCE_ID,
-                )
-            ],
-            "flags": ["source_selected_not_renderable", "renderable_sidecar_missing", "vector_only_no_basemap"],
-            "shown_layer": {
-                "layer_type": "basemap_provenance",
-                "source_id": MARIS_NAIP_SOURCE_ID,
-                "label": MARIS_NAIP_SOURCE_NAME,
-                "selected_paths": selected_paths,
-                "renderable": False,
-            },
-            "source_ref": MARIS_NAIP_SOURCE_ID,
-            "selected_paths": selected_paths,
-            "renderable_paths": renderable_paths,
-        }
-    for path_text in renderable_paths:
-        path = Path(path_text)
-        if not path.exists():
-            continue
-        layer, issue = _read_basemap_layer(path, project_area, analysis_crs)
-        if layer is not None:
-            return {
-                "layer": layer,
-                "issues": [],
-                "flags": ["basemap_sidecar_rendered"],
-                "shown_layer": {
-                    "layer_type": "basemap",
-                    "source_id": MARIS_NAIP_SOURCE_ID,
-                    "label": MARIS_NAIP_SOURCE_NAME,
-                    "path": str(path),
-                    "selected_paths": selected_paths,
-                    "renderable": True,
-                },
-                "source_ref": MARIS_NAIP_SOURCE_ID,
-                "selected_paths": selected_paths,
-                "renderable_paths": renderable_paths,
-            }
-        if issue is not None:
-            return {
-                "layer": None,
-                "issues": [issue],
-                "flags": ["basemap_render_failed", "vector_only_no_basemap"],
-                "shown_layer": {
-                    "layer_type": "basemap_provenance",
-                    "source_id": MARIS_NAIP_SOURCE_ID,
-                    "label": MARIS_NAIP_SOURCE_NAME,
-                    "path": str(path),
-                    "selected_paths": selected_paths,
-                    "renderable": False,
-                },
-                "source_ref": MARIS_NAIP_SOURCE_ID,
-                "selected_paths": selected_paths,
-                "renderable_paths": renderable_paths,
-            }
-    return {
-        "layer": None,
-        "issues": [
-            _issue(
-                "warning",
-                "basemap_render_failed",
-                "Selected MARIS/NAIP renderable sidecar path is unavailable or unusable.",
-                str(project_area.get("output_path") or ""),
-                source_id=MARIS_NAIP_SOURCE_ID,
-            )
-        ],
-        "flags": ["basemap_render_failed", "vector_only_no_basemap"],
-        "shown_layer": None,
-        "source_ref": MARIS_NAIP_SOURCE_ID,
-        "selected_paths": selected_paths,
-        "renderable_paths": renderable_paths,
-    }
-
-
-def _read_basemap_layer(path: Path, project_area: dict[str, Any], analysis_crs: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    suffix = path.suffix.lower()
-    if suffix == ".png":
-        bbox = _metadata_bbox_for_path(path, project_area)
-        if bbox is None:
-            return None, _issue(
-                "warning",
-                "basemap_render_failed",
-                "PNG basemap sidecar lacks usable WGS84 metadata extent; falling back to vector-only rendering.",
-                str(path),
-                source_id=MARIS_NAIP_SOURCE_ID,
-            )
-        try:
-            image = plt.imread(path)
-            extent = _bbox_to_crs_extent(bbox, analysis_crs)
-        except Exception as exc:  # pragma: no cover - image backends vary.
-            return None, _issue(
-                "warning",
-                "basemap_render_failed",
-                f"PNG basemap sidecar could not be read: {exc}",
-                str(path),
-                source_id=MARIS_NAIP_SOURCE_ID,
-            )
-        return {"image": image, "extent": extent, "path": str(path)}, None
-
-    try:
-        import rasterio
-    except ImportError:
-        return None, _issue(
-            "warning",
-            "basemap_render_failed",
-            "GeoTIFF basemap sidecar was selected, but rasterio is not installed; falling back to vector-only rendering.",
-            str(path),
-            source_id=MARIS_NAIP_SOURCE_ID,
-        )
-    try:
-        with rasterio.open(path) as dataset:
-            indexes = [1, 2, 3] if dataset.count >= 3 else [1]
-            data = dataset.read(indexes)
-            if len(indexes) == 1:
-                image: Any = data[0]
-            else:
-                image = data.transpose(1, 2, 0)
-            if dataset.crs is None:
-                bbox = _metadata_bbox_for_path(path, project_area)
-                if bbox is None:
-                    raise ValueError("GeoTIFF has no CRS and no metadata bbox is available.")
-                extent = _bbox_to_crs_extent(bbox, analysis_crs)
-            else:
-                west, south, east, north = dataset.bounds
-                transformer = Transformer.from_crs(dataset.crs, analysis_crs, always_xy=True)
-                xs, ys = transformer.transform([west, east], [south, north])
-                extent = (min(xs), max(xs), min(ys), max(ys))
-    except Exception as exc:  # pragma: no cover - raster drivers vary.
-        return None, _issue(
-            "warning",
-            "basemap_render_failed",
-            f"GeoTIFF basemap sidecar could not be read: {exc}",
-            str(path),
-            source_id=MARIS_NAIP_SOURCE_ID,
-        )
-    return {"image": image, "extent": extent, "path": str(path)}, None
-
-
-def _metadata_bbox_for_path(path: Path, project_area: dict[str, Any]) -> dict[str, float] | None:
-    for candidate in _dict_list(project_area.get("aerial_basemap_candidates", [])):
-        paths = set(_string_list(candidate.get("renderable_sidecar_paths", [])))
-        paths.update(_string_list(candidate.get("sid_paths", [])))
-        if str(path) not in paths:
-            continue
-        bbox = candidate.get("metadata_bbox_wgs84")
-        if isinstance(bbox, dict) and {"west", "south", "east", "north"}.issubset(bbox):
-            try:
-                return {key: float(bbox[key]) for key in ("west", "south", "east", "north")}
-            except (TypeError, ValueError):
-                return None
-    return None
-
-
-def _bbox_to_crs_extent(bbox: dict[str, float], analysis_crs: str) -> tuple[float, float, float, float]:
-    transformer = Transformer.from_crs("EPSG:4326", analysis_crs, always_xy=True)
-    west, south = transformer.transform(float(bbox["west"]), float(bbox["south"]))
-    east, north = transformer.transform(float(bbox["east"]), float(bbox["north"]))
-    return min(west, east), max(west, east), min(south, north), max(south, north)
-
-
-def _render_map(
-    *,
-    output_path: Path,
-    title: str,
-    unit_gdf: gpd.GeoDataFrame,
-    analysis_crs: str,
-    source_layers: list[dict[str, Any]],
-    basemap: dict[str, Any] | None,
-    method_note: str,
-    source_note: str,
-    focus_bounds: Any | None = None,
-) -> None:
-    fig, ax = plt.subplots(figsize=(6.5, 4.25), dpi=180)
-    try:
-        handles: list[Any] = []
-        plotted: list[gpd.GeoDataFrame] = []
-        if basemap and isinstance(basemap.get("layer"), dict):
-            layer = basemap["layer"]
-            ax.imshow(layer["image"], extent=layer["extent"], alpha=0.78, zorder=0)
-
-        handles.extend(_plot_gdf(ax, unit_gdf, color=PROJECT_COLORS[0], label="Comparison units", is_project=True))
-        plotted.append(unit_gdf)
-        for index, layer in enumerate(source_layers):
-            gdf = layer["gdf"]
-            color = SOURCE_CATEGORY_COLORS.get(str(layer.get("source_category", "")), _source_color(index))
-            label = str(layer.get("source_name") or layer.get("source_id") or "Source layer")
-            handles.extend(_plot_gdf(ax, gdf, color=color, label=label, is_project=False))
-            if not gdf.empty:
-                plotted.append(gdf)
-
-        if focus_bounds is not None:
-            _set_bounds(ax, focus_bounds)
-        else:
-            _set_extent(ax, plotted)
-        ax.set_title(title, fontsize=10, pad=7)
-        ax.set_axis_off()
-        if handles:
-            ax.legend(handles=_dedupe_handles(handles), loc="upper left", frameon=True, framealpha=0.94, fontsize=6.2, title="Mapped layers", title_fontsize=6.4)
-        _add_north_arrow(ax)
-        _add_scale_bar(ax, analysis_crs)
-        if source_note:
-            ax.text(
-                0.01,
-                0.01,
-                source_note,
-                transform=ax.transAxes,
-                ha="left",
-                va="bottom",
-                fontsize=5.8,
-                color="#333333",
-                bbox={"facecolor": "white", "edgecolor": "#D0D0D0", "alpha": 0.9, "pad": 2},
-            )
-        ax.text(
-            0.99,
-            0.01,
-            "Draft / Pre-Review\n" + method_note,
-            transform=ax.transAxes,
-            ha="right",
-            va="bottom",
-            fontsize=5.8,
-            color="#333333",
-            bbox={"facecolor": "white", "edgecolor": "#BDBDBD", "alpha": 0.9, "pad": 2},
-        )
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(output_path, bbox_inches="tight", facecolor="white")
-    finally:
-        plt.close(fig)
-
-
-def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, color: str, label: str, is_project: bool) -> list[Any]:
-    if gdf.empty:
-        return []
-    handles: list[Any] = []
-    polygon_gdf = gdf[gdf.geometry.geom_type.str.contains("Polygon", na=False)]
-    line_gdf = gdf[gdf.geometry.geom_type.str.contains("LineString", na=False)]
-    point_gdf = gdf[gdf.geometry.geom_type.str.contains("Point", na=False)]
-    if not polygon_gdf.empty:
-        if is_project:
-            polygon_gdf.plot(ax=ax, facecolor="none", edgecolor=color, linewidth=1.5, zorder=5)
-            handles.append(Patch(facecolor="none", edgecolor=color, label=label))
-        else:
-            polygon_gdf.plot(ax=ax, facecolor=color, edgecolor=color, linewidth=0.6, alpha=0.32, zorder=3)
-            handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.32, label=label))
-    if not line_gdf.empty:
-        width = 2.0 if is_project else 1.1
-        line_gdf.plot(ax=ax, color=color, linewidth=width, alpha=0.94 if is_project else 0.7, zorder=6 if is_project else 4)
-        handles.append(Line2D([0], [0], color=color, lw=width, label=label))
-    if not point_gdf.empty:
-        size = 34 if is_project else 20
-        point_gdf.plot(ax=ax, color=color, markersize=size, alpha=0.94 if is_project else 0.72, zorder=7 if is_project else 5)
-        handles.append(Line2D([0], [0], marker="o", color="none", markerfacecolor=color, markersize=5.5, label=label))
-    return handles[:1]
-
-
-def _set_extent(ax: Any, layers: list[gpd.GeoDataFrame]) -> None:
-    non_empty = [layer for layer in layers if not layer.empty]
-    if not non_empty:
-        return
-    bounds = [layer.total_bounds for layer in non_empty]
-    west = min(float(bound[0]) for bound in bounds)
-    south = min(float(bound[1]) for bound in bounds)
-    east = max(float(bound[2]) for bound in bounds)
-    north = max(float(bound[3]) for bound in bounds)
-    _set_bounds(ax, (west, south, east, north))
-
-
-def _set_bounds(ax: Any, bounds: Any) -> None:
-    west, south, east, north = [float(value) for value in bounds]
-    width = east - west
-    height = north - south
-    pad_x = width * 0.08 if width > 0 else 250
-    pad_y = height * 0.08 if height > 0 else 250
-    ax.set_xlim(west - pad_x, east + pad_x)
-    ax.set_ylim(south - pad_y, north + pad_y)
-    ax.set_aspect("equal", adjustable="box")
-
-
-def _add_north_arrow(ax: Any) -> None:
-    ax.annotate(
-        "N",
-        xy=(0.94, 0.90),
-        xytext=(0.94, 0.79),
-        xycoords="axes fraction",
-        textcoords="axes fraction",
-        ha="center",
-        va="center",
-        fontsize=8,
-        fontweight="bold",
-        arrowprops={"arrowstyle": "-|>", "color": "#2B2B2B", "lw": 1.0},
-        bbox={"facecolor": "white", "edgecolor": "#BDBDBD", "alpha": 0.9, "pad": 1.5},
-    )
-
-
-def _add_scale_bar(ax: Any, analysis_crs: str) -> None:
-    feet_per_unit = _feet_per_crs_unit(analysis_crs)
-    if feet_per_unit is None:
-        return
-    x_min, x_max = ax.get_xlim()
-    y_min, y_max = ax.get_ylim()
-    width = abs(x_max - x_min)
-    height = abs(y_max - y_min)
-    if width <= 0 or height <= 0:
-        return
-    target_feet = width * feet_per_unit * 0.18
-    scale_feet = _nice_scale_feet(target_feet)
-    scale_units = scale_feet / feet_per_unit
-    x0 = x_min + width * 0.08
-    y0 = y_min + height * 0.08
-    ax.plot([x0, x0 + scale_units], [y0, y0], color="#2B2B2B", linewidth=2.0, solid_capstyle="butt")
-    label = f"{scale_feet / 5280:g} mi" if scale_feet >= 5280 else f"{int(scale_feet):,} ft"
-    ax.text(
-        x0 + scale_units / 2,
-        y0 + height * 0.018,
-        label,
-        ha="center",
-        va="bottom",
-        fontsize=5.8,
-        color="#2B2B2B",
-        bbox={"facecolor": "white", "edgecolor": "#D0D0D0", "alpha": 0.9, "pad": 1.5},
-    )
-
-
-def _feet_per_crs_unit(analysis_crs: str) -> float | None:
-    try:
-        crs = CRS.from_user_input(analysis_crs)
-    except Exception:
-        return None
-    if not crs.axis_info:
-        return None
-    unit_name = str(crs.axis_info[0].unit_name or "").lower()
-    if "metre" in unit_name or "meter" in unit_name:
-        return 3.280839895
-    if "foot" in unit_name or "feet" in unit_name:
-        return 1.0
-    return None
-
-
-def _nice_scale_feet(target_feet: float) -> float:
-    candidates = [100, 250, 500, 1000, 2000, 5280, 10000, 26400, 52800, 105600]
-    valid = [candidate for candidate in candidates if candidate <= target_feet]
-    return float(valid[-1] if valid else candidates[0])
-
-
 def _attachment_supporting_figures(
     *,
     figures_dir: Path,
@@ -1170,15 +720,15 @@ def _attachment_supporting_figures(
     if aspect <= PANEL_ASPECT_THRESHOLD:
         return [], []
     panel_count = min(MAX_PANEL_COUNT, max(2, int(math.ceil(aspect / PANEL_ASPECT_THRESHOLD)) + 1))
-    panels = _panel_bounds((west, south, east, north), panel_count)
-    basemap = _load_basemap(project_area, analysis_crs)
+    panels = panel_bounds((west, south, east, north), panel_count)
+    basemap = load_basemap(project_area, analysis_crs)
     records: list[dict[str, Any]] = []
     issues: list[dict[str, Any]] = []
     for index, bounds in enumerate(panels, start=1):
         panel_id = f"attachment-a-panel-{index:03d}"
         image_path = figures_dir / f"{panel_id}.png"
         try:
-            _render_map(
+            render_map(
                 output_path=image_path,
                 title=f"Attachment A Supporting Panel {index}",
                 unit_gdf=unit_gdf,
@@ -1236,26 +786,6 @@ def _attachment_supporting_figures(
             }
         )
     return records, _dedupe_issues(issues)
-
-
-def _panel_bounds(bounds: tuple[float, float, float, float], panel_count: int) -> list[tuple[float, float, float, float]]:
-    west, south, east, north = bounds
-    width = east - west
-    height = north - south
-    panels: list[tuple[float, float, float, float]] = []
-    if width >= height:
-        step = width / panel_count
-        for index in range(panel_count):
-            left = west + step * index
-            right = east if index == panel_count - 1 else west + step * (index + 1)
-            panels.append((left, south, right, north))
-    else:
-        step = height / panel_count
-        for index in range(panel_count):
-            bottom = south + step * index
-            top = north if index == panel_count - 1 else south + step * (index + 1)
-            panels.append((west, bottom, east, top))
-    return panels
 
 
 def _related_constraint_ids(constraints: list[dict[str, Any]], source_ids: list[str], tokens: tuple[str, ...]) -> list[str]:
@@ -1412,23 +942,6 @@ def _dedupe_source_layers(layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def _dedupe_handles(handles: list[Any]) -> list[Any]:
-    seen: set[str] = set()
-    result: list[Any] = []
-    for handle in handles:
-        label = str(handle.get_label())
-        if label in seen:
-            continue
-        seen.add(label)
-        result.append(handle)
-    return result
-
-
-def _source_color(index: int) -> str:
-    colors = ["#6BAA75", "#E45E5E", "#7A6FF0", "#D99A2B", "#3A8D8F", "#A35C9F"]
-    return colors[index % len(colors)]
-
-
 def _issue(
     severity: str,
     code: str,
@@ -1479,93 +992,6 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
-
-
-def _validate_deliverable_figures(data: dict[str, Any], location: str) -> None:
-    figures = data.get("figures")
-    if not isinstance(figures, list):
-        raise DeliverableFigureError(f"Deliverable figures artifact requires a list field named 'figures': {location}")
-    if data.get("figure_count") != len(figures):
-        raise DeliverableFigureError(f"Deliverable figures artifact figure_count does not match figures: {location}")
-    if len(figures) != 13:
-        raise DeliverableFigureError(f"Deliverable figures artifact must contain exactly 13 main figures: {location}")
-    if not isinstance(data.get("attachment_supporting_figures", []), list):
-        raise DeliverableFigureError(f"Deliverable figures artifact attachment_supporting_figures must be a list: {location}")
-    if data.get("attachment_supporting_figure_count", 0) != len(data.get("attachment_supporting_figures", [])):
-        raise DeliverableFigureError(f"Attachment supporting figure count does not match records: {location}")
-    if not isinstance(data.get("validation_issues", []), list):
-        raise DeliverableFigureError(f"Deliverable figures artifact validation_issues must be a list: {location}")
-
-    seen_ids: set[str] = set()
-    required = {
-        "figure_id",
-        "type",
-        "figure_type",
-        "figure_number",
-        "title",
-        "section_target_id",
-        "image_path",
-        "file_format",
-        "caption",
-        "source_note",
-        "method_note",
-        "map_elements",
-        "figure_group",
-        "related_resource_categories",
-        "shown_layers",
-        "source_refs",
-        "layer_refs",
-        "related_constraint_ids",
-        "comparison_unit_ids",
-        "provenance",
-        "uncertainty_flags",
-        "is_stub",
-        "stub_text",
-        "review_status",
-        "validation_issues",
-    }
-    for figure in figures:
-        if not isinstance(figure, dict):
-            raise DeliverableFigureError(f"Each deliverable figure must be an object: {location}")
-        missing = sorted(required - set(figure))
-        if missing:
-            raise DeliverableFigureError(f"Deliverable figure is missing required fields {missing}: {location}")
-        figure_id = figure["figure_id"]
-        if not isinstance(figure_id, str) or not figure_id.strip():
-            raise DeliverableFigureError(f"Deliverable figure requires a non-empty figure_id: {location}")
-        if figure_id in seen_ids:
-            raise DeliverableFigureError(f"Duplicate deliverable figure id '{figure_id}': {location}")
-        seen_ids.add(figure_id)
-        if figure["file_format"] != "png":
-            raise DeliverableFigureError(f"Deliverable figure '{figure_id}' file_format must be png: {location}")
-        if figure["review_status"] not in SUPPORTED_REVIEW_STATUSES:
-            raise DeliverableFigureError(f"Deliverable figure '{figure_id}' has unsupported review_status: {location}")
-        if not isinstance(figure["is_stub"], bool):
-            raise DeliverableFigureError(f"Deliverable figure '{figure_id}' is_stub must be boolean: {location}")
-        if figure["is_stub"]:
-            if figure.get("stub_text") != REQUIRED_STUB_TEXT:
-                raise DeliverableFigureError(f"Deliverable figure '{figure_id}' stub_text does not match required stub text: {location}")
-        else:
-            image_path = str(figure.get("image_path", ""))
-            if not image_path:
-                raise DeliverableFigureError(f"Deliverable figure '{figure_id}' requires image_path when not a stub: {location}")
-            if not Path(image_path).exists():
-                raise DeliverableFigureError(f"Deliverable figure '{figure_id}' image_path does not exist: {image_path}")
-        if not isinstance(figure["provenance"], dict):
-            raise DeliverableFigureError(f"Deliverable figure '{figure_id}' provenance must be an object: {location}")
-        for list_field in (
-            "map_elements",
-            "related_resource_categories",
-            "shown_layers",
-            "source_refs",
-            "layer_refs",
-            "related_constraint_ids",
-            "comparison_unit_ids",
-            "uncertainty_flags",
-            "validation_issues",
-        ):
-            if not isinstance(figure[list_field], list):
-                raise DeliverableFigureError(f"Deliverable figure '{figure_id}' field '{list_field}' must be a list: {location}")
 
 
 def _utc_now() -> str:
