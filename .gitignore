@@ -22,7 +22,11 @@ env/
 !.env.example
 
 # Local bulk source warehouse
-sources/
+sources/*
+sources/**/*
+!sources/**/
+!sources/source_warehouse_manifest.json
+!sources/**/source_manifest.json
 temp_unzips/
 temp_zips/
 
@@ -46,6 +50,9 @@ projects/*/drafts/
 projects/*/exports/
 projects/*/evidence/
 projects/*/layers/
+projects/*/basemaps/
+projects/*/web_runs/
+projects/*/staging/
 
 # OS/editor files
 .DS_Store

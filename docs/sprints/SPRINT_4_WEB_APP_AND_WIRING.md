@@ -4,6 +4,10 @@
 
 Build the web app UI and wire it to the services completed in Sprints 1 through 3. This sprint should not invent new GIS, report, review, or export behavior in the UI. The web app is a thin operator surface over the canonical pipeline defined in `CANONICAL_PLAN.md`.
 
+## Status
+
+This sprint is still active/planned, not archived. Passes 1, 2A, and 2B are implemented; remaining work includes role correction UI, advanced audit browsing, project archive flow, browser smoke testing, background execution, broader UI polish, and production/deployment concerns if later approved.
+
 ## Prerequisites
 
 Sprint 4 should start only after these backend capabilities exist:

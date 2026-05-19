@@ -1,14 +1,13 @@
 # Sprint Index
 
-Root-level sprint docs remain the active working style for not-yet-implemented sprints. This index is the routing layer so agents do not need to scan every sprint file.
+Active sprint docs live in this directory. Completed sprint docs move to `docs/archive/sprints/`.
 
 ## Active Sprint/Subunit
 
-- Sprint 4: `SPRINT_4_WEB_APP_AND_WIRING.md`
+- Sprint 4: `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md`
 
 ## Planned Sprint/Subunits
 
-- Sprint 4: `SPRINT_4_WEB_APP_AND_WIRING.md`
 - Roadmap reference: `docs/sprints/ROADMAP.md`
 
 ## Completed Sprint/Subunits

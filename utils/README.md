@@ -15,8 +15,7 @@ By default, the script scans the repository root for `*.kmz` and `*.kml` files a
 You can also pass files or directories explicitly:
 
 ```powershell
-.\.venv\Scripts\python.exe .\utils\kmz_to_png.py .\trail_route_alternatives.kmz
+.\.venv\Scripts\python.exe .\utils\kmz_to_png.py .\projects\trails\inputs\trail_route_alternatives.kmz
 ```
 
 This utility is for visual inspection only. It is not a GIS analysis engine and does not replace field verification or source-backed review.
-
