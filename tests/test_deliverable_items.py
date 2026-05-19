@@ -12,6 +12,7 @@ from review_assist.deliverable_items import (
     DELIVERABLE_ITEMS_PATH,
     REQUIRED_ITEM_FIELDS,
     DeliverableItemsError,
+    _section_evidence,
     generate_deliverable_items,
     load_deliverable_items,
 )
@@ -130,23 +131,38 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
 
     table = item_by_id(result, "table-wetlands-waterbodies")
     figure = item_by_id(result, "figure-wetlands-waterbodies")
+    attachment_a_wrapper = item_by_id(result, "attachment-a-project-maps")
+    attachment_b_wrapper = item_by_id(result, "attachment-b-hazardous-materials-report")
     attachment = item_by_id(result, "attachment-hazardous-materials-report")
     section = item_by_id(result, "wetlands-and-waterbodies")
 
     assert table["review_item_type"] == "table"
     assert table["table_id"] == "table-wetlands-waterbodies"
     assert table["is_stub"] is True
-    assert table["generated_content"] == REQUIRED_STUB_TEXT
+    assert table["stub_text"] == REQUIRED_STUB_TEXT
+    assert "explicit review stub" in table["generated_content"]
+    assert "Expected source refs" in table["generated_content"]
     assert figure["review_item_type"] == "figure"
     assert figure["figure_id"] == "figure-wetlands-waterbodies"
     assert figure["is_stub"] is True
-    assert figure["generated_content"] == REQUIRED_STUB_TEXT
+    assert figure["stub_text"] == REQUIRED_STUB_TEXT
+    assert "explicit review stub" in figure["generated_content"]
+    assert "Reviewer action needed" in figure["generated_content"]
     assert attachment["review_item_type"] == "attachment"
     assert attachment["attachment_id"] == "attachment-hazardous-materials-report"
-    assert attachment["generated_content"] == REQUIRED_STUB_TEXT
+    assert attachment["stub_text"] == REQUIRED_STUB_TEXT
+    assert "Hazardous Materials Report" in attachment["generated_content"]
+    assert "supporting attachment material" in attachment["generated_content"]
+    assert "attachment-environmental-constraints-maps" in attachment_a_wrapper["generated_content"]
+    assert "Reviewer verification is required" in attachment_a_wrapper["generated_content"]
+    assert attachment_a_wrapper["assumptions"]["source_gap_status"] == []
+    assert "attachment-hazardous-materials-report" in attachment_b_wrapper["generated_content"]
+    assert attachment_b_wrapper["assumptions"]["source_gap_status"] == []
     assert section["related_table_ids"] == ["table-wetlands-waterbodies"]
     assert section["related_figure_ids"] == ["figure-wetlands-waterbodies"]
-    assert section["generated_content"] == REQUIRED_STUB_TEXT
+    assert section["stub_text"] == REQUIRED_STUB_TEXT
+    assert "explicit review stub" in section["generated_content"]
+    assert "Related table status" in section["generated_content"]
 
 
 def test_load_deliverable_items_round_trip_and_validates_contract(
@@ -169,6 +185,43 @@ def test_load_deliverable_items_round_trip_and_validates_contract(
 
     with pytest.raises(DeliverableItemsError, match="item_count"):
         load_deliverable_items(project_dir)
+
+    corrupted["item_count"] = written["item_count"]
+    corrupted["expected_item_count"] = written["expected_item_count"]
+    corrupted["items"][0]["is_stub"] = True
+    corrupted["items"][0]["stub_text"] = REQUIRED_STUB_TEXT
+    corrupted["items"][0]["generated_content"] = ""
+    path.write_text(json.dumps(corrupted, indent=2) + "\n", encoding="utf-8")
+
+    with pytest.raises(DeliverableItemsError, match="stub generated_content"):
+        load_deliverable_items(project_dir)
+
+
+def test_section_evidence_prefers_available_category_for_broad_targets() -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.section_targets if item.target_id == "natural-and-ecological-resources")
+    evidence = {
+        "section_evidence": {
+            "flood-hazard": {
+                "section_id": "flood-hazard",
+                "resource_category": "flood_hazard",
+                "source_gap_status": [{"category": "flood_hazard", "status": "downloadable"}],
+                "evidence_classes": ["failed_or_missing"],
+                "source_refs": ["fema_nfhl_flood_hazard"],
+            },
+            "wetlands-and-waterbodies": {
+                "section_id": "wetlands-and-waterbodies",
+                "resource_category": "wetlands_waterbodies",
+                "source_gap_status": [{"category": "wetlands_waterbodies", "status": "provided_locally"}],
+                "evidence_classes": ["real_source"],
+                "source_refs": ["usfws_nwi_wetlands"],
+            },
+        }
+    }
+
+    selected = _section_evidence(evidence, target, None, None)
+
+    assert selected["section_id"] == "wetlands-and-waterbodies"
 
 
 def test_cli_generate_deliverable_items_json(

@@ -236,8 +236,11 @@ def validate_deliverable_items(data: dict[str, Any], location: str) -> None:
             raise DeliverableItemsError(f"Deliverable item '{item_id}' export_eligible must be boolean: {location}")
         if not isinstance(item["is_stub"], bool):
             raise DeliverableItemsError(f"Deliverable item '{item_id}' is_stub must be boolean: {location}")
-        if item["is_stub"] and (item["stub_text"] != REQUIRED_STUB_TEXT or item["generated_content"] != REQUIRED_STUB_TEXT):
-            raise DeliverableItemsError(f"Deliverable item '{item_id}' stub content must use the canonical stub text: {location}")
+        if item["is_stub"]:
+            if item["stub_text"] != REQUIRED_STUB_TEXT:
+                raise DeliverableItemsError(f"Deliverable item '{item_id}' stub_text must use the canonical stub text: {location}")
+            if not isinstance(item["generated_content"], str) or not item["generated_content"].strip():
+                raise DeliverableItemsError(f"Deliverable item '{item_id}' stub generated_content must be non-empty: {location}")
         if item["export_eligible"] and item["review_status"] not in {"accepted", "edited", "replaced", "unable_to_verify"}:
             raise DeliverableItemsError(f"Deliverable item '{item_id}' cannot be export eligible with status '{item['review_status']}': {location}")
         for list_field in (
@@ -451,7 +454,7 @@ def _section_item(
     validation_issues = _target_validation_issues(evidence, related_tables, related_figures, target)
     source_gap_status = _dict_list(evidence.get("source_gap_status", []))
     is_stub = _section_is_stub(target, evidence, related_tables, related_figures, source_gap_status, comparison_unit)
-    generated_content = REQUIRED_STUB_TEXT if is_stub else _section_content(
+    generated_content = _stub_section_content(target, source_gap_status, related_tables, related_figures, validation_issues) if is_stub else _section_content(
         target=target,
         context=context,
         evidence=evidence,
@@ -506,10 +509,7 @@ def _section_item(
         uncertainty_flags = _dedupe([*uncertainty_flags, "gpt_drafted_pre_review"])
     if any(issue.get("code") in {"gpt_output_rejected", "gpt_empty_output"} for issue in draft_result.validation_issues):
         uncertainty_flags = _dedupe([*uncertainty_flags, "gpt_draft_rejected"])
-    if is_stub:
-        content = REQUIRED_STUB_TEXT
-    else:
-        content = draft_result.content
+    content = generated_content if is_stub else draft_result.content
 
     return _base_item(
         deliverable_item_id=target.target_id,
@@ -560,7 +560,7 @@ def _section_item(
 def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str, output_path: Path) -> dict[str, Any]:
     table = _table_lookup(tables).get(target.target_id, {})
     is_stub = bool(table.get("is_stub", True))
-    content = REQUIRED_STUB_TEXT if is_stub else (
+    content = _stub_table_content(target, table) if is_stub else (
         f"Generated deliverable table '{table.get('title') or target.title}' with {table.get('row_count', 0)} row(s). "
         "Reviewer verification is required before export."
     )
@@ -609,7 +609,7 @@ def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str
 def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: str, output_path: Path) -> dict[str, Any]:
     figure = _figure_lookup(figures).get(target.target_id, {})
     is_stub = bool(figure.get("is_stub", True))
-    content = REQUIRED_STUB_TEXT if is_stub else (
+    content = _stub_figure_content(target, figure) if is_stub else (
         f"Generated deliverable figure '{figure.get('title') or target.title}' at {figure.get('image_path', '')}. "
         "Reviewer verification is required before export."
     )
@@ -670,7 +670,7 @@ def _attachment_item(target: AttachmentTarget, figures: dict[str, Any], matrix_v
     else:
         validation_issues.append(_issue("warning", "attachment_source_missing", "Required attachment support is not supplied by the automated Sprint 3.1 workflow.", str(output_path), target.target_id))
     is_stub = target.target_id != "attachment-environmental-constraints-maps" or not related_figure_ids
-    content = REQUIRED_STUB_TEXT if is_stub else (
+    content = _stub_attachment_content(target, validation_issues) if is_stub else (
         "Attachment A references the matrix-backed deliverable figures and any generated supporting panel maps. "
         "The attachment remains draft/pre-review until a reviewer accepts the map package."
     )
@@ -794,20 +794,63 @@ def _section_evidence(
     template_target: SectionTarget | None,
     comparison_unit: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    for section_id in (target.target_id, template_target.target_id if template_target else "", target.resource_category.replace("_", "-")):
+    for section_id in (target.target_id, template_target.target_id if template_target else ""):
         evidence = section_evidence_for(evidence_package, section_id)
         if evidence:
             if comparison_unit:
                 return _comparison_unit_evidence(evidence, comparison_unit)
             return evidence
+
+    if target.target_type == "attachment" and target.attachment_refs:
+        return {}
+
+    category_candidates: list[dict[str, Any]] = []
+    for category in target.source_categories:
+        for section_id in (category.replace("_", "-"), category):
+            evidence = section_evidence_for(evidence_package, section_id)
+            if evidence:
+                category_candidates.append(evidence)
+    if target.source_categories:
+        evidence = section_evidence_for(evidence_package, target.resource_category.replace("_", "-"))
+        if evidence:
+            category_candidates.append(evidence)
+
     sections = evidence_package.get("section_evidence", {})
-    if isinstance(sections, dict):
+    if isinstance(sections, dict) and target.source_categories:
+        source_categories = {target.resource_category, *target.source_categories}
         for evidence in sections.values():
-            if isinstance(evidence, dict) and evidence.get("resource_category") == target.resource_category:
-                if comparison_unit:
-                    return _comparison_unit_evidence(evidence, comparison_unit)
-                return evidence
+            if isinstance(evidence, dict) and evidence.get("resource_category") in source_categories:
+                category_candidates.append(evidence)
+    if category_candidates:
+        evidence = _best_section_evidence(category_candidates)
+        if comparison_unit:
+            return _comparison_unit_evidence(evidence, comparison_unit)
+        return evidence
     return {}
+
+
+def _best_section_evidence(candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate.get("section_id") or candidate.get("resource_category") or id(candidate))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(candidate)
+    return sorted(enumerate(deduped), key=lambda item: (_section_evidence_score(item[1]), item[0]))[0][1]
+
+
+def _section_evidence_score(evidence: dict[str, Any]) -> int:
+    statuses = {str(status.get("status", "")) for status in _dict_list(evidence.get("source_gap_status", []))}
+    if statuses.intersection({"provided_locally", "local_materialized", "downloaded", "available"}):
+        return 0
+    evidence_classes = set(_string_list(evidence.get("evidence_classes", [])))
+    if evidence_classes and not evidence_classes.issubset({"failed_or_missing", "stub_or_manual"}):
+        return 1
+    if statuses and statuses.issubset(VERIFICATION_SOURCE_STATES | REVIEW_SOURCE_STATES):
+        return 3
+    return 2
 
 
 def _comparison_unit_evidence(evidence: dict[str, Any], comparison_unit: dict[str, Any]) -> dict[str, Any]:
@@ -855,6 +898,118 @@ def _section_is_stub(
     return False
 
 
+def _stub_section_content(
+    target: SectionTarget,
+    source_gap_status: list[dict[str, Any]],
+    related_tables: list[dict[str, Any]],
+    related_figures: list[dict[str, Any]],
+    validation_issues: list[dict[str, Any]],
+) -> str:
+    lines = [_title_line(target)]
+    lines.append("This item is an explicit review stub because required source data, table output, or figure output is not available for automated draft content.")
+    if source_gap_status:
+        lines.append("Source status requiring review: " + _source_gap_summary(source_gap_status) + ".")
+    if related_tables:
+        lines.append("Related table status: " + _artifact_stub_summary(related_tables, "table_id") + ".")
+    if related_figures:
+        lines.append("Related figure status: " + _artifact_stub_summary(related_figures, "figure_id") + ".")
+    reason = _issue_summary(validation_issues)
+    if reason:
+        lines.append("Blocking issue summary: " + reason + ".")
+    lines.append(_stub_reviewer_action(target.source_categories, _source_refs_from_status(source_gap_status)))
+    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    return "\n".join(line for line in lines if line)
+
+
+def _stub_table_content(target: TableTarget, table: dict[str, Any]) -> str:
+    source_refs = _string_list(table.get("source_refs", []))
+    flags = _string_list(table.get("uncertainty_flags", []))
+    lines = [str(table.get("title") or target.title)]
+    lines.append("This required deliverable table is an explicit review stub because no bounded table rows could be generated from the currently registered sources.")
+    if source_refs:
+        lines.append("Expected source refs: " + ", ".join(source_refs) + ".")
+    if flags:
+        lines.append("Source/data flags: " + ", ".join(flags) + ".")
+    lines.append(_stub_reviewer_action(target.source_categories, source_refs))
+    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    return "\n".join(lines)
+
+
+def _stub_figure_content(target: FigureTarget, figure: dict[str, Any]) -> str:
+    source_refs = _string_list(figure.get("source_refs", []))
+    issues = _dict_list(figure.get("validation_issues", []))
+    lines = [str(figure.get("title") or target.title)]
+    lines.append("This required deliverable figure is an explicit review stub because the source layer or rendering path is not available for automated draft figure generation.")
+    if source_refs:
+        lines.append("Expected source refs: " + ", ".join(source_refs) + ".")
+    reason = _issue_summary(issues)
+    if reason:
+        lines.append("Blocking issue summary: " + reason + ".")
+    lines.append(_stub_reviewer_action(target.source_categories, source_refs))
+    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    return "\n".join(lines)
+
+
+def _stub_attachment_content(target: AttachmentTarget, validation_issues: list[dict[str, Any]]) -> str:
+    lines = [f"Attachment {target.attachment_letter} {target.title}"]
+    lines.append("This required attachment is an explicit review stub because the supporting attachment material is not supplied by the automated workflow.")
+    if target.target_id == "attachment-hazardous-materials-report":
+        lines.append("Reviewer action needed: provide or verify the hazardous materials support report before accepting this attachment.")
+    elif target.target_id == "attachment-agency-consultation-letters":
+        lines.append("Reviewer action needed: provide or verify agency consultation letters before accepting this attachment.")
+    else:
+        lines.append("Reviewer action needed: provide or verify the required supporting attachment material before accepting this attachment.")
+    reason = _issue_summary(validation_issues)
+    if reason:
+        lines.append("Blocking issue summary: " + reason + ".")
+    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    return "\n".join(lines)
+
+
+def _source_gap_summary(source_gap_status: list[dict[str, Any]]) -> str:
+    parts = []
+    for status in source_gap_status[:6]:
+        category = str(status.get("category", "source"))
+        state = str(status.get("status", "unknown"))
+        source_refs = _string_list(status.get("source_ids", []))
+        suffix = f" ({', '.join(source_refs)})" if source_refs else ""
+        parts.append(f"{category}={state}{suffix}")
+    return ", ".join(parts)
+
+
+def _source_refs_from_status(source_gap_status: list[dict[str, Any]]) -> list[str]:
+    return _dedupe([ref for status in source_gap_status for ref in _string_list(status.get("source_ids", []))])
+
+
+def _artifact_stub_summary(records: list[dict[str, Any]], id_field: str) -> str:
+    parts = []
+    for record in records:
+        artifact_id = str(record.get(id_field, "artifact"))
+        status = "stub" if record.get("is_stub") else "generated"
+        parts.append(f"{artifact_id}={status}")
+    return ", ".join(parts)
+
+
+def _issue_summary(issues: list[dict[str, Any]]) -> str:
+    messages = []
+    for issue in issues:
+        message = str(issue.get("message", "")).strip()
+        code = str(issue.get("code", "")).strip()
+        if message:
+            messages.append(message)
+        elif code:
+            messages.append(code)
+    return "; ".join(_dedupe(messages)[:3])
+
+
+def _stub_reviewer_action(source_categories: list[str], source_refs: list[str]) -> str:
+    if source_refs:
+        return "Reviewer action needed: register/provide the listed source data or keep this item as a reviewed stub with an explicit limitation."
+    if source_categories:
+        return "Reviewer action needed: provide source data for " + ", ".join(source_categories) + " or keep this item as a reviewed stub with an explicit limitation."
+    return "Reviewer action needed: provide the required material or keep this item as a reviewed stub with an explicit limitation."
+
+
 def _section_content(
     *,
     target: SectionTarget,
@@ -871,9 +1026,13 @@ def _section_content(
     elif target.target_type == "front_matter":
         lines.append(_front_matter_content(target, context, related_tables, related_figures))
     elif target.target_type == "attachment":
-        lines.append("This attachment section is a draft placeholder for reviewer-verified supporting materials.")
+        if target.attachment_refs:
+            lines.append("This attachment wrapper references matrix attachment target(s): " + ", ".join(target.attachment_refs) + ".")
+            lines.append("Reviewer verification is required before the attachment is included in a reviewed export.")
+        else:
+            lines.append("This attachment section is a draft placeholder for reviewer-verified supporting materials.")
     else:
-        lines.append(f"This draft section is reserved for {target.title} and requires reviewer confirmation before export.")
+        lines.append(f"This bounded draft section identifies the source-backed artifacts available for {target.title} and requires reviewer confirmation before export.")
     if related_tables:
         lines.append("Related deliverable tables: " + ", ".join(str(table.get("table_id")) for table in related_tables if table.get("table_id")) + ".")
     if related_figures:
