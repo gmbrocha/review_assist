@@ -1,0 +1,24 @@
+{
+  "source_id": "usgs_nhd_flowlines",
+  "display_name": "USGS NHD Flowlines Mississippi",
+  "category": "hydrography_crossings",
+  "authority": "USGS / MARIS",
+  "warehouse_group": "hydrology",
+  "version": "December 2023",
+  "raw_paths": [
+    "raw/MS_NHDFlowlines_Dec23"
+  ],
+  "expected_geometry_type": "line",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2023-12",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "NHD may miss local ditches, altered drainage, or recent changes visible in imagery."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "usgs_nhd_flowlines"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "source_id": "maris_superfund_sites",
+  "display_name": "MARIS Superfund Sites Mississippi",
+  "category": "regulated_facilities",
+  "authority": "MARIS / EPA",
+  "warehouse_group": "environmental",
+  "version": "2022",
+  "raw_paths": [
+    "raw/MS_Superfund_2022"
+  ],
+  "expected_geometry_type": "point",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2022",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Superfund/NPL context requires current EPA record review and does not replace environmental due diligence."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "maris_superfund_sites"
+  ]
+}

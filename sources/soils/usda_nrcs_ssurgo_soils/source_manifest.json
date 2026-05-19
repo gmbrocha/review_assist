@@ -1,0 +1,24 @@
+{
+  "source_id": "usda_nrcs_ssurgo_soils",
+  "display_name": "USDA NRCS SSURGO Soils Mississippi",
+  "category": "soils",
+  "authority": "USDA NRCS Web Soil Survey",
+  "warehouse_group": "soils",
+  "version": "2016-10-13",
+  "raw_paths": [
+    "raw/wss_gsmsoil_MS_10_13_2016"
+  ],
+  "expected_geometry_type": "polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2016-10-13",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Soil map units are screening-level context and may not represent exact field boundaries."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "usda_nrcs_ssurgo_soils"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "source_id": "maris_conservation_recreation_lands",
+  "display_name": "MARIS Conservation and Recreation Lands",
+  "category": "conservation_public_lands",
+  "authority": "MARIS and source agencies",
+  "warehouse_group": "conservation",
+  "version": "2019-2021",
+  "raw_paths": [
+    "raw/MS_EasementAreas_2021",
+    "raw/MS_StateParks_2019",
+    "raw/MS_WildlifeManagementAreas_2019"
+  ],
+  "expected_geometry_type": "polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "varies",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Public conservation and recreation boundaries are screening context and should be checked against current source-agency records."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "maris_conservation_recreation_lands"
+  ]
+}

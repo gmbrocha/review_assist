@@ -11,13 +11,19 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from pyproj import Transformer
 
-from .basemaps import MARIS_NAIP_SOURCE_ID, MARIS_NAIP_SOURCE_NAME
+from .basemaps import MARIS_NAIP_SOURCE_ID, MARIS_NAIP_SOURCE_NAME, USDA_NAIP_SOURCE_ID, USDA_NAIP_SOURCE_NAME
 from .deliverable_figure_specs import RENDERABLE_BASEMAP_SUFFIXES
 
 
 def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, Any]:
     selected_paths = _string_list(project_area.get("selected_basemap_paths", []))
-    renderable_paths = [path for path in _string_list(project_area.get("renderable_basemap_paths", [])) if Path(path).suffix.lower() in RENDERABLE_BASEMAP_SUFFIXES]
+    project_local_basemaps = _dict_list(project_area.get("project_local_basemaps", []))
+    project_local_paths = [str(record.get("path")) for record in project_local_basemaps if str(record.get("path") or "").strip()]
+    renderable_paths = [
+        path
+        for path in _dedupe_strings([*project_local_paths, *_string_list(project_area.get("renderable_basemap_paths", []))])
+        if Path(path).suffix.lower() in RENDERABLE_BASEMAP_SUFFIXES
+    ]
     if not selected_paths and not renderable_paths:
         return {"layer": None, "issues": [], "flags": ["vector_only_no_basemap"], "shown_layer": None, "source_ref": None}
     if selected_paths and not renderable_paths:
@@ -27,7 +33,10 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
                 _issue(
                     "warning",
                     "basemap_selected_not_renderable",
-                    "Selected MARIS/NAIP imagery is MrSID provenance only; no renderable sidecar was selected for figure rendering.",
+                    (
+                        "County NAIP imagery was selected as provenance, but only MrSID source files are available. "
+                        "Provide GeoTIFF/PNG sidecar for visual basemap rendering."
+                    ),
                     str(project_area.get("output_path") or ""),
                     source_id=MARIS_NAIP_SOURCE_ID,
                 )
@@ -39,6 +48,9 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
                 "label": MARIS_NAIP_SOURCE_NAME,
                 "selected_paths": selected_paths,
                 "renderable": False,
+                "renderability_status": "selected_not_renderable",
+                "visual_use": "provenance_only",
+                "message": "County NAIP imagery selected as provenance only; renderable GeoTIFF/PNG sidecar is not available.",
             },
             "source_ref": MARIS_NAIP_SOURCE_ID,
             "selected_paths": selected_paths,
@@ -48,7 +60,10 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
         path = Path(path_text)
         if not path.exists():
             continue
-        layer, issue = _read_basemap_layer(path, project_area, analysis_crs)
+        record = _basemap_record_for_path(path, project_area)
+        source_id = str(record.get("source_id") or MARIS_NAIP_SOURCE_ID)
+        source_name = str(record.get("source_name") or record.get("label") or _basemap_name(source_id))
+        layer, issue = _read_basemap_layer(path, project_area, analysis_crs, source_id=source_id)
         if layer is not None:
             return {
                 "layer": layer,
@@ -56,13 +71,16 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
                 "flags": ["basemap_sidecar_rendered"],
                 "shown_layer": {
                     "layer_type": "basemap",
-                    "source_id": MARIS_NAIP_SOURCE_ID,
-                    "label": MARIS_NAIP_SOURCE_NAME,
+                    "source_id": source_id,
+                    "label": source_name,
                     "path": str(path),
                     "selected_paths": selected_paths,
                     "renderable": True,
+                    "renderability_status": "rendered",
+                    "visual_use": "rendered_basemap",
+                    "message": f"{source_name} renderable sidecar was used as the visual basemap.",
                 },
-                "source_ref": MARIS_NAIP_SOURCE_ID,
+                "source_ref": source_id,
                 "selected_paths": selected_paths,
                 "renderable_paths": renderable_paths,
             }
@@ -73,13 +91,16 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
                 "flags": ["basemap_render_failed", "vector_only_no_basemap"],
                 "shown_layer": {
                     "layer_type": "basemap_provenance",
-                    "source_id": MARIS_NAIP_SOURCE_ID,
-                    "label": MARIS_NAIP_SOURCE_NAME,
+                    "source_id": source_id,
+                    "label": source_name,
                     "path": str(path),
                     "selected_paths": selected_paths,
                     "renderable": False,
+                    "renderability_status": "render_failed",
+                    "visual_use": "provenance_only",
+                    "message": f"{source_name} renderable sidecar was selected but could not be rendered.",
                 },
-                "source_ref": MARIS_NAIP_SOURCE_ID,
+                "source_ref": source_id,
                 "selected_paths": selected_paths,
                 "renderable_paths": renderable_paths,
             }
@@ -102,7 +123,13 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
     }
 
 
-def _read_basemap_layer(path: Path, project_area: dict[str, Any], analysis_crs: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+def _read_basemap_layer(
+    path: Path,
+    project_area: dict[str, Any],
+    analysis_crs: str,
+    *,
+    source_id: str = MARIS_NAIP_SOURCE_ID,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     suffix = path.suffix.lower()
     if suffix == ".png":
         bbox = _metadata_bbox_for_path(path, project_area)
@@ -112,7 +139,7 @@ def _read_basemap_layer(path: Path, project_area: dict[str, Any], analysis_crs: 
                 "basemap_render_failed",
                 "PNG basemap sidecar lacks usable WGS84 metadata extent; falling back to vector-only rendering.",
                 str(path),
-                source_id=MARIS_NAIP_SOURCE_ID,
+                source_id=source_id,
             )
         try:
             image = plt.imread(path)
@@ -123,7 +150,7 @@ def _read_basemap_layer(path: Path, project_area: dict[str, Any], analysis_crs: 
                 "basemap_render_failed",
                 f"PNG basemap sidecar could not be read: {exc}",
                 str(path),
-                source_id=MARIS_NAIP_SOURCE_ID,
+                source_id=source_id,
             )
         return {"image": image, "extent": extent, "path": str(path)}, None
 
@@ -135,7 +162,7 @@ def _read_basemap_layer(path: Path, project_area: dict[str, Any], analysis_crs: 
             "basemap_render_failed",
             "GeoTIFF basemap sidecar was selected, but rasterio is not installed; falling back to vector-only rendering.",
             str(path),
-            source_id=MARIS_NAIP_SOURCE_ID,
+            source_id=source_id,
         )
     try:
         with rasterio.open(path) as dataset:
@@ -161,12 +188,21 @@ def _read_basemap_layer(path: Path, project_area: dict[str, Any], analysis_crs: 
             "basemap_render_failed",
             f"GeoTIFF basemap sidecar could not be read: {exc}",
             str(path),
-            source_id=MARIS_NAIP_SOURCE_ID,
+            source_id=source_id,
         )
     return {"image": image, "extent": extent, "path": str(path)}, None
 
 
 def _metadata_bbox_for_path(path: Path, project_area: dict[str, Any]) -> dict[str, float] | None:
+    for record in _dict_list(project_area.get("project_local_basemaps", [])):
+        if str(record.get("path") or "") != str(path):
+            continue
+        bbox = record.get("metadata_bbox_wgs84") or record.get("bounds_wgs84")
+        if isinstance(bbox, dict) and {"west", "south", "east", "north"}.issubset(bbox):
+            try:
+                return {key: float(bbox[key]) for key in ("west", "south", "east", "north")}
+            except (TypeError, ValueError):
+                return None
     for candidate in _dict_list(project_area.get("aerial_basemap_candidates", [])):
         paths = set(_string_list(candidate.get("renderable_sidecar_paths", [])))
         paths.update(_string_list(candidate.get("sid_paths", [])))
@@ -179,6 +215,19 @@ def _metadata_bbox_for_path(path: Path, project_area: dict[str, Any]) -> dict[st
             except (TypeError, ValueError):
                 return None
     return None
+
+
+def _basemap_record_for_path(path: Path, project_area: dict[str, Any]) -> dict[str, Any]:
+    for record in _dict_list(project_area.get("project_local_basemaps", [])):
+        if str(record.get("path") or "") == str(path):
+            return record
+    return {"source_id": MARIS_NAIP_SOURCE_ID, "source_name": MARIS_NAIP_SOURCE_NAME}
+
+
+def _basemap_name(source_id: str) -> str:
+    if source_id == USDA_NAIP_SOURCE_ID:
+        return USDA_NAIP_SOURCE_NAME
+    return MARIS_NAIP_SOURCE_NAME
 
 
 def _bbox_to_crs_extent(bbox: dict[str, float], analysis_crs: str) -> tuple[float, float, float, float]:
@@ -210,3 +259,15 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _dedupe_strings(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result

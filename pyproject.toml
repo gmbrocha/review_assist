@@ -25,6 +25,12 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+imagery = [
+    "planetary-computer>=1.0",
+    "pystac-client>=0.8",
+    "rasterio>=1.3",
+    "requests>=2.31",
+]
 
 [project.scripts]
 review-assist = "review_assist.cli:main"

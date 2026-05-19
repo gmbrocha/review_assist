@@ -1,6 +1,6 @@
 # Map Generation
 
-This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented for legacy audit/context maps, and Sprint 2.3 adds matrix-backed deliverable figure artifacts. Project area generation records NAIP/MARIS basemap source-path provenance and renderability status; deliverable figures can use selected renderable `.png`, `.tif`, or `.tiff` sidecars, while `.sid` files remain provenance only. Production cartography, MrSID decoding, paid basemap APIs, PDF/SVG map sheets, and final cartographic styling remain future work.
+This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented for legacy audit/context maps, and Sprint 2.3 adds matrix-backed deliverable figure artifacts. Project area generation records NAIP/MARIS basemap source-path provenance and renderability status; deliverable figures can use selected renderable `.png`, `.tif`, or `.tiff` sidecars, including optional project-local NAIP GeoTIFF sidecars, while `.sid` files remain provenance only. Production cartography, MrSID decoding, paid/proprietary basemap APIs, PDF/SVG map sheets, and final cartographic styling remain future work.
 
 ## Purpose
 
@@ -46,6 +46,8 @@ Current behavior:
 - Adds Attachment A supporting panel maps outside the 13 main figure count when the comparison-unit extent is too elongated for a single 6.5-inch figure.
 - Uses GeoPandas and Matplotlib only.
 - Adds draft map elements: legend, north arrow, scale bar when CRS units allow it, source note, CRS/method note, and draft/pre-review label.
+- Can use project-local NAIP GeoTIFF basemap sidecars created by the explicit `materialize-naip-basemap` command when present.
+- Renders matrix-backed deliverable comparison units as individual visual units with preserved usable KML colors or deterministic visible fallbacks, while leaving analysis geometry and comparison-unit generation unchanged.
 - Stores figure captions, source notes, method notes, figure grouping, related resource categories, source refs, shown layers, provenance, uncertainty flags, validation issues, stub status, and review status in the relevant figure artifact.
 - Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.
 - Adds review queue validation items for map-generation warnings, including skipped or failed source-context figures.
@@ -53,8 +55,9 @@ Current behavior:
 
 Current limits:
 
-- No basemap tiles, Google/ArcGIS basemap calls, or paid basemap APIs.
-- No MrSID decoding. `.sid` files stay as source provenance only.
+- No Google/ArcGIS basemap calls, proprietary basemap captures, or paid basemap APIs.
+- NAIP COG sidecar materialization is explicit and optional. Normal figure generation and plain `populate-for-review` do not acquire imagery.
+- No MrSID decoding. `.sid` files stay as source provenance only, with explicit diagnostics telling reviewers to provide a GeoTIFF/PNG sidecar when a visual aerial basemap is needed.
 - GeoTIFF sidecar rendering depends on optional `rasterio`; if unavailable or rendering fails, figures fall back to vector-only output or explicit stubs with validation issues.
 - PNG sidecars require usable project-area metadata/georeference; otherwise they warn and fall back.
 - Panel maps are simple capped long-axis slices for Attachment A support, not final map sheets.
@@ -103,6 +106,7 @@ Notes:
 - NAIP is a USDA imagery program.
 - Acquisition timing and resolution vary by year and state.
 - Source date and resolution should be preserved.
+- `materialize-naip-basemap` can create a project-local renderable GeoTIFF sidecar from public Microsoft Planetary Computer NAIP COG assets by project analysis bounds. The command records provenance and enforces AOI/tile/pixel/time limits.
 
 Reference: https://catalog.data.gov/dataset/national-agriculture-imagery-program-naip-imagery
 

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .basemaps import MARIS_NAIP_SOURCE_ID, select_project_basemaps
+from .basemaps import MARIS_NAIP_SOURCE_ID, USDA_NAIP_SOURCE_ID, discover_project_local_naip_basemaps, select_project_basemaps
 from .project_context import ProjectContextError, generate_project_context
 from .projects import ProjectManifestError, load_project_manifest
 from .report_profiles import ReportProfileError, resolve_report_profile
@@ -22,6 +22,7 @@ from .source_catalog import (
     load_source_catalog,
     resolve_project_source_path,
 )
+from .source_warehouse import SourceWarehouseError, maybe_load_seed_source_manifest, raw_paths_exist
 
 
 SOURCE_STATUS_PATH = Path("source_status/source_status_set.json")
@@ -126,10 +127,38 @@ def _category_status(
         status = "needs_review"
         flags = ["local_source_missing"]
         notes = "A local source is configured but the referenced path is unavailable."
+    elif any(detail["status"] in {"registered_local", "local_materialized", "provided_in_input"} for detail in source_details):
+        status = "provided_locally"
+        flags = []
+        notes = "Local source data is available in the workspace."
     elif any(download_status.get(source_id) == "failed" for source_id in source_ids):
         status = "failed"
         flags = ["source_download_failed", "source_unavailable"]
         notes = "The latest supported public download attempt failed; the workflow can continue with a caveat."
+    elif any(detail["status"] == "failed" for detail in source_details):
+        status = "failed"
+        flags = sorted(
+            {
+                flag
+                for detail in source_details
+                for flag in detail.get("uncertainty_flags", [])
+                if flag in {"basemap_materialization_failed", "vector_only_no_basemap", "source_unavailable"}
+            }
+            or {"source_unavailable"}
+        )
+        notes = "The latest optional source materialization attempt failed; the workflow can continue with a caveat."
+    elif any(detail["status"] == "restricted" for detail in source_details):
+        status = "gated"
+        flags = ["restricted_source_required", "manual_review_required"]
+        notes = "Source category requires restricted, sensitive, or qualified-access review."
+    elif any(detail["status"] == "warehouse_available" for detail in source_details):
+        status = "needs_review"
+        flags = ["local_warehouse_source_unmaterialized"]
+        notes = "Local source warehouse data is present but has not been materialized for this project."
+    elif any(detail["status"] == "present_not_materialized" for detail in source_details):
+        status = "present_not_materialized"
+        flags = ["source_present_not_materialized"]
+        notes = "Local source warehouse data is present but not yet configured for analysis-ready materialization."
     elif requirement == "optional":
         status = "optional"
         flags = []
@@ -142,10 +171,6 @@ def _category_status(
         status = "downloadable"
         flags = ["source_not_downloaded"]
         notes = "Public source data appears to be a future download candidate."
-    elif any(detail["status"] == "restricted" for detail in source_details):
-        status = "gated"
-        flags = ["restricted_source_required", "manual_review_required"]
-        notes = "Source category requires restricted, sensitive, or qualified-access review."
     elif any(detail["status"] in {"manual", "stubbed", "unimplemented"} for detail in source_details):
         status = "stubbed"
         flags = sorted(
@@ -294,6 +319,10 @@ def _source_detail_status(
         return "registered_local", "Reviewer-supplied or locally registered source data is available in the workspace.", []
     if project_source is not None and _is_enabled_local_source(project_source):
         return "missing", "A local source is configured but the referenced path is unavailable.", ["local_source_missing"]
+    if source.source_id == MARIS_NAIP_SOURCE_ID:
+        return _basemap_detail_status(basemap_selection)
+    if source.source_id == USDA_NAIP_SOURCE_ID:
+        return _project_naip_detail_status(project_dir)
     if latest_download_status.get(source.source_id) == "failed":
         return "failed", "The latest supported public download attempt failed; the workflow can continue with a caveat.", [
             "source_download_failed",
@@ -301,8 +330,9 @@ def _source_detail_status(
         ]
     if requirement == "optional":
         return "optional", "Optional source is not required for this profile.", []
-    if source.source_id == MARIS_NAIP_SOURCE_ID:
-        return _basemap_detail_status(basemap_selection)
+    warehouse_status = _warehouse_detail_status(source)
+    if warehouse_status is not None:
+        return warehouse_status
     if source.source_id == "census_tiger_acs" and not os.environ.get("CENSUS_API_KEY"):
         return "stubbed", "Census TIGER/ACS setup is configured, but CENSUS_API_KEY is not set for future ACS API calls.", [
             "missing_census_api_key",
@@ -330,6 +360,43 @@ def _source_detail_status(
     return "missing", "No supported source path is available for this source.", ["source_unavailable"]
 
 
+def _warehouse_detail_status(source: SourceDefinition) -> tuple[str, str, list[str]] | None:
+    if not source.warehouse_source_ids:
+        return None
+
+    manifests: list[tuple[str, dict[str, Any]]] = []
+    missing_raw: list[str] = []
+    for warehouse_source_id in source.warehouse_source_ids:
+        manifest = maybe_load_seed_source_manifest(warehouse_source_id)
+        if manifest is None:
+            continue
+        manifests.append((warehouse_source_id, manifest))
+        try:
+            missing_raw.extend(
+                f"{warehouse_source_id}:{item['raw_path']}"
+                for item in raw_paths_exist(warehouse_source_id)
+                if not item.get("exists")
+            )
+        except SourceWarehouseError:
+            missing_raw.append(warehouse_source_id)
+
+    if not manifests:
+        return None
+    if missing_raw:
+        return None
+    if any(bool(manifest.get("analysis_ready")) for _, manifest in manifests):
+        return (
+            "warehouse_available",
+            "Local source warehouse data is present; run local source materialization to register a project-ready layer.",
+            ["local_warehouse_source_unmaterialized"],
+        )
+    return (
+        "present_not_materialized",
+        "Local source warehouse data is present, but the manifest marks it as not analysis-ready for deterministic materialization.",
+        ["source_present_not_materialized"],
+    )
+
+
 def _basemap_detail_status(basemap_selection: dict[str, Any] | None) -> tuple[str, str, list[str]]:
     if not basemap_selection:
         return "missing", "Basemap selection has not been resolved.", ["source_unavailable"]
@@ -337,7 +404,10 @@ def _basemap_detail_status(basemap_selection: dict[str, Any] | None) -> tuple[st
     if status == "renderable_sidecar_available":
         return "registered_local", "Selected MARIS/NAIP imagery has at least one renderable sidecar.", []
     if status == "selected_not_renderable":
-        return "selected_not_renderable", "Selected MARIS/NAIP imagery is available as MrSID provenance but has no renderable sidecar.", [
+        return "selected_not_renderable", (
+            "County MARIS/NAIP imagery was selected as provenance, but only MrSID source files are available. "
+            "Provide a GeoTIFF or georeferenced PNG sidecar for visual basemap rendering."
+        ), [
             "source_selected_not_renderable",
             "renderable_sidecar_missing",
         ]
@@ -346,6 +416,35 @@ def _basemap_detail_status(basemap_selection: dict[str, Any] | None) -> tuple[st
     if isinstance(issues, list) and any(isinstance(issue, dict) and issue.get("code") == "project_area_unavailable_for_basemap_selection" for issue in issues):
         flags.append("basemap_selection_unresolved")
     return "missing", "No selected MARIS/NAIP basemap source is available for this project.", flags
+
+
+def _project_naip_detail_status(project_dir: Path) -> tuple[str, str, list[str]]:
+    basemaps = discover_project_local_naip_basemaps(project_dir)
+    if basemaps:
+        return "registered_local", "A project-local renderable NAIP basemap sidecar is available.", []
+    materialization_status = _latest_naip_materialization_status(project_dir)
+    if materialization_status == "failed":
+        return "failed", "The latest NAIP basemap materialization attempt failed; vector-only fallback remains available.", [
+            "basemap_materialization_failed",
+            "vector_only_no_basemap",
+        ]
+    return "unimplemented", "NAIP basemap materialization is available as an explicit optional command but has not been run.", [
+        "source_unimplemented",
+        "renderable_sidecar_missing",
+    ]
+
+
+def _latest_naip_materialization_status(project_dir: Path) -> str | None:
+    manifest_path = project_dir / "basemaps" / "naip" / "naip_basemap_materialization.json"
+    if not manifest_path.exists():
+        return None
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return str(data.get("status") or "") or None
 
 
 def _source_download_supported(source: SourceDefinition) -> bool:

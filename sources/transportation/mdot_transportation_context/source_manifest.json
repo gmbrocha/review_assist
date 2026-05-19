@@ -1,0 +1,25 @@
+{
+  "source_id": "mdot_transportation_context",
+  "display_name": "MDOT and Railroad Transportation Context",
+  "category": "transportation_utilities",
+  "authority": "MDOT / MARIS / rail source agencies",
+  "warehouse_group": "transportation",
+  "version": "2009-2025",
+  "raw_paths": [
+    "raw/roads",
+    "raw/railroads"
+  ],
+  "expected_geometry_type": "point_line",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "varies",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Transportation layers are screening context; recent projects, ROW, and design plans may require reviewer-supplied files."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "mdot_transportation_context"
+  ]
+}

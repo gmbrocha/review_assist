@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
 from typing import Any
 
 import geopandas as gpd
@@ -13,7 +15,19 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from pyproj import CRS
 
-from .maps import PROJECT_COLORS, SOURCE_CATEGORY_COLORS
+from .maps import SOURCE_CATEGORY_COLORS
+
+COMPARISON_UNIT_FALLBACK_COLORS = [
+    "#2F80ED",
+    "#D55E00",
+    "#009E73",
+    "#9B51E0",
+    "#EB5757",
+    "#0072B2",
+    "#CC79A7",
+    "#7A5C00",
+]
+COMPARISON_UNIT_LINE_WIDTH = 1.15
 
 
 def render_map(
@@ -36,15 +50,19 @@ def render_map(
             layer = basemap["layer"]
             ax.imshow(layer["image"], extent=layer["extent"], alpha=0.78, zorder=0)
 
-        handles.extend(_plot_gdf(ax, unit_gdf, color=PROJECT_COLORS[0], label="Comparison units", is_project=True))
-        plotted.append(unit_gdf)
+        source_handles: list[Any] = []
         for index, layer in enumerate(source_layers):
             gdf = layer["gdf"]
             color = SOURCE_CATEGORY_COLORS.get(str(layer.get("source_category", "")), _source_color(index))
             label = str(layer.get("source_name") or layer.get("source_id") or "Source layer")
-            handles.extend(_plot_gdf(ax, gdf, color=color, label=label, is_project=False))
+            source_handles.extend(_plot_gdf(ax, gdf, color=color, label=label, is_project=False))
             if not gdf.empty:
                 plotted.append(gdf)
+
+        unit_handles = _plot_comparison_units(ax, unit_gdf)
+        handles.extend(unit_handles)
+        handles.extend(source_handles)
+        plotted.append(unit_gdf)
 
         if focus_bounds is not None:
             _set_bounds(ax, focus_bounds)
@@ -105,6 +123,62 @@ def panel_bounds(bounds: tuple[float, float, float, float], panel_count: int) ->
     return panels
 
 
+def comparison_unit_style_records(gdf: gpd.GeoDataFrame) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    if gdf.empty:
+        return records
+    for index, (_, row) in enumerate(gdf.iterrows()):
+        unit_id = _row_text(row, "comparison_unit_id") or f"comparison-unit-{index + 1:05d}"
+        label = _comparison_unit_label(row, index)
+        original_style_color = _row_text(row, "style_color")
+        color = _kml_color_to_visible_hex(original_style_color)
+        style_source = "kml_style_color"
+        if color is None:
+            color = _fallback_comparison_unit_color(unit_id or label, index)
+            style_source = "deterministic_fallback"
+        records.append(
+            {
+                "comparison_unit_id": unit_id,
+                "label": label,
+                "color": color,
+                "line_width": COMPARISON_UNIT_LINE_WIDTH,
+                "style_source": style_source,
+                "original_style_color": original_style_color,
+            }
+        )
+    return records
+
+
+def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame) -> list[Any]:
+    if gdf.empty:
+        return []
+    handles: list[Any] = []
+    styles = comparison_unit_style_records(gdf)
+    for index, (_, row) in enumerate(gdf.iterrows()):
+        geometry = row.geometry
+        if geometry is None or geometry.is_empty:
+            continue
+        style = styles[index]
+        geometry_column = getattr(gdf.geometry, "name", "geometry")
+        properties = row.drop(labels=[geometry_column]).to_dict() if geometry_column in row.index else row.to_dict()
+        properties.pop("geometry", None)
+        one = gpd.GeoDataFrame([properties], geometry=[geometry], crs=gdf.crs)
+        label = str(style["label"])
+        color = str(style["color"])
+        geom_type = geometry.geom_type
+        if "Polygon" in geom_type:
+            one.plot(ax=ax, facecolor=color, edgecolor=color, linewidth=0.9, alpha=0.14, zorder=6)
+            handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.14, label=label))
+        elif "LineString" in geom_type:
+            width = float(style["line_width"])
+            one.plot(ax=ax, color=color, linewidth=width, alpha=0.92, zorder=7)
+            handles.append(Line2D([0], [0], color=color, lw=width, label=label))
+        elif "Point" in geom_type:
+            one.plot(ax=ax, color=color, markersize=28, alpha=0.92, zorder=8)
+            handles.append(Line2D([0], [0], marker="o", color="none", markerfacecolor=color, markersize=5.5, label=label))
+    return handles
+
+
 def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, color: str, label: str, is_project: bool) -> list[Any]:
     if gdf.empty:
         return []
@@ -128,6 +202,64 @@ def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, color: str, label: str, is_proj
         point_gdf.plot(ax=ax, color=color, markersize=size, alpha=0.94 if is_project else 0.72, zorder=7 if is_project else 5)
         handles.append(Line2D([0], [0], marker="o", color="none", markerfacecolor=color, markersize=5.5, label=label))
     return handles[:1]
+
+
+def _comparison_unit_label(row: Any, index: int) -> str:
+    for column in ("comparison_unit_name", "comparison_unit_group", "candidate_label", "placemark_name", "style_url"):
+        value = _row_text(row, column)
+        if value and value.lower() != "multiple":
+            return value
+    unit_id = _row_text(row, "comparison_unit_id")
+    return unit_id or f"Comparison unit {index + 1}"
+
+
+def _row_text(row: Any, column: str) -> str:
+    try:
+        if column not in row.index:
+            return ""
+        value = row[column]
+    except Exception:
+        return ""
+    if value is None:
+        return ""
+    text = str(value).strip()
+    return "" if not text or text.lower() == "nan" else text
+
+
+def _kml_color_to_visible_hex(value: str) -> str | None:
+    text = re.sub(r"[^0-9a-fA-F]", "", str(value or "")).lower()
+    if len(text) == 8:
+        alpha = int(text[0:2], 16)
+        blue = int(text[2:4], 16)
+        green = int(text[4:6], 16)
+        red = int(text[6:8], 16)
+    elif len(text) == 6:
+        alpha = 255
+        red = int(text[0:2], 16)
+        green = int(text[2:4], 16)
+        blue = int(text[4:6], 16)
+    else:
+        return None
+    if alpha < 64:
+        return None
+    if _relative_luminance(red, green, blue) > 0.88:
+        return None
+    return f"#{red:02x}{green:02x}{blue:02x}"
+
+
+def _relative_luminance(red: int, green: int, blue: int) -> float:
+    def channel(value: int) -> float:
+        normalized = value / 255
+        return normalized / 12.92 if normalized <= 0.03928 else ((normalized + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+
+
+def _fallback_comparison_unit_color(key: str, index: int) -> str:
+    if index < len(COMPARISON_UNIT_FALLBACK_COLORS):
+        return COMPARISON_UNIT_FALLBACK_COLORS[index]
+    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()
+    return COMPARISON_UNIT_FALLBACK_COLORS[int(digest[:8], 16) % len(COMPARISON_UNIT_FALLBACK_COLORS)]
 
 
 def _set_extent(ax: Any, layers: list[gpd.GeoDataFrame]) -> None:

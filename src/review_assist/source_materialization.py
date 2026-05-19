@@ -28,6 +28,7 @@ from .source_catalog import (
     repo_root,
     resolve_project_source_path,
 )
+from .source_warehouse import SourceWarehouseError, indexed_source_ids
 
 
 LOCAL_SOURCE_MATERIALIZER_CONFIG_PATH = Path("config/local_source_materializers.json")
@@ -45,6 +46,7 @@ class MaterializerLayer:
     layer: str | None
     source_layer_id: str
     source_layer_name: str
+    warehouse_source_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +55,7 @@ class LocalSourceMaterializerDefinition:
     output_name: str
     layers: list[MaterializerLayer]
     normalization: dict[str, list[str]] = field(default_factory=dict)
+    warehouse_source_ids: list[str] = field(default_factory=list)
 
 
 def materialize_local_source(
@@ -132,12 +135,14 @@ def load_local_source_materializers(config_path: Path | None = None) -> list[Loc
             raise SourceMaterializationError(f"Local source materializer '{source_id}' requires a non-empty layers list.")
         layers = [_materializer_layer(item, source_id=source_id) for item in raw_layers]
         normalization = _normalization_config(raw_source.get("normalization", {}), source_id=source_id)
+        warehouse_source_ids = _warehouse_source_ids(raw_source.get("warehouse_source_ids", []), source_id=source_id)
         definitions.append(
             LocalSourceMaterializerDefinition(
                 source_id=source_id,
                 output_name=output_name,
                 layers=layers,
                 normalization=normalization,
+                warehouse_source_ids=warehouse_source_ids,
             )
         )
     return definitions
@@ -516,7 +521,26 @@ def _materializer_layer(raw_layer: Any, *, source_id: str) -> MaterializerLayer:
         layer=layer_name.strip() if isinstance(layer_name, str) and layer_name.strip() else None,
         source_layer_id=source_layer_id,
         source_layer_name=source_layer_name,
+        warehouse_source_id=str(raw_layer.get("warehouse_source_id") or "").strip() or None,
     )
+
+
+def _warehouse_source_ids(raw_value: Any, *, source_id: str) -> list[str]:
+    if raw_value in (None, []):
+        return []
+    if not isinstance(raw_value, list) or not all(isinstance(item, str) for item in raw_value):
+        raise SourceMaterializationError(f"Local source materializer '{source_id}' warehouse_source_ids must be a string list.")
+    values = [item for item in raw_value if item.strip()]
+    try:
+        known_ids = indexed_source_ids()
+    except SourceWarehouseError:
+        return values
+    unknown = [item for item in values if item not in known_ids]
+    if unknown:
+        raise SourceMaterializationError(
+            f"Local source materializer '{source_id}' references unknown warehouse source ids: {', '.join(unknown)}"
+        )
+    return values
 
 
 def _normalization_config(raw_normalization: Any, *, source_id: str) -> dict[str, list[str]]:
@@ -673,6 +697,7 @@ def _layer_record(
         "source_layer_id": layer.source_layer_id,
         "source_layer_name": layer.source_layer_name,
         "warehouse_path": str(layer.path),
+        "warehouse_source_id": layer.warehouse_source_id,
         "layer": layer.layer,
         "status": status,
         "crs": crs,

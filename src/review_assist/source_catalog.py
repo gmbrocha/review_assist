@@ -48,6 +48,7 @@ class SourceDefinition:
     notes: str = ""
     spatial_relationships: list[str] = field(default_factory=list)
     download: dict[str, Any] = field(default_factory=dict)
+    warehouse_source_ids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "SourceDefinition":
@@ -62,6 +63,10 @@ class SourceDefinition:
         relationships = data.get("spatial_relationships", [])
         if not isinstance(relationships, list) or not all(isinstance(item, str) for item in relationships):
             raise SourceCatalogError(f"Source '{source_id}' requires string list 'spatial_relationships'.")
+
+        warehouse_source_ids = data.get("warehouse_source_ids", [])
+        if not isinstance(warehouse_source_ids, list) or not all(isinstance(item, str) for item in warehouse_source_ids):
+            raise SourceCatalogError(f"Source '{source_id}' warehouse_source_ids must be a string list when present.")
 
         download = data.get("download", {})
         if download is None:
@@ -84,6 +89,7 @@ class SourceDefinition:
             notes=str(data.get("notes", "")),
             spatial_relationships=relationships,
             download=dict(download),
+            warehouse_source_ids=[item for item in warehouse_source_ids if item.strip()],
         )
 
 

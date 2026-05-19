@@ -1,0 +1,24 @@
+{
+  "source_id": "usda_nrcs_easements",
+  "display_name": "USDA NRCS Easements Mississippi",
+  "category": "conservation_public_lands",
+  "authority": "USDA NRCS / MARIS",
+  "warehouse_group": "conservation",
+  "version": "2024",
+  "raw_paths": [
+    "raw/MS_NRCSEasements_2024"
+  ],
+  "expected_geometry_type": "polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2024",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Easement boundaries are screening context and require source-agency confirmation before external reliance."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "usda_nrcs_easements"
+  ]
+}

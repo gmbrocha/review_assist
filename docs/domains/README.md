@@ -6,6 +6,7 @@ Use this index to load only the docs relevant to the subsystem being touched.
 | --- | --- | --- |
 | Workflow model and end-to-end product flow | `docs/domains/WORKFLOW_MODEL.md` | Populate-for-review, source status, review queue, export flow, or workflow state changes. |
 | Data/source catalog and source acquisition | `docs/domains/DATA_SOURCES.md` | Source catalog entries, materializers, downloads, source status semantics, provenance. |
+| Local source warehouse layout | `docs/domains/SOURCE_WAREHOUSE.md` | Stable source warehouse folders, raw source provenance layout, source manifests, seeded-source materialization. |
 | Review policy and reviewer states | `docs/domains/REVIEW_POLICY.md` | Review queue states, reviewer actions, export eligibility, human review boundaries. |
 | Report assembly and exports | `docs/domains/REPORT_ASSEMBLY.md` | Markdown/DOCX exports, report sections, package manifests, export behavior. |
 | Report taxonomy and deliverable shape | `docs/domains/REPORT_TAXONOMY.md` | Section taxonomy, report categories, deliverable organization. |

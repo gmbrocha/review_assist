@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, or explicitly downloaded public layers can be registered, inspected, and checked. `environmental_constraints_example` is the default source-requirement profile for alternatives review, while `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL effective flood hazard zones are implemented public downloaders. NWI wetlands, USFWS Critical Habitat, SSURGO soils, MDOT/rail transportation context, utilities, administrative/boundary context, public cultural context, community facilities, and conservation/recreation lands are also configured for local Mississippi source warehouse materialization. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, source warehouse manifests, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, explicitly downloaded public layers, or explicitly materialized project-local basemap sidecars can be registered, inspected, and checked. `environmental_constraints_example` is the default source-requirement profile for alternatives review, while `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL effective flood hazard zones are implemented public downloaders. The local Mississippi source warehouse now uses stable app-facing source IDs with raw agency/download folder names preserved under each source's `raw/` folder; its index lives at `sources/source_warehouse_manifest.json`. Seeded local materializers cover NWI wetlands, Critical Habitat, SSURGO soils, MDOT/rail transportation, utilities, administrative/boundary context, public cultural context, community facilities, conservation/recreation lands, FEMA flood hazard, specific NHD flowline/waterbody/area layers, EPA FRS, MARIS brownfields, NPDES, landfills, Superfund, TRI, USTs, oil/gas wells, national wildlife refuges, and NRCS easements. `materialize-naip-basemap` is implemented as an explicit, optional, AOI-bounded renderable basemap sidecar workflow, not as a deterministic source-layer materializer. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -53,6 +53,8 @@ Suggested statuses:
 - `unimplemented`: a public or repeatable source is identified, but no downloader/materializer is implemented yet.
 - `stubbed`: a placeholder exists so report sections can include a review requirement or caveat.
 - `selected_not_renderable`: a basemap/context source is selected as provenance but cannot be rendered without a preconverted sidecar.
+- `warehouse_available`: local warehouse data is present but has not yet been clipped and registered for the project.
+- `present_not_materialized`: local warehouse/source material is present but not yet configured as analysis-ready materialization.
 - `missing`: expected source material is not available.
 - `optional`: useful context but not required for the selected report profile.
 - `needs_review`: source status or fitness for use requires reviewer confirmation.
@@ -85,10 +87,13 @@ Current local configuration files:
 
 - Global catalog: `config/source_catalog.json`
 - Local source materializer config: `config/local_source_materializers.json`
+- Local source warehouse index: `sources/source_warehouse_manifest.json`
+- Per-source warehouse manifests: `sources/<warehouse_group>/<source_id>/source_manifest.json`
 - Project source registries: `projects/<project_id>/config/sources.json`
 - Report profile source requirements: `config/report_profiles.json`
 - Generated input package classifications: `projects/<project_id>/context/input_package.json`
 - Generated project area and basemap provenance: `projects/<project_id>/context/project_area.json`
+- Generated NAIP basemap sidecars and provenance: `projects/<project_id>/basemaps/naip/`
 - Generated source materialization manifests: `projects/<project_id>/source_materialization/local_source_materialization_manifest.json`
 - Generated project-ready materialized layers: `projects/<project_id>/layers/<source_id>/<source_id>.geojson`
 - Generated source acquisition manifests: `projects/<project_id>/source_acquisition/source_acquisition_manifest.json`
@@ -137,19 +142,23 @@ The Sprint 2.1 catalog also exposes review-visible manual or stub entries for IP
 
 ## Local Source Materialization
 
-The local materializer uses ignored root `sources/` storage as a Mississippi source warehouse. It reads configured statewide or bulk datasets, clips them to the project analysis bounds, writes small project-ready GeoJSON files under `projects/<project_id>/layers/<source_id>/`, and registers those files as real `local_file` sources with `status: local_materialized`.
+The local materializer uses ignored root `sources/` storage as a Mississippi source warehouse. Stable source IDs are the app-facing folder names; raw agency/download names are preserved under `raw/` for provenance. The warehouse index and per-source manifests describe expected local layout without tracking bulk source files in Git. The materializer reads configured statewide or bulk datasets, clips them to the project analysis bounds, writes small project-ready GeoJSON files under `projects/<project_id>/layers/<source_id>/`, and registers those files as real `local_file` sources with `status: local_materialized`.
 
 Configured materializers:
 
-- `usfws_nwi_wetlands`: `sources/MS_geopackage_wetlands/MS_geopackage_wetlands.gpkg`, layer `MS_Wetlands`.
-- `usfws_critical_habitat`: `sources/critical_species_habitat_all_layers/CRITHAB_LINE.shp` plus `sources/critical_species_habitat_all_layers/crithab_poly.shp`.
-- `usda_nrcs_ssurgo_soils`: `sources/wss_gsmsoil_MS_10_13_2016/spatial/gsmsoilmu_a_ms.shp`.
-- `mdot_transportation_context`: roads, designated highways, railroad networks, railroad crossings, railroad bridges, and railroad junctions from `sources/roads/` and `sources/railroads/`.
-- `local_utility_infrastructure`: electric substations and transmission lines from `sources/cultural_other/`.
-- `maris_boundary_context`: county boundaries, state boundary, and detailed coastline from `sources/cultural_other/`; county boundaries feed report study-area county names.
-- `maris_public_cultural_context`: public cemeteries, National Register sites, and tribal land context from `sources/cultural_other/`; restricted archaeology remains manual/restricted.
-- `maris_community_facilities`: communities, fire stations, and recreational facilities from `sources/cultural_other/`.
-- `maris_conservation_recreation_lands`: easement areas, state parks, and wildlife management areas from `sources/cultural_other/`.
+- `usfws_nwi_wetlands`: `sources/wetlands/usfws_nwi_wetlands/raw/MS_geopackage_wetlands/MS_geopackage_wetlands.gpkg`, layer `MS_Wetlands`.
+- `usfws_critical_habitat`: `sources/ecology/usfws_critical_habitat/raw/critical_species_habitat_all_layers/CRITHAB_LINE.shp` plus `crithab_poly.shp`.
+- `usda_nrcs_ssurgo_soils`: `sources/soils/usda_nrcs_ssurgo_soils/raw/wss_gsmsoil_MS_10_13_2016/spatial/gsmsoilmu_a_ms.shp`.
+- `mdot_transportation_context`: roads, designated highways, railroad networks, railroad crossings, railroad bridges, and railroad junctions from `sources/transportation/mdot_transportation_context/raw/`.
+- `local_utility_infrastructure`: electric substations and transmission lines from `sources/infrastructure/local_utility_infrastructure/raw/`.
+- `maris_boundary_context`: county boundaries, state boundary, and detailed coastline from `sources/boundaries/maris_boundary_context/raw/`; county boundaries feed report study-area county names.
+- `maris_public_cultural_context`: public cemeteries, National Register sites, and tribal land context from `sources/cultural/maris_public_cultural_context/raw/`; restricted archaeology remains manual/restricted.
+- `maris_community_facilities`: communities, fire stations, and recreational facilities from `sources/community/maris_community_facilities/raw/`.
+- `maris_conservation_recreation_lands`: easement areas, state parks, and wildlife management areas from `sources/conservation/maris_conservation_recreation_lands/raw/`.
+- `fema_nfhl_flood_hazard`: seeded Mississippi DFIRM/FEMA flood hazard polygons from `sources/environmental/fema_nfhl_flood_hazard/raw/`.
+- `usgs_nhd_flowlines`, `usgs_nhd_waterbodies`, and `usgs_nhd_other_areas`: specific seeded NHD layers from `sources/hydrology/`; the live downloader rollup `usgs_nhd_hydrography` remains available.
+- `epa_frs_facilities_ms`, `maris_brownfields`, `maris_npdes_facilities`, `maris_solid_waste_landfills`, `maris_superfund_sites`, `maris_tri_facilities`, `maris_underground_storage_tanks`, and `mississippi_oil_gas_wells`: seeded regulated facility/contamination context layers from `sources/environmental/`.
+- `usfws_national_wildlife_refuges` and `usda_nrcs_easements`: seeded conservation/public lands context from `sources/conservation/`.
 
 Commands:
 
@@ -157,6 +166,14 @@ Commands:
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_nwi_wetlands
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_critical_habitat
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usda_nrcs_ssurgo_soils
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails fema_nfhl_flood_hazard
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_flowlines
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_waterbodies
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_other_areas
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails epa_frs_facilities_ms
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_brownfields
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_npdes_facilities
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_underground_storage_tanks
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdot_transportation_context
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_boundary_context
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_public_cultural_context
@@ -164,11 +181,15 @@ Commands:
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_conservation_recreation_lands
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails local_utility_infrastructure
 .\.venv\Scripts\review-assist.exe materialize-local-sources projects/trails
+.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/trails
 .\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-local-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-naip-basemap
 .\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --materialize-local-sources
 ```
 
-All-source materialization treats missing warehouse files as nonfatal manifest warnings. Single-source materialization fails clearly when the requested warehouse source cannot be read. Existing reviewer-supplied local sources are preserved unless `--replace` is explicitly used. Materialization runs before public source downloads when both `--materialize-local-sources` and `--prepare-sources` are used, so local warehouse data can satisfy source gaps before the app attempts live downloads.
+All-source materialization treats missing warehouse files as nonfatal manifest warnings. Single-source materialization fails clearly when the requested warehouse source cannot be read. Existing reviewer-supplied local sources are preserved unless `--replace` is explicitly used. Source status can report local warehouse data as present but not yet materialized, so seeded public sources do not silently appear missing. Materialization runs before public source downloads when both `--materialize-local-sources` and `--prepare-sources` are used, so local warehouse data can satisfy source gaps before the app attempts live downloads.
+
+NAIP basemap materialization is separate from local source materialization because it produces visual basemap sidecars, not project-ready vector layers for deterministic constraint checks. `materialize-naip-basemap` queries Microsoft Planetary Computer NAIP STAC by project analysis bounds, selects intersecting COG tiles deterministically, reads only the project-relevant window, and writes `projects/<project_id>/basemaps/naip/<year>/naip_project_basemap.tif` plus JSON provenance. The command reuses an existing sidecar unless `--refresh` or `--force` is supplied. It enforces tile, pixel, and timeout limits and records controlled failure status when optional imagery dependencies, network access, or source coverage are unavailable. `populate-for-review --materialize-naip-basemap` is opt-in and failure-tolerant; plain populate does not acquire imagery.
 
 Materialized GeoJSON preserves original source attributes and adds normalized `review_assist_*` fields for source id/name/category, source layer, feature label/type/subtype/original id/date/quality/citation, and data authenticity. GPT drafting still receives only bounded evidence summaries; raw warehouse paths, full features, raw geometries, and root `sources/` paths are withheld from GPT payloads.
 
@@ -847,6 +868,7 @@ Important limitations:
 - Imagery observations should remain review items, not authoritative facts.
 - Source, capture date, tile/service, attribution, and licensing constraints must be tracked where available.
 - The current local MARIS/NAIP workflow records selected `.sid` paths separately from renderable sidecars and marks `.sid`-only selections as `selected_not_renderable`.
+- Project-local NAIP sidecars created by `materialize-naip-basemap` are recorded under `basemaps/naip/`, discovered by `project_area.json`, and preferred by deliverable figures when present.
 - Do not implement Google API usage without explicit approval because Maps Static API requires API keys and billing.
 - Google imagery requires visible attribution to Google Earth and third-party imagery providers when used.
 
@@ -858,11 +880,11 @@ References:
 - Google Earth Studio attribution: https://earth.google.com/studio/docs/en_gb/attribution/
 - Google Maps Static API: https://developers.google.com/maps/documentation/maps-static/start
 
-## Best-Case First Stack for Trails Project
+## Best-Case First Stack for the Sample Alternatives Project
 
-For the initial trails example, prioritize:
+For the current sample alternatives fixture, prioritize:
 
-1. Trail alternatives KMZ.
+1. Project alternatives/features KMZ.
 2. Project footprint/study area if available.
 3. USFWS NWI wetlands.
 4. USGS hydrography / NHD or successor datasets.
@@ -944,10 +966,10 @@ Future source registry or inventory records may also need:
 - Is the source suitable for deterministic analysis or only visual review?
 - How should source provenance be cited in draft findings?
 - How should stale, missing, restricted, or unavailable data be represented in findings?
-- Which sources should be automated first for the trails prototype?
+- Which sources should be automated first for the sample alternatives workflow?
 - What source download/cache location should the local web app workflow use?
 - Should the app ship with a starter registry of URLs or require project-specific source folders?
 - What level of Google Earth/Google Maps usage is permitted in draft or final deliverables?
 - How should IPaC reports be generated, stored, and cited?
 - How should restricted MDAH review be represented without exposing sensitive data?
-- Which local/county data sources are required for the first Mississippi trail report?
+- Which local/county data sources are required for the first Mississippi environmental constraints report?

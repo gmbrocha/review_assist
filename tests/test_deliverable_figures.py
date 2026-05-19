@@ -11,6 +11,7 @@ from shapely.geometry import LineString, Point, Polygon
 
 import review_assist.project_area as project_area_module
 from review_assist.cli import main
+from review_assist.deliverable_figure_rendering import comparison_unit_style_records
 from review_assist.deliverable_figures import DeliverableFigureError, generate_deliverable_figures, load_deliverable_figures
 from review_assist.deliverable_matrix import REQUIRED_STUB_TEXT, load_deliverable_matrix
 from review_assist.populate_for_review import populate_for_review
@@ -189,6 +190,13 @@ def test_sid_only_basemap_warns_and_vector_figure_still_renders(
     assert wetlands["is_stub"] is False
     assert Path(str(wetlands["image_path"])).exists()
     assert "basemap_selected_not_renderable" in issue_codes(wetlands)
+    issue_text = json.dumps(wetlands["validation_issues"])
+    assert "only MrSID source files are available" in issue_text
+    assert "Provide GeoTIFF/PNG sidecar" in issue_text
+    shown_basemaps = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap_provenance"]  # type: ignore[index]
+    assert shown_basemaps
+    assert shown_basemaps[0]["renderability_status"] == "selected_not_renderable"
+    assert shown_basemaps[0]["visual_use"] == "provenance_only"
     assert "maris_naip_2025_imagery" in wetlands["source_refs"]  # type: ignore[operator]
 
 
@@ -213,8 +221,80 @@ def test_renderable_png_sidecar_is_selected_when_metadata_is_available(
 
     assert wetlands["is_stub"] is False
     assert "basemap_selected_not_renderable" not in issue_codes(wetlands)
+    shown_basemaps = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap"]  # type: ignore[index]
+    assert shown_basemaps
+    assert shown_basemaps[0]["renderability_status"] == "rendered"
+    assert shown_basemaps[0]["visual_use"] == "rendered_basemap"
     assert wetlands["provenance"]["basemap"]["renderable_paths"] == [str(png_path)]  # type: ignore[index]
     assert wetlands["provenance"]["basemap"]["rendered_path"] == str(png_path)  # type: ignore[index]
+
+
+def test_comparison_unit_styles_use_usable_kml_colors_and_visible_fallbacks() -> None:
+    gdf = gpd.GeoDataFrame(
+        [
+            {
+                "comparison_unit_id": "comparison-unit-00001",
+                "comparison_unit_name": "Red route",
+                "style_color": "ff0000ff",
+            },
+            {
+                "comparison_unit_id": "comparison-unit-00002",
+                "comparison_unit_name": "White route",
+                "style_color": "ffffffff",
+            },
+            {
+                "comparison_unit_id": "comparison-unit-00003",
+                "comparison_unit_name": "Blank route",
+                "style_color": "",
+            },
+        ],
+        geometry=[
+            LineString([(-90.0, 32.0), (-89.99, 32.0)]),
+            LineString([(-90.0, 32.001), (-89.99, 32.001)]),
+            LineString([(-90.0, 32.002), (-89.99, 32.002)]),
+        ],
+        crs="EPSG:4326",
+    )
+
+    styles = comparison_unit_style_records(gdf)
+    repeated = comparison_unit_style_records(gdf)
+
+    assert styles == repeated
+    assert styles[0]["color"] == "#ff0000"
+    assert styles[0]["style_source"] == "kml_style_color"
+    assert styles[1]["color"] != "#ffffff"
+    assert styles[1]["style_source"] == "deterministic_fallback"
+    assert styles[2]["color"] != styles[1]["color"]
+    assert styles[2]["style_source"] == "deterministic_fallback"
+    assert all(style["line_width"] < 2.0 for style in styles)
+
+
+def test_generated_figures_record_distinct_comparison_unit_visual_styles(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
+    comparison_layer = next(layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "comparison_units")  # type: ignore[index]
+
+    assert result["figure_count"] == 13
+    assert wetlands["is_stub"] is False
+    assert comparison_layer["rendered_as"] == "individual_comparison_units"
+    assert comparison_layer["geometry_type_counts"] == {"LineString": 1}
+    assert comparison_layer["unit_styles"]
+    assert comparison_layer["unit_styles"][0]["label"] == "Alternative A"
+    assert comparison_layer["unit_styles"][0]["style_source"] == "deterministic_fallback"
 
 
 def test_restricted_cultural_source_is_not_mapped_or_exposed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

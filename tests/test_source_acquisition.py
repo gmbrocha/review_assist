@@ -1015,7 +1015,7 @@ def test_prepare_sources_feeds_downloaded_sources_into_constraints_findings_tabl
     assert "regulated-facility-summary" in regulated_section["related_table_ids"]
     assert "source-context-epa-envirofacts-echo" in regulated_section["related_figure_ids"]
     assert "regulated-facility-summary" in str(regulated_section["generated_content"])
-    assert any(item["type"] == "report_section" and item["source_refs"] == ["usgs_nhd_hydrography"] for item in queue["items"])
+    assert any(item["type"] == "report_section" and "usgs_nhd_hydrography" in item["source_refs"] for item in queue["items"])
     assert any(item["type"] == "report_section" and "usfws_critical_habitat" in item["source_refs"] for item in queue["items"])
     assert any(item["type"] == "report_section" and "epa_envirofacts_echo" in item["source_refs"] for item in queue["items"])
     assert source_gap(acquisition, "fema_nfhl_flood_hazard")["status"] == "optional"

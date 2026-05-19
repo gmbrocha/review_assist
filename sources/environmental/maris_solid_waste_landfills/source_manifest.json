@@ -1,0 +1,24 @@
+{
+  "source_id": "maris_solid_waste_landfills",
+  "display_name": "MARIS Solid Waste Landfill Facilities Mississippi",
+  "category": "regulated_facilities",
+  "authority": "MARIS / MDEQ",
+  "warehouse_group": "environmental",
+  "version": "2012",
+  "raw_paths": [
+    "raw/MS_SolidWasteLandfillFacilities_2012"
+  ],
+  "expected_geometry_type": "point",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2012",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Older landfill facility records may be stale and require MDEQ/reviewer confirmation."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "maris_solid_waste_landfills"
+  ]
+}

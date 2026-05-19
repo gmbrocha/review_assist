@@ -144,7 +144,8 @@ def test_generate_review_queue_writes_bounded_deliverable_item_queue(tmp_path: P
     assert not items_by_type(queue, "source_inventory_note")
 
 
-def test_legacy_review_queue_mode_still_writes_source_and_validation_items(tmp_path: Path) -> None:
+def test_legacy_review_queue_mode_still_writes_source_and_validation_items(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("review_assist.source_status.maybe_load_seed_source_manifest", lambda source_id: None)
     project_dir = write_project(tmp_path)
 
     queue = generate_review_queue(project_dir, include_legacy_artifacts=True)

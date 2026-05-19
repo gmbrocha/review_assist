@@ -1,0 +1,25 @@
+{
+  "source_id": "local_utility_infrastructure",
+  "display_name": "Local Utility and Infrastructure Seeded Context",
+  "category": "transportation_utilities",
+  "authority": "MARIS and source agencies",
+  "warehouse_group": "infrastructure",
+  "version": "2015-2021",
+  "raw_paths": [
+    "raw/MS_ElectricSubstations_2015",
+    "raw/MS_TransmissionLines_2021"
+  ],
+  "expected_geometry_type": "point_line",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "varies",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Public utility data may be incomplete or generalized and requires reviewer confirmation."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "local_utility_infrastructure"
+  ]
+}

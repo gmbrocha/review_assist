@@ -120,7 +120,8 @@ def item_by_id(queue: dict[str, object], item_id: str) -> dict[str, object]:
     return next(item for item in queue["items"] if item["id"] == item_id)  # type: ignore[index]
 
 
-def test_source_inventory_records_catalog_statuses_for_unavailable_sources(tmp_path: Path) -> None:
+def test_source_inventory_records_catalog_statuses_for_unavailable_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("review_assist.source_status.maybe_load_seed_source_manifest", lambda source_id: None)
     project_dir = write_project(tmp_path)
 
     inventory = generate_source_inventory(project_dir)

@@ -302,9 +302,9 @@ def test_docx_export_title_front_matter_and_outline_follow_matrix(tmp_path: Path
     assert "Synthetic project" in text
     assert "INTERNAL PREVIEW / NOT REVIEWED" not in text
     assert "List of Figures" in text
-    assert "Wetlands and Waterbodies in and near the Study Corridor" in text
+    assert "Wetlands and Waterbodies in and near the Project Area" in text
     assert "List of Tables" in text
-    assert "Descriptions of Wetlands and Waterbodies Present within the Study Corridor" in text
+    assert "Descriptions of Wetlands and Waterbodies Present within the Project Area" in text
     assert "List of Attachments" in text
     assert text.index("Attachment A") < text.index("Attachment B") < text.index("Attachment C")
 
@@ -638,9 +638,9 @@ def test_docx_export_front_matter_lists_included_figures_tables_and_attachments(
     text = docx_text(manifest["docx_path"])
 
     assert "List of Figures" in text
-    assert "Wetlands and Waterbodies in and near the Study Corridor" in text
+    assert "Wetlands and Waterbodies in and near the Project Area" in text
     assert "List of Tables" in text
-    assert "Descriptions of Wetlands and Waterbodies Present within the Study Corridor" in text
+    assert "Descriptions of Wetlands and Waterbodies Present within the Project Area" in text
     assert "List of Attachments" in text
     assert "Attachment A: Project Maps." in text
 
@@ -664,7 +664,7 @@ def test_docx_export_embeds_table_content_and_missing_figure_placeholder(tmp_pat
     manifest = export_report(project_dir, include_draft=True, output_format="docx")
     text = docx_text(manifest["docx_path"])
 
-    assert "Descriptions of Wetlands and Waterbodies Present within the Study Corridor" in text
+    assert "Descriptions of Wetlands and Waterbodies Present within the Project Area" in text
     assert "Table placeholder: this table currently has no rows." in text
     assert "Figure placeholder: figure file was not available" in text
     assert any(issue["code"] == "missing_export_figure_asset" for issue in manifest["validation_issues"])

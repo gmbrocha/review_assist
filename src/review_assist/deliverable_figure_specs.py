@@ -35,9 +35,24 @@ MISSING_SOURCE_STATUSES = {
     "unsupported_download",
     "needs_review",
     "selected_not_renderable",
+    "warehouse_available",
+    "present_not_materialized",
 }
 RESTRICTED_CULTURAL_SOURCE_ID = "mdah_restricted_archaeology"
 PUBLIC_CULTURAL_SOURCE_IDS = {"maris_public_cultural_context", "mdah_public_historic_resources"}
+NHD_SOURCE_IDS = ("usgs_nhd_hydrography", "usgs_nhd_flowlines", "usgs_nhd_waterbodies", "usgs_nhd_other_areas")
+REGULATED_FACILITY_SOURCE_IDS = (
+    "epa_envirofacts_echo",
+    "epa_frs_facilities_ms",
+    "maris_brownfields",
+    "maris_npdes_facilities",
+    "maris_solid_waste_landfills",
+    "maris_superfund_sites",
+    "maris_tri_facilities",
+    "maris_underground_storage_tanks",
+    "mdeq_environmental_context",
+    "mississippi_oil_gas_wells",
+)
 RENDERABLE_BASEMAP_SUFFIXES = {".tif", ".tiff", ".png"}
 PANEL_ASPECT_THRESHOLD = 2.75
 MAX_PANEL_COUNT = 6
@@ -53,7 +68,7 @@ class TargetFigureSpec:
 
 TARGET_SPECS: dict[str, TargetFigureSpec] = {
     "figure-wetlands-waterbodies": TargetFigureSpec(
-        ("usfws_nwi_wetlands", "usgs_nhd_hydrography"),
+        ("usfws_nwi_wetlands", *NHD_SOURCE_IDS),
         prefer_basemap=True,
     ),
     "figure-fema-flood-zones": TargetFigureSpec(
@@ -61,7 +76,7 @@ TARGET_SPECS: dict[str, TargetFigureSpec] = {
         prefer_basemap=True,
     ),
     "figure-streams-impaired-waters": TargetFigureSpec(
-        ("usgs_nhd_hydrography",),
+        NHD_SOURCE_IDS,
         source_unimplemented_note="303(d) impaired-water layer rendering is not implemented for Sprint 2.3; hydrography is shown when available.",
     ),
     "figure-cultural-resources": TargetFigureSpec(
@@ -95,7 +110,7 @@ TARGET_SPECS: dict[str, TargetFigureSpec] = {
         ("electric", "transmission", "substation", "pipeline", "power", "energy", "utility"),
     ),
     "figure-hazardous-waste-sites": TargetFigureSpec(
-        ("epa_envirofacts_echo", "mdeq_environmental_context", "mississippi_oil_gas_wells"),
+        REGULATED_FACILITY_SOURCE_IDS,
     ),
     "figure-census-tracts": TargetFigureSpec(
         ("census_tiger_acs",),

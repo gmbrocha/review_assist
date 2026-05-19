@@ -58,9 +58,9 @@ The app should attempt to:
 
 Current examples:
 
-- `projects/trails` contains line-based trail-alternative KMZ geometry.
+- `projects/trails` is a sample fixture containing line-based trail-alternative KMZ geometry.
 - `projects/conexon_projects` contains broad point-based broadband location KMZ geometry.
-- `env_constraints_report_20260511_EXAMPLE_ONLY.docx` is a structural reference for report deliverables, not authoritative project data.
+- `docs/reference/env_constraints_report_20260511_EXAMPLE_ONLY.docx` is a structural reference for report deliverables, not authoritative project data.
 
 These examples are not product boundaries. The workflow should act as a blank project machine that can accept a new project KMZ/KML, infer or request the geometry role, apply appropriate bounds/buffer logic, and run source-backed constraint checks.
 
@@ -331,7 +331,7 @@ The current CLI services are early building blocks. `generate-context` and `reso
 
 - Do not select or recommend a preferred alternative.
 - Do not implement autonomous ranking/scoring.
-- Do not frame objective constraint presentation as trail selection or rejection.
+- Do not frame objective constraint presentation as project-feature selection or rejection, including trail, route, corridor, site, service-area, or other alternatives.
 - Do not treat desktop review as field verification.
 - Do not let AI create unsupported facts.
 - Do not export unreviewed generated content as final.

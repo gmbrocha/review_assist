@@ -1,0 +1,26 @@
+{
+  "source_id": "maris_boundary_context",
+  "display_name": "MARIS Administrative and Physical Boundary Context",
+  "category": "community_socioeconomic",
+  "authority": "MARIS",
+  "warehouse_group": "boundaries",
+  "version": "1994-2015",
+  "raw_paths": [
+    "raw/MS_CountyBoundaries_2015",
+    "raw/MS_StateBoundary_2015",
+    "raw/MS_DetailedCoastline_1994"
+  ],
+  "expected_geometry_type": "line_polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "varies",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Boundary context supports location and study-area naming; official boundary use requires source-agency review."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "maris_boundary_context"
+  ]
+}

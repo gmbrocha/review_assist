@@ -1,0 +1,24 @@
+{
+  "source_id": "mississippi_oil_gas_wells",
+  "display_name": "Mississippi Oil and Gas Board Wells and Other Fields",
+  "category": "regulated_facilities",
+  "authority": "Mississippi State Oil and Gas Board",
+  "warehouse_group": "environmental",
+  "version": "July 2025",
+  "raw_paths": [
+    "raw/MS_OilnGasBoard_wells_otherfields_Jul25"
+  ],
+  "expected_geometry_type": "point",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2025-07",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Well status and location data require current Oil and Gas Board review before external reliance."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "mississippi_oil_gas_wells"
+  ]
+}

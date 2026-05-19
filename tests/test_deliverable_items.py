@@ -328,7 +328,7 @@ def test_generated_figure_candidate_includes_caption_source_method_and_image_sta
         "figure_id": target.target_id,
         "title": target.title,
         "image_path": "maps/figures/figure-wetlands-waterbodies.png",
-        "caption": "Wetlands and waterbodies in and near the study corridor.",
+        "caption": "Wetlands and waterbodies in and near the project area.",
         "source_note": "USFWS NWI and project geometry.",
         "method_note": "Vector overlay for reviewer verification.",
         "source_refs": ["usfws_nwi_wetlands"],

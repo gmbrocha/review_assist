@@ -129,7 +129,7 @@
       "section_order": 120,
       "export_group": "resource_sections",
       "resource_category": "land_cover_disturbance",
-      "purpose": "Summarize land cover, impervious surface, forested area, and disturbed-corridor context.",
+      "purpose": "Summarize land cover, impervious surface, forested area, and disturbance/project-area context.",
       "visual_slots": [],
       "table_slots": []
     },

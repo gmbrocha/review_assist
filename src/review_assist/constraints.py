@@ -394,6 +394,9 @@ def _feature_label(row: Any) -> str:
         "ZONE_SUBTY",
         "gnis_name",
         "GNIS_NAME",
+        "PRIMARY_NA",
+        "FAC_NAME",
+        "DispName",
         "name",
         "Name",
         "NAME",
@@ -423,6 +426,11 @@ def _feature_type(row: Any) -> str:
         "FAC_CURR_COMPLIANCE_STATUS",
         "FAC_ACTIVE_FLAG",
         "FAC_MAJOR_FLAG",
+        "INTEREST_T",
+        "PGM_SYS_AC",
+        "Facility_S",
+        "TYPE",
+        "type",
         "status",
         "STATUS",
         "MUSYM",
@@ -451,6 +459,8 @@ def _feature_subtype(row: Any) -> str:
             "FAC_CURR_SNC_FLG",
             "FAC_MAJOR_FLAG",
             "FAC_ACTIVE_FLAG",
+            "ACTIVE_STA",
+            "Facility_S",
             "listing_status",
             "LISTING_STATUS",
             "MUKEY",
@@ -479,6 +489,12 @@ def _feature_original_id(row: Any) -> str:
         (
             "review_assist_feature_original_id",
             "REGISTRY_ID",
+            "REGISTRY_I",
+            "Facility_I",
+            "SWID",
+            "API",
+            "KEY_FIELD",
+            "PERMIT_NO",
             "GLOBALID",
             "GFID",
             "MUKEY",
@@ -514,6 +530,13 @@ def _feature_date(row: Any) -> str:
             "FAC_DATE_LAST_INFORMAL_ACT_EPA",
             "FAC_DATE_LAST_INFORMAL_ACT_ST",
             "FAC_DATE_LAST_PENALTY",
+            "CREATE_DAT",
+            "UPDATE_DAT",
+            "LAST_REPOR",
+            "SOURCEDATE",
+            "VAL_DATE",
+            "Date_of_La",
+            "PermitDate",
             "effectdate",
             "EFFECTDATE",
             "pubdate",
@@ -542,6 +565,11 @@ def _feature_quality_flag(row: Any) -> str:
             "FAC_CURR_SNC_FLG",
             "FAC_COLLECTION_METHOD",
             "FAC_ACCURACY_METERS",
+            "ACCURACY_V",
+            "COLLECT_MT",
+            "Coordinate",
+            "VAL_METHOD",
+            "ACTIVE_STA",
             "accuracy",
             "ACCURACY",
             "SFHA_TF",
@@ -554,7 +582,22 @@ def _feature_quality_flag(row: Any) -> str:
 
 
 def _feature_source_citation(row: Any) -> str:
-    return _feature_value(row, ("review_assist_source_citation", "DFR_URL", "fedreg", "FEDREG", "SOURCE_CIT", "source_cit", "Source_Cit"))
+    return _feature_value(
+        row,
+        (
+            "review_assist_source_citation",
+            "DFR_URL",
+            "FAC_URL",
+            "PROGRAM_UR",
+            "WEBSITE",
+            "SOURCE",
+            "fedreg",
+            "FEDREG",
+            "SOURCE_CIT",
+            "source_cit",
+            "Source_Cit",
+        ),
+    )
 
 
 def _source_feature_values(row: Any) -> dict[str, str]:
@@ -578,13 +621,13 @@ def _source_feature_values(row: Any) -> dict[str, str]:
         "effective_date": _feature_value(row, ("effectdate", "EFFECTDATE", "review_assist_feature_date")),
         "vacate_date": _feature_value(row, ("vacatedate", "VACATEDATE")),
         "accuracy": _feature_value(row, ("accuracy", "ACCURACY", "review_assist_quality_flag")),
-        "facility_name": _feature_value(row, ("FAC_NAME", "fac_name", "review_assist_feature_label")),
-        "facility_registry_id": _feature_value(row, ("REGISTRY_ID", "review_assist_feature_original_id")),
-        "facility_street": _feature_value(row, ("FAC_STREET",)),
-        "facility_city": _feature_value(row, ("FAC_CITY",)),
-        "facility_state": _feature_value(row, ("FAC_STATE",)),
-        "facility_zip": _feature_value(row, ("FAC_ZIP",)),
-        "facility_county": _feature_value(row, ("FAC_COUNTY",)),
+        "facility_name": _feature_value(row, ("FAC_NAME", "fac_name", "PRIMARY_NA", "Name", "NAME", "DispName", "review_assist_feature_label")),
+        "facility_registry_id": _feature_value(row, ("REGISTRY_ID", "REGISTRY_I", "Facility_I", "SWID", "API", "KEY_FIELD", "review_assist_feature_original_id")),
+        "facility_street": _feature_value(row, ("FAC_STREET", "LOCATION_A", "Address", "ADDRESS")),
+        "facility_city": _feature_value(row, ("FAC_CITY", "CITY_NAME", "City", "CITY")),
+        "facility_state": _feature_value(row, ("FAC_STATE", "STATE_CODE", "State", "STATE")),
+        "facility_zip": _feature_value(row, ("FAC_ZIP", "POSTAL_COD", "Zip_Code", "ZIP")),
+        "facility_county": _feature_value(row, ("FAC_COUNTY", "COUNTY_NAM", "County", "COUNTY", "CountyName")),
         "facility_programs": _facility_programs(row),
         "facility_active_flag": _feature_value(row, ("FAC_ACTIVE_FLAG",)),
         "facility_major_flag": _feature_value(row, ("FAC_MAJOR_FLAG",)),
@@ -622,7 +665,7 @@ def _facility_programs(row: Any) -> str:
             labels.append(label)
     if labels:
         return ", ".join(labels)
-    return _feature_value(row, ("review_assist_feature_type",))
+    return _feature_value(row, ("PGM_SYS_AC", "INTEREST_T", "TYPE", "type", "Facility_S", "review_assist_feature_type"))
 
 
 def _feature_value(row: Any, columns: tuple[str, ...]) -> str:

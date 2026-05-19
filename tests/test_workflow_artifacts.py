@@ -179,7 +179,8 @@ def test_source_status_marks_local_registered_source_provided(tmp_path: Path) ->
     assert str(layer_path) in wetlands["local_paths"]
 
 
-def test_source_status_marks_public_candidate_downloadable(tmp_path: Path) -> None:
+def test_source_status_marks_public_candidate_downloadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("review_assist.source_status.maybe_load_seed_source_manifest", lambda source_id: None)
     project_dir = write_project(tmp_path)
 
     status_set = resolve_source_status_set(project_dir)
@@ -187,6 +188,48 @@ def test_source_status_marks_public_candidate_downloadable(tmp_path: Path) -> No
     wetlands = status_by_category(status_set, "wetlands_waterbodies")
     assert wetlands["status"] == "downloadable"
     assert "source_not_downloaded" in wetlands["uncertainty_flags"]
+
+
+def test_source_status_marks_seeded_warehouse_source_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "review_assist.source_status.maybe_load_seed_source_manifest",
+        lambda source_id: {
+            "source_id": source_id,
+            "analysis_ready": True,
+            "raw_paths": ["raw/source"],
+        },
+    )
+    monkeypatch.setattr("review_assist.source_status.raw_paths_exist", lambda source_id: [{"raw_path": "raw/source", "exists": True}])
+    project_dir = write_project(tmp_path)
+
+    status_set = resolve_source_status_set(project_dir)
+
+    wetlands = status_by_category(status_set, "wetlands_waterbodies")
+    detail = detail_by_source(wetlands, "usfws_nwi_wetlands")
+    assert wetlands["status"] == "needs_review"
+    assert "local_warehouse_source_unmaterialized" in wetlands["uncertainty_flags"]
+    assert detail["status"] == "warehouse_available"
+
+
+def test_source_status_marks_seeded_source_present_not_materialized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "review_assist.source_status.maybe_load_seed_source_manifest",
+        lambda source_id: {
+            "source_id": source_id,
+            "analysis_ready": False,
+            "raw_paths": ["raw/source"],
+        },
+    )
+    monkeypatch.setattr("review_assist.source_status.raw_paths_exist", lambda source_id: [{"raw_path": "raw/source", "exists": True}])
+    project_dir = write_project(tmp_path)
+
+    status_set = resolve_source_status_set(project_dir)
+
+    wetlands = status_by_category(status_set, "wetlands_waterbodies")
+    detail = detail_by_source(wetlands, "usfws_nwi_wetlands")
+    assert wetlands["status"] == "present_not_materialized"
+    assert "source_present_not_materialized" in wetlands["uncertainty_flags"]
+    assert detail["status"] == "present_not_materialized"
 
 
 def test_source_status_marks_restricted_manual_category_gated(tmp_path: Path) -> None:
@@ -214,7 +257,8 @@ def test_source_status_marks_missing_required_category_nonfatal() -> None:
     assert "source_unavailable" in result["uncertainty_flags"]
 
 
-def test_source_status_marks_example_flood_hazard_required(tmp_path: Path) -> None:
+def test_source_status_marks_example_flood_hazard_required(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("review_assist.source_status.maybe_load_seed_source_manifest", lambda source_id: None)
     project_dir = write_project(tmp_path)
 
     status_set = resolve_source_status_set(project_dir)

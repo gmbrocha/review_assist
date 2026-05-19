@@ -15,7 +15,7 @@ from .basemaps import MARIS_NAIP_SOURCE_ID, MARIS_NAIP_SOURCE_NAME
 from .comparison_units import ComparisonUnitError, build_comparison_units, load_comparison_units
 from .deliverable_figure_basemaps import load_basemap
 from .deliverable_figure_contract import DeliverableFigureError, validate_deliverable_figures
-from .deliverable_figure_rendering import panel_bounds, render_map
+from .deliverable_figure_rendering import comparison_unit_style_records, panel_bounds, render_map
 from .deliverable_figure_specs import (
     MAX_PANEL_COUNT,
     MISSING_SOURCE_STATUSES,
@@ -842,7 +842,7 @@ def _provenance(
     }
     if basemap:
         provenance["basemap"] = {
-            "source_id": MARIS_NAIP_SOURCE_ID,
+            "source_id": str(basemap.get("source_ref") or MARIS_NAIP_SOURCE_ID),
             "selected_paths": _string_list(basemap.get("selected_paths", [])),
             "renderable_paths": _string_list(basemap.get("renderable_paths", [])),
             "rendered_path": basemap.get("shown_layer", {}).get("path") if isinstance(basemap.get("shown_layer"), dict) else None,
@@ -866,11 +866,11 @@ def _source_note(source_layers: list[dict[str, Any]], basemap: dict[str, Any] | 
         labels.append(f"{layer.get('source_name') or layer.get('source_id')} ({count} features)")
     if basemap and basemap.get("shown_layer"):
         shown = basemap["shown_layer"]
-        label = MARIS_NAIP_SOURCE_NAME
+        label = str(shown.get("label") or MARIS_NAIP_SOURCE_NAME)
         if shown.get("renderable"):
-            labels.append(f"{label} renderable sidecar")
+            labels.append(f"{label} rendered from sidecar")
         else:
-            labels.append(f"{label} provenance only")
+            labels.append(f"{label} provenance only; no visual basemap sidecar")
     if not labels:
         return ""
     text = "Sources: " + "; ".join(labels)
@@ -890,6 +890,8 @@ def _comparison_units_shown_layer(unit_gdf: gpd.GeoDataFrame) -> dict[str, Any]:
         "feature_count": int(len(unit_gdf)),
         "comparison_unit_ids": _comparison_unit_ids(unit_gdf),
         "geometry_type_counts": _geometry_type_counts(unit_gdf),
+        "rendered_as": "individual_comparison_units",
+        "unit_styles": comparison_unit_style_records(unit_gdf),
     }
 
 

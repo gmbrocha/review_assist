@@ -141,7 +141,7 @@ def test_expected_count_mismatch_creates_validation_issue(tmp_path: Path) -> Non
     assert any(issue["code"] == "comparison_unit_count_mismatch" for issue in result["validation_issues"])
 
 
-def test_trails_style_folder_structure_resolves_to_five_expected_units(tmp_path: Path) -> None:
+def test_nested_option_folder_structure_resolves_to_expected_comparison_units(tmp_path: Path) -> None:
     project_dir = write_project(
         tmp_path,
         """
@@ -150,12 +150,12 @@ def test_trails_style_folder_structure_resolves_to_five_expected_units(tmp_path:
         </Folder></Folder></Folder>
         <Folder><name>ali_option1B_2013.dwg</name><Folder><name>Levels</name><Folder><name>0</name>
           <Placemark><name>Style2</name><LineString><coordinates>-90.0000,32.0010,0 -89.9900,32.0010,0</coordinates></LineString></Placemark>
-        </Folder><Folder><name>P_TRAIL-OPTION1A-1B</name>
+        </Folder><Folder><name>P_OPTION1A-1B</name>
           <Placemark><name>Style3</name><LineString><coordinates>-89.9900,32.0010,0 -89.9850,32.0010,0</coordinates></LineString></Placemark>
         </Folder></Folder></Folder>
         <Folder><name>ali_option2_2013.dwg</name><Folder><name>Levels</name><Folder><name>0</name>
           <Placemark><name>Style4</name><LineString><coordinates>-90.0000,32.0020,0 -89.9900,32.0020,0</coordinates></LineString></Placemark>
-        </Folder><Folder><name>P_TRAIL-OPTION2</name>
+        </Folder><Folder><name>P_OPTION2</name>
           <Placemark><name>Style5</name><LineString><coordinates>-89.9900,32.0020,0 -89.9850,32.0020,0</coordinates></LineString></Placemark>
         </Folder></Folder></Folder>
         <Folder><name>ali_option3_2013.dwg</name><Folder><name>Levels</name><Folder><name>0</name>

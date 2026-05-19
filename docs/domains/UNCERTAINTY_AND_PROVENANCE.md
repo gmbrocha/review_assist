@@ -276,7 +276,7 @@ Findings should record:
 - Whether the original geometry or a buffered corridor was used.
 - Buffer width and units.
 - CRS used for buffering.
-- Whether the buffer represents trail width, study corridor, review distance, or another assumption.
+- Whether the buffer represents feature width, study corridor, review distance, or another project-specific assumption.
 
 Sprint 2.2 comparison-unit constraints record `analysis_geometry_kind`, `buffer_feet`, `measurement_crs`, source refs, raw feature IDs, and uncertainty flags before exact deliverable table rows are generated. Raw project-feature constraints remain evidence and should not become standard report rows by default.
 

@@ -1,0 +1,26 @@
+{
+  "source_id": "maris_community_facilities",
+  "display_name": "MARIS Community Facilities and Places",
+  "category": "community_socioeconomic",
+  "authority": "MARIS and source agencies",
+  "warehouse_group": "community",
+  "version": "2009-2020",
+  "raw_paths": [
+    "raw/MS_Communities_2009",
+    "raw/MS_FireStations_2020",
+    "raw/MS_RecreationalFacilities_2017"
+  ],
+  "expected_geometry_type": "point",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "varies",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Community facility layers may be incomplete or stale and require reviewer confirmation."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "maris_community_facilities"
+  ]
+}

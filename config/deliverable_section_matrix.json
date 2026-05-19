@@ -5,7 +5,7 @@
   "description": "Canonical report section, table, figure, attachment, and review target contract derived from CANONICAL_PLAN.md.",
   "source_documents": [
     "CANONICAL_PLAN.md",
-    "env_constraints_report_20260511_EXAMPLE_ONLY.docx"
+    "docs/reference/env_constraints_report_20260511_EXAMPLE_ONLY.docx"
   ],
   "stub_text": "Empty stub for future implements whenever source data is accessible.",
   "numbering_policy": {
@@ -867,7 +867,7 @@
   "table_targets": [
     {
       "target_id": "table-wetlands-waterbodies",
-      "title": "Descriptions of Wetlands and Waterbodies Present within the Study Corridor",
+      "title": "Descriptions of Wetlands and Waterbodies Present within the Project Area",
       "section_target_id": "wetlands-and-waterbodies",
       "columns": ["Alternative", "Stream Crossings", "Freshwater Emergent Wetland", "Freshwater Forested/Shrub Wetland", "Freshwater Pond"],
       "required": true,
@@ -877,7 +877,7 @@
     },
     {
       "target_id": "table-fema-flood-zones",
-      "title": "FEMA Flood Zones within the Study Corridor",
+      "title": "FEMA Flood Zones within the Project Area",
       "section_target_id": "floodplains-and-floodways",
       "columns": ["Alternative", "Flood Zone Classification", "Estimated Acreage"],
       "required": true,
@@ -887,7 +887,7 @@
     },
     {
       "target_id": "table-income-demographics",
-      "title": "Income Demographics of Census Tracts along the Study Corridor",
+      "title": "Income Demographics of Census Tracts in or near the Project Area",
       "section_target_id": "demographic-characteristics",
       "columns": ["Census Tract", "Population Below the Poverty Line"],
       "required": true,
@@ -897,7 +897,7 @@
     },
     {
       "target_id": "table-demographic-composition",
-      "title": "Demographic Composition of Census Tracts along the Study Corridor",
+      "title": "Demographic Composition of Census Tracts in or near the Project Area",
       "section_target_id": "demographic-characteristics",
       "columns": ["Geography", "Black or African American", "Asian", "White"],
       "required": true,
@@ -909,7 +909,7 @@
   "figure_targets": [
     {
       "target_id": "figure-wetlands-waterbodies",
-      "title": "Wetlands and Waterbodies in and near the Study Corridor",
+      "title": "Wetlands and Waterbodies in and near the Project Area",
       "section_target_id": "wetlands-and-waterbodies",
       "source_categories": ["wetlands_waterbodies", "hydrography_crossings"],
       "required": true,
@@ -918,7 +918,7 @@
     },
     {
       "target_id": "figure-fema-flood-zones",
-      "title": "FEMA Flood Zones in and near the Study Corridor",
+      "title": "FEMA Flood Zones in and near the Project Area",
       "section_target_id": "floodplains-and-floodways",
       "source_categories": ["flood_hazard"],
       "required": true,
@@ -927,7 +927,7 @@
     },
     {
       "target_id": "figure-streams-impaired-waters",
-      "title": "Streams and 303(d) Impaired Waters within the Subwatersheds of the Study Corridor",
+      "title": "Streams and 303(d) Impaired Waters within Project-Area Subwatersheds",
       "section_target_id": "water-quality",
       "source_categories": ["hydrography_crossings"],
       "required": true,
@@ -936,7 +936,7 @@
     },
     {
       "target_id": "figure-cultural-resources",
-      "title": "Cultural Resources Sites in or near the Study Corridor",
+      "title": "Cultural Resources Sites in or near the Project Area",
       "section_target_id": "cultural-and-historic-resources",
       "source_categories": ["cultural_historic"],
       "required": true,
@@ -945,7 +945,7 @@
     },
     {
       "target_id": "figure-fire-ems-stations",
-      "title": "Fire Stations in or near the Study Corridor",
+      "title": "Fire Stations in or near the Project Area",
       "section_target_id": "fire-ems-stations",
       "source_categories": ["community_socioeconomic"],
       "required": true,
@@ -954,7 +954,7 @@
     },
     {
       "target_id": "figure-government-offices",
-      "title": "Government Offices near the Study Corridor",
+      "title": "Government Offices near the Project Area",
       "section_target_id": "government-buildings",
       "source_categories": ["community_socioeconomic"],
       "required": true,
@@ -963,7 +963,7 @@
     },
     {
       "target_id": "figure-schools-childcare",
-      "title": "Schools and Childcare Facilities in or near the Study Corridor",
+      "title": "Schools and Childcare Facilities in or near the Project Area",
       "section_target_id": "education-facilities",
       "source_categories": ["community_socioeconomic"],
       "required": true,
@@ -972,7 +972,7 @@
     },
     {
       "target_id": "figure-health-care-facilities",
-      "title": "Health Care Facilities near the Study Corridor",
+      "title": "Health Care Facilities near the Project Area",
       "section_target_id": "health-care-facilities",
       "source_categories": ["community_socioeconomic"],
       "required": true,
@@ -981,7 +981,7 @@
     },
     {
       "target_id": "figure-places-of-worship",
-      "title": "Places of Worship in or near the Study Corridor",
+      "title": "Places of Worship in or near the Project Area",
       "section_target_id": "places-of-worship",
       "source_categories": ["community_socioeconomic"],
       "required": true,
@@ -990,7 +990,7 @@
     },
     {
       "target_id": "figure-public-water-supply-wells",
-      "title": "Public Water Supply Wells near the Study Corridor",
+      "title": "Public Water Supply Wells near the Project Area",
       "section_target_id": "public-water-supply",
       "source_categories": ["transportation_utilities"],
       "required": true,
@@ -999,7 +999,7 @@
     },
     {
       "target_id": "figure-energy-infrastructure",
-      "title": "Energy Infrastructure near the Study Corridor",
+      "title": "Energy Infrastructure near the Project Area",
       "section_target_id": "energy-infrastructure",
       "source_categories": ["transportation_utilities"],
       "required": true,
@@ -1008,7 +1008,7 @@
     },
     {
       "target_id": "figure-hazardous-waste-sites",
-      "title": "Hazardous Waste Sites near the Study Corridor",
+      "title": "Hazardous Waste Sites near the Project Area",
       "section_target_id": "hazardous-materials-sites",
       "source_categories": ["regulated_facilities"],
       "required": true,
@@ -1017,7 +1017,7 @@
     },
     {
       "target_id": "figure-census-tracts",
-      "title": "Census Tracts along the Study Corridor",
+      "title": "Census Tracts in or near the Project Area",
       "section_target_id": "demographic-characteristics",
       "source_categories": ["community_socioeconomic"],
       "required": true,

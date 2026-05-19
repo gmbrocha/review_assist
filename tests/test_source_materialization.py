@@ -180,6 +180,127 @@ def test_configured_normalization_supports_transportation_layers(tmp_path: Path)
     assert any(constraint["source_id"] == "mdot_transportation_context" for constraint in constraints["constraints"])
 
 
+def test_seeded_environmental_facility_materializes_and_reports_provided_locally(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    warehouse = tmp_path / "warehouse"
+    warehouse.mkdir()
+    brownfields_path = write_layer(
+        warehouse / "brownfields.geojson",
+        [{"PRIMARY_NA": "Former Mill", "REGISTRY_I": "110001", "INTEREST_T": "BROWNFIELDS"}],
+        [Point(-89.995, 32.0002)],
+    )
+    config_path = write_config(
+        tmp_path / "materializers.json",
+        [
+            {
+                "source_id": "maris_brownfields",
+                "output_name": "maris_brownfields",
+                "warehouse_source_ids": ["maris_brownfields"],
+                "normalization": {
+                    "label_fields": ["PRIMARY_NA"],
+                    "feature_type_fields": ["INTEREST_T"],
+                    "original_id_fields": ["REGISTRY_I"],
+                },
+                "layers": [
+                    {
+                        "path": str(brownfields_path),
+                        "source_layer_id": "brownfields",
+                        "source_layer_name": "Brownfields",
+                        "warehouse_source_id": "maris_brownfields",
+                    }
+                ],
+            }
+        ],
+    )
+
+    result = materialize_local_source(project_dir, "maris_brownfields", config_path=config_path)
+    source_status = resolve_source_status_set(project_dir)
+    constraints = analyze_constraints(project_dir)
+
+    assert result["materialized_count"] == 1
+    registered = load_project_source_registry(project_dir).by_source_id()["maris_brownfields"]
+    assert registered.path == "layers/maris_brownfields/maris_brownfields.geojson"
+    regulated = next(status for status in source_status["statuses"] if status["category"] == "regulated_facilities")
+    detail = next(item for item in regulated["source_details"] if item["source_id"] == "maris_brownfields")
+    assert regulated["status"] == "provided_locally"
+    assert detail["status"] == "local_materialized"
+    assert any(constraint["source_id"] == "maris_brownfields" for constraint in constraints["constraints"])
+
+
+def test_seeded_fema_flood_hazard_materializes_from_configured_shapefile_source(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    flood_path = write_layer(
+        tmp_path / "flood.geojson",
+        [{"FLD_ZONE": "AE", "ZONE_SUBTY": "Floodway", "GFID": "flood-1", "SFHA_TF": "T"}],
+        [wetland_polygon()],
+    )
+    config_path = write_config(
+        tmp_path / "materializers.json",
+        [
+            {
+                "source_id": "fema_nfhl_flood_hazard",
+                "output_name": "fema_nfhl_flood_hazard",
+                "warehouse_source_ids": ["fema_nfhl_flood_hazard"],
+                "layers": [
+                    {
+                        "path": str(flood_path),
+                        "source_layer_id": "flood",
+                        "source_layer_name": "Flood Hazard",
+                        "warehouse_source_id": "fema_nfhl_flood_hazard",
+                    }
+                ],
+            }
+        ],
+    )
+
+    result = materialize_local_source(project_dir, "fema_nfhl_flood_hazard", config_path=config_path)
+    constraints = analyze_comparison_unit_constraints(project_dir)
+
+    assert result["materialized_count"] == 1
+    assert any(constraint["source_id"] == "fema_nfhl_flood_hazard" for constraint in constraints["constraints"])
+
+
+def test_specific_seeded_nhd_flowline_materializes_as_hydrography_source(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    flowline_path = write_layer(
+        tmp_path / "flowlines.geojson",
+        [{"gnis_name": "Test Creek", "permanent_": "nhd-1", "ftype": "StreamRiver", "fcode": "46006"}],
+        [LineString([(-89.995, 31.999), (-89.995, 32.001)])],
+    )
+    config_path = write_config(
+        tmp_path / "materializers.json",
+        [
+            {
+                "source_id": "usgs_nhd_flowlines",
+                "output_name": "usgs_nhd_flowlines",
+                "warehouse_source_ids": ["usgs_nhd_flowlines"],
+                "normalization": {
+                    "label_fields": ["gnis_name"],
+                    "feature_type_fields": ["ftype"],
+                    "feature_subtype_fields": ["fcode"],
+                    "original_id_fields": ["permanent_"],
+                },
+                "layers": [
+                    {
+                        "path": str(flowline_path),
+                        "source_layer_id": "flowlines",
+                        "source_layer_name": "Flowlines",
+                        "warehouse_source_id": "usgs_nhd_flowlines",
+                    }
+                ],
+            }
+        ],
+    )
+
+    result = materialize_local_source(project_dir, "usgs_nhd_flowlines", config_path=config_path)
+    constraints = analyze_constraints(project_dir)
+
+    assert result["materialized_count"] == 1
+    assert any(constraint["source_id"] == "usgs_nhd_flowlines" for constraint in constraints["constraints"])
+    hydro_constraint = next(constraint for constraint in constraints["constraints"] if constraint["source_id"] == "usgs_nhd_flowlines")
+    assert hydro_constraint["source_feature_label"] == "Test Creek"
+
+
 def test_boundary_materialization_adds_county_names_to_context_and_sections(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     county_path = write_layer(

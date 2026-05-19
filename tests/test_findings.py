@@ -188,7 +188,8 @@ def test_stream_crossing_creates_cautious_implication_language(tmp_path: Path) -
     assert "final determination" in implication
 
 
-def test_deferred_source_statuses_create_manual_review_findings(tmp_path: Path) -> None:
+def test_deferred_source_statuses_create_manual_review_findings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("review_assist.source_status.maybe_load_seed_source_manifest", lambda source_id: None)
     project_dir = write_project(tmp_path)
     result = generate_draft_findings(project_dir)
 

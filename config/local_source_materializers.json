@@ -2,231 +2,1301 @@
   "materializer_version": "0.1",
   "sources": [
     {
-      "source_id": "usfws_nwi_wetlands",
-      "output_name": "usfws_nwi_wetlands",
-      "layers": [
-        {
-          "path": "sources/MS_geopackage_wetlands/MS_geopackage_wetlands.gpkg",
-          "layer": "MS_Wetlands",
-          "source_layer_id": "MS_Wetlands",
-          "source_layer_name": "MS Wetlands"
-        }
-      ]
-    },
-    {
-      "source_id": "usfws_critical_habitat",
-      "output_name": "usfws_critical_habitat",
-      "layers": [
-        {
-          "path": "sources/critical_species_habitat_all_layers/CRITHAB_LINE.shp",
-          "source_layer_id": "CRITHAB_LINE",
-          "source_layer_name": "Critical Habitat Lines"
-        },
-        {
-          "path": "sources/critical_species_habitat_all_layers/crithab_poly.shp",
-          "source_layer_id": "crithab_poly",
-          "source_layer_name": "Critical Habitat Polygons"
-        }
-      ]
-    },
-    {
-      "source_id": "usda_nrcs_ssurgo_soils",
-      "output_name": "usda_nrcs_ssurgo_soils",
-      "layers": [
-        {
-          "path": "sources/wss_gsmsoil_MS_10_13_2016/spatial/gsmsoilmu_a_ms.shp",
-          "source_layer_id": "gsmsoilmu_a_ms",
-          "source_layer_name": "SSURGO Soil Map Units Mississippi"
-        }
-      ]
-    },
-    {
-      "source_id": "mdot_transportation_context",
-      "output_name": "mdot_transportation_context",
+      "source_id": "epa_frs_facilities_ms",
+      "output_name": "epa_frs_facilities_ms",
+      "warehouse_source_ids": [
+        "epa_frs_facilities_ms"
+      ],
       "normalization": {
-        "label_fields": ["ROAD_NAME", "HWYNAME", "RAILWAY_NM", "RR_Name", "RROWNER1", "NAME", "Street", "CrossingID", "SRI"],
-        "feature_type_fields": ["ROUTE_CLAS", "CLASS", "NET", "TypeXing", "FEATURE_TY", "JUNCTION", "FTYPE"],
-        "feature_subtype_fields": ["COUNTY", "COUNTYNAME", "CountyName", "HWYNAME", "SUBDIV", "RR_Name", "RROWNER1", "RAILWAY_NM"],
-        "original_id_fields": ["SRI", "OBJECTID", "CrossingID", "FRAARCID", "NODEID", "ID", "NTAD_ID"],
-        "date_fields": ["WM_VALIDFR", "LastUpdate", "FDATE", "GEODATE", "CONTDATE", "RevisionDa"],
-        "quality_flag_fields": ["MOD_STATUS", "GEOPREC", "QC_QA", "ReportStat"],
-        "source_citation_fields": []
+        "label_fields": [
+          "FAC_NAME",
+          "PRIMARY_NA",
+          "Name",
+          "NAME",
+          "DispName"
+        ],
+        "feature_type_fields": [
+          "INTEREST_T",
+          "PGM_SYS_AC",
+          "TYPE",
+          "type",
+          "status",
+          "Facility_S"
+        ],
+        "feature_subtype_fields": [
+          "ACTIVE_STA",
+          "STATUS",
+          "statdesc",
+          "FAC_COUNTY",
+          "COUNTY_NAM",
+          "County",
+          "COUNTY"
+        ],
+        "original_id_fields": [
+          "REGISTRY_I",
+          "REGISTRY_ID",
+          "Facility_I",
+          "SWID",
+          "API",
+          "OBJECTID",
+          "KEY_FIELD",
+          "PERMIT_NO"
+        ],
+        "date_fields": [
+          "UPDATE_DAT",
+          "CREATE_DAT",
+          "SOURCEDATE",
+          "VAL_DATE",
+          "Date_of_La",
+          "PermitDate",
+          "LAST_REPOR"
+        ],
+        "quality_flag_fields": [
+          "ACCURACY_V",
+          "COLLECT_MT",
+          "Coordinate",
+          "VAL_METHOD",
+          "ACTIVE_STA",
+          "STATUS"
+        ],
+        "source_citation_fields": [
+          "FAC_URL",
+          "PROGRAM_UR",
+          "SOURCE",
+          "WEBSITE"
+        ]
       },
       "layers": [
         {
-          "path": "sources/roads/MS_MDOTCenterlines_Nov2025/MS_MDOTCenterlines_Nov2025/MS_MDOTLRM_Nov25.shp",
-          "source_layer_id": "MS_MDOTLRM_Nov25",
-          "source_layer_name": "MDOT Road Centerlines November 2025"
-        },
+          "path": "sources/environmental/epa_frs_facilities_ms/raw/MS_EPAFacilityRegisteryService_2022/MS_EPAFacilityRegisteryService_2022.shp",
+          "source_layer_id": "MS_EPAFacilityRegisteryService_2022",
+          "source_layer_name": "EPA Facility Registry Service Mississippi 2022",
+          "warehouse_source_id": "epa_frs_facilities_ms"
+        }
+      ]
+    },
+    {
+      "source_id": "fema_nfhl_flood_hazard",
+      "output_name": "fema_nfhl_flood_hazard",
+      "warehouse_source_ids": [
+        "fema_nfhl_flood_hazard"
+      ],
+      "normalization": {
+        "label_fields": [
+          "FLD_ZONE",
+          "ZONE_SUBTY",
+          "SOURCE_CIT"
+        ],
+        "feature_type_fields": [
+          "FLD_ZONE"
+        ],
+        "feature_subtype_fields": [
+          "ZONE_SUBTY"
+        ],
+        "original_id_fields": [
+          "GFID",
+          "FLD_AR_ID",
+          "OBJECTID"
+        ],
+        "date_fields": [
+          "EFF_DATE",
+          "PANEL_DATE",
+          "REVERT_DATE"
+        ],
+        "quality_flag_fields": [
+          "SFHA_TF",
+          "AR_REVERT",
+          "DUAL_ZONE"
+        ],
+        "source_citation_fields": [
+          "SOURCE_CIT"
+        ]
+      },
+      "layers": [
         {
-          "path": "sources/roads/MS_DesignatedHighways_2010/MS_DesignatedHighways_2010.shp",
-          "source_layer_id": "MS_DesignatedHighways_2010",
-          "source_layer_name": "Mississippi Designated Highways 2010"
-        },
-        {
-          "path": "sources/railroads/MS_RailroadNetworks_2018/MS_RailroadNetworks_2018.shp",
-          "source_layer_id": "MS_RailroadNetworks_2018",
-          "source_layer_name": "Mississippi Railroad Networks 2018"
-        },
-        {
-          "path": "sources/railroads/MS_RailroadCrossings_2016/MS_RailroadCrossings_2016.shp",
-          "source_layer_id": "MS_RailroadCrossings_2016",
-          "source_layer_name": "Mississippi Railroad Crossings 2016"
-        },
-        {
-          "path": "sources/railroads/MS_RailroadBridges_2009/MS_RailroadBridges_2009.shp",
-          "source_layer_id": "MS_RailroadBridges_2009",
-          "source_layer_name": "Mississippi Railroad Bridges 2009"
-        },
-        {
-          "path": "sources/railroads/MS_RailroadJunctions_2016/MS_RailroadJunctions_2016.shp",
-          "source_layer_id": "MS_RailroadJunctions_2016",
-          "source_layer_name": "Mississippi Railroad Junctions 2016"
+          "path": "sources/environmental/fema_nfhl_flood_hazard/raw/MS_DFIRMFloodHazard_2023/MS_DFIRMFloodHazard_2023.shp",
+          "source_layer_id": "MS_DFIRMFloodHazard_2023",
+          "source_layer_name": "Mississippi DFIRM Flood Hazard 2023",
+          "warehouse_source_id": "fema_nfhl_flood_hazard"
         }
       ]
     },
     {
       "source_id": "local_utility_infrastructure",
       "output_name": "local_utility_infrastructure",
+      "warehouse_source_ids": [
+        "local_utility_infrastructure"
+      ],
       "normalization": {
-        "label_fields": ["NAME", "OWNER", "ID"],
-        "feature_type_fields": ["TYPE", "STATUS", "VOLT_CLASS", "MAX_VOLTAG", "MIN_VOLTAG", "NAICS_DESC"],
-        "feature_subtype_fields": ["CITY", "STATE", "OWNER", "VOLTAGE", "LINES"],
-        "original_id_fields": ["OBJECTID", "ID"],
-        "date_fields": ["DATE", "SOURCEDATE", "VAL_DATE"],
-        "quality_flag_fields": ["METHOD", "VAL_METHOD", "INFERRED"],
-        "source_citation_fields": ["SOURCE"]
+        "label_fields": [
+          "NAME",
+          "OWNER",
+          "ID"
+        ],
+        "feature_type_fields": [
+          "TYPE",
+          "STATUS",
+          "VOLT_CLASS",
+          "MAX_VOLTAG",
+          "MIN_VOLTAG",
+          "NAICS_DESC"
+        ],
+        "feature_subtype_fields": [
+          "CITY",
+          "STATE",
+          "OWNER",
+          "VOLTAGE",
+          "LINES"
+        ],
+        "original_id_fields": [
+          "OBJECTID",
+          "ID"
+        ],
+        "date_fields": [
+          "DATE",
+          "SOURCEDATE",
+          "VAL_DATE"
+        ],
+        "quality_flag_fields": [
+          "METHOD",
+          "VAL_METHOD",
+          "INFERRED"
+        ],
+        "source_citation_fields": [
+          "SOURCE"
+        ]
       },
       "layers": [
         {
-          "path": "sources/cultural_other/MS_ElectricSubstations_2015/MS_ElectricSubstations_2015.shp",
+          "path": "sources/infrastructure/local_utility_infrastructure/raw/MS_ElectricSubstations_2015/MS_ElectricSubstations_2015.shp",
           "source_layer_id": "MS_ElectricSubstations_2015",
-          "source_layer_name": "Mississippi Electric Substations 2015"
+          "source_layer_name": "Mississippi Electric Substations 2015",
+          "warehouse_source_id": "local_utility_infrastructure"
         },
         {
-          "path": "sources/cultural_other/MS_TransmissionLines_2021/MS_TransmissionLines_2021.shp",
+          "path": "sources/infrastructure/local_utility_infrastructure/raw/MS_TransmissionLines_2021/MS_TransmissionLines_2021.shp",
           "source_layer_id": "MS_TransmissionLines_2021",
-          "source_layer_name": "Mississippi Transmission Lines 2021"
+          "source_layer_name": "Mississippi Transmission Lines 2021",
+          "warehouse_source_id": "local_utility_infrastructure"
         }
       ]
     },
     {
       "source_id": "maris_boundary_context",
       "output_name": "maris_boundary_context",
+      "warehouse_source_ids": [
+        "maris_boundary_context"
+      ],
       "normalization": {
-        "label_fields": ["CONAME", "CO_SEAT", "STBND_ID", "CSTL_ID", "CLASS"],
-        "feature_type_fields": ["CONAME", "CLASS"],
-        "feature_subtype_fields": ["CO_SEAT", "COUNTY", "STBND_ID", "CSTL_ID"],
-        "original_id_fields": ["NEWSTCO_ID", "NEWSTCO_", "COUNTY", "STBND_ID", "CSTL_ID"],
+        "label_fields": [
+          "CONAME",
+          "CO_SEAT",
+          "STBND_ID",
+          "CSTL_ID",
+          "CLASS"
+        ],
+        "feature_type_fields": [
+          "CONAME",
+          "CLASS"
+        ],
+        "feature_subtype_fields": [
+          "CO_SEAT",
+          "COUNTY",
+          "STBND_ID",
+          "CSTL_ID"
+        ],
+        "original_id_fields": [
+          "NEWSTCO_ID",
+          "NEWSTCO_",
+          "COUNTY",
+          "STBND_ID",
+          "CSTL_ID"
+        ],
         "date_fields": [],
         "quality_flag_fields": [],
         "source_citation_fields": []
       },
       "layers": [
         {
-          "path": "sources/cultural_other/MS_CountyBoundaries_2015/MS_CountyBoundaries_2015.shp",
+          "path": "sources/boundaries/maris_boundary_context/raw/MS_CountyBoundaries_2015/MS_CountyBoundaries_2015.shp",
           "source_layer_id": "MS_CountyBoundaries_2015",
-          "source_layer_name": "Mississippi County Boundaries 2015"
+          "source_layer_name": "Mississippi County Boundaries 2015",
+          "warehouse_source_id": "maris_boundary_context"
         },
         {
-          "path": "sources/cultural_other/MS_StateBoundary_2015/MS_StateBoundary_2015.shp",
+          "path": "sources/boundaries/maris_boundary_context/raw/MS_StateBoundary_2015/MS_StateBoundary_2015.shp",
           "source_layer_id": "MS_StateBoundary_2015",
-          "source_layer_name": "Mississippi State Boundary 2015"
+          "source_layer_name": "Mississippi State Boundary 2015",
+          "warehouse_source_id": "maris_boundary_context"
         },
         {
-          "path": "sources/cultural_other/MS_DetailedCoastline_1994/MS_DetailedCoastline_1994.shp",
+          "path": "sources/boundaries/maris_boundary_context/raw/MS_DetailedCoastline_1994/MS_DetailedCoastline_1994.shp",
           "source_layer_id": "MS_DetailedCoastline_1994",
-          "source_layer_name": "Mississippi Detailed Coastline 1994"
+          "source_layer_name": "Mississippi Detailed Coastline 1994",
+          "warehouse_source_id": "maris_boundary_context"
         }
       ]
     },
     {
-      "source_id": "maris_public_cultural_context",
-      "output_name": "maris_public_cultural_context",
+      "source_id": "maris_brownfields",
+      "output_name": "maris_brownfields",
+      "warehouse_source_ids": [
+        "maris_brownfields"
+      ],
       "normalization": {
-        "label_fields": ["RESNAME", "Resource_N", "name", "NAME20", "NAMELSAD20"],
-        "feature_type_fields": ["Resource_T", "Status", "ftype", "fcode", "LSAD20", "CLASSFP20"],
-        "feature_subtype_fields": ["County", "City", "city", "NAME20", "NAMELSAD20", "Restricted"],
-        "original_id_fields": ["CR_ID", "GEOM_ID", "NRIS_Refnu", "PropertyID", "permanent_", "GlobalID", "GEOID20", "OBJECTID"],
-        "date_fields": ["SRC_DATE", "CREATEDATE", "EDIT_DATE", "Status_Dat", "Listed_Dat", "NHL_Date", "loaddate"],
-        "quality_flag_fields": ["SRC_ACCU", "Restricted", "data_secur", "distributi"],
-        "source_citation_fields": ["SOURCE", "ORIGINATOR", "source_ori"]
+        "label_fields": [
+          "FAC_NAME",
+          "PRIMARY_NA",
+          "Name",
+          "NAME",
+          "DispName"
+        ],
+        "feature_type_fields": [
+          "INTEREST_T",
+          "PGM_SYS_AC",
+          "TYPE",
+          "type",
+          "status",
+          "Facility_S"
+        ],
+        "feature_subtype_fields": [
+          "ACTIVE_STA",
+          "STATUS",
+          "statdesc",
+          "FAC_COUNTY",
+          "COUNTY_NAM",
+          "County",
+          "COUNTY"
+        ],
+        "original_id_fields": [
+          "REGISTRY_I",
+          "REGISTRY_ID",
+          "Facility_I",
+          "SWID",
+          "API",
+          "OBJECTID",
+          "KEY_FIELD",
+          "PERMIT_NO"
+        ],
+        "date_fields": [
+          "UPDATE_DAT",
+          "CREATE_DAT",
+          "SOURCEDATE",
+          "VAL_DATE",
+          "Date_of_La",
+          "PermitDate",
+          "LAST_REPOR"
+        ],
+        "quality_flag_fields": [
+          "ACCURACY_V",
+          "COLLECT_MT",
+          "Coordinate",
+          "VAL_METHOD",
+          "ACTIVE_STA",
+          "STATUS"
+        ],
+        "source_citation_fields": [
+          "FAC_URL",
+          "PROGRAM_UR",
+          "SOURCE",
+          "WEBSITE"
+        ]
       },
       "layers": [
         {
-          "path": "sources/cultural_other/MS_Cemeteries_2023/MS_Cemeteries_2023.shp",
-          "source_layer_id": "MS_Cemeteries_2023",
-          "source_layer_name": "Mississippi Cemeteries 2023"
-        },
-        {
-          "path": "sources/cultural_other/MS_NationalRegistrySites_2017/MS_NationalRegistrySites_2017.shp",
-          "source_layer_id": "MS_NationalRegistrySites_2017",
-          "source_layer_name": "Mississippi National Register Sites 2017"
-        },
-        {
-          "path": "sources/cultural_other/MS_IndianLands_2020/MS_IndianLands_2020.shp",
-          "source_layer_id": "MS_IndianLands_2020",
-          "source_layer_name": "Mississippi Indian Lands 2020"
+          "path": "sources/environmental/maris_brownfields/raw/MS_Brownfields_2022/MS_Brownfields_2022.shp",
+          "source_layer_id": "MS_Brownfields_2022",
+          "source_layer_name": "Mississippi Brownfields 2022",
+          "warehouse_source_id": "maris_brownfields"
         }
       ]
     },
     {
       "source_id": "maris_community_facilities",
       "output_name": "maris_community_facilities",
+      "warehouse_source_ids": [
+        "maris_community_facilities"
+      ],
       "normalization": {
-        "label_fields": ["NAME", "PARK"],
-        "feature_type_fields": ["CLASS", "FTYPE", "FCODE", "USE"],
-        "feature_subtype_fields": ["CITY", "STATE", "ZIPCODE", "Volunteer", "USE"],
-        "original_id_fields": ["OBJECTID", "PERMANENT_"],
-        "date_fields": ["LOADDATE"],
-        "quality_flag_fields": ["Volunteer"],
-        "source_citation_fields": ["SOURCE_D_1"]
+        "label_fields": [
+          "NAME",
+          "PARK"
+        ],
+        "feature_type_fields": [
+          "CLASS",
+          "FTYPE",
+          "FCODE",
+          "USE"
+        ],
+        "feature_subtype_fields": [
+          "CITY",
+          "STATE",
+          "ZIPCODE",
+          "Volunteer",
+          "USE"
+        ],
+        "original_id_fields": [
+          "OBJECTID",
+          "PERMANENT_"
+        ],
+        "date_fields": [
+          "LOADDATE"
+        ],
+        "quality_flag_fields": [
+          "Volunteer"
+        ],
+        "source_citation_fields": [
+          "SOURCE_D_1"
+        ]
       },
       "layers": [
         {
-          "path": "sources/cultural_other/MS_Communities_2009/MS_Communities_2009.shp",
+          "path": "sources/community/maris_community_facilities/raw/MS_Communities_2009/MS_Communities_2009.shp",
           "source_layer_id": "MS_Communities_2009",
-          "source_layer_name": "Mississippi Communities 2009"
+          "source_layer_name": "Mississippi Communities 2009",
+          "warehouse_source_id": "maris_community_facilities"
         },
         {
-          "path": "sources/cultural_other/MS_FireStations_2020/MS_FireStations_2020/MS_FireStations_2020.shp",
+          "path": "sources/community/maris_community_facilities/raw/MS_FireStations_2020/MS_FireStations_2020/MS_FireStations_2020.shp",
           "source_layer_id": "MS_FireStations_2020",
-          "source_layer_name": "Mississippi Fire Stations 2020"
+          "source_layer_name": "Mississippi Fire Stations 2020",
+          "warehouse_source_id": "maris_community_facilities"
         },
         {
-          "path": "sources/cultural_other/MS_RecreationalFacilities_2017/MS_RecreationalFacilities_2017.shp",
+          "path": "sources/community/maris_community_facilities/raw/MS_RecreationalFacilities_2017/MS_RecreationalFacilities_2017.shp",
           "source_layer_id": "MS_RecreationalFacilities_2017",
-          "source_layer_name": "Mississippi Recreational Facilities 2017"
+          "source_layer_name": "Mississippi Recreational Facilities 2017",
+          "warehouse_source_id": "maris_community_facilities"
         }
       ]
     },
     {
       "source_id": "maris_conservation_recreation_lands",
       "output_name": "maris_conservation_recreation_lands",
+      "warehouse_source_ids": [
+        "maris_conservation_recreation_lands"
+      ],
       "normalization": {
-        "label_fields": ["Name", "NAME", "Admin_Area", "NEST_PROGR"],
-        "feature_type_fields": ["TYPE", "NEST_EASEM", "NEST_PROGR"],
-        "feature_subtype_fields": ["NEST_Count", "ACREAGE", "CalcAcres", "Method"],
-        "original_id_fields": ["OBJECTID", "ID"],
-        "date_fields": ["NEST_C_CLO"],
-        "quality_flag_fields": ["Method", "Scale", "Disclaimer"],
-        "source_citation_fields": ["Disclaimer"]
+        "label_fields": [
+          "Name",
+          "NAME",
+          "Admin_Area",
+          "NEST_PROGR"
+        ],
+        "feature_type_fields": [
+          "TYPE",
+          "NEST_EASEM",
+          "NEST_PROGR"
+        ],
+        "feature_subtype_fields": [
+          "NEST_Count",
+          "ACREAGE",
+          "CalcAcres",
+          "Method"
+        ],
+        "original_id_fields": [
+          "OBJECTID",
+          "ID"
+        ],
+        "date_fields": [
+          "NEST_C_CLO"
+        ],
+        "quality_flag_fields": [
+          "Method",
+          "Scale",
+          "Disclaimer"
+        ],
+        "source_citation_fields": [
+          "Disclaimer"
+        ]
       },
       "layers": [
         {
-          "path": "sources/cultural_other/MS_EasementAreas_2021/MS_EasementAreas_2021.shp",
+          "path": "sources/conservation/maris_conservation_recreation_lands/raw/MS_EasementAreas_2021/MS_EasementAreas_2021.shp",
           "source_layer_id": "MS_EasementAreas_2021",
-          "source_layer_name": "Mississippi Easement Areas 2021"
+          "source_layer_name": "Mississippi Easement Areas 2021",
+          "warehouse_source_id": "maris_conservation_recreation_lands"
         },
         {
-          "path": "sources/cultural_other/MS_StateParks_2019/MS_StateParks_2019.shp",
+          "path": "sources/conservation/maris_conservation_recreation_lands/raw/MS_StateParks_2019/MS_StateParks_2019.shp",
           "source_layer_id": "MS_StateParks_2019",
-          "source_layer_name": "Mississippi State Parks 2019"
+          "source_layer_name": "Mississippi State Parks 2019",
+          "warehouse_source_id": "maris_conservation_recreation_lands"
         },
         {
-          "path": "sources/cultural_other/MS_WildlifeManagementAreas_2019/MS_WildlifeManagementAreas_2019.shp",
+          "path": "sources/conservation/maris_conservation_recreation_lands/raw/MS_WildlifeManagementAreas_2019/MS_WildlifeManagementAreas_2019.shp",
           "source_layer_id": "MS_WildlifeManagementAreas_2019",
-          "source_layer_name": "Mississippi Wildlife Management Areas 2019"
+          "source_layer_name": "Mississippi Wildlife Management Areas 2019",
+          "warehouse_source_id": "maris_conservation_recreation_lands"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_npdes_facilities",
+      "output_name": "maris_npdes_facilities",
+      "warehouse_source_ids": [
+        "maris_npdes_facilities"
+      ],
+      "normalization": {
+        "label_fields": [
+          "FAC_NAME",
+          "PRIMARY_NA",
+          "Name",
+          "NAME",
+          "DispName"
+        ],
+        "feature_type_fields": [
+          "INTEREST_T",
+          "PGM_SYS_AC",
+          "TYPE",
+          "type",
+          "status",
+          "Facility_S"
+        ],
+        "feature_subtype_fields": [
+          "ACTIVE_STA",
+          "STATUS",
+          "statdesc",
+          "FAC_COUNTY",
+          "COUNTY_NAM",
+          "County",
+          "COUNTY"
+        ],
+        "original_id_fields": [
+          "REGISTRY_I",
+          "REGISTRY_ID",
+          "Facility_I",
+          "SWID",
+          "API",
+          "OBJECTID",
+          "KEY_FIELD",
+          "PERMIT_NO"
+        ],
+        "date_fields": [
+          "UPDATE_DAT",
+          "CREATE_DAT",
+          "SOURCEDATE",
+          "VAL_DATE",
+          "Date_of_La",
+          "PermitDate",
+          "LAST_REPOR"
+        ],
+        "quality_flag_fields": [
+          "ACCURACY_V",
+          "COLLECT_MT",
+          "Coordinate",
+          "VAL_METHOD",
+          "ACTIVE_STA",
+          "STATUS"
+        ],
+        "source_citation_fields": [
+          "FAC_URL",
+          "PROGRAM_UR",
+          "SOURCE",
+          "WEBSITE"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/environmental/maris_npdes_facilities/raw/MS_NPDES_2022/MS_NPDES_2022.shp",
+          "source_layer_id": "MS_NPDES_2022",
+          "source_layer_name": "Mississippi NPDES Facilities 2022",
+          "warehouse_source_id": "maris_npdes_facilities"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_public_cultural_context",
+      "output_name": "maris_public_cultural_context",
+      "warehouse_source_ids": [
+        "maris_public_cultural_context"
+      ],
+      "normalization": {
+        "label_fields": [
+          "RESNAME",
+          "Resource_N",
+          "name",
+          "NAME20",
+          "NAMELSAD20"
+        ],
+        "feature_type_fields": [
+          "Resource_T",
+          "Status",
+          "ftype",
+          "fcode",
+          "LSAD20",
+          "CLASSFP20"
+        ],
+        "feature_subtype_fields": [
+          "County",
+          "City",
+          "city",
+          "NAME20",
+          "NAMELSAD20",
+          "Restricted"
+        ],
+        "original_id_fields": [
+          "CR_ID",
+          "GEOM_ID",
+          "NRIS_Refnu",
+          "PropertyID",
+          "permanent_",
+          "GlobalID",
+          "GEOID20",
+          "OBJECTID"
+        ],
+        "date_fields": [
+          "SRC_DATE",
+          "CREATEDATE",
+          "EDIT_DATE",
+          "Status_Dat",
+          "Listed_Dat",
+          "NHL_Date",
+          "loaddate"
+        ],
+        "quality_flag_fields": [
+          "SRC_ACCU",
+          "Restricted",
+          "data_secur",
+          "distributi"
+        ],
+        "source_citation_fields": [
+          "SOURCE",
+          "ORIGINATOR",
+          "source_ori"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/cultural/maris_public_cultural_context/raw/MS_Cemeteries_2023/MS_Cemeteries_2023.shp",
+          "source_layer_id": "MS_Cemeteries_2023",
+          "source_layer_name": "Mississippi Cemeteries 2023",
+          "warehouse_source_id": "maris_public_cultural_context"
+        },
+        {
+          "path": "sources/cultural/maris_public_cultural_context/raw/MS_NationalRegistrySites_2017/MS_NationalRegistrySites_2017.shp",
+          "source_layer_id": "MS_NationalRegistrySites_2017",
+          "source_layer_name": "Mississippi National Register Sites 2017",
+          "warehouse_source_id": "maris_public_cultural_context"
+        },
+        {
+          "path": "sources/cultural/maris_public_cultural_context/raw/MS_IndianLands_2020/MS_IndianLands_2020.shp",
+          "source_layer_id": "MS_IndianLands_2020",
+          "source_layer_name": "Mississippi Indian Lands 2020",
+          "warehouse_source_id": "maris_public_cultural_context"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_solid_waste_landfills",
+      "output_name": "maris_solid_waste_landfills",
+      "warehouse_source_ids": [
+        "maris_solid_waste_landfills"
+      ],
+      "normalization": {
+        "label_fields": [
+          "FAC_NAME",
+          "PRIMARY_NA",
+          "Name",
+          "NAME",
+          "DispName"
+        ],
+        "feature_type_fields": [
+          "INTEREST_T",
+          "PGM_SYS_AC",
+          "TYPE",
+          "type",
+          "status",
+          "Facility_S"
+        ],
+        "feature_subtype_fields": [
+          "ACTIVE_STA",
+          "STATUS",
+          "statdesc",
+          "FAC_COUNTY",
+          "COUNTY_NAM",
+          "County",
+          "COUNTY"
+        ],
+        "original_id_fields": [
+          "REGISTRY_I",
+          "REGISTRY_ID",
+          "Facility_I",
+          "SWID",
+          "API",
+          "OBJECTID",
+          "KEY_FIELD",
+          "PERMIT_NO"
+        ],
+        "date_fields": [
+          "UPDATE_DAT",
+          "CREATE_DAT",
+          "SOURCEDATE",
+          "VAL_DATE",
+          "Date_of_La",
+          "PermitDate",
+          "LAST_REPOR"
+        ],
+        "quality_flag_fields": [
+          "ACCURACY_V",
+          "COLLECT_MT",
+          "Coordinate",
+          "VAL_METHOD",
+          "ACTIVE_STA",
+          "STATUS"
+        ],
+        "source_citation_fields": [
+          "FAC_URL",
+          "PROGRAM_UR",
+          "SOURCE",
+          "WEBSITE"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/environmental/maris_solid_waste_landfills/raw/MS_SolidWasteLandfillFacilities_2012/MS_SolidWasteLandfillFacilities_2012.shp",
+          "source_layer_id": "MS_SolidWasteLandfillFacilities_2012",
+          "source_layer_name": "Mississippi Solid Waste Landfill Facilities 2012",
+          "warehouse_source_id": "maris_solid_waste_landfills"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_superfund_sites",
+      "output_name": "maris_superfund_sites",
+      "warehouse_source_ids": [
+        "maris_superfund_sites"
+      ],
+      "normalization": {
+        "label_fields": [
+          "FAC_NAME",
+          "PRIMARY_NA",
+          "Name",
+          "NAME",
+          "DispName"
+        ],
+        "feature_type_fields": [
+          "INTEREST_T",
+          "PGM_SYS_AC",
+          "TYPE",
+          "type",
+          "status",
+          "Facility_S"
+        ],
+        "feature_subtype_fields": [
+          "ACTIVE_STA",
+          "STATUS",
+          "statdesc",
+          "FAC_COUNTY",
+          "COUNTY_NAM",
+          "County",
+          "COUNTY"
+        ],
+        "original_id_fields": [
+          "REGISTRY_I",
+          "REGISTRY_ID",
+          "Facility_I",
+          "SWID",
+          "API",
+          "OBJECTID",
+          "KEY_FIELD",
+          "PERMIT_NO"
+        ],
+        "date_fields": [
+          "UPDATE_DAT",
+          "CREATE_DAT",
+          "SOURCEDATE",
+          "VAL_DATE",
+          "Date_of_La",
+          "PermitDate",
+          "LAST_REPOR"
+        ],
+        "quality_flag_fields": [
+          "ACCURACY_V",
+          "COLLECT_MT",
+          "Coordinate",
+          "VAL_METHOD",
+          "ACTIVE_STA",
+          "STATUS"
+        ],
+        "source_citation_fields": [
+          "FAC_URL",
+          "PROGRAM_UR",
+          "SOURCE",
+          "WEBSITE"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/environmental/maris_superfund_sites/raw/MS_Superfund_2022/MS_Superfund_2022.shp",
+          "source_layer_id": "MS_Superfund_2022",
+          "source_layer_name": "Mississippi Superfund Sites 2022",
+          "warehouse_source_id": "maris_superfund_sites"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_tri_facilities",
+      "output_name": "maris_tri_facilities",
+      "warehouse_source_ids": [
+        "maris_tri_facilities"
+      ],
+      "normalization": {
+        "label_fields": [
+          "FAC_NAME",
+          "PRIMARY_NA",
+          "Name",
+          "NAME",
+          "DispName"
+        ],
+        "feature_type_fields": [
+          "INTEREST_T",
+          "PGM_SYS_AC",
+          "TYPE",
+          "type",
+          "status",
+          "Facility_S"
+        ],
+        "feature_subtype_fields": [
+          "ACTIVE_STA",
+          "STATUS",
+          "statdesc",
+          "FAC_COUNTY",
+          "COUNTY_NAM",
+          "County",
+          "COUNTY"
+        ],
+        "original_id_fields": [
+          "REGISTRY_I",
+          "REGISTRY_ID",
+          "Facility_I",
+          "SWID",
+          "API",
+          "OBJECTID",
+          "KEY_FIELD",
+          "PERMIT_NO"
+        ],
+        "date_fields": [
+          "UPDATE_DAT",
+          "CREATE_DAT",
+          "SOURCEDATE",
+          "VAL_DATE",
+          "Date_of_La",
+          "PermitDate",
+          "LAST_REPOR"
+        ],
+        "quality_flag_fields": [
+          "ACCURACY_V",
+          "COLLECT_MT",
+          "Coordinate",
+          "VAL_METHOD",
+          "ACTIVE_STA",
+          "STATUS"
+        ],
+        "source_citation_fields": [
+          "FAC_URL",
+          "PROGRAM_UR",
+          "SOURCE",
+          "WEBSITE"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/environmental/maris_tri_facilities/raw/MS_ToxicReleaseInv_2022/MS_ToxicReleaseInv_2022.shp",
+          "source_layer_id": "MS_ToxicReleaseInv_2022",
+          "source_layer_name": "Mississippi Toxics Release Inventory Facilities 2022",
+          "warehouse_source_id": "maris_tri_facilities"
+        }
+      ]
+    },
+    {
+      "source_id": "maris_underground_storage_tanks",
+      "output_name": "maris_underground_storage_tanks",
+      "warehouse_source_ids": [
+        "maris_underground_storage_tanks"
+      ],
+      "normalization": {
+        "label_fields": [
+          "FAC_NAME",
+          "PRIMARY_NA",
+          "Name",
+          "NAME",
+          "DispName"
+        ],
+        "feature_type_fields": [
+          "INTEREST_T",
+          "PGM_SYS_AC",
+          "TYPE",
+          "type",
+          "status",
+          "Facility_S"
+        ],
+        "feature_subtype_fields": [
+          "ACTIVE_STA",
+          "STATUS",
+          "statdesc",
+          "FAC_COUNTY",
+          "COUNTY_NAM",
+          "County",
+          "COUNTY"
+        ],
+        "original_id_fields": [
+          "REGISTRY_I",
+          "REGISTRY_ID",
+          "Facility_I",
+          "SWID",
+          "API",
+          "OBJECTID",
+          "KEY_FIELD",
+          "PERMIT_NO"
+        ],
+        "date_fields": [
+          "UPDATE_DAT",
+          "CREATE_DAT",
+          "SOURCEDATE",
+          "VAL_DATE",
+          "Date_of_La",
+          "PermitDate",
+          "LAST_REPOR"
+        ],
+        "quality_flag_fields": [
+          "ACCURACY_V",
+          "COLLECT_MT",
+          "Coordinate",
+          "VAL_METHOD",
+          "ACTIVE_STA",
+          "STATUS"
+        ],
+        "source_citation_fields": [
+          "FAC_URL",
+          "PROGRAM_UR",
+          "SOURCE",
+          "WEBSITE"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/environmental/maris_underground_storage_tanks/raw/MS_UndergroundStorageTanks_2019/MS_UndergroundStorageTanks_2019.shp",
+          "source_layer_id": "MS_UndergroundStorageTanks_2019",
+          "source_layer_name": "Mississippi Underground Storage Tanks 2019",
+          "warehouse_source_id": "maris_underground_storage_tanks"
+        }
+      ]
+    },
+    {
+      "source_id": "mdot_transportation_context",
+      "output_name": "mdot_transportation_context",
+      "warehouse_source_ids": [
+        "mdot_transportation_context"
+      ],
+      "normalization": {
+        "label_fields": [
+          "ROAD_NAME",
+          "HWYNAME",
+          "RAILWAY_NM",
+          "RR_Name",
+          "RROWNER1",
+          "NAME",
+          "Street",
+          "CrossingID",
+          "SRI"
+        ],
+        "feature_type_fields": [
+          "ROUTE_CLAS",
+          "CLASS",
+          "NET",
+          "TypeXing",
+          "FEATURE_TY",
+          "JUNCTION",
+          "FTYPE"
+        ],
+        "feature_subtype_fields": [
+          "COUNTY",
+          "COUNTYNAME",
+          "CountyName",
+          "HWYNAME",
+          "SUBDIV",
+          "RR_Name",
+          "RROWNER1",
+          "RAILWAY_NM"
+        ],
+        "original_id_fields": [
+          "SRI",
+          "OBJECTID",
+          "CrossingID",
+          "FRAARCID",
+          "NODEID",
+          "ID",
+          "NTAD_ID"
+        ],
+        "date_fields": [
+          "WM_VALIDFR",
+          "LastUpdate",
+          "FDATE",
+          "GEODATE",
+          "CONTDATE",
+          "RevisionDa"
+        ],
+        "quality_flag_fields": [
+          "MOD_STATUS",
+          "GEOPREC",
+          "QC_QA",
+          "ReportStat"
+        ],
+        "source_citation_fields": []
+      },
+      "layers": [
+        {
+          "path": "sources/transportation/mdot_transportation_context/raw/roads/MS_MDOTCenterlines_Nov2025/MS_MDOTCenterlines_Nov2025/MS_MDOTLRM_Nov25.shp",
+          "source_layer_id": "MS_MDOTLRM_Nov25",
+          "source_layer_name": "MDOT Road Centerlines November 2025",
+          "warehouse_source_id": "mdot_transportation_context"
+        },
+        {
+          "path": "sources/transportation/mdot_transportation_context/raw/roads/MS_DesignatedHighways_2010/MS_DesignatedHighways_2010.shp",
+          "source_layer_id": "MS_DesignatedHighways_2010",
+          "source_layer_name": "Mississippi Designated Highways 2010",
+          "warehouse_source_id": "mdot_transportation_context"
+        },
+        {
+          "path": "sources/transportation/mdot_transportation_context/raw/railroads/MS_RailroadNetworks_2018/MS_RailroadNetworks_2018.shp",
+          "source_layer_id": "MS_RailroadNetworks_2018",
+          "source_layer_name": "Mississippi Railroad Networks 2018",
+          "warehouse_source_id": "mdot_transportation_context"
+        },
+        {
+          "path": "sources/transportation/mdot_transportation_context/raw/railroads/MS_RailroadCrossings_2016/MS_RailroadCrossings_2016.shp",
+          "source_layer_id": "MS_RailroadCrossings_2016",
+          "source_layer_name": "Mississippi Railroad Crossings 2016",
+          "warehouse_source_id": "mdot_transportation_context"
+        },
+        {
+          "path": "sources/transportation/mdot_transportation_context/raw/railroads/MS_RailroadBridges_2009/MS_RailroadBridges_2009.shp",
+          "source_layer_id": "MS_RailroadBridges_2009",
+          "source_layer_name": "Mississippi Railroad Bridges 2009",
+          "warehouse_source_id": "mdot_transportation_context"
+        },
+        {
+          "path": "sources/transportation/mdot_transportation_context/raw/railroads/MS_RailroadJunctions_2016/MS_RailroadJunctions_2016.shp",
+          "source_layer_id": "MS_RailroadJunctions_2016",
+          "source_layer_name": "Mississippi Railroad Junctions 2016",
+          "warehouse_source_id": "mdot_transportation_context"
+        }
+      ]
+    },
+    {
+      "source_id": "mississippi_oil_gas_wells",
+      "output_name": "mississippi_oil_gas_wells",
+      "warehouse_source_ids": [
+        "mississippi_oil_gas_wells"
+      ],
+      "normalization": {
+        "label_fields": [
+          "FAC_NAME",
+          "PRIMARY_NA",
+          "Name",
+          "NAME",
+          "DispName"
+        ],
+        "feature_type_fields": [
+          "INTEREST_T",
+          "PGM_SYS_AC",
+          "TYPE",
+          "type",
+          "status",
+          "Facility_S"
+        ],
+        "feature_subtype_fields": [
+          "ACTIVE_STA",
+          "STATUS",
+          "statdesc",
+          "FAC_COUNTY",
+          "COUNTY_NAM",
+          "County",
+          "COUNTY"
+        ],
+        "original_id_fields": [
+          "REGISTRY_I",
+          "REGISTRY_ID",
+          "Facility_I",
+          "SWID",
+          "API",
+          "OBJECTID",
+          "KEY_FIELD",
+          "PERMIT_NO"
+        ],
+        "date_fields": [
+          "UPDATE_DAT",
+          "CREATE_DAT",
+          "SOURCEDATE",
+          "VAL_DATE",
+          "Date_of_La",
+          "PermitDate",
+          "LAST_REPOR"
+        ],
+        "quality_flag_fields": [
+          "ACCURACY_V",
+          "COLLECT_MT",
+          "Coordinate",
+          "VAL_METHOD",
+          "ACTIVE_STA",
+          "STATUS"
+        ],
+        "source_citation_fields": [
+          "FAC_URL",
+          "PROGRAM_UR",
+          "SOURCE",
+          "WEBSITE"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/environmental/mississippi_oil_gas_wells/raw/MS_OilnGasBoard_wells_otherfields_Jul25/MS_OilnGasBoard_wells_otherfields_Jul25/MS_OilnGasBoard_wells_otherfields_Jul25.shp",
+          "source_layer_id": "MS_OilnGasBoard_wells_otherfields_Jul25",
+          "source_layer_name": "Mississippi Oil and Gas Board Wells July 2025",
+          "warehouse_source_id": "mississippi_oil_gas_wells"
+        }
+      ]
+    },
+    {
+      "source_id": "usda_nrcs_easements",
+      "output_name": "usda_nrcs_easements",
+      "warehouse_source_ids": [
+        "usda_nrcs_easements"
+      ],
+      "normalization": {
+        "label_fields": [
+          "Admin_Area",
+          "Program",
+          "NEST_EASEM"
+        ],
+        "feature_type_fields": [
+          "Program",
+          "NEST_EASEM"
+        ],
+        "feature_subtype_fields": [
+          "County",
+          "Method"
+        ],
+        "original_id_fields": [
+          "OBJECTID"
+        ],
+        "date_fields": [
+          "ClosingDat"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/conservation/usda_nrcs_easements/raw/MS_NRCSEasements_2024/MS_NRCSEasements_2024.shp",
+          "source_layer_id": "MS_NRCSEasements_2024",
+          "source_layer_name": "Mississippi NRCS Easements 2024",
+          "warehouse_source_id": "usda_nrcs_easements"
+        }
+      ]
+    },
+    {
+      "source_id": "usda_nrcs_ssurgo_soils",
+      "output_name": "usda_nrcs_ssurgo_soils",
+      "warehouse_source_ids": [
+        "usda_nrcs_ssurgo_soils"
+      ],
+      "layers": [
+        {
+          "path": "sources/soils/usda_nrcs_ssurgo_soils/raw/wss_gsmsoil_MS_10_13_2016/spatial/gsmsoilmu_a_ms.shp",
+          "source_layer_id": "gsmsoilmu_a_ms",
+          "source_layer_name": "SSURGO Soil Map Units Mississippi",
+          "warehouse_source_id": "usda_nrcs_ssurgo_soils"
+        }
+      ]
+    },
+    {
+      "source_id": "usfws_critical_habitat",
+      "output_name": "usfws_critical_habitat",
+      "warehouse_source_ids": [
+        "usfws_critical_habitat"
+      ],
+      "layers": [
+        {
+          "path": "sources/ecology/usfws_critical_habitat/raw/critical_species_habitat_all_layers/CRITHAB_LINE.shp",
+          "source_layer_id": "CRITHAB_LINE",
+          "source_layer_name": "Critical Habitat Lines",
+          "warehouse_source_id": "usfws_critical_habitat"
+        },
+        {
+          "path": "sources/ecology/usfws_critical_habitat/raw/critical_species_habitat_all_layers/crithab_poly.shp",
+          "source_layer_id": "crithab_poly",
+          "source_layer_name": "Critical Habitat Polygons",
+          "warehouse_source_id": "usfws_critical_habitat"
+        }
+      ]
+    },
+    {
+      "source_id": "usfws_national_wildlife_refuges",
+      "output_name": "usfws_national_wildlife_refuges",
+      "warehouse_source_ids": [
+        "usfws_national_wildlife_refuges"
+      ],
+      "normalization": {
+        "label_fields": [
+          "NAME"
+        ],
+        "feature_type_fields": [
+          "TYPE"
+        ],
+        "feature_subtype_fields": [
+          "OWNER",
+          "MANAGER"
+        ],
+        "original_id_fields": [
+          "ID",
+          "NWR_ID"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/conservation/usfws_national_wildlife_refuges/raw/MS_NationalWildlifeRefuges_1997/MS_NationalWildlifeRefuges_1997.shp",
+          "source_layer_id": "MS_NationalWildlifeRefuges_1997",
+          "source_layer_name": "Mississippi National Wildlife Refuges 1997",
+          "warehouse_source_id": "usfws_national_wildlife_refuges"
+        }
+      ]
+    },
+    {
+      "source_id": "usfws_nwi_wetlands",
+      "output_name": "usfws_nwi_wetlands",
+      "warehouse_source_ids": [
+        "usfws_nwi_wetlands"
+      ],
+      "layers": [
+        {
+          "path": "sources/wetlands/usfws_nwi_wetlands/raw/MS_geopackage_wetlands/MS_geopackage_wetlands.gpkg",
+          "source_layer_id": "MS_Wetlands",
+          "source_layer_name": "MS Wetlands",
+          "layer": "MS_Wetlands",
+          "warehouse_source_id": "usfws_nwi_wetlands"
+        }
+      ]
+    },
+    {
+      "source_id": "usgs_nhd_flowlines",
+      "output_name": "usgs_nhd_flowlines",
+      "warehouse_source_ids": [
+        "usgs_nhd_flowlines"
+      ],
+      "normalization": {
+        "label_fields": [
+          "gnis_name",
+          "ftype",
+          "fcode",
+          "permanent_"
+        ],
+        "feature_type_fields": [
+          "ftype",
+          "fcode"
+        ],
+        "feature_subtype_fields": [
+          "visibility",
+          "resolution"
+        ],
+        "original_id_fields": [
+          "permanent_",
+          "reachcode"
+        ],
+        "date_fields": [
+          "fdate"
+        ],
+        "quality_flag_fields": [
+          "visibility"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/hydrology/usgs_nhd_flowlines/raw/MS_NHDFlowlines_Dec23/MS_NHDFlowlines_Dec23.shp",
+          "source_layer_id": "MS_NHDFlowlines_Dec23",
+          "source_layer_name": "NHD Flowlines Mississippi December 2023",
+          "warehouse_source_id": "usgs_nhd_flowlines"
+        }
+      ]
+    },
+    {
+      "source_id": "usgs_nhd_other_areas",
+      "output_name": "usgs_nhd_other_areas",
+      "warehouse_source_ids": [
+        "usgs_nhd_other_areas"
+      ],
+      "normalization": {
+        "label_fields": [
+          "gnis_name",
+          "ftype",
+          "fcode",
+          "permanent_"
+        ],
+        "feature_type_fields": [
+          "ftype",
+          "fcode"
+        ],
+        "feature_subtype_fields": [
+          "visibility",
+          "resolution"
+        ],
+        "original_id_fields": [
+          "permanent_",
+          "reachcode"
+        ],
+        "date_fields": [
+          "fdate"
+        ],
+        "quality_flag_fields": [
+          "visibility"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/hydrology/usgs_nhd_other_areas/raw/MS_NHDOtherAreas_Dec23/MS_NHDOtherAreas_Dec23.shp",
+          "source_layer_id": "MS_NHDOtherAreas_Dec23",
+          "source_layer_name": "NHD Other Areas Mississippi December 2023",
+          "warehouse_source_id": "usgs_nhd_other_areas"
+        }
+      ]
+    },
+    {
+      "source_id": "usgs_nhd_waterbodies",
+      "output_name": "usgs_nhd_waterbodies",
+      "warehouse_source_ids": [
+        "usgs_nhd_waterbodies"
+      ],
+      "normalization": {
+        "label_fields": [
+          "gnis_name",
+          "ftype",
+          "fcode",
+          "permanent_"
+        ],
+        "feature_type_fields": [
+          "ftype",
+          "fcode"
+        ],
+        "feature_subtype_fields": [
+          "visibility",
+          "resolution"
+        ],
+        "original_id_fields": [
+          "permanent_",
+          "reachcode"
+        ],
+        "date_fields": [
+          "fdate"
+        ],
+        "quality_flag_fields": [
+          "visibility"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/hydrology/usgs_nhd_waterbodies/raw/MS_NHDWaterBody_Dec23/MS_NHDWaterBody_Dec23.shp",
+          "source_layer_id": "MS_NHDWaterBody_Dec23",
+          "source_layer_name": "NHD Waterbodies Mississippi December 2023",
+          "warehouse_source_id": "usgs_nhd_waterbodies"
         }
       ]
     }

@@ -1,0 +1,24 @@
+{
+  "source_id": "fema_nfhl_flood_hazard",
+  "display_name": "FEMA NFHL Flood Hazard Zones Mississippi",
+  "category": "flood_hazard",
+  "authority": "FEMA via MARIS",
+  "warehouse_group": "environmental",
+  "version": "2023",
+  "raw_paths": [
+    "raw/MS_DFIRMFloodHazard_2023"
+  ],
+  "expected_geometry_type": "polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2023",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Effective flood hazard GIS is screening context; official-purpose flood determinations require FEMA/source-agency review."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "fema_nfhl_flood_hazard"
+  ]
+}

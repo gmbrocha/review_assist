@@ -13,6 +13,7 @@ from .basemaps import (
     AERIAL_BASEMAP_ROOT,
     basemap_rendering_status,
     build_basemap_index,
+    discover_project_local_naip_basemaps,
     flatten_paths,
     format_county_name,
     index_maris_naip_basemaps as index_maris_naip_basemap_candidates,
@@ -85,7 +86,13 @@ def build_project_area(project_dir: Path) -> dict[str, Any]:
 
     selected_candidates = _selected_basemap_candidates(county_names, basemap_candidates)
     selected_basemap_paths = _flatten_paths(selected_candidates, "sid_paths")
-    renderable_basemap_paths = _flatten_paths(selected_candidates, "renderable_sidecar_paths")
+    project_local_basemaps = discover_project_local_naip_basemaps(project_dir)
+    renderable_basemap_paths = _dedupe_strings(
+        [
+            *[str(record.get("path")) for record in project_local_basemaps if str(record.get("path") or "").strip()],
+            *_flatten_paths(selected_candidates, "renderable_sidecar_paths"),
+        ]
+    )
     basemap_rendering_status = _basemap_rendering_status(
         selected_candidates,
         selected_basemap_paths,
@@ -107,7 +114,10 @@ def build_project_area(project_dir: Path) -> dict[str, Any]:
             _issue(
                 "warning",
                 "aerial_basemap_selected_not_renderable",
-                "Selected MARIS/NAIP imagery is available as MrSID source data but no renderable sidecar is available.",
+                (
+                    "County MARIS/NAIP imagery was selected as provenance, but only MrSID source files are available. "
+                    "Provide a GeoTIFF or georeferenced PNG sidecar for visual basemap rendering."
+                ),
                 str(basemap_root),
             )
         )
@@ -128,6 +138,7 @@ def build_project_area(project_dir: Path) -> dict[str, Any]:
         "aerial_basemap_source": "maris_naip_2025" if basemap_root.exists() else None,
         "aerial_basemap_root": str(basemap_root),
         "aerial_basemap_candidates": basemap_candidates,
+        "project_local_basemaps": project_local_basemaps,
         "selected_basemap_paths": selected_basemap_paths,
         "renderable_basemap_paths": renderable_basemap_paths,
         "basemap_rendering_status": basemap_rendering_status,
@@ -389,6 +400,18 @@ def _selected_basemap_candidates(county_names: list[str], basemap_candidates: li
 
 def _flatten_paths(records: list[dict[str, Any]], key: str) -> list[str]:
     return flatten_paths(records, key)
+
+
+def _dedupe_strings(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return sorted(result)
 
 
 def _basemap_rendering_status(

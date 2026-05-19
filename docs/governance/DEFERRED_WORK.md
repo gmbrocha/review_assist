@@ -33,6 +33,16 @@ Each deferred item should include:
 - `Target sprint/subunit`: Future source acquisition/data-quality hardening.
 - `Status`: open.
 
+### EPA FRS State CSV Secondary Materialization
+
+- `Deferred item`: Add optional CSV-to-point materialization for the EPA `state_single_ms` FRS extract preserved under the `epa_frs_facilities_ms` warehouse raw paths.
+- `Why postponed`: The seeded MARIS EPA Facility Registry shapefile is analysis-ready and now materializes as `epa_frs_facilities_ms`; the broader EPA CSV is retained as raw provenance/supplemental context but is not needed to avoid losing the current GIS pipeline shape.
+- `Affected sections/workflows`: Regulated facilities source materialization, source inventory/provenance, hazardous materials context.
+- `Risk if forgotten`: Reviewers may expect the supplementary CSV to contribute additional FRS rows beyond the materialized shapefile.
+- `Temporary simplification`: Default materialization uses the GIS-ready MARIS/EPA FRS shapefile. The CSV remains preserved under `raw/state_single_ms` with manifest notes.
+- `Target sprint/subunit`: Future source warehouse/data-quality hardening.
+- `Status`: open.
+
 ## Resolved Deferred Items
 
 ### Sprint 1.2 Project Intake Artifacts

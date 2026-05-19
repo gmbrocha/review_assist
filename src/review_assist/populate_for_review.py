@@ -17,6 +17,7 @@ from .evidence_package import EvidencePackageError, build_evidence_package
 from .findings import FindingGenerationError, generate_draft_findings
 from .input_package import InputPackageError, classify_input_package
 from .maps import MapGenerationError, generate_maps
+from .naip_basemap_materialization import materialize_naip_basemap as materialize_project_naip_basemap
 from .project_area import ProjectAreaError, build_project_area
 from .project_geometry import ProjectGeometryError, build_project_geometry
 from .project_context import ProjectContextError, generate_project_context
@@ -42,6 +43,7 @@ def populate_for_review(
     prepare_sources: bool = False,
     include_optional_sources: bool = False,
     materialize_local_sources: bool = False,
+    materialize_naip_basemap: bool = False,
     gpt_drafting: bool | None = None,
     gpt_model: str | None = None,
 ) -> dict[str, Any]:
@@ -56,6 +58,7 @@ def populate_for_review(
     project_area: dict[str, Any] | None = None
     comparison_units: dict[str, Any] | None = None
     source_materialization: dict[str, Any] | None = None
+    naip_basemap_materialization: dict[str, Any] | None = None
     source_acquisition: dict[str, Any] | None = None
     source_status: dict[str, Any] | None = None
     source_inventory: dict[str, Any] | None = None
@@ -90,6 +93,21 @@ def populate_for_review(
 
         context = generate_project_context(project_dir)
         steps.append(_step("project_context", "completed", artifact_path=context.get("context_path")))
+
+        if materialize_naip_basemap:
+            naip_basemap_materialization = materialize_project_naip_basemap(project_dir)
+            step_status = "completed" if naip_basemap_materialization.get("success") else "warning"
+            steps.append(
+                _step(
+                    "naip_basemap_materialization",
+                    step_status,
+                    artifact_path=naip_basemap_materialization.get("output_path"),
+                    message=str(naip_basemap_materialization.get("message") or ""),
+                )
+            )
+            warnings.extend(_issue_warnings("naip_basemap_materialization", naip_basemap_materialization.get("validation_issues", [])))
+            if naip_basemap_materialization.get("success"):
+                project_area = build_project_area(project_dir)
 
         if materialize_local_sources:
             source_materialization = materialize_project_local_sources(project_dir)
@@ -232,6 +250,7 @@ def populate_for_review(
             project_geometry,
             project_area,
             comparison_units,
+            naip_basemap_materialization,
             source_materialization,
             source_status,
             source_acquisition,
@@ -255,6 +274,7 @@ def populate_for_review(
             project_geometry,
             project_area,
             comparison_units,
+            naip_basemap_materialization,
             source_materialization,
             source_status,
             source_acquisition,
@@ -284,6 +304,8 @@ def populate_for_review(
             "project_area": project_area.get("output_path") if project_area else None,
             "comparison_units": comparison_units.get("comparison_units_path") if comparison_units else None,
             "comparison_units_metadata": comparison_units.get("output_path") if comparison_units else None,
+            "naip_basemap_materialization": naip_basemap_materialization.get("output_path") if naip_basemap_materialization else None,
+            "naip_basemap_sidecar": naip_basemap_materialization.get("sidecar_path") if naip_basemap_materialization else None,
             "source_materialization": source_materialization.get("output_path") if source_materialization else None,
             "source_acquisition": source_acquisition.get("output_path") if source_acquisition else None,
             "source_status": source_status.get("output_path") if source_status else None,
@@ -311,6 +333,8 @@ def populate_for_review(
         "expected_count_status": comparison_units.get("expected_count_status") if comparison_units else None,
         "project_county_names": project_area.get("county_names") if project_area else [],
         "basemap_rendering_status": project_area.get("basemap_rendering_status") if project_area else None,
+        "naip_basemap_materialization_enabled": materialize_naip_basemap,
+        "naip_basemap_materialization_status": naip_basemap_materialization.get("status") if naip_basemap_materialization else None,
         "source_materialization_count": source_materialization.get("materialized_count") if source_materialization else 0,
         "source_materialization_enabled": materialize_local_sources,
         "source_acquisition_download_count": source_acquisition.get("download_count") if source_acquisition else 0,

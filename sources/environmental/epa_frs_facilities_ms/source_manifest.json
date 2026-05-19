@@ -1,0 +1,25 @@
+{
+  "source_id": "epa_frs_facilities_ms",
+  "display_name": "EPA Facility Registry Service Facilities Mississippi",
+  "category": "regulated_facilities",
+  "authority": "U.S. EPA / MARIS",
+  "warehouse_group": "environmental",
+  "version": "2022 plus EPA state_single_ms CSV seed",
+  "raw_paths": [
+    "raw/MS_EPAFacilityRegisteryService_2022",
+    "raw/state_single_ms"
+  ],
+  "expected_geometry_type": "point",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2022",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "FRS facility locations and program flags require reviewer QC; state_single_ms CSV is preserved as supplementary raw provenance and is not materialized by the default vector materializer."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "epa_frs_facilities_ms"
+  ]
+}

@@ -163,9 +163,9 @@ Configurable corridor and buffer widths are expected. Early trail assumptions ma
 
 ---
 
-# Generalization Beyond Trails
+# Project-Type Neutrality
 
-The system should generalize beyond trails.
+The system should remain feature-neutral and project-general.
 
 Possible future use cases include:
 - trail alternatives
@@ -180,7 +180,7 @@ Possible future use cases include:
 - corridor planning
 
 The stable concept is:
-multiple alternatives inside a project footprint requiring contextual review and comparison.
+one or more submitted project features or comparison units inside a project area requiring contextual review and comparison.
 
 ---
 
@@ -190,7 +190,7 @@ The primary workflow unit is:
 
 - one persistent workspace/project
 - project-specific context and source status
-- multiple alternatives
+- submitted project features or comparison units
 - repeatable contextual review
 - generated review queue
 - accepted-content export package

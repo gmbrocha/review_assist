@@ -1,0 +1,24 @@
+{
+  "source_id": "usgs_nhd_waterbodies",
+  "display_name": "USGS NHD Waterbodies Mississippi",
+  "category": "hydrography_crossings",
+  "authority": "USGS / MARIS",
+  "warehouse_group": "hydrology",
+  "version": "December 2023",
+  "raw_paths": [
+    "raw/MS_NHDWaterBody_Dec23"
+  ],
+  "expected_geometry_type": "polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2023-12",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "NHD waterbody mapping may not reflect current conditions or jurisdictional status."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "usgs_nhd_waterbodies"
+  ]
+}

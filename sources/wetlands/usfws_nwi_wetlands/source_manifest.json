@@ -1,0 +1,25 @@
+{
+  "source_id": "usfws_nwi_wetlands",
+  "display_name": "USFWS National Wetlands Inventory Mississippi",
+  "category": "wetlands_waterbodies",
+  "authority": "USFWS NWI",
+  "warehouse_group": "wetlands",
+  "version": "seeded geopackage/geodatabase",
+  "raw_paths": [
+    "raw/MS_geopackage_wetlands",
+    "raw/MS_geodatabase_wetlands.gdb"
+  ],
+  "expected_geometry_type": "polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "varies",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "NWI is screening-level data and does not define jurisdictional wetland boundaries."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "usfws_nwi_wetlands"
+  ]
+}

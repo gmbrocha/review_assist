@@ -1,0 +1,24 @@
+{
+  "source_id": "usfws_national_wildlife_refuges",
+  "display_name": "National Wildlife Refuges Mississippi",
+  "category": "conservation_public_lands",
+  "authority": "USFWS / MARIS",
+  "warehouse_group": "conservation",
+  "version": "1997",
+  "raw_paths": [
+    "raw/MS_NationalWildlifeRefuges_1997"
+  ],
+  "expected_geometry_type": "polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "1997",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Older refuge boundaries are screening context and should be checked against current USFWS records."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "usfws_national_wildlife_refuges"
+  ]
+}

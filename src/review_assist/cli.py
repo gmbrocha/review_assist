@@ -26,6 +26,12 @@ from .findings import FindingGenerationError, generate_draft_findings
 from .input_package import InputPackageError, classify_input_package
 from .inspection import ProjectInspectionError, inspect_project
 from .maps import MapGenerationError, generate_maps
+from .naip_basemap_materialization import (
+    DEFAULT_MAX_PIXELS,
+    DEFAULT_MAX_TILES,
+    DEFAULT_TIMEOUT_SECONDS,
+    materialize_naip_basemap,
+)
 from .populate_for_review import PopulateForReviewError, populate_for_review
 from .project_context import ProjectContextError, generate_project_context
 from .project_area import ProjectAreaError, build_project_area
@@ -170,6 +176,24 @@ def build_parser() -> argparse.ArgumentParser:
     materialize_all_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     materialize_all_parser.add_argument("--replace", action="store_true", help="Replace existing project-local materialized sources.")
     materialize_all_parser.add_argument("--json", action="store_true", help="Print full JSON materialization manifest to stdout.")
+
+    naip_basemap_parser = subparsers.add_parser(
+        "materialize-naip-basemap",
+        help="Materialize an AOI-clipped project-local NAIP basemap sidecar.",
+    )
+    naip_basemap_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    naip_basemap_parser.add_argument("--year", type=int, help="Restrict NAIP selection to one acquisition year.")
+    naip_basemap_parser.add_argument("--max-pixels", type=int, default=DEFAULT_MAX_PIXELS, help="Maximum output raster pixels to allow.")
+    naip_basemap_parser.add_argument("--max-tiles", type=int, default=DEFAULT_MAX_TILES, help="Maximum intersecting NAIP tiles to read.")
+    naip_basemap_parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=DEFAULT_TIMEOUT_SECONDS,
+        help="Network timeout for STAC and COG access.",
+    )
+    naip_basemap_parser.add_argument("--refresh", action="store_true", help="Overwrite an existing project-local NAIP sidecar.")
+    naip_basemap_parser.add_argument("--force", action="store_true", help="Alias for --refresh.")
+    naip_basemap_parser.add_argument("--json", action="store_true", help="Print full JSON materialization manifest to stdout.")
 
     inventory_parser = subparsers.add_parser("generate-source-inventory", help="Generate source inventory and provenance records.")
     inventory_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -348,6 +372,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--materialize-local-sources",
         action="store_true",
         help="Materialize configured local warehouse sources before public source downloads.",
+    )
+    populate_parser.add_argument(
+        "--materialize-naip-basemap",
+        action="store_true",
+        help="Optionally materialize a project-local NAIP basemap sidecar before figure generation.",
     )
     populate_parser.add_argument(
         "--include-optional-sources",
@@ -712,6 +741,38 @@ def materialize_local_sources_command(project_dir: Path, replace: bool, print_js
     print(f"Validation issues: {len(result['validation_issues'])}")
     print(f"Output: {result['output_path']}")
     return 0
+
+
+def materialize_naip_basemap_command(
+    project_dir: Path,
+    *,
+    year: int | None,
+    max_pixels: int,
+    max_tiles: int,
+    timeout_seconds: int,
+    refresh: bool,
+    print_json: bool,
+) -> int:
+    result = materialize_naip_basemap(
+        project_dir,
+        year=year,
+        max_pixels=max_pixels,
+        max_tiles=max_tiles,
+        timeout_seconds=timeout_seconds,
+        refresh=refresh,
+    )
+    if print_json:
+        print(json.dumps(result, indent=2))
+    elif result.get("success"):
+        print(f"NAIP basemap materialization: {result['status']}")
+        print(f"Source: {result['source_id']}")
+        print(f"Sidecar: {result.get('sidecar_path')}")
+        print(f"Metadata: {result.get('metadata_path')}")
+        print(f"Output: {result.get('output_path')}")
+    else:
+        print(f"error: {result.get('message') or 'NAIP basemap materialization failed.'}", file=sys.stderr)
+        print(f"Output: {result.get('output_path')}", file=sys.stderr)
+    return 0 if result.get("success") else 1
 
 
 def generate_review_queue_command(
@@ -1149,6 +1210,7 @@ def populate_for_review_command(
     prepare_sources_flag: bool = False,
     include_optional_sources: bool = False,
     materialize_local_sources_flag: bool = False,
+    materialize_naip_basemap_flag: bool = False,
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
 ) -> int:
@@ -1158,6 +1220,7 @@ def populate_for_review_command(
             prepare_sources=prepare_sources_flag,
             include_optional_sources=include_optional_sources,
             materialize_local_sources=materialize_local_sources_flag,
+            materialize_naip_basemap=materialize_naip_basemap_flag,
             gpt_drafting=False if no_gpt_drafting else None,
             gpt_model=gpt_model,
         )
@@ -1216,6 +1279,16 @@ def main(argv: list[str] | None = None) -> int:
         return materialize_local_source_command(args.project_dir, args.source_id, args.replace, args.json)
     if args.command == "materialize-local-sources":
         return materialize_local_sources_command(args.project_dir, args.replace, args.json)
+    if args.command == "materialize-naip-basemap":
+        return materialize_naip_basemap_command(
+            args.project_dir,
+            year=args.year,
+            max_pixels=args.max_pixels,
+            max_tiles=args.max_tiles,
+            timeout_seconds=args.timeout_seconds,
+            refresh=args.refresh or args.force,
+            print_json=args.json,
+        )
     if args.command == "generate-source-inventory":
         return generate_source_inventory_command(args.project_dir, args.json)
     if args.command == "generate-findings":
@@ -1288,6 +1361,7 @@ def main(argv: list[str] | None = None) -> int:
             args.prepare_sources,
             args.include_optional_sources,
             args.materialize_local_sources,
+            args.materialize_naip_basemap,
             args.no_gpt_drafting,
             args.gpt_model,
         )

@@ -14,7 +14,7 @@ Active source hierarchy:
 - Sprint documents are implementation breakdowns derived from this plan.
 - `docs/domains/WORKFLOW_MODEL.md`, `docs/core/ARCHITECTURE.md`, `docs/domains/REPORT_ASSEMBLY.md`, `docs/domains/MAP_GENERATION.md`, and related docs should be updated as implementation changes land.
 - Archived planning documents under `docs/archive/` are retained for history and should not drive new work.
-- `env_constraints_report_20260511_EXAMPLE_ONLY.docx` remains the structural and visual target for generated deliverables, but it is not project evidence for future reports.
+- `docs/reference/env_constraints_report_20260511_EXAMPLE_ONLY.docx` remains the structural and visual target for generated deliverables, but it is not project evidence for future reports.
 
 Implementation precedence:
 
@@ -57,7 +57,7 @@ Front matter:
 
 - Cover/title page:
   - Planning and Environmental Linkage Study for the current project name.
-  - Project route/location line.
+  - Project geometry/location line.
   - Appendix A: Environmental Constraints Report.
   - Report date.
   - Project number or identifier when available.
@@ -70,28 +70,28 @@ List of figures, in canonical report order:
 
 | Figure | Title |
 | --- | --- |
-| Figure 1 | Wetlands and Waterbodies in and near the Study Corridor |
-| Figure 2 | FEMA Flood Zones in and near the Study Corridor |
-| Figure 3 | Streams and 303(d) Impaired Waters within the Subwatersheds of the Study Corridor |
-| Figure 4 | Cultural Resources Sites in or near the Study Corridor |
-| Figure 5 | Fire Stations in or near the Study Corridor |
-| Figure 6 | Government Offices near the Study Corridor |
-| Figure 7 | Schools and Childcare Facilities in or near the Study Corridor |
-| Figure 8 | Health Care Facilities near the Study Corridor |
-| Figure 9 | Places of Worship in or near the Study Corridor |
-| Figure 10 | Public Water Supply Wells near the Study Corridor |
-| Figure 11 | Energy Infrastructure near the Study Corridor |
-| Figure 12 | Hazardous Waste Sites near the Study Corridor |
-| Figure 13 | Census Tracts along the Study Corridor |
+| Figure 1 | Wetlands and Waterbodies in and near the Project Area |
+| Figure 2 | FEMA Flood Zones in and near the Project Area |
+| Figure 3 | Streams and 303(d) Impaired Waters within Project-Area Subwatersheds |
+| Figure 4 | Cultural Resources Sites in or near the Project Area |
+| Figure 5 | Fire Stations in or near the Project Area |
+| Figure 6 | Government Offices near the Project Area |
+| Figure 7 | Schools and Childcare Facilities in or near the Project Area |
+| Figure 8 | Health Care Facilities near the Project Area |
+| Figure 9 | Places of Worship in or near the Project Area |
+| Figure 10 | Public Water Supply Wells near the Project Area |
+| Figure 11 | Energy Infrastructure near the Project Area |
+| Figure 12 | Hazardous Waste Sites near the Project Area |
+| Figure 13 | Census Tracts in or near the Project Area |
 
 List of tables, in canonical report order:
 
 | Table | Title | Section | Columns |
 | --- | --- | --- | --- |
-| Table 1 | Descriptions of Wetlands and Waterbodies Present within the Study Corridor | 3.1.1 Wetlands and Waterbodies | Alternative; Stream Crossings; Freshwater Emergent Wetland; Freshwater Forested/Shrub Wetland; Freshwater Pond |
-| Table 2 | FEMA Flood Zones within the Study Corridor | 3.1.2 Floodplains and Floodways | Alternative; Flood Zone Classification; Estimated Acreage |
-| Table 3 | Income Demographics of Census Tracts along the Study Corridor | 3.6.1 Demographic Characteristics | Census Tract; Population Below the Poverty Line |
-| Table 4 | Demographic Composition of Census Tracts along the Study Corridor | 3.6.1 Demographic Characteristics | Geography; Black or African American; Asian; White |
+| Table 1 | Descriptions of Wetlands and Waterbodies Present within the Project Area | 3.1.1 Wetlands and Waterbodies | Alternative; Stream Crossings; Freshwater Emergent Wetland; Freshwater Forested/Shrub Wetland; Freshwater Pond |
+| Table 2 | FEMA Flood Zones within the Project Area | 3.1.2 Floodplains and Floodways | Alternative; Flood Zone Classification; Estimated Acreage |
+| Table 3 | Income Demographics of Census Tracts in or near the Project Area | 3.6.1 Demographic Characteristics | Census Tract; Population Below the Poverty Line |
+| Table 4 | Demographic Composition of Census Tracts in or near the Project Area | 3.6.1 Demographic Characteristics | Geography; Black or African American; Asian; White |
 
 Attachment targets:
 
@@ -226,7 +226,7 @@ Section prompt intent:
 - Inventory prompts organize constraints by resource category and comparison unit without treating review queue volume as an impact metric.
 - Wetlands/waterbodies prompts use stream crossing counts, NWI/wetland category mappings, Table 1, and Figure 1; they must not state jurisdictional determinations.
 - Alternative-detail prompts summarize only the named comparison unit's evidence and must not repeat full tables or rank alternatives.
-- Floodplain prompts use FEMA/NFHL classification, corridor buffer assumptions, acreage by classification, Table 2, and Figure 2; they must not claim final floodplain/floodway determinations.
+- Floodplain prompts use FEMA/NFHL classification, project geometry and buffer assumptions, acreage by classification, Table 2, and Figure 2; they must not claim final floodplain/floodway determinations.
 - Water quality prompts use hydrography, streams, subwatersheds, impaired waters, TMDL/303(d) evidence, and Figure 3 when available.
 - Protected species prompts distinguish critical habitat GIS, IPaC, state heritage/manual review, and agency consultation records.
 - Cultural prompts summarize public cultural/historic context and restricted/manual review status without exposing sensitive archaeology or claiming clearance.
@@ -687,7 +687,7 @@ Discussion items:
 
 - The static matrix should be more specific than the current section template file.
 - The current section template can remain useful for high-level section ordering, but table schemas and figure schemas need their own explicit definitions.
-- The system should support replacing example-specific labels such as `trail alignment` with generic labels such as `alternative`.
+- The system should use generic labels such as `Alternative` for report comparison units instead of example-specific labels.
 - Cultural/heritage data from MDAH is one known example of a required deliverable topic that may need to be stubbed until source access or workflow implementation exists.
 
 ### Section 3.1.1 Wetlands and Waterbodies
@@ -737,7 +737,7 @@ Discussion items:
 Example deliverable structure:
 
 - Section 3.1.2: Floodplains and Floodways.
-- The example table label `trail alignment` should become `Alternative` to match the rest of the redirected workflow.
+- The table label should remain `Alternative` to match the rest of the redirected workflow.
 - Section 3.1.2 needs a floodplain/floodway table referenced by table number in the section text.
 
 Table target:

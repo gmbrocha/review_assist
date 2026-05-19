@@ -1,0 +1,25 @@
+{
+  "source_id": "usfws_critical_habitat",
+  "display_name": "USFWS Critical Habitat Mississippi Seeded Layers",
+  "category": "species_habitat",
+  "authority": "USFWS",
+  "warehouse_group": "ecology",
+  "version": "mixed downloaded layers",
+  "raw_paths": [
+    "raw/critical_species_habitat_all_layers",
+    "raw/critical_species_habitat_all_shapefiles"
+  ],
+  "expected_geometry_type": "line_polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi/statewide plus downloaded species layers",
+  "source_date": "varies",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "Critical habitat GIS is screening context only and does not replace IPaC or agency consultation."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "usfws_critical_habitat"
+  ]
+}

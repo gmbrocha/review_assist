@@ -1,0 +1,276 @@
+{
+  "warehouse_version": "0.1",
+  "root": "sources",
+  "acquisition_method": "manual_seed",
+  "source_count": 24,
+  "sources": [
+    {
+      "source_id": "epa_frs_facilities_ms",
+      "category": "regulated_facilities",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/epa_frs_facilities_ms/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "epa_frs_facilities_ms"
+      ]
+    },
+    {
+      "source_id": "fema_nfhl_flood_hazard",
+      "category": "flood_hazard",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/fema_nfhl_flood_hazard/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "fema_nfhl_flood_hazard"
+      ]
+    },
+    {
+      "source_id": "local_utility_infrastructure",
+      "category": "transportation_utilities",
+      "warehouse_group": "infrastructure",
+      "manifest_path": "infrastructure/local_utility_infrastructure/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "local_utility_infrastructure"
+      ]
+    },
+    {
+      "source_id": "maris_boundary_context",
+      "category": "community_socioeconomic",
+      "warehouse_group": "boundaries",
+      "manifest_path": "boundaries/maris_boundary_context/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_boundary_context"
+      ]
+    },
+    {
+      "source_id": "maris_brownfields",
+      "category": "regulated_facilities",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/maris_brownfields/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_brownfields"
+      ]
+    },
+    {
+      "source_id": "maris_community_facilities",
+      "category": "community_socioeconomic",
+      "warehouse_group": "community",
+      "manifest_path": "community/maris_community_facilities/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_community_facilities"
+      ]
+    },
+    {
+      "source_id": "maris_conservation_recreation_lands",
+      "category": "conservation_public_lands",
+      "warehouse_group": "conservation",
+      "manifest_path": "conservation/maris_conservation_recreation_lands/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_conservation_recreation_lands"
+      ]
+    },
+    {
+      "source_id": "maris_naip_2025_imagery",
+      "category": "imagery_basemaps",
+      "warehouse_group": "aerial_base_maps",
+      "manifest_path": "aerial_base_maps/maris_naip_2025/source_manifest.json",
+      "analysis_ready": false,
+      "renderable": false,
+      "app_targets": [
+        "maris_naip_2025_imagery"
+      ]
+    },
+    {
+      "source_id": "maris_npdes_facilities",
+      "category": "regulated_facilities",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/maris_npdes_facilities/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_npdes_facilities"
+      ]
+    },
+    {
+      "source_id": "maris_public_cultural_context",
+      "category": "cultural_historic",
+      "warehouse_group": "cultural",
+      "manifest_path": "cultural/maris_public_cultural_context/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_public_cultural_context"
+      ]
+    },
+    {
+      "source_id": "maris_solid_waste_landfills",
+      "category": "regulated_facilities",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/maris_solid_waste_landfills/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_solid_waste_landfills"
+      ]
+    },
+    {
+      "source_id": "maris_superfund_sites",
+      "category": "regulated_facilities",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/maris_superfund_sites/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_superfund_sites"
+      ]
+    },
+    {
+      "source_id": "maris_tri_facilities",
+      "category": "regulated_facilities",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/maris_tri_facilities/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_tri_facilities"
+      ]
+    },
+    {
+      "source_id": "maris_underground_storage_tanks",
+      "category": "regulated_facilities",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/maris_underground_storage_tanks/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "maris_underground_storage_tanks"
+      ]
+    },
+    {
+      "source_id": "mdot_transportation_context",
+      "category": "transportation_utilities",
+      "warehouse_group": "transportation",
+      "manifest_path": "transportation/mdot_transportation_context/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "mdot_transportation_context"
+      ]
+    },
+    {
+      "source_id": "mississippi_oil_gas_wells",
+      "category": "regulated_facilities",
+      "warehouse_group": "environmental",
+      "manifest_path": "environmental/mississippi_oil_gas_wells/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "mississippi_oil_gas_wells"
+      ]
+    },
+    {
+      "source_id": "usda_nrcs_easements",
+      "category": "conservation_public_lands",
+      "warehouse_group": "conservation",
+      "manifest_path": "conservation/usda_nrcs_easements/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usda_nrcs_easements"
+      ]
+    },
+    {
+      "source_id": "usda_nrcs_ssurgo_soils",
+      "category": "soils",
+      "warehouse_group": "soils",
+      "manifest_path": "soils/usda_nrcs_ssurgo_soils/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usda_nrcs_ssurgo_soils"
+      ]
+    },
+    {
+      "source_id": "usfws_critical_habitat",
+      "category": "species_habitat",
+      "warehouse_group": "ecology",
+      "manifest_path": "ecology/usfws_critical_habitat/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usfws_critical_habitat"
+      ]
+    },
+    {
+      "source_id": "usfws_national_wildlife_refuges",
+      "category": "conservation_public_lands",
+      "warehouse_group": "conservation",
+      "manifest_path": "conservation/usfws_national_wildlife_refuges/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usfws_national_wildlife_refuges"
+      ]
+    },
+    {
+      "source_id": "usfws_nwi_wetlands",
+      "category": "wetlands_waterbodies",
+      "warehouse_group": "wetlands",
+      "manifest_path": "wetlands/usfws_nwi_wetlands/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usfws_nwi_wetlands"
+      ]
+    },
+    {
+      "source_id": "usgs_nhd_flowlines",
+      "category": "hydrography_crossings",
+      "warehouse_group": "hydrology",
+      "manifest_path": "hydrology/usgs_nhd_flowlines/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usgs_nhd_flowlines"
+      ]
+    },
+    {
+      "source_id": "usgs_nhd_other_areas",
+      "category": "hydrography_crossings",
+      "warehouse_group": "hydrology",
+      "manifest_path": "hydrology/usgs_nhd_other_areas/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usgs_nhd_other_areas"
+      ]
+    },
+    {
+      "source_id": "usgs_nhd_waterbodies",
+      "category": "hydrography_crossings",
+      "warehouse_group": "hydrology",
+      "manifest_path": "hydrology/usgs_nhd_waterbodies/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usgs_nhd_waterbodies"
+      ]
+    }
+  ],
+  "notes": [
+    "Bulk source files remain local/ignored; source_manifest.json files and this index describe the expected warehouse layout.",
+    "Stable source IDs are app-facing identifiers. Raw agency/download folder names are preserved under each source raw path."
+  ]
+}

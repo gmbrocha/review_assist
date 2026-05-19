@@ -1,0 +1,24 @@
+{
+  "source_id": "maris_underground_storage_tanks",
+  "display_name": "MARIS Underground Storage Tanks Mississippi",
+  "category": "regulated_facilities",
+  "authority": "MARIS / MDEQ",
+  "warehouse_group": "environmental",
+  "version": "2019",
+  "raw_paths": [
+    "raw/MS_UndergroundStorageTanks_2019"
+  ],
+  "expected_geometry_type": "point",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2019",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "UST records may be stale and require current MDEQ/reviewer confirmation."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "maris_underground_storage_tanks"
+  ]
+}

@@ -14,6 +14,11 @@ from .source_catalog import repo_root
 AERIAL_BASEMAP_ROOT = Path("sources/aerial_base_maps/maris_naip_2025")
 MARIS_NAIP_SOURCE_ID = "maris_naip_2025_imagery"
 MARIS_NAIP_SOURCE_NAME = "MARIS/NAIP 2025 Imagery"
+USDA_NAIP_SOURCE_ID = "usda_naip_imagery"
+USDA_NAIP_SOURCE_NAME = "USDA NAIP Project Basemap"
+PROJECT_LOCAL_NAIP_ROOT = Path("basemaps/naip")
+PROJECT_LOCAL_NAIP_FILENAME = "naip_project_basemap.tif"
+PROJECT_LOCAL_NAIP_METADATA_FILENAME = "naip_project_basemap.json"
 RENDERABLE_EXTENSIONS = {".tif", ".tiff", ".png"}
 
 
@@ -96,11 +101,21 @@ def select_project_basemaps(project_dir: Path) -> dict[str, Any]:
         [str(name) for name in county_names if str(name).strip()] if isinstance(county_names, list) else [],
         [dict(candidate) for candidate in candidates if isinstance(candidate, dict)] if isinstance(candidates, list) else [],
     )
+    project_local_basemaps = _project_local_basemaps_from_area(project_area, project_area_path.parent.parent)
     selected_paths = flatten_paths(selected_candidates, "sid_paths")
-    renderable_paths = flatten_paths(selected_candidates, "renderable_sidecar_paths")
+    renderable_paths = _dedupe_paths(
+        [
+            *[record["path"] for record in project_local_basemaps if record.get("path")],
+            *flatten_paths(selected_candidates, "renderable_sidecar_paths"),
+        ]
+    )
     return {
         "source_id": MARIS_NAIP_SOURCE_ID,
+        "source_ids": _dedupe_strings(
+            [MARIS_NAIP_SOURCE_ID, *[str(record.get("source_id")) for record in project_local_basemaps if record.get("source_id")]]
+        ),
         "project_area_path": str(project_area_path),
+        "project_local_basemaps": project_local_basemaps,
         "selected_candidates": selected_candidates,
         "selected_basemap_paths": selected_paths,
         "renderable_basemap_paths": renderable_paths,
@@ -175,6 +190,25 @@ def resolved_basemap_root(root: Path | None = None) -> Path:
     return (repo_root() / path).resolve()
 
 
+def discover_project_local_naip_basemaps(project_dir: Path) -> list[dict[str, Any]]:
+    """Return renderable NAIP basemap sidecars materialized inside a project workspace."""
+
+    project_dir = project_dir.resolve()
+    root = project_dir / PROJECT_LOCAL_NAIP_ROOT
+    if not root.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    for metadata_path in sorted(root.glob(f"*/{PROJECT_LOCAL_NAIP_METADATA_FILENAME}")):
+        record = _project_local_record_from_metadata(project_dir, metadata_path)
+        if record is not None:
+            records.append(record)
+    for tif_path in sorted(root.glob(f"*/{PROJECT_LOCAL_NAIP_FILENAME}")):
+        if any(Path(str(record.get("path"))).resolve() == tif_path.resolve() for record in records):
+            continue
+        records.append(_minimal_project_local_record(project_dir, tif_path))
+    return sorted(records, key=lambda item: (str(item.get("year") or ""), str(item.get("path") or "")), reverse=True)
+
+
 def format_county_name(raw_name: str) -> str:
     name = " ".join(str(raw_name).replace("_", " ").split())
     if not name:
@@ -243,6 +277,89 @@ def _index_candidates(basemap_root: Path) -> list[dict[str, Any]]:
             }
         )
     return records
+
+
+def _project_local_record_from_metadata(project_dir: Path, metadata_path: Path) -> dict[str, Any] | None:
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(metadata, dict):
+        return None
+    output_path = _metadata_output_path(project_dir, metadata, metadata_path)
+    if output_path is None or not output_path.exists() or output_path.suffix.lower() not in RENDERABLE_EXTENSIONS:
+        return None
+    output_bounds = metadata.get("output_bounds_wgs84") or metadata.get("aoi_bounds_wgs84")
+    record: dict[str, Any] = {
+        "source_id": str(metadata.get("source_id") or USDA_NAIP_SOURCE_ID),
+        "source_name": str(metadata.get("display_name") or USDA_NAIP_SOURCE_NAME),
+        "provider": str(metadata.get("provider") or "Microsoft Planetary Computer"),
+        "path": str(output_path),
+        "metadata_path": str(metadata_path),
+        "year": metadata.get("naip_year"),
+        "source_datetime": metadata.get("source_datetime"),
+        "status": "renderable_sidecar_available",
+        "renderable": True,
+        "visual_use": "rendered_basemap",
+    }
+    if isinstance(output_bounds, dict):
+        record["metadata_bbox_wgs84"] = output_bounds
+    item_ids = metadata.get("item_ids")
+    if isinstance(item_ids, list):
+        record["item_ids"] = [str(item_id) for item_id in item_ids if str(item_id).strip()]
+    return record
+
+
+def _metadata_output_path(project_dir: Path, metadata: dict[str, Any], metadata_path: Path) -> Path | None:
+    raw_path = metadata.get("output_path")
+    if isinstance(raw_path, str) and raw_path.strip():
+        candidate = Path(raw_path)
+        return candidate if candidate.is_absolute() else project_dir / candidate
+    fallback = metadata_path.with_name(PROJECT_LOCAL_NAIP_FILENAME)
+    return fallback
+
+
+def _minimal_project_local_record(project_dir: Path, tif_path: Path) -> dict[str, Any]:
+    try:
+        year: Any = tif_path.parent.name if tif_path.parent.parent == project_dir / PROJECT_LOCAL_NAIP_ROOT else None
+    except ValueError:
+        year = None
+    return {
+        "source_id": USDA_NAIP_SOURCE_ID,
+        "source_name": USDA_NAIP_SOURCE_NAME,
+        "provider": "Microsoft Planetary Computer",
+        "path": str(tif_path),
+        "metadata_path": None,
+        "year": year,
+        "status": "renderable_sidecar_available",
+        "renderable": True,
+        "visual_use": "rendered_basemap",
+    }
+
+
+def _project_local_basemaps_from_area(project_area: dict[str, Any], project_dir: Path) -> list[dict[str, Any]]:
+    records = project_area.get("project_local_basemaps", [])
+    if isinstance(records, list):
+        cleaned = [dict(record) for record in records if isinstance(record, dict) and str(record.get("path") or "").strip()]
+        if cleaned:
+            return cleaned
+    return discover_project_local_naip_basemaps(project_dir)
+
+
+def _dedupe_paths(paths: list[str]) -> list[str]:
+    return sorted(_dedupe_strings(paths))
+
+
+def _dedupe_strings(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
 
 
 def _imagery_dir(county_dir: Path, files: list[Path]) -> Path:

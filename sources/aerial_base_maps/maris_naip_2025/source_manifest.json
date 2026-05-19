@@ -1,0 +1,24 @@
+{
+  "source_id": "maris_naip_2025_imagery",
+  "display_name": "MARIS/NAIP 2025 Imagery",
+  "category": "imagery_basemaps",
+  "authority": "MARIS / USDA Farm Service Agency",
+  "warehouse_group": "aerial_base_maps",
+  "version": "2025",
+  "raw_paths": [
+    "."
+  ],
+  "expected_geometry_type": "raster_mrsid",
+  "analysis_ready": false,
+  "renderable": false,
+  "coverage": "Mississippi statewide county tiles where locally seeded",
+  "source_date": "2025",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "MrSID .sid source files are provenance only unless a preconverted GeoTIFF or PNG sidecar exists. Imagery observations are reviewer context, not authoritative facts."
+  ],
+  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "app_targets": [
+    "maris_naip_2025_imagery"
+  ]
+}

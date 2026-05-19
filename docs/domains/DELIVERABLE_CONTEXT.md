@@ -1,6 +1,6 @@
 # Deliverable Context
 
-This file summarizes the expected deliverable pattern inferred from `env_constraints_report_20260511_EXAMPLE_ONLY.docx`.
+This file summarizes the expected deliverable pattern inferred from `docs/reference/env_constraints_report_20260511_EXAMPLE_ONLY.docx`.
 
 The example report appears to be unfinished or partially reused from another project. It contains useful structure and report patterns, but its project names, locations, figures, and facts should not be treated as authoritative.
 
@@ -50,7 +50,7 @@ Potential subsections:
 Expected content:
 
 - Source and method used to identify resources.
-- Spatial relationship to the study corridor or alternatives.
+- Spatial relationship to the project area or comparison units.
 - Counts, acreage, crossing counts, or other screening-level measures where appropriate.
 - Regulatory or design relevance, such as Clean Water Act permitting, floodplain coordination, stormwater management, or BMPs.
 - Clear limitations that desktop data is not a jurisdictional or field-verified determination.
@@ -83,7 +83,7 @@ Potential subsections:
 
 Expected content:
 
-- Identification of resources within or near the corridor.
+- Identification of resources within or near the project area or relevant comparison units.
 - Access, safety, traffic, construction disruption, emergency response, and public service implications.
 - Notes on facilities that are outside direct project limits but may rely on affected routes.
 
@@ -113,7 +113,7 @@ Potential subsections:
 Expected content:
 
 - Summary of federal/state database review or separate hazardous materials report.
-- Count of sites in corridor, adjacent, or nearby.
+- Count of sites within, adjacent to, or near the relevant project area or disturbance area.
 - Qualitative risk grouping such as moderate-risk or low-risk when supported by source review.
 - Coordination needs with environmental agencies before excavation or construction.
 
@@ -141,7 +141,7 @@ Useful alternative-level measures may include:
 - Wetland or waterbody intersections.
 - Floodplain/floodway acreage or crossings.
 - Length through a resource layer.
-- Acres within a corridor buffer.
+- Acres within a relevant buffer or project area.
 - Nearby community resources.
 - Utility crossings.
 - Known hazardous materials sites near disturbance areas.
@@ -158,7 +158,7 @@ Potential map outputs:
 
 - Overall environmental constraints inventory map.
 - Panel index map.
-- Detailed panel maps by corridor section.
+- Detailed panel maps by project feature, corridor section, site cluster, or other useful project unit.
 - Resource-specific maps for wetlands/waterbodies, FEMA flood zones, streams and impaired waters, cultural resources, community facilities, public water supply wells, energy infrastructure, hazardous materials sites, and census tracts.
 
 Maps should be referenced directly in narrative sections and tables. Generated maps should preserve source names, dates when available, legends, scale/context, and whether the map is a draft/pre-review product.
