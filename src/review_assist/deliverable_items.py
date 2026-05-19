@@ -560,10 +560,7 @@ def _section_item(
 def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str, output_path: Path) -> dict[str, Any]:
     table = _table_lookup(tables).get(target.target_id, {})
     is_stub = bool(table.get("is_stub", True))
-    content = _stub_table_content(target, table) if is_stub else (
-        f"Generated deliverable table '{table.get('title') or target.title}' with {table.get('row_count', 0)} row(s). "
-        "Reviewer verification is required before export."
-    )
+    content = _stub_table_content(target, table) if is_stub else _generated_table_content(target, table)
     return _base_item(
         deliverable_item_id=target.target_id,
         target_id=target.target_id,
@@ -609,10 +606,7 @@ def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str
 def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: str, output_path: Path) -> dict[str, Any]:
     figure = _figure_lookup(figures).get(target.target_id, {})
     is_stub = bool(figure.get("is_stub", True))
-    content = _stub_figure_content(target, figure) if is_stub else (
-        f"Generated deliverable figure '{figure.get('title') or target.title}' at {figure.get('image_path', '')}. "
-        "Reviewer verification is required before export."
-    )
+    content = _stub_figure_content(target, figure) if is_stub else _generated_figure_content(target, figure)
     return _base_item(
         deliverable_item_id=target.target_id,
         target_id=target.target_id,
@@ -670,10 +664,7 @@ def _attachment_item(target: AttachmentTarget, figures: dict[str, Any], matrix_v
     else:
         validation_issues.append(_issue("warning", "attachment_source_missing", "Required attachment support is not supplied by the automated Sprint 3.1 workflow.", str(output_path), target.target_id))
     is_stub = target.target_id != "attachment-environmental-constraints-maps" or not related_figure_ids
-    content = _stub_attachment_content(target, validation_issues) if is_stub else (
-        "Attachment A references the matrix-backed deliverable figures and any generated supporting panel maps. "
-        "The attachment remains draft/pre-review until a reviewer accepts the map package."
-    )
+    content = _stub_attachment_content(target, validation_issues) if is_stub else _generated_attachment_content(target, related_figure_ids)
     return _base_item(
         deliverable_item_id=target.target_id,
         target_id=target.target_id,
@@ -935,6 +926,31 @@ def _stub_table_content(target: TableTarget, table: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _generated_table_content(target: TableTarget, table: dict[str, Any]) -> str:
+    row_count = int(table.get("row_count") or 0)
+    rows_preview = _dict_list(table.get("rows", []))[:5]
+    columns = _string_list(table.get("columns", []))
+    lines = [str(table.get("title") or target.title)]
+    lines.append(
+        f"Draft table review candidate for {target.target_id}: {row_count} bounded row(s) were generated for reviewer verification."
+    )
+    if columns:
+        lines.append("Columns: " + ", ".join(columns[:8]) + ".")
+    source_refs = _string_list(table.get("source_refs", []))
+    if source_refs:
+        lines.append("Source refs: " + ", ".join(source_refs) + ".")
+    comparison_unit_ids = _string_list(table.get("comparison_unit_ids", []))
+    if comparison_unit_ids:
+        lines.append("Comparison units represented: " + _limited_join(comparison_unit_ids, limit=6) + ".")
+    if rows_preview:
+        lines.append(
+            f"Body preview is limited to {len(rows_preview)} row(s); full bounded table rows remain in deliverable/tables.json."
+        )
+    lines.append("Reviewer focus: verify source attribution, row classifications/counts, and whether any caveat should be added before export.")
+    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    return "\n".join(lines)
+
+
 def _stub_figure_content(target: FigureTarget, figure: dict[str, Any]) -> str:
     source_refs = _string_list(figure.get("source_refs", []))
     issues = _dict_list(figure.get("validation_issues", []))
@@ -946,6 +962,33 @@ def _stub_figure_content(target: FigureTarget, figure: dict[str, Any]) -> str:
     if reason:
         lines.append("Blocking issue summary: " + reason + ".")
     lines.append(_stub_reviewer_action(target.source_categories, source_refs))
+    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    return "\n".join(lines)
+
+
+def _generated_figure_content(target: FigureTarget, figure: dict[str, Any]) -> str:
+    lines = [str(figure.get("title") or target.title)]
+    image_path = str(figure.get("image_path") or "").strip()
+    lines.append(
+        f"Draft figure review candidate for {target.target_id}: a report-facing image artifact is available"
+        + (f" at {image_path}." if image_path else ".")
+    )
+    caption = str(figure.get("caption") or "").strip()
+    source_note = str(figure.get("source_note") or "").strip()
+    method_note = str(figure.get("method_note") or "").strip()
+    if caption:
+        lines.append("Caption: " + caption)
+    source_refs = _string_list(figure.get("source_refs", []))
+    if source_refs:
+        lines.append("Source refs: " + ", ".join(source_refs) + ".")
+    if source_note:
+        lines.append("Source note: " + source_note)
+    if method_note:
+        lines.append("Method note: " + method_note)
+    issue_summary = _issue_summary(_dict_list(figure.get("validation_issues", [])))
+    if issue_summary:
+        lines.append("Reviewer note: " + issue_summary + ".")
+    lines.append("Reviewer focus: verify layer visibility, extent, labels, and source/method notes before accepting the figure.")
     lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
@@ -962,6 +1005,22 @@ def _stub_attachment_content(target: AttachmentTarget, validation_issues: list[d
     reason = _issue_summary(validation_issues)
     if reason:
         lines.append("Blocking issue summary: " + reason + ".")
+    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    return "\n".join(lines)
+
+
+def _generated_attachment_content(target: AttachmentTarget, related_figure_ids: list[str]) -> str:
+    main_figures = [figure_id for figure_id in related_figure_ids if not figure_id.startswith("attachment-a-panel")]
+    panel_figures = [figure_id for figure_id in related_figure_ids if figure_id.startswith("attachment-a-panel")]
+    lines = [f"Attachment {target.attachment_letter} {target.title}"]
+    lines.append(
+        "Draft attachment review candidate: the map package references generated report figures and supporting panel maps for reviewer verification."
+    )
+    if main_figures:
+        lines.append(f"Main figure targets included: {_limited_join(main_figures, limit=13)}.")
+    if panel_figures:
+        lines.append(f"Supporting panel maps included: {len(panel_figures)} panel figure(s).")
+    lines.append("Reviewer focus: confirm the map package is complete, readable, and consistent with reviewed figure items before export.")
     lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
@@ -985,7 +1044,14 @@ def _artifact_stub_summary(records: list[dict[str, Any]], id_field: str) -> str:
     parts = []
     for record in records:
         artifact_id = str(record.get(id_field, "artifact"))
-        status = "stub" if record.get("is_stub") else "generated"
+        if record.get("is_stub"):
+            status = "stub"
+        elif id_field == "table_id":
+            status = f"generated ({int(record.get('row_count') or 0)} row(s))"
+        elif id_field == "figure_id":
+            status = "generated image" if record.get("image_path") else "generated"
+        else:
+            status = "generated"
         parts.append(f"{artifact_id}={status}")
     return ", ".join(parts)
 
@@ -1010,6 +1076,53 @@ def _stub_reviewer_action(source_categories: list[str], source_refs: list[str]) 
     return "Reviewer action needed: provide the required material or keep this item as a reviewed stub with an explicit limitation."
 
 
+def _evidence_reference_summary(evidence: dict[str, Any]) -> str:
+    parts = []
+    constraint_count = len(_dict_list(evidence.get("constraint_summaries", [])))
+    finding_count = len(_dict_list(evidence.get("findings", [])))
+    row_summary_count = len(_dict_list(evidence.get("row_summaries", [])))
+    figure_count = len(_dict_list(evidence.get("deliverable_figures", [])))
+    if constraint_count:
+        parts.append(f"{constraint_count} compact constraint summary record(s)")
+    if finding_count:
+        parts.append(f"{finding_count} finding/evidence record(s)")
+    if row_summary_count:
+        parts.append(f"{row_summary_count} table row summary record(s)")
+    if figure_count:
+        parts.append(f"{figure_count} figure availability record(s)")
+    if not parts:
+        return ""
+    return "Evidence available: " + ", ".join(parts) + "."
+
+
+def _attachment_wrapper_content(target: SectionTarget) -> str:
+    refs = ", ".join(target.attachment_refs)
+    if target.target_id == "attachment-a-project-maps":
+        return (
+            f"Draft Attachment A wrapper: review the generated map package target(s) {refs}; "
+            "main figures and supporting panel maps are tracked as separate attachment deliverables. "
+            "Reviewer verification is required before the attachment is included in export."
+        )
+    if target.target_id == "attachment-b-hazardous-materials-report":
+        return (
+            f"Draft Attachment B wrapper: {refs} is reviewer-supplied/manual material. "
+            "Reviewer verification is required; if the support report is not provided, keep the attachment target as a reviewed limitation."
+        )
+    if target.target_id == "attachment-c-agency-consultation-letters":
+        return (
+            f"Draft Attachment C wrapper: {refs} is reviewer-supplied/manual material. "
+            "Reviewer verification is required; if agency consultation letters are not provided, keep the attachment target as a reviewed limitation."
+        )
+    return f"This attachment wrapper references matrix attachment target(s): {refs}."
+
+
+def _limited_join(values: list[str], *, limit: int = 5) -> str:
+    clean = [value for value in _dedupe(values) if value]
+    if len(clean) <= limit:
+        return ", ".join(clean)
+    return ", ".join(clean[:limit]) + f", and {len(clean) - limit} more"
+
+
 def _section_content(
     *,
     target: SectionTarget,
@@ -1022,27 +1135,53 @@ def _section_content(
     lines = [_title_line(target)]
     if comparison_unit:
         unit_name = str(comparison_unit.get("comparison_unit_name", "comparison unit"))
-        lines.append(f"This draft subsection summarizes matrix-backed evidence for {unit_name}.")
+        lines.append(
+            f"Draft comparison-unit review candidate for {unit_name}: matrix-backed evidence is available for reviewer verification."
+        )
     elif target.target_type == "front_matter":
         lines.append(_front_matter_content(target, context, related_tables, related_figures))
     elif target.target_type == "attachment":
         if target.attachment_refs:
-            lines.append("This attachment wrapper references matrix attachment target(s): " + ", ".join(target.attachment_refs) + ".")
-            lines.append("Reviewer verification is required before the attachment is included in a reviewed export.")
+            lines.append(_attachment_wrapper_content(target))
         else:
             lines.append("This attachment section is a draft placeholder for reviewer-verified supporting materials.")
     else:
-        lines.append(f"This bounded draft section identifies the source-backed artifacts available for {target.title} and requires reviewer confirmation before export.")
+        lines.append(
+            f"Draft review candidate for {target.title}: source-backed artifacts and validation notes are available for reviewer verification."
+        )
     if related_tables:
-        lines.append("Related deliverable tables: " + ", ".join(str(table.get("table_id")) for table in related_tables if table.get("table_id")) + ".")
+        lines.append("Related table status: " + _artifact_stub_summary(related_tables, "table_id") + ".")
     if related_figures:
-        lines.append("Related deliverable figures: " + ", ".join(str(figure.get("figure_id")) for figure in related_figures if figure.get("figure_id")) + ".")
+        lines.append("Related figure status: " + _artifact_stub_summary(related_figures, "figure_id") + ".")
     source_refs = _string_list(evidence.get("source_refs", []))
     if source_refs:
         lines.append("Source refs: " + ", ".join(source_refs) + ".")
+    comparison_unit_ids = _dedupe(
+        [
+            *_string_list(evidence.get("comparison_unit_ids", [])),
+            *[str(item.get("comparison_unit_id")) for item in _dict_list(evidence.get("comparison_unit_summaries", [])) if item.get("comparison_unit_id")],
+        ]
+    )
+    if comparison_unit:
+        comparison_unit_ids = _dedupe([str(comparison_unit.get("comparison_unit_id", "")), *comparison_unit_ids])
+    if comparison_unit_ids:
+        lines.append("Comparison units represented: " + _limited_join(comparison_unit_ids, limit=6) + ".")
+    evidence_bits = _evidence_reference_summary(evidence)
+    if evidence_bits:
+        lines.append(evidence_bits)
     if _dict_list(evidence.get("source_gap_status", [])):
-        gaps = ", ".join(f"{item.get('category')}={item.get('status')}" for item in _dict_list(evidence.get("source_gap_status", []))[:6])
-        lines.append(f"Source status requiring review: {gaps}.")
+        gaps = _source_gap_summary(_dict_list(evidence.get("source_gap_status", [])))
+        lines.append(f"Source status / limitations: {gaps}.")
+    artifact_issues = _issue_summary(
+        [
+            *[issue for table in related_tables for issue in _dict_list(table.get("validation_issues", []))],
+            *[issue for figure in related_figures for issue in _dict_list(figure.get("validation_issues", []))],
+        ]
+    )
+    if artifact_issues:
+        lines.append("Reviewer note: " + artifact_issues + ".")
+    if target.target_type != "front_matter":
+        lines.append("Reviewer focus: verify that the cited source refs, table/figure artifacts, and limitations are suitable for report text.")
     lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
     return "\n".join(line for line in lines if line)
 
@@ -1051,11 +1190,11 @@ def _front_matter_content(target: SectionTarget, context: dict[str, Any], relate
     if target.target_id == "cover-title":
         return f"{context.get('project_name', 'Project')} Environmental Constraints Report draft package for reviewer verification."
     if target.target_id == "list-of-figures":
-        return "Figure list target. Matrix-backed figure items are generated separately for reviewer verification."
+        return "Draft list of figures placeholder: use reviewed matrix-backed figure items in matrix order before export."
     if target.target_id == "list-of-tables":
-        return "Table list target. Matrix-backed table items are generated separately for reviewer verification."
+        return "Draft list of tables placeholder: use reviewed matrix-backed table items in matrix order before export."
     if target.target_id == "list-of-attachments":
-        return "Attachment list target. Matrix-backed attachment items are generated separately for reviewer verification."
+        return "Draft list of attachments placeholder: use reviewed Attachment A, Attachment B, and Attachment C targets before export."
     return f"Draft front-matter content for {target.title}."
 
 

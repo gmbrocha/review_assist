@@ -12,7 +12,11 @@ from review_assist.deliverable_items import (
     DELIVERABLE_ITEMS_PATH,
     REQUIRED_ITEM_FIELDS,
     DeliverableItemsError,
+    _attachment_item,
+    _figure_item,
     _section_evidence,
+    _section_content,
+    _table_item,
     generate_deliverable_items,
     load_deliverable_items,
 )
@@ -222,6 +226,151 @@ def test_section_evidence_prefers_available_category_for_broad_targets() -> None
     selected = _section_evidence(evidence, target, None, None)
 
     assert selected["section_id"] == "wetlands-and-waterbodies"
+
+
+def test_source_backed_section_candidate_is_bounded_and_reviewer_facing() -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.section_targets if item.target_id == "wetlands-and-waterbodies")
+    table = {
+        "table_id": "table-wetlands-waterbodies",
+        "is_stub": False,
+        "row_count": 2,
+        "source_refs": ["usfws_nwi_wetlands"],
+    }
+    figure = {
+        "figure_id": "figure-wetlands-waterbodies",
+        "is_stub": False,
+        "image_path": "maps/figures/figure-wetlands-waterbodies.png",
+        "source_refs": ["usfws_nwi_wetlands"],
+    }
+    evidence = {
+        "source_refs": ["usfws_nwi_wetlands"],
+        "source_gap_status": [{"category": "wetlands_waterbodies", "status": "provided_locally"}],
+        "constraint_summaries": [{"constraint_id": "constraint-1"}],
+        "comparison_unit_summaries": [{"comparison_unit_id": "comparison-unit-00001"}],
+    }
+
+    content = _section_content(
+        target=target,
+        context={"project_name": "Test Project"},
+        evidence=evidence,
+        related_tables=[table],
+        related_figures=[figure],
+        comparison_unit=None,
+    )
+
+    assert "Draft review candidate" in content
+    assert "source-backed artifacts" in content
+    assert "table-wetlands-waterbodies=generated (2 row(s))" in content
+    assert "figure-wetlands-waterbodies=generated image" in content
+    assert "usfws_nwi_wetlands" in content
+    assert "Reviewer focus" in content
+    assert "bounded draft section identifies" not in content
+    assert "Empty stub" not in content
+
+
+def test_dynamic_comparison_unit_candidate_mentions_unit_and_refs() -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.section_targets if item.target_id == "wetlands-and-waterbodies")
+
+    content = _section_content(
+        target=target,
+        context={},
+        evidence={
+            "source_refs": ["usfws_nwi_wetlands"],
+            "comparison_unit_summaries": [{"comparison_unit_id": "comparison-unit-00002"}],
+        },
+        related_tables=[],
+        related_figures=[],
+        comparison_unit={"comparison_unit_id": "comparison-unit-00002", "comparison_unit_name": "Alternative B"},
+    )
+
+    assert "Draft comparison-unit review candidate for Alternative B" in content
+    assert "comparison-unit-00002" in content
+    assert "usfws_nwi_wetlands" in content
+    assert "draft subsection summarizes" not in content
+
+
+def test_generated_table_candidate_summarizes_rows_without_dumping_raw_rows(tmp_path: Path) -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.table_targets if item.target_id == "table-wetlands-waterbodies")
+    table = {
+        "table_id": target.target_id,
+        "title": target.title,
+        "columns": ["Alternative", "Wetland Type", "Estimated Acreage"],
+        "rows": [
+            {"Alternative": f"Alternative {i}", "Wetland Type": "Freshwater Pond", "Estimated Acreage": i}
+            for i in range(1, 8)
+        ],
+        "row_count": 7,
+        "source_refs": ["usfws_nwi_wetlands"],
+        "comparison_unit_ids": ["comparison-unit-00001", "comparison-unit-00002"],
+        "related_constraint_ids": [],
+        "uncertainty_flags": [],
+        "is_stub": False,
+        "review_status": "needs_review",
+        "validation_issues": [],
+        "provenance": {},
+    }
+
+    item = _table_item(target, {"output_path": "deliverable/tables.json", "tables": [table]}, "test", tmp_path / "deliverable_items.json")
+
+    assert "7 bounded row(s)" in item["generated_content"]
+    assert "Body preview is limited to 5 row(s)" in item["generated_content"]
+    assert "usfws_nwi_wetlands" in item["generated_content"]
+    assert "Alternative 7" not in item["generated_content"]
+
+
+def test_generated_figure_candidate_includes_caption_source_method_and_image_status(tmp_path: Path) -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.figure_targets if item.target_id == "figure-wetlands-waterbodies")
+    figure = {
+        "figure_id": target.target_id,
+        "title": target.title,
+        "image_path": "maps/figures/figure-wetlands-waterbodies.png",
+        "caption": "Wetlands and waterbodies in and near the study corridor.",
+        "source_note": "USFWS NWI and project geometry.",
+        "method_note": "Vector overlay for reviewer verification.",
+        "source_refs": ["usfws_nwi_wetlands"],
+        "related_constraint_ids": [],
+        "comparison_unit_ids": ["comparison-unit-00001"],
+        "uncertainty_flags": [],
+        "is_stub": False,
+        "review_status": "needs_review",
+        "validation_issues": [],
+        "provenance": {},
+    }
+
+    item = _figure_item(target, {"output_path": "deliverable/figures.json", "figures": [figure]}, "test", tmp_path / "deliverable_items.json")
+
+    assert "report-facing image artifact is available" in item["generated_content"]
+    assert "Caption: Wetlands and waterbodies" in item["generated_content"]
+    assert "Source note: USFWS NWI" in item["generated_content"]
+    assert "Method note: Vector overlay" in item["generated_content"]
+    assert "Reviewer focus: verify layer visibility" in item["generated_content"]
+    assert "Generated deliverable figure" not in item["generated_content"]
+
+
+def test_attachment_a_candidate_references_main_figures_and_panel_maps(tmp_path: Path) -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.attachment_targets if item.target_id == "attachment-environmental-constraints-maps")
+    figures = {
+        "output_path": "deliverable/figures.json",
+        "figures": [
+            {"figure_id": "figure-wetlands-waterbodies"},
+            {"figure_id": "figure-energy-infrastructure"},
+        ],
+        "attachment_supporting_figures": [
+            {"figure_id": "attachment-a-panel-001"},
+            {"figure_id": "attachment-a-panel-002"},
+        ],
+    }
+
+    item = _attachment_item(target, figures, "test", tmp_path / "deliverable_items.json")
+
+    assert "map package references generated report figures" in item["generated_content"]
+    assert "figure-wetlands-waterbodies" in item["generated_content"]
+    assert "Supporting panel maps included: 2" in item["generated_content"]
 
 
 def test_cli_generate_deliverable_items_json(
