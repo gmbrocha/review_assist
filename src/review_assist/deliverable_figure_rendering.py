@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 import textwrap
+from functools import lru_cache
 from typing import Any
 
 import geopandas as gpd
@@ -32,7 +33,15 @@ COMPARISON_UNIT_FALLBACK_COLORS = [
 COMPARISON_UNIT_LINE_WIDTH = 1.25
 MAX_LEGEND_LABEL_LENGTH = 26
 LEGEND_COLLAR_PADDING_FRACTION = 0.045
-LEGEND_COLLAR_MAX_FRACTION = 0.34
+LEGEND_COLLAR_MAX_FRACTION = 0.52
+LEGEND_COLLAR_AXES_PADDING = 0.026
+LEGEND_MEASUREMENT_SAFETY_FACTOR = 1.12
+LEGEND_FONT_SIZE = 5.4
+LEGEND_TITLE_FONT_SIZE = 5.5
+LEGEND_BORDERPAD = 0.35
+LEGEND_LABELSPACING = 0.25
+LEGEND_HANDLE_LENGTH = 1.15
+LEGEND_HANDLETEXTPAD = 0.45
 
 SOURCE_LABEL_OVERRIDES = {
     "epa_envirofacts_echo": "EPA ECHO",
@@ -92,14 +101,18 @@ def render_map(
     method_note: str,
     source_note: str,
     focus_bounds: Any | None = None,
+    render_layout: dict[str, Any] | None = None,
+    embed_title: bool = False,
 ) -> dict[str, Any]:
-    base_bounds = _base_bounds_for_render(focus_bounds, unit_gdf, [layer["gdf"] for layer in source_layers])
-    legend_labels = _legend_labels_for_map(unit_gdf, source_layers)
-    layout = compute_visual_extent_with_legend_collar(
-        base_bounds,
-        legend_labels=legend_labels,
-        feature_layers=[unit_gdf, *[layer["gdf"] for layer in source_layers]],
-    )
+    layout = render_layout or plan_render_layout_for_map(unit_gdf=unit_gdf, source_layers=source_layers, focus_bounds=focus_bounds)
+    layout = dict(layout)
+    layout["image_text_policy"] = {
+        "map_panel_only": not embed_title,
+        "embedded_title": bool(embed_title),
+        "embedded_caption": False,
+        "embedded_source_note": False,
+        "embedded_method_note": False,
+    }
     fig, ax = plt.subplots(figsize=_figure_size_for_bounds(layout["expanded_bounds"]), dpi=180)
     try:
         handles: list[Any] = []
@@ -122,35 +135,48 @@ def render_map(
         plotted.append(unit_gdf)
 
         _set_bounds(ax, layout["expanded_bounds"], pad_fraction=0.0)
-        ax.set_title(_wrap_title(title), fontsize=9.3, pad=4)
+        if embed_title:
+            ax.set_title(_wrap_title(title), fontsize=9.3, pad=4)
         ax.set_axis_off()
+        legend_artist = None
         if handles:
             legend_kwargs = _legend_kwargs_for_layout(layout)
-            ax.legend(
+            legend_artist = ax.legend(
                 handles=_dedupe_handles(handles),
                 loc=legend_kwargs["loc"],
                 bbox_to_anchor=legend_kwargs["bbox_to_anchor"],
                 ncol=legend_kwargs["ncol"],
-                frameon=True,
-                framealpha=0.84,
-                facecolor="white",
-                edgecolor="#AFAFAF",
-                fontsize=5.4,
-                title="Layers",
-                title_fontsize=5.5,
-                borderpad=0.35,
-                labelspacing=0.25,
-                handlelength=1.15,
-                handletextpad=0.45,
+                **_legend_style_kwargs(),
             )
         _add_north_arrow(ax, layout)
         _add_scale_bar(ax, analysis_crs, layout)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.subplots_adjust(left=0.015, right=0.985, top=0.94, bottom=0.015)
+        fig.subplots_adjust(left=0.015, right=0.985, top=0.985, bottom=0.015)
+        if legend_artist is not None:
+            fig.canvas.draw()
+            actual_bbox = _artist_bbox_axes(legend_artist, ax, fig)
+            layout["legend_actual_bbox_axes"] = actual_bbox
+            layout["legend_fits_reserved_bbox"] = _bbox_contains(layout.get("legend_bbox_axes"), actual_bbox, tolerance=0.004)
+            layout["legend_overlaps_core_bbox"] = _bboxes_overlap(actual_bbox, layout.get("core_bbox_axes"), tolerance=0.002)
         fig.savefig(output_path, bbox_inches="tight", pad_inches=0.035, facecolor="white")
         return layout
     finally:
         plt.close(fig)
+
+
+def plan_render_layout_for_map(
+    *,
+    unit_gdf: gpd.GeoDataFrame,
+    source_layers: list[dict[str, Any]],
+    focus_bounds: Any | None = None,
+) -> dict[str, Any]:
+    base_bounds = _base_bounds_for_render(focus_bounds, unit_gdf, [layer["gdf"] for layer in source_layers])
+    legend_labels = _legend_labels_for_map(unit_gdf, source_layers)
+    return compute_visual_extent_with_legend_collar(
+        base_bounds,
+        legend_labels=legend_labels,
+        feature_layers=[unit_gdf, *[layer["gdf"] for layer in source_layers]],
+    )
 
 
 def compute_visual_extent_with_legend_collar(
@@ -167,8 +193,16 @@ def compute_visual_extent_with_legend_collar(
     side = choose_legend_collar_side(base_bounds, labels, feature_layers)
     if side == "outside_frame":
         return _layout_record(side, base_bounds, base_bounds, None, labels)
-    expanded_bounds, collar_bounds, collar_fraction = _expanded_bounds_for_collar(base_bounds, side, labels)
-    return _layout_record(side, base_bounds, expanded_bounds, collar_bounds, labels, collar_fraction=collar_fraction)
+    expanded_bounds, collar_bounds, collar_fraction, measurement = _expanded_bounds_for_collar(base_bounds, side, labels)
+    return _layout_record(
+        side,
+        base_bounds,
+        expanded_bounds,
+        collar_bounds,
+        labels,
+        collar_fraction=collar_fraction,
+        legend_measurement=measurement,
+    )
 
 
 def choose_legend_collar_side(
@@ -190,7 +224,7 @@ def choose_legend_collar_side(
 
     scores: list[tuple[float, float, str]] = []
     for side in ("right", "left", "bottom", "top"):
-        expanded, collar, _fraction = _expanded_bounds_for_collar(base_bounds, side, legend_labels)
+        expanded, collar, _fraction, _measurement = _expanded_bounds_for_collar(base_bounds, side, legend_labels)
         ew, es, ee, en = expanded
         new_aspect = max((ee - ew) / max(en - es, 1.0), 0.001)
         density = _feature_density_score(collar, feature_layers)
@@ -211,11 +245,56 @@ def estimate_legend_box_fraction(legend_labels: list[str], *, orientation: str) 
     labels = [str(label).strip() for label in legend_labels if str(label).strip()]
     if not labels:
         return 0.0
-    max_len = min(max(len(label) for label in labels), MAX_LEGEND_LABEL_LENGTH)
-    count = len(labels)
+    return _fallback_legend_box_fraction(labels, orientation=orientation)
+
+
+def _fallback_legend_box_fraction(legend_labels: list[str], *, orientation: str) -> float:
+    max_len = min(max(len(label) for label in legend_labels), MAX_LEGEND_LABEL_LENGTH)
+    count = len(legend_labels)
     if orientation == "side":
-        return min(LEGEND_COLLAR_MAX_FRACTION, max(0.22, 0.18 + (max_len * 0.0045)))
-    return min(LEGEND_COLLAR_MAX_FRACTION, max(0.18, 0.11 + min(count, 8) * 0.025))
+        return min(LEGEND_COLLAR_MAX_FRACTION, max(0.28, 0.22 + (max_len * 0.0055)))
+    return min(LEGEND_COLLAR_MAX_FRACTION, max(0.2, 0.13 + min(count, 8) * 0.028))
+
+
+def _measured_legend_box_fraction(
+    legend_labels: list[str],
+    *,
+    orientation: str,
+    expanded_bounds: tuple[float, float, float, float],
+) -> tuple[float, dict[str, Any]]:
+    labels = tuple(str(label).strip() for label in legend_labels if str(label).strip())
+    if not labels:
+        return 0.0, {}
+    ncol = _legend_ncol("right" if orientation == "side" else "top")
+    figure_width, figure_height = _figure_size_for_bounds(expanded_bounds)
+    west, south, east, north = expanded_bounds
+    measured = _measure_legend_bbox_axes_fraction(
+        labels,
+        ncol,
+        round(float(figure_width), 3),
+        round(float(figure_height), 3),
+        round(float(abs(east - west)), 3),
+        round(float(abs(north - south)), 3),
+    )
+    dimension_fraction = float(measured["width_fraction"] if orientation == "side" else measured["height_fraction"])
+    required_fraction = min(
+        LEGEND_COLLAR_MAX_FRACTION,
+        max(
+            _fallback_legend_box_fraction(list(labels), orientation=orientation),
+            dimension_fraction * LEGEND_MEASUREMENT_SAFETY_FACTOR + (LEGEND_COLLAR_AXES_PADDING * 2.0),
+        ),
+    )
+    return required_fraction, {
+        "measurement_method": "matplotlib_legend_bbox",
+        "orientation": orientation,
+        "ncol": ncol,
+        "figure_size_inches": [round(float(figure_width), 3), round(float(figure_height), 3)],
+        "legend_bbox_width_fraction": round(float(measured["width_fraction"]), 4),
+        "legend_bbox_height_fraction": round(float(measured["height_fraction"]), 4),
+        "required_collar_fraction": round(float(required_fraction), 4),
+        "axes_padding_fraction": LEGEND_COLLAR_AXES_PADDING,
+        "safety_factor": LEGEND_MEASUREMENT_SAFETY_FACTOR,
+    }
 
 
 def panel_bounds(bounds: tuple[float, float, float, float], panel_count: int) -> list[tuple[float, float, float, float]]:
@@ -515,12 +594,55 @@ def _expanded_bounds_for_collar(
     bounds: tuple[float, float, float, float],
     side: str,
     legend_labels: list[str],
-) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float], float]:
+) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float], float, dict[str, Any]]:
     west, south, east, north = bounds
     width = max(east - west, 1.0)
     height = max(north - south, 1.0)
     orientation = "side" if side in {"left", "right"} else "horizontal"
     fraction = estimate_legend_box_fraction(legend_labels, orientation=orientation)
+    measurement: dict[str, Any] = {
+        "measurement_method": "heuristic_initial",
+        "orientation": orientation,
+        "required_collar_fraction": round(float(fraction), 4),
+    }
+    expanded: tuple[float, float, float, float]
+    collar: tuple[float, float, float, float]
+    for _index in range(4):
+        expanded, collar = _bounds_for_collar_fraction(bounds, side, fraction)
+        measured_fraction, measured = _measured_legend_box_fraction(
+            legend_labels,
+            orientation=orientation,
+            expanded_bounds=expanded,
+        )
+        measurement = measured or measurement
+        if measured_fraction <= fraction + 0.002:
+            break
+        fraction = measured_fraction
+    expanded, collar = _bounds_for_collar_fraction(bounds, side, fraction)
+    measured_fraction, measured = _measured_legend_box_fraction(
+        legend_labels,
+        orientation=orientation,
+        expanded_bounds=expanded,
+    )
+    if measured:
+        measurement = measured
+    fraction = max(fraction, measured_fraction)
+    expanded, collar = _bounds_for_collar_fraction(bounds, side, fraction)
+    measurement["final_collar_fraction"] = round(float(fraction), 4)
+    measurement["collar_fraction_max"] = LEGEND_COLLAR_MAX_FRACTION
+    return expanded, collar, fraction, measurement
+
+
+def _bounds_for_collar_fraction(
+    bounds: tuple[float, float, float, float],
+    side: str,
+    fraction: float,
+) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
+    west, south, east, north = bounds
+    width = max(east - west, 1.0)
+    height = max(north - south, 1.0)
+    orientation = "side" if side in {"left", "right"} else "horizontal"
+    fraction = min(max(float(fraction), 0.0), LEGEND_COLLAR_MAX_FRACTION)
     expansion = (width if orientation == "side" else height) * fraction / max(1.0 - fraction, 0.01)
     if side == "right":
         expanded = (west, south, east + expansion, north)
@@ -534,7 +656,7 @@ def _expanded_bounds_for_collar(
     else:
         expanded = (west, south - expansion, east, north)
         collar = (west, south - expansion, east, south)
-    return expanded, collar, fraction
+    return expanded, collar
 
 
 def _layout_record(
@@ -545,7 +667,10 @@ def _layout_record(
     legend_labels: list[str],
     *,
     collar_fraction: float = 0.0,
+    legend_measurement: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    core_bbox = _extent_bbox_axes(expanded_bounds, base_bounds)
+    collar_bbox = _extent_bbox_axes(expanded_bounds, collar_bounds) if collar_bounds else []
     return {
         "layout_strategy": "outside_frame_legend" if side == "outside_frame" else "legend_collar" if side != "none" else "no_legend_collar",
         "legend_side": side,
@@ -555,10 +680,20 @@ def _layout_record(
         "base_bounds": [float(value) for value in base_bounds],
         "expanded_bounds": [float(value) for value in expanded_bounds],
         "collar_bounds": [float(value) for value in collar_bounds] if collar_bounds else [],
+        "core_bbox_axes": core_bbox,
+        "collar_bbox_axes": collar_bbox,
         "legend_label_count": len(legend_labels),
         "legend_labels": legend_labels,
         "collar_fraction": round(float(collar_fraction), 4),
         "legend_bbox_axes": _legend_bbox_axes(expanded_bounds, collar_bounds, side) if collar_bounds else [],
+        "legend_measurement": legend_measurement or {},
+        "image_text_policy": {
+            "map_panel_only": True,
+            "embedded_title": False,
+            "embedded_caption": False,
+            "embedded_source_note": False,
+            "embedded_method_note": False,
+        },
     }
 
 
@@ -567,18 +702,29 @@ def _legend_bbox_axes(
     collar_bounds: tuple[float, float, float, float],
     side: str,
 ) -> list[float]:
-    west, south, east, north = expanded_bounds
-    cw, cs, ce, cn = collar_bounds
-    width = max(east - west, 1.0)
-    height = max(north - south, 1.0)
-    x0 = (cw - west) / width
-    y0 = (cs - south) / height
-    x1 = (ce - west) / width
-    y1 = (cn - south) / height
-    pad = 0.014
+    x0, y0, x1, y1 = _extent_bbox_axes(expanded_bounds, collar_bounds)
+    pad = LEGEND_COLLAR_AXES_PADDING
     if side in {"right", "left"}:
         return [round(max(0.0, x0 + pad), 4), round(max(0.0, y0 + pad), 4), round(min(1.0, x1 - pad), 4), round(min(1.0, y1 - pad), 4)]
     return [round(max(0.0, x0 + pad), 4), round(max(0.0, y0 + pad), 4), round(min(1.0, x1 - pad), 4), round(min(1.0, y1 - pad), 4)]
+
+
+def _extent_bbox_axes(
+    expanded_bounds: tuple[float, float, float, float],
+    bounds: tuple[float, float, float, float] | None,
+) -> list[float]:
+    if bounds is None:
+        return []
+    west, south, east, north = expanded_bounds
+    bw, bs, be, bn = bounds
+    width = max(east - west, 1.0)
+    height = max(north - south, 1.0)
+    return [
+        round((bw - west) / width, 4),
+        round((bs - south) / height, 4),
+        round((be - west) / width, 4),
+        round((bn - south) / height, 4),
+    ]
 
 
 def _legend_kwargs_for_layout(layout: dict[str, Any]) -> dict[str, Any]:
@@ -588,16 +734,100 @@ def _legend_kwargs_for_layout(layout: dict[str, Any]) -> dict[str, Any]:
         return {"loc": "upper right", "bbox_to_anchor": (0.985, 0.985), "ncol": 1}
     x0, y0, x1, y1 = [float(value) for value in bbox]
     if side == "right":
-        return {"loc": "upper left", "bbox_to_anchor": (x0, y1), "ncol": 1}
+        return {"loc": "upper left", "bbox_to_anchor": (x0, y1), "ncol": _legend_ncol(side)}
     if side == "left":
-        return {"loc": "upper right", "bbox_to_anchor": (x1, y1), "ncol": 1}
+        return {"loc": "upper right", "bbox_to_anchor": (x1, y1), "ncol": _legend_ncol(side)}
     if side == "top":
-        return {"loc": "lower left", "bbox_to_anchor": (x0, y0), "ncol": 2}
+        return {"loc": "lower left", "bbox_to_anchor": (x0, y0), "ncol": _legend_ncol(side)}
     if side == "bottom":
-        return {"loc": "upper left", "bbox_to_anchor": (x0, y1), "ncol": 2}
+        return {"loc": "upper left", "bbox_to_anchor": (x0, y1), "ncol": _legend_ncol(side)}
     if side == "outside_frame":
-        return {"loc": "upper left", "bbox_to_anchor": (1.01, 0.99), "ncol": 1}
+        return {"loc": "upper left", "bbox_to_anchor": (1.01, 0.99), "ncol": _legend_ncol(side)}
     return {"loc": "upper right", "bbox_to_anchor": (0.985, 0.985), "ncol": 1}
+
+
+def _legend_ncol(side: str) -> int:
+    return 2 if side in {"top", "bottom"} else 1
+
+
+def _legend_style_kwargs() -> dict[str, Any]:
+    return {
+        "frameon": True,
+        "framealpha": 0.84,
+        "facecolor": "white",
+        "edgecolor": "#AFAFAF",
+        "fontsize": LEGEND_FONT_SIZE,
+        "title": "Layers",
+        "title_fontsize": LEGEND_TITLE_FONT_SIZE,
+        "borderpad": LEGEND_BORDERPAD,
+        "labelspacing": LEGEND_LABELSPACING,
+        "handlelength": LEGEND_HANDLE_LENGTH,
+        "handletextpad": LEGEND_HANDLETEXTPAD,
+    }
+
+
+@lru_cache(maxsize=256)
+def _measure_legend_bbox_axes_fraction(
+    labels: tuple[str, ...],
+    ncol: int,
+    figure_width: float,
+    figure_height: float,
+    bounds_width: float,
+    bounds_height: float,
+) -> dict[str, float]:
+    fig, ax = plt.subplots(figsize=(figure_width, figure_height), dpi=180)
+    try:
+        fig.subplots_adjust(left=0.015, right=0.985, top=0.985, bottom=0.015)
+        ax.set_xlim(0, max(float(bounds_width), 1.0))
+        ax.set_ylim(0, max(float(bounds_height), 1.0))
+        ax.set_aspect("equal", adjustable="box")
+        handles = [Line2D([0], [0], color="#2B2B2B", lw=COMPARISON_UNIT_LINE_WIDTH, label=label) for label in labels]
+        legend = ax.legend(
+            handles=handles,
+            loc="upper left",
+            bbox_to_anchor=(0, 1),
+            ncol=ncol,
+            **_legend_style_kwargs(),
+        )
+        ax.set_axis_off()
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        legend_bbox = legend.get_window_extent(renderer)
+        ax_bbox = ax.get_window_extent(renderer)
+        return {
+            "width_fraction": float(legend_bbox.width / max(ax_bbox.width, 1.0)),
+            "height_fraction": float(legend_bbox.height / max(ax_bbox.height, 1.0)),
+        }
+    finally:
+        plt.close(fig)
+
+
+def _artist_bbox_axes(artist: Any, ax: Any, fig: Any) -> list[float]:
+    renderer = fig.canvas.get_renderer()
+    bbox = artist.get_window_extent(renderer)
+    transformed = ax.transAxes.inverted().transform([[bbox.x0, bbox.y0], [bbox.x1, bbox.y1]])
+    return [
+        round(float(transformed[0][0]), 4),
+        round(float(transformed[0][1]), 4),
+        round(float(transformed[1][0]), 4),
+        round(float(transformed[1][1]), 4),
+    ]
+
+
+def _bbox_contains(container: Any, child: Any, *, tolerance: float = 0.0) -> bool:
+    if not isinstance(container, list) or not isinstance(child, list) or len(container) != 4 or len(child) != 4:
+        return False
+    cx0, cy0, cx1, cy1 = [float(value) for value in container]
+    x0, y0, x1, y1 = [float(value) for value in child]
+    return x0 >= cx0 - tolerance and y0 >= cy0 - tolerance and x1 <= cx1 + tolerance and y1 <= cy1 + tolerance
+
+
+def _bboxes_overlap(left: Any, right: Any, *, tolerance: float = 0.0) -> bool:
+    if not isinstance(left, list) or not isinstance(right, list) or len(left) != 4 or len(right) != 4:
+        return False
+    lx0, ly0, lx1, ly1 = [float(value) for value in left]
+    rx0, ry0, rx1, ry1 = [float(value) for value in right]
+    return not (lx1 <= rx0 + tolerance or rx1 <= lx0 + tolerance or ly1 <= ry0 + tolerance or ry1 <= ly0 + tolerance)
 
 
 def _feature_density_score(bounds: tuple[float, float, float, float], layers: list[gpd.GeoDataFrame]) -> float:
@@ -679,7 +909,17 @@ def _set_bounds(ax: Any, bounds: Any, *, pad_fraction: float = 0.055) -> None:
 
 def _add_north_arrow(ax: Any, layout: dict[str, Any]) -> None:
     side = str(layout.get("legend_side") or "")
-    if side == "right":
+    bbox = layout.get("legend_bbox_axes") if isinstance(layout.get("legend_bbox_axes"), list) else []
+    if len(bbox) == 4 and side in {"right", "left"}:
+        x0, y0, x1, y1 = [float(value) for value in bbox]
+        x = (x0 + x1) / 2
+        y_text, y_arrow = max(y0 + 0.28, 0.34), max(y0 + 0.39, 0.45)
+    elif len(bbox) == 4 and side in {"top", "bottom"}:
+        x0, y0, x1, y1 = [float(value) for value in bbox]
+        x = min(x1 - 0.05, 0.94)
+        y_text = (y0 + y1) / 2 - 0.035
+        y_arrow = (y0 + y1) / 2 + 0.075
+    elif side == "right":
         x, y_text, y_arrow = 0.07, 0.78, 0.89
     elif side == "top":
         x, y_text, y_arrow = 0.94, 0.68, 0.79
@@ -714,8 +954,22 @@ def _add_scale_bar(ax: Any, analysis_crs: str, layout: dict[str, Any]) -> None:
     scale_feet = _nice_scale_feet(target_feet)
     scale_units = scale_feet / feet_per_unit
     side = str(layout.get("legend_side") or "")
-    x_fraction = 0.58 if side in {"left", "bottom"} else 0.08
-    y_fraction = 0.15 if side == "bottom" else 0.08
+    bbox = layout.get("legend_bbox_axes") if isinstance(layout.get("legend_bbox_axes"), list) else []
+    if len(bbox) == 4 and side in {"right", "left"}:
+        x0, y0, x1, _y1 = [float(value) for value in bbox]
+        collar_width_fraction = max(x1 - x0, 0.04)
+        target_feet = width * feet_per_unit * min(collar_width_fraction * 0.62, 0.18)
+        scale_feet = _nice_scale_feet(target_feet)
+        scale_units = scale_feet / feet_per_unit
+        x_fraction = x0 + collar_width_fraction * 0.18
+        y_fraction = y0 + 0.07
+    elif len(bbox) == 4 and side in {"top", "bottom"}:
+        x0, y0, x1, y1 = [float(value) for value in bbox]
+        x_fraction = x0 + 0.04
+        y_fraction = y0 + 0.14 if side == "bottom" else max(y0 + 0.08, (y0 + y1) / 2 - 0.05)
+    else:
+        x_fraction = 0.58 if side in {"left", "bottom"} else 0.08
+        y_fraction = 0.15 if side == "bottom" else 0.08
     x0 = x_min + width * x_fraction
     y0 = y_min + height * y_fraction
     ax.plot([x0, x0 + scale_units], [y0, y0], color="#2B2B2B", linewidth=2.0, solid_capstyle="butt")

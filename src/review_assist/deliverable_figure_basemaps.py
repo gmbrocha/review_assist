@@ -16,15 +16,18 @@ from .basemaps import MARIS_NAIP_SOURCE_ID, MARIS_NAIP_SOURCE_NAME, USDA_NAIP_SO
 from .deliverable_figure_specs import RENDERABLE_BASEMAP_SUFFIXES
 
 
-def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, Any]:
+def load_basemap(
+    project_area: dict[str, Any],
+    analysis_crs: str,
+    *,
+    required_bounds: Any | None = None,
+    required_bounds_crs: str | None = None,
+    extent_class: str | None = None,
+) -> dict[str, Any]:
     selected_paths = _string_list(project_area.get("selected_basemap_paths", []))
     project_local_basemaps = _dict_list(project_area.get("project_local_basemaps", []))
-    project_local_paths = [str(record.get("path")) for record in project_local_basemaps if str(record.get("path") or "").strip()]
-    renderable_paths = [
-        path
-        for path in _dedupe_strings([*project_local_paths, *_string_list(project_area.get("renderable_basemap_paths", []))])
-        if Path(path).suffix.lower() in RENDERABLE_BASEMAP_SUFFIXES
-    ]
+    renderable_records = _renderable_basemap_records(project_local_basemaps, project_area, extent_class=extent_class)
+    renderable_paths = [str(record["path"]) for record in renderable_records]
     failed_materialization = _latest_naip_materialization_failure(project_area)
     if not selected_paths and not renderable_paths:
         if failed_materialization is not None:
@@ -112,15 +115,26 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
             "selected_paths": selected_paths,
             "renderable_paths": renderable_paths,
         }
-    for path_text in renderable_paths:
+    insufficient_issues: list[dict[str, Any]] = []
+    for record in renderable_records:
+        path_text = str(record.get("path") or "")
         path = Path(path_text)
         if not path.exists():
             continue
-        record = _basemap_record_for_path(path, project_area)
         source_id = str(record.get("source_id") or MARIS_NAIP_SOURCE_ID)
         source_name = str(record.get("source_name") or record.get("label") or _basemap_name(source_id))
         layer, issue = _read_basemap_layer(path, project_area, analysis_crs, source_id=source_id)
         if layer is not None:
+            coverage_issue = _coverage_issue(
+                layer,
+                required_bounds=required_bounds,
+                required_bounds_crs=required_bounds_crs or analysis_crs,
+                path=path,
+                source_id=source_id,
+            )
+            if coverage_issue is not None:
+                insufficient_issues.append(coverage_issue)
+                continue
             return {
                 "layer": layer,
                 "issues": [],
@@ -134,6 +148,9 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
                     "renderable": True,
                     "renderability_status": "rendered",
                     "visual_use": "rendered_basemap",
+                    "extent_class": record.get("extent_class"),
+                    "aoi_source": record.get("aoi_source"),
+                    "full_render_extent": record.get("full_render_extent"),
                     "message": f"{source_name} renderable sidecar was used as the visual basemap.",
                 },
                 "source_ref": source_id,
@@ -162,6 +179,28 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
                 "selected_paths": selected_paths,
                 "renderable_paths": renderable_paths,
             }
+    if insufficient_issues:
+        return {
+            "layer": None,
+            "issues": insufficient_issues,
+            "flags": ["basemap_sidecar_extent_insufficient", "vector_only_no_basemap"],
+            "shown_layer": {
+                "layer_type": "basemap_provenance",
+                "source_id": USDA_NAIP_SOURCE_ID,
+                "label": USDA_NAIP_SOURCE_NAME,
+                "selected_paths": selected_paths,
+                "renderable_paths": renderable_paths,
+                "renderable": False,
+                "renderability_status": "extent_insufficient",
+                "visual_use": "provenance_only",
+                "extent_class": extent_class,
+                "message": "Available NAIP sidecar does not cover the planned full figure render extent.",
+            },
+            "source_ref": USDA_NAIP_SOURCE_ID,
+            "source_refs": [USDA_NAIP_SOURCE_ID],
+            "selected_paths": selected_paths,
+            "renderable_paths": renderable_paths,
+        }
     return {
         "layer": None,
         "issues": [
@@ -180,6 +219,41 @@ def load_basemap(project_area: dict[str, Any], analysis_crs: str) -> dict[str, A
         "selected_paths": selected_paths,
         "renderable_paths": renderable_paths,
     }
+
+
+def _renderable_basemap_records(
+    project_local_basemaps: list[dict[str, Any]],
+    project_area: dict[str, Any],
+    *,
+    extent_class: str | None,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for record in project_local_basemaps:
+        path_text = str(record.get("path") or "").strip()
+        if path_text and Path(path_text).suffix.lower() in RENDERABLE_BASEMAP_SUFFIXES:
+            records.append(dict(record))
+    known_paths = {str(record.get("path")) for record in records}
+    for path_text in _string_list(project_area.get("renderable_basemap_paths", [])):
+        if path_text in known_paths or Path(path_text).suffix.lower() not in RENDERABLE_BASEMAP_SUFFIXES:
+            continue
+        path = Path(path_text)
+        records.append(_basemap_record_for_path(path, project_area) | {"path": path_text})
+        known_paths.add(path_text)
+    if extent_class:
+        records.sort(key=lambda record: (0 if str(record.get("extent_class") or "") == extent_class else 1, str(record.get("path") or "")))
+    return _dedupe_records_by_path(records)
+
+
+def _dedupe_records_by_path(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    result: list[dict[str, Any]] = []
+    for record in records:
+        path_text = str(record.get("path") or "")
+        if not path_text or path_text in seen:
+            continue
+        seen.add(path_text)
+        result.append(record)
+    return result
 
 
 def _read_basemap_layer(
@@ -250,6 +324,67 @@ def _read_basemap_layer(
             source_id=source_id,
         )
     return {"image": image, "extent": extent, "path": str(path)}, None
+
+
+def _coverage_issue(
+    layer: dict[str, Any],
+    *,
+    required_bounds: Any | None,
+    required_bounds_crs: str,
+    path: Path,
+    source_id: str,
+) -> dict[str, Any] | None:
+    if required_bounds is None:
+        return None
+    try:
+        required = _normal_bounds(required_bounds)
+        actual = _normal_imshow_extent(layer.get("extent"))
+    except Exception:
+        return _issue(
+            "warning",
+            "basemap_sidecar_extent_insufficient",
+            "Basemap sidecar extent could not be compared to the planned full figure render extent.",
+            str(path),
+            source_id=source_id,
+        )
+    tolerance = 1.0
+    covers = (
+        actual[0] <= required[0] + tolerance
+        and actual[1] <= required[1] + tolerance
+        and actual[2] >= required[2] - tolerance
+        and actual[3] >= required[3] - tolerance
+    )
+    if covers:
+        return None
+    return {
+        "severity": "warning",
+        "code": "basemap_sidecar_extent_insufficient",
+        "message": "Basemap sidecar does not cover the planned full figure render extent; vector-only fallback was used.",
+        "location": str(path),
+        "source_id": source_id,
+        "expected_full_render_extent": _bounds_record(required),
+        "expected_full_render_extent_crs": required_bounds_crs,
+        "actual_raster_extent": _bounds_record(actual),
+        "actual_raster_extent_crs": required_bounds_crs,
+    }
+
+
+def _normal_imshow_extent(extent: Any) -> tuple[float, float, float, float]:
+    left, right, bottom, top = [float(value) for value in extent]
+    return _normal_bounds((left, bottom, right, top))
+
+
+def _normal_bounds(bounds: Any) -> tuple[float, float, float, float]:
+    west, south, east, north = [float(value) for value in bounds]
+    if west > east:
+        west, east = east, west
+    if south > north:
+        south, north = north, south
+    return west, south, east, north
+
+
+def _bounds_record(bounds: tuple[float, float, float, float]) -> dict[str, float]:
+    return {"west": bounds[0], "south": bounds[1], "east": bounds[2], "north": bounds[3]}
 
 
 def _metadata_bbox_for_path(path: Path, project_area: dict[str, Any]) -> dict[str, float] | None:

@@ -8,18 +8,25 @@ import geopandas as gpd
 import matplotlib
 import numpy as np
 import pytest
+from matplotlib.axes import Axes
 from shapely.geometry import LineString, Point, Polygon
 
 import review_assist.project_area as project_area_module
 from review_assist.cli import main
 from review_assist.deliverable_figure_rendering import (
+    LEGEND_MEASUREMENT_SAFETY_FACTOR,
     choose_legend_collar_side,
     comparison_unit_style_records,
     compute_visual_extent_with_legend_collar,
     render_map,
     source_layer_style_record,
 )
-from review_assist.deliverable_figures import DeliverableFigureError, generate_deliverable_figures, load_deliverable_figures
+from review_assist.deliverable_figures import (
+    DeliverableFigureError,
+    generate_deliverable_figures,
+    generate_figure_extent_plan,
+    load_deliverable_figures,
+)
 from review_assist.deliverable_matrix import REQUIRED_STUB_TEXT, load_deliverable_matrix
 from review_assist.populate_for_review import populate_for_review
 
@@ -143,18 +150,23 @@ def write_png_sidecar(imagery_dir: Path, county_name: str = "Test") -> Path:
     return path
 
 
-def write_project_local_naip_tif(project_dir: Path, *, year: int = 2023) -> Path:
+def write_project_local_naip_tif(
+    project_dir: Path,
+    *,
+    year: int = 2023,
+    bounds: tuple[float, float, float, float] = (-90.05, 31.95, -89.90, 32.05),
+    extent_class: str | None = None,
+) -> Path:
     rasterio = pytest.importorskip("rasterio")
     from rasterio.transform import from_bounds
 
-    output_dir = project_dir / "basemaps" / "naip" / str(year)
+    output_dir = project_dir / "basemaps" / "naip" / str(extent_class) / str(year) if extent_class else project_dir / "basemaps" / "naip" / str(year)
     output_dir.mkdir(parents=True, exist_ok=True)
     tif_path = output_dir / "naip_project_basemap.tif"
     data = np.zeros((3, 8, 8), dtype=np.uint8)
     data[0, :, :] = 120
     data[1, :, :] = 155
     data[2, :, :] = 105
-    bounds = (-90.01, 31.99, -89.98, 32.01)
     with rasterio.open(
         tif_path,
         "w",
@@ -182,9 +194,14 @@ def write_project_local_naip_tif(project_dir: Path, *, year: int = 2023) -> Path
                 "naip_year": year,
                 "source_hrefs": ["https://example.invalid/test-naip-item.tif"],
                 "signed_hrefs_stored": False,
-                "aoi_source": "project_analysis_bounds",
+                "aoi_source": "figure_extent_plan_full_render_extent" if extent_class else "project_analysis_bounds",
                 "aoi_bounds_wgs84": {"west": bounds[0], "south": bounds[1], "east": bounds[2], "north": bounds[3]},
-                "output_path": f"basemaps/naip/{year}/naip_project_basemap.tif",
+                "output_path": (
+                    f"basemaps/naip/{extent_class}/{year}/naip_project_basemap.tif"
+                    if extent_class
+                    else f"basemaps/naip/{year}/naip_project_basemap.tif"
+                ),
+                **({"extent_class": extent_class, "render_extent_is_presentation_only": True} if extent_class else {}),
                 "output_crs": "EPSG:4326",
                 "output_bounds_wgs84": {"west": bounds[0], "south": bounds[1], "east": bounds[2], "north": bounds[3]},
                 "output_shape": [8, 8],
@@ -205,6 +222,10 @@ def write_project_local_naip_tif(project_dir: Path, *, year: int = 2023) -> Path
 
 def figure_by_id(figures: dict[str, object], figure_id: str) -> dict[str, object]:
     return next(figure for figure in figures["figures"] if figure["figure_id"] == figure_id)  # type: ignore[index]
+
+
+def plan_figure_by_id(plan: dict[str, object], figure_id: str) -> dict[str, object]:
+    return next(figure for figure in plan["figures"] if figure["figure_id"] == figure_id)  # type: ignore[index]
 
 
 def issue_codes(record: dict[str, object]) -> set[str]:
@@ -378,6 +399,37 @@ def test_project_local_naip_geotiff_sidecar_is_rendered_in_deliverable_figures(
     assert "Vector and selected renderable basemap sidecar" in wetlands["method_note"]  # type: ignore[operator]
     assert "usda_naip_imagery" in wetlands["source_refs"]  # type: ignore[operator]
     assert wetlands["provenance"]["basemap"]["rendered_path"] == str(tif_path)  # type: ignore[index]
+
+
+def test_insufficient_naip_sidecar_extent_falls_back_to_vector_with_warning(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("rasterio")
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_project_local_naip_tif(project_dir, bounds=(-90.001, 31.999, -89.999, 32.001))
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
+
+    assert wetlands["is_stub"] is False
+    assert "basemap_sidecar_extent_insufficient" in issue_codes(wetlands)
+    assert not [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap"]  # type: ignore[index]
+    provenance_layers = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap_provenance"]  # type: ignore[index]
+    assert provenance_layers
+    assert provenance_layers[0]["renderability_status"] == "extent_insufficient"
+    issue = next(issue for issue in wetlands["validation_issues"] if issue["code"] == "basemap_sidecar_extent_insufficient")  # type: ignore[index]
+    assert "expected_full_render_extent" in issue
+    assert "actual_raster_extent" in issue
 
 
 def test_project_local_naip_sidecar_is_rendered_in_regulated_facilities_figure(
@@ -663,6 +715,13 @@ def test_legend_collar_expansion_is_bounded_and_bbox_stays_in_collar() -> None:
     assert (ext_n - ext_s) <= (base_n - base_s) * 1.6
     assert 0 <= bbox_x0 < bbox_x1 <= 1
     assert 0 <= bbox_y0 < bbox_y1 <= 1
+    measurement = layout["legend_measurement"]
+    collar_x0, collar_y0, collar_x1, collar_y1 = layout["collar_bbox_axes"]
+    assert measurement["measurement_method"] == "matplotlib_legend_bbox"
+    if layout["legend_side"] in {"right", "left"}:
+        assert (collar_x1 - collar_x0) >= measurement["legend_bbox_width_fraction"] * LEGEND_MEASUREMENT_SAFETY_FACTOR
+    else:
+        assert (collar_y1 - collar_y0) >= measurement["legend_bbox_height_fraction"] * LEGEND_MEASUREMENT_SAFETY_FACTOR
 
 
 def test_dense_feature_conflicts_can_fall_back_to_outside_frame_legend() -> None:
@@ -682,7 +741,59 @@ def test_dense_feature_conflicts_can_fall_back_to_outside_frame_legend() -> None
     assert layout["expanded_bounds"] == layout["base_bounds"]
 
 
-def test_render_map_keeps_long_notes_out_of_image_canvas(tmp_path: Path) -> None:
+def test_render_map_measured_side_collar_contains_legend_without_core_overlap(tmp_path: Path) -> None:
+    unit_gdf = gpd.GeoDataFrame(
+        [{"comparison_unit_id": "comparison-unit-00001", "comparison_unit_name": "Alternative A"}],
+        geometry=[LineString([(0, 0), (0, 16_000)])],
+        crs="EPSG:32616",
+    )
+    source_layers: list[dict[str, object]] = []
+    for index in range(10):
+        source_layers.append(
+            {
+                "source_id": f"synthetic_source_{index}",
+                "source_name": f"Long Synthetic Source Layer {index}",
+                "source_category": "regulated_facilities",
+                "gdf": gpd.GeoDataFrame(
+                    [{"name": f"source {index}"}],
+                    geometry=[Point(80 + index * 6, 1000 + index * 1200)],
+                    crs="EPSG:32616",
+                ),
+            }
+        )
+
+    layout = render_map(
+        output_path=tmp_path / "measured-collar.png",
+        title="Measured collar test",
+        unit_gdf=unit_gdf,
+        analysis_crs="EPSG:32616",
+        source_layers=source_layers,  # type: ignore[arg-type]
+        basemap={"layer": None},
+        method_note="metadata only",
+        source_note="metadata only",
+        focus_bounds=(-2500, 0, 2500, 16_000),
+    )
+
+    legend_bbox = layout["legend_actual_bbox_axes"]
+    reserved_bbox = layout["legend_bbox_axes"]
+    core_bbox = layout["core_bbox_axes"]
+    measurement = layout["legend_measurement"]
+    assert layout["legend_side"] in {"right", "left"}
+    assert layout["legend_fits_reserved_bbox"] is True
+    assert layout["legend_overlaps_core_bbox"] is False
+    assert reserved_bbox[0] <= legend_bbox[0] < legend_bbox[2] <= reserved_bbox[2]
+    assert legend_bbox[2] <= 1.0
+    if layout["legend_side"] == "right":
+        assert legend_bbox[0] >= core_bbox[2]
+    else:
+        assert legend_bbox[2] <= core_bbox[0]
+    assert measurement["legend_bbox_width_fraction"] * LEGEND_MEASUREMENT_SAFETY_FACTOR <= (
+        layout["collar_bbox_axes"][2] - layout["collar_bbox_axes"][0]
+    )
+    assert layout["render_extent_is_presentation_only"] is True
+
+
+def test_render_map_keeps_report_text_out_of_image_canvas(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     unit_gdf = gpd.GeoDataFrame(
         [{"comparison_unit_id": "comparison-unit-00001", "comparison_unit_name": "Alternative A"}],
         geometry=[LineString([(0, 0), (0, 10_000)])],
@@ -694,6 +805,14 @@ def test_render_map_keeps_long_notes_out_of_image_canvas(tmp_path: Path) -> None
         crs="EPSG:32616",
     )
     output_path = tmp_path / "compact-map.png"
+    long_text_output_path = tmp_path / "compact-map-long-text.png"
+    title_calls: list[str] = []
+
+    def record_title(_axes: object, label: object = "", *args: object, **kwargs: object) -> object:
+        title_calls.append(str(label))
+        return None
+
+    monkeypatch.setattr(Axes, "set_title", record_title)
 
     layout = render_map(
         output_path=output_path,
@@ -711,15 +830,123 @@ def test_render_map_keeps_long_notes_out_of_image_canvas(tmp_path: Path) -> None
         basemap={"layer": None},
         method_note="Vector-only desktop screening map. Analysis CRS: EPSG:32616.",
         source_note="Sources: " + "; ".join(["A very long source/provenance note"] * 20),
-        focus_bounds=(-250, 0, 250, 10_000),
+        focus_bounds=(-1500, 0, 1500, 10_000),
+    )
+    long_text_layout = render_map(
+        output_path=long_text_output_path,
+        title="Hazardous Waste Sites near the Project Area " * 18,
+        unit_gdf=unit_gdf,
+        analysis_crs="EPSG:32616",
+        source_layers=[
+            {
+                "source_id": "epa_frs_facilities_ms",
+                "source_name": "EPA Facility Registry Service Facilities Mississippi",
+                "source_category": "regulated_facilities",
+                "gdf": source_gdf,
+            }
+        ],
+        basemap={"layer": None},
+        method_note="Method note text that must remain metadata only. " * 20,
+        source_note="Source note text that must remain metadata only. " * 20,
+        focus_bounds=(-1500, 0, 1500, 10_000),
     )
 
     image = plt.imread(output_path)
+    long_text_image = plt.imread(long_text_output_path)
     height, width = image.shape[:2]
     assert height > width * 1.25
     assert width < 950
+    assert long_text_image.shape[:2] == image.shape[:2]
     assert layout["layout_strategy"] == "legend_collar"
     assert layout["legend_side"] in {"right", "left"}
+    assert layout["legend_fits_reserved_bbox"] is True
+    assert layout["legend_overlaps_core_bbox"] is False
+    assert layout["image_text_policy"] == {
+        "map_panel_only": True,
+        "embedded_title": False,
+        "embedded_caption": False,
+        "embedded_source_note": False,
+        "embedded_method_note": False,
+    }
+    assert long_text_layout["image_text_policy"]["map_panel_only"] is True
+    assert title_calls == []
+
+
+def test_figure_extent_plan_records_small_medium_and_deferred_watershed_classes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland"}],
+    )
+    write_layer(
+        project_dir / "community.geojson",
+        [Point(-89.997, 32.0005)],
+        [{"NAME": "Test Fire Station", "TYPE": "Fire Station"}],
+    )
+    write_layer(
+        project_dir / "nhd.geojson",
+        [LineString([(-90.0005, 31.9995), (-89.998, 32.001)])],
+        [{"GNIS_NAME": "Test Creek"}],
+    )
+    write_registry(
+        project_dir,
+        [
+            ("usfws_nwi_wetlands", "wetlands.geojson"),
+            ("maris_community_facilities", "community.geojson"),
+            ("usgs_nhd_flowlines", "nhd.geojson"),
+        ],
+    )
+
+    plan = generate_figure_extent_plan(project_dir)
+
+    wetlands = plan_figure_by_id(plan, "figure-wetlands-waterbodies")
+    fire = plan_figure_by_id(plan, "figure-fire-ems-stations")
+    streams = plan_figure_by_id(plan, "figure-streams-impaired-waters")
+    groups = {str(group["group_id"]): group for group in plan["basemap_materialization_groups"]}  # type: ignore[index]
+
+    assert wetlands["extent_class"] == "small_direct"
+    assert wetlands["status"] == "planned"
+    assert wetlands["basemap_materialization_group"] == "small_direct"
+    assert wetlands["render_extent_is_presentation_only"] is True
+    assert len(wetlands["full_render_bounds"]) == 4  # type: ignore[arg-type]
+    assert wetlands["full_render_bounds"][2] > wetlands["core_bounds"][2]  # type: ignore[index]
+    assert wetlands["map_furniture"]["legend"]["placement"] == "presentation_collar"  # type: ignore[index]
+
+    assert fire["extent_class"] == "medium_context"
+    assert fire["status"] == "planned_current_project_area_context"
+    assert fire["basemap_materialization_group"] == "medium_context"
+    assert fire["core_bounds"][0] < wetlands["core_bounds"][0]  # type: ignore[index]
+
+    assert streams["extent_class"] == "large_watershed"
+    assert streams["status"] == "deferred_watershed_context"
+    assert streams["basemap_materialization_group"] == ""
+    assert any(issue["code"] == "figure_extent_context_deferred" for issue in plan["validation_issues"])  # type: ignore[index]
+    assert set(groups) == {"medium_context", "small_direct"}
+
+
+def test_cli_plan_figure_extents_json_writes_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+
+    assert main(["plan-figure-extents", str(project_dir), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["figure_count"] == 13
+    assert result["output_path"].endswith("maps\\figure_extent_plan.json") or result["output_path"].endswith("maps/figure_extent_plan.json")
+    assert (project_dir / "maps" / "figure_extent_plan.json").exists()
 
 
 def test_generated_figures_record_distinct_comparison_unit_visual_styles(

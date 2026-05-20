@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+import geopandas as gpd
 from shapely.geometry import box, mapping
 
 import review_assist.naip_basemap_materialization as naip_module
@@ -85,6 +86,38 @@ def write_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     empty_basemap_root.mkdir()
     monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", empty_basemap_root)
     return project_dir
+
+
+def write_registry(project_dir: Path, sources: list[tuple[str, str]]) -> None:
+    (project_dir / "config" / "sources.json").write_text(
+        json.dumps(
+            {
+                "project_id": "test_project",
+                "sources": [
+                    {
+                        "source_id": source_id,
+                        "enabled": True,
+                        "access_method": "local_file",
+                        "path": path,
+                        "role": "constraint_screening",
+                        "buffer_feet": None,
+                        "notes": "",
+                        "status": "test",
+                    }
+                    for source_id, path in sources
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def write_layer(path: Path, geometries: list[object], rows: list[dict[str, object]]) -> Path:
+    gdf = gpd.GeoDataFrame(rows, geometry=geometries, crs="EPSG:4326")
+    path.write_text(gdf.to_json(drop_id=True), encoding="utf-8")
+    return path
 
 
 def write_existing_sidecar(project_dir: Path, *, year: int = 2023) -> tuple[Path, Path]:
@@ -226,6 +259,66 @@ def test_successful_materialization_writes_metadata_and_project_area(
     assert records and records[0]["source_id"] == USDA_NAIP_SOURCE_ID
     project_area = json.loads((project_dir / "context" / "project_area.json").read_text(encoding="utf-8"))
     assert result["sidecar_path"] in project_area["renderable_basemap_paths"]
+
+
+def test_figure_extent_materialization_uses_full_render_extent_and_groups_small_figures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path, monkeypatch)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [box(-90.001, 31.999, -89.998, 32.001)],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland"}],
+    )
+    write_layer(
+        project_dir / "fema.geojson",
+        [box(-90.002, 31.998, -89.997, 32.002)],
+        [{"FLD_ZONE": "AE"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson"), ("fema_nfhl_flood_hazard", "fema.geojson")])
+    item = fake_item("ms_figures_2023", 2023, (-91.0, 31.0, -89.0, 33.0))
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(naip_module, "_load_imagery_dependencies", lambda: object())
+    monkeypatch.setattr(naip_module, "_query_naip_items", lambda *args, **kwargs: [item])
+
+    def fake_write(selected_items: list[dict[str, Any]], output_path: Path, **kwargs: Any) -> dict[str, Any]:
+        captured["output_path"] = output_path
+        captured["aoi_bounds"] = kwargs["aoi_bounds"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"fake-geotiff")
+        return {
+            "output_crs": "EPSG:4326",
+            "output_bounds": [
+                kwargs["aoi_bounds"]["west"],
+                kwargs["aoi_bounds"]["south"],
+                kwargs["aoi_bounds"]["east"],
+                kwargs["aoi_bounds"]["north"],
+            ],
+            "output_bounds_wgs84": dict(kwargs["aoi_bounds"]),
+            "output_shape": [2, 2],
+            "pixel_count": 4,
+            "source_hrefs": ["https://example.invalid/ms_figures_2023.tif"],
+        }
+
+    monkeypatch.setattr(naip_module, "_write_basemap_raster", fake_write)
+
+    result = materialize_naip_basemap(project_dir, for_figure_extents=True)
+
+    assert result["status"] == "completed"
+    assert len(result["group_results"]) == 1
+    group_result = result["group_results"][0]
+    assert group_result["extent_class"] == "small_direct"
+    assert "basemaps" in str(captured["output_path"])
+    assert "small_direct" in str(captured["output_path"])
+    metadata = json.loads(Path(str(group_result["metadata_path"])).read_text(encoding="utf-8"))
+    assert metadata["aoi_source"] == "figure_extent_plan_full_render_extent"
+    assert metadata["extent_class"] == "small_direct"
+    assert metadata["render_extent_is_presentation_only"] is True
+    assert set(metadata["figure_ids"]) == {"figure-fema-flood-zones", "figure-wetlands-waterbodies"}
+    assert metadata["core_extent"]["bounds"] != metadata["full_render_extent"]["bounds"]
+    assert metadata["aoi_bounds_wgs84"] == captured["aoi_bounds"]
+    assert metadata["output_path"].startswith("basemaps/naip/small_direct/2023/")
 
 
 def test_selection_prefers_latest_year_then_datetime_overlap_and_id() -> None:
@@ -504,7 +597,8 @@ def test_populate_optional_naip_success_refreshes_project_area(
 ) -> None:
     project_dir = write_project(tmp_path, monkeypatch)
 
-    def fake_materialize(project_dir_arg: Path) -> dict[str, Any]:
+    def fake_materialize(project_dir_arg: Path, **kwargs: Any) -> dict[str, Any]:
+        assert kwargs == {"for_figure_extents": True}
         sidecar_path, metadata_path = write_existing_sidecar(project_dir_arg)
         return {
             "project_id": "test_project",
@@ -535,7 +629,8 @@ def test_populate_optional_naip_failure_is_nonblocking(
 ) -> None:
     project_dir = write_project(tmp_path, monkeypatch)
 
-    def fake_materialize(project_dir_arg: Path) -> dict[str, Any]:
+    def fake_materialize(project_dir_arg: Path, **kwargs: Any) -> dict[str, Any]:
+        assert kwargs == {"for_figure_extents": True}
         return {
             "project_id": "test_project",
             "project_name": "Test Project",

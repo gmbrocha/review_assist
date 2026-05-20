@@ -20,16 +20,18 @@ Maps are draft/pre-review artifacts until reviewed. Generated map and figure pre
 
 ## Current Baseline
 
-Current command:
+Current commands:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe generate-maps projects/trails
+.\.venv\Scripts\review-assist.exe plan-figure-extents projects/trails
 .\.venv\Scripts\review-assist.exe generate-deliverable-figures projects/trails
 ```
 
 Current artifacts:
 
 - `projects/<project_id>/maps/map_manifest.json`
+- `projects/<project_id>/maps/figure_extent_plan.json`
 - `projects/<project_id>/maps/figures/*.png`
 - `projects/<project_id>/deliverable/figures.json`
 - `projects/<project_id>/context/project_area.json` records project-area basemap source candidates and renderability status for future map rendering.
@@ -45,9 +47,10 @@ Current behavior:
 - Never renders or exposes `mdah_restricted_archaeology` locations. Restricted cultural status is preserved as `restricted_source_not_mapped`.
 - Adds Attachment A supporting panel maps outside the 13 main figure count when the comparison-unit extent is too elongated for one readable figure.
 - Uses GeoPandas and Matplotlib only.
-- Adds compact export-facing map elements: abbreviated legend, north arrow, and scale bar when CRS units allow it. Legends use a bounded map-collar/legend-bay layout that expands the visual extent only enough to place the legend adjacent to, not over, the project features. Review/process status stays in metadata and UI chrome, not in exported figure captions or on the map canvas. Detailed source counts, provenance, and CRS/method text remain in figure artifact caption/source/method fields rather than consuming the map canvas.
+- Adds compact export-facing map elements: abbreviated legend, north arrow, and scale bar when CRS units allow it. Legends use a bounded map-collar/legend-bay layout that expands the visual extent enough to place the measured rendered legend inside adjacent map context, not over the core project extent or in a plain white margin. Report-ready PNGs are map panels only: captions, report-facing figure titles, source notes, method notes, and review/process status stay in metadata, UI chrome, and export text rather than being baked into the map canvas.
+- Figure extent planning writes a non-network `maps/figure_extent_plan.json` artifact before rendering. The plan records each target's extent class, core bounds, full render bounds, collar side/bounds, map-furniture placement, and grouped NAIP materialization need. Small/direct and medium/context figure groups can request distinct basemap sidecars; large/watershed figure targets remain explicit deferred/stub states until real watershed context extents are implemented.
 - Figure artifacts record extent-policy metadata for the source/query extent, figure extent, render extent, and presentation-only collar extent. The render extent and collar extent are explicitly presentation-only and do not drive source clipping, evidence counts, findings, table rows, or narrative interpretation.
-- Non-stub matrix deliverable figures prefer project-local NAIP GeoTIFF basemap sidecars created by the explicit `materialize-naip-basemap` command when present, while vector-only fallback remains valid.
+- Non-stub matrix deliverable figures prefer project-local NAIP GeoTIFF basemap sidecars created by the explicit `materialize-naip-basemap --for-figure-extents` command when present. A selected sidecar must cover the full planned render extent, including any collar; insufficient sidecars produce vector-only fallback plus `basemap_sidecar_extent_insufficient` warnings rather than blank collar space.
 - Renders matrix-backed deliverable comparison units as individual visual units with preserved usable KML colors or deterministic visible fallbacks, while leaving analysis geometry and comparison-unit generation unchanged.
 - Sizes deliverable figure canvas from the project/focus bounds so tall or narrow project geometries do not produce excessive empty width solely because of legend or note text. Source line/point/polygon styling is intentionally lighter than project/comparison-unit styling so context layers remain readable without overpowering submitted project geometry.
 - Stores figure captions, source notes, method notes, figure grouping, related resource categories, source refs, shown layers, provenance, uncertainty flags, validation issues, stub status, and review status in the relevant figure artifact.
@@ -58,7 +61,7 @@ Current behavior:
 Current limits:
 
 - No Google/ArcGIS basemap calls, proprietary basemap captures, or paid basemap APIs.
-- NAIP COG sidecar materialization is explicit and optional. Normal figure generation and plain `populate-for-review` do not acquire imagery.
+- NAIP COG sidecar materialization is explicit and optional. Normal figure generation and plain `populate-for-review` do not acquire imagery. `populate-for-review --materialize-naip-basemap` uses the planned figure extents path, after source/table setup and before deliverable figure rendering.
 - No MrSID decoding. `.sid` files stay as source provenance only, with explicit diagnostics telling reviewers to provide a GeoTIFF/PNG sidecar when a visual aerial basemap is needed.
 - GeoTIFF sidecar rendering depends on optional `rasterio`; if unavailable or rendering fails, figures fall back to vector-only output or explicit stubs with validation issues.
 - PNG sidecars require usable project-area metadata/georeference; otherwise they warn and fall back.
@@ -75,7 +78,7 @@ The likely open-source workflow is:
 3. Generate map extents from project footprint, alternatives, or panel grid.
 4. Render layers with Matplotlib.
 5. Add basemap or local raster imagery where appropriate.
-6. Add legend, title, scale/context, source notes, and figure number.
+6. Add legend, scale/context, and north arrow to the map panel; preserve title, caption, source notes, method notes, and figure number as metadata/export text outside the PNG.
 7. Export PNG/PDF/SVG outputs.
 8. Register figure metadata as a review queue item and later in the package manifest if accepted.
 
@@ -108,7 +111,7 @@ Notes:
 - NAIP is a USDA imagery program.
 - Acquisition timing and resolution vary by year and state.
 - Source date and resolution should be preserved.
-- `materialize-naip-basemap` can create a project-local renderable GeoTIFF sidecar from public Microsoft Planetary Computer NAIP COG assets by project analysis bounds. The command records provenance, enforces AOI/tile/pixel/time limits, and resamples oversized native-resolution windows to fit the configured output-pixel cap instead of lifting the cap or downloading whole county/state imagery.
+- `materialize-naip-basemap` can create a project-local renderable GeoTIFF sidecar from public Microsoft Planetary Computer NAIP COG assets by project analysis bounds. With `--for-figure-extents`, it first plans figure render extents and writes grouped sidecars such as `basemaps/naip/small_direct/<year>/naip_project_basemap.tif` and `basemaps/naip/medium_context/<year>/naip_project_basemap.tif`. The command records provenance, extent class, core extent, full render extent, collar side, source items, CRS, bounds, resolution, and limits. Oversized native-resolution windows are resampled to fit `--max-pixels`; the command does not lift limits or download whole county/state imagery.
 
 Reference: https://catalog.data.gov/dataset/national-agriculture-imagery-program-naip-imagery
 
@@ -222,6 +225,8 @@ Each figure should eventually include or preserve:
 - Review status in metadata/UI, not in exported figure content.
 - Figure ID.
 - Generated timestamp.
+
+For report-ready deliverable PNGs, this information is preserved in the figure artifact and export package rather than embedded as editable-report text inside the image.
 
 ## Report-Ready Export Concepts
 

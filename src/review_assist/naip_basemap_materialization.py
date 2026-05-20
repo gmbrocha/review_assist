@@ -65,21 +65,35 @@ def materialize_naip_basemap(
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
     refresh: bool = False,
     fail_on_error: bool = False,
+    for_figure_extents: bool = False,
+    extent_class: str | None = None,
 ) -> dict[str, Any]:
     """Materialize an AOI-clipped NAIP basemap sidecar for a project."""
 
     project_dir = project_dir.resolve()
     started_at = _utc_now()
     try:
-        result = _materialize_naip_basemap(
-            project_dir,
-            year=year,
-            max_pixels=max_pixels,
-            max_tiles=max_tiles,
-            timeout_seconds=timeout_seconds,
-            refresh=refresh,
-            started_at=started_at,
-        )
+        if for_figure_extents:
+            result = _materialize_naip_basemap_for_figure_extents(
+                project_dir,
+                year=year,
+                max_pixels=max_pixels,
+                max_tiles=max_tiles,
+                timeout_seconds=timeout_seconds,
+                refresh=refresh,
+                started_at=started_at,
+                extent_class=extent_class,
+            )
+        else:
+            result = _materialize_naip_basemap(
+                project_dir,
+                year=year,
+                max_pixels=max_pixels,
+                max_tiles=max_tiles,
+                timeout_seconds=timeout_seconds,
+                refresh=refresh,
+                started_at=started_at,
+            )
     except (NaipBasemapMaterializationError, ProjectManifestError, ProjectGeometryError, ProjectAreaError) as exc:
         result = _failure_result(
             project_dir,
@@ -89,6 +103,7 @@ def materialize_naip_basemap(
             max_tiles=max_tiles,
             timeout_seconds=timeout_seconds,
             message=str(exc),
+            extent_class=extent_class,
         )
     except Exception as exc:  # pragma: no cover - defensive boundary for external raster/STAC libs.
         result = _failure_result(
@@ -99,6 +114,7 @@ def materialize_naip_basemap(
             max_tiles=max_tiles,
             timeout_seconds=timeout_seconds,
             message=f"Unexpected NAIP basemap materialization failure: {exc}",
+            extent_class=extent_class,
         )
     _write_run_manifest(project_dir, result)
     if fail_on_error and not result.get("success"):
@@ -146,6 +162,145 @@ def select_naip_items(
     return [dict(candidate["item"]) for candidate in selected]
 
 
+def _materialize_naip_basemap_for_figure_extents(
+    project_dir: Path,
+    *,
+    year: int | None,
+    max_pixels: int,
+    max_tiles: int,
+    timeout_seconds: int,
+    refresh: bool,
+    started_at: str,
+    extent_class: str | None,
+) -> dict[str, Any]:
+    _validate_limits(max_pixels=max_pixels, max_tiles=max_tiles, timeout_seconds=timeout_seconds)
+    manifest = load_project_manifest(project_dir)
+    from .deliverable_figures import FIGURE_EXTENT_PLAN_PATH, generate_figure_extent_plan
+
+    plan = generate_figure_extent_plan(project_dir)
+    groups = [group for group in _dict_list(plan.get("basemap_materialization_groups", [])) if str(group.get("status") or "") == "planned"]
+    if extent_class:
+        groups = [group for group in groups if str(group.get("extent_class") or group.get("group_id") or "") == extent_class]
+    if not groups:
+        project_area = build_project_area(project_dir)
+        return {
+            "project_id": manifest.project_id,
+            "project_name": manifest.name,
+            "project_dir": str(project_dir),
+            "source_id": USDA_NAIP_SOURCE_ID,
+            "provider": NAIP_PROVIDER,
+            "status": "skipped",
+            "success": True,
+            "action": "no_planned_figure_extent_groups",
+            "started_at": started_at,
+            "completed_at": _utc_now(),
+            "naip_year": year,
+            "sidecar_path": None,
+            "metadata_path": None,
+            "project_area_path": str(project_area.get("output_path") or project_dir / PROJECT_AREA_PATH),
+            "figure_extent_plan_path": str(project_dir / FIGURE_EXTENT_PLAN_PATH),
+            "extent_class": extent_class,
+            "group_results": [],
+            "limits": _limits(max_pixels, max_tiles, timeout_seconds),
+            "validation_issues": [],
+        }
+
+    deps: _ImageryDependencies | None = None
+    group_results: list[dict[str, Any]] = []
+    validation_issues: list[dict[str, Any]] = []
+    for group in groups:
+        group_id = str(group.get("group_id") or group.get("extent_class") or "")
+        full_extent = _float_bounds(group.get("full_render_extent", []))
+        analysis_crs = str(group.get("analysis_crs") or plan.get("analysis_crs") or "EPSG:4326")
+        aoi_geometry = _bounds_geometry_wgs84(full_extent, analysis_crs)
+        aoi_bounds = _bounds_dict(aoi_geometry.bounds)
+        existing = None if refresh else _existing_sidecar(project_dir, year, extent_class=group_id, required_bounds_wgs84=aoi_bounds)
+        if existing is not None:
+            project_area = build_project_area(project_dir)
+            result = _success_result(
+                project_dir,
+                started_at=started_at,
+                project_id=manifest.project_id,
+                project_name=manifest.name,
+                status="reused",
+                action="reused_existing_figure_extent_sidecar",
+                sidecar_path=Path(str(existing["path"])),
+                metadata_path=Path(str(existing["metadata_path"])) if existing.get("metadata_path") else None,
+                project_area_path=Path(str(project_area.get("output_path") or project_dir / PROJECT_AREA_PATH)),
+                year=_safe_int(existing.get("year")) or year,
+                item_ids=[str(item_id) for item_id in existing.get("item_ids", [])] if isinstance(existing.get("item_ids"), list) else [],
+                limits=_limits(max_pixels, max_tiles, timeout_seconds),
+                extent_class=group_id,
+                figure_extent_plan_path=project_dir / FIGURE_EXTENT_PLAN_PATH,
+            )
+        else:
+            try:
+                deps = deps or _load_imagery_dependencies()
+                result = _materialize_naip_basemap(
+                    project_dir,
+                    year=year,
+                    max_pixels=max_pixels,
+                    max_tiles=max_tiles,
+                    timeout_seconds=timeout_seconds,
+                    refresh=True,
+                    started_at=started_at,
+                    deps=deps,
+                    aoi_geometry_wgs84=aoi_geometry,
+                    aoi_source="figure_extent_plan_full_render_extent",
+                    output_group=group_id,
+                    metadata_context={
+                        "extent_class": group_id,
+                        "core_extent": {"bounds": group.get("core_extent"), "crs": analysis_crs},
+                        "full_render_extent": {"bounds": group.get("full_render_extent"), "crs": analysis_crs},
+                        "collar_side": ",".join(_string_list(group.get("collar_sides", []))),
+                        "render_extent_is_presentation_only": True,
+                        "figure_ids": _string_list(group.get("figure_ids", [])),
+                        "figure_extent_plan_path": str(project_dir / FIGURE_EXTENT_PLAN_PATH),
+                    },
+                )
+            except (NaipBasemapMaterializationError, ProjectAreaError, ProjectGeometryError) as exc:
+                result = _failure_result(
+                    project_dir,
+                    started_at=started_at,
+                    year=year,
+                    max_pixels=max_pixels,
+                    max_tiles=max_tiles,
+                    timeout_seconds=timeout_seconds,
+                    message=str(exc),
+                    extent_class=group_id,
+                )
+        result["extent_class"] = group_id
+        group_results.append(result)
+        validation_issues.extend(_dict_list(result.get("validation_issues", [])))
+
+    project_area = build_project_area(project_dir)
+    successful = [result for result in group_results if result.get("success")]
+    failed = [result for result in group_results if not result.get("success")]
+    status = "completed" if successful and not failed else "partial" if successful else "failed"
+    first_success = successful[0] if successful else {}
+    return {
+        "project_id": manifest.project_id,
+        "project_name": manifest.name,
+        "project_dir": str(project_dir),
+        "source_id": USDA_NAIP_SOURCE_ID,
+        "provider": NAIP_PROVIDER,
+        "status": status,
+        "success": bool(successful) and not failed,
+        "action": "materialized_figure_extent_sidecars",
+        "started_at": started_at,
+        "completed_at": _utc_now(),
+        "naip_year": first_success.get("naip_year") or year,
+        "sidecar_path": first_success.get("sidecar_path"),
+        "metadata_path": first_success.get("metadata_path"),
+        "project_area_path": str(project_area.get("output_path") or project_dir / PROJECT_AREA_PATH),
+        "figure_extent_plan_path": str(project_dir / FIGURE_EXTENT_PLAN_PATH),
+        "extent_class": extent_class,
+        "group_results": group_results,
+        "limits": _limits(max_pixels, max_tiles, timeout_seconds),
+        "validation_issues": _dedupe_issues(validation_issues),
+    }
+
+
 def _materialize_naip_basemap(
     project_dir: Path,
     *,
@@ -155,10 +310,15 @@ def _materialize_naip_basemap(
     timeout_seconds: int,
     refresh: bool,
     started_at: str,
+    deps: _ImageryDependencies | None = None,
+    aoi_geometry_wgs84: BaseGeometry | None = None,
+    aoi_source: str = "project_analysis_bounds",
+    output_group: str | None = None,
+    metadata_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _validate_limits(max_pixels=max_pixels, max_tiles=max_tiles, timeout_seconds=timeout_seconds)
     manifest = load_project_manifest(project_dir)
-    existing = _existing_sidecar(project_dir, year)
+    existing = None if output_group else _existing_sidecar(project_dir, year)
     if existing is not None and not refresh:
         project_area = build_project_area(project_dir)
         return _success_result(
@@ -176,9 +336,10 @@ def _materialize_naip_basemap(
             limits=_limits(max_pixels, max_tiles, timeout_seconds),
         )
 
-    deps = _load_imagery_dependencies()
-    aoi_gdf, aoi_geometry = _load_or_build_aoi(project_dir)
-    aoi_geometry_wgs84 = unary_union([geometry for geometry in aoi_gdf.geometry if geometry is not None and not geometry.is_empty])
+    deps = deps or _load_imagery_dependencies()
+    if aoi_geometry_wgs84 is None:
+        aoi_gdf, _aoi_geometry = _load_or_build_aoi(project_dir)
+        aoi_geometry_wgs84 = unary_union([geometry for geometry in aoi_gdf.geometry if geometry is not None and not geometry.is_empty])
     if aoi_geometry_wgs84.is_empty:
         raise NaipBasemapMaterializationError("Project analysis bounds are empty; NAIP basemap materialization requires a non-empty AOI.")
     aoi_bounds = _bounds_dict(aoi_geometry_wgs84.bounds)
@@ -190,7 +351,7 @@ def _materialize_naip_basemap(
     if selected_year is None:
         raise NaipBasemapMaterializationError("Selected NAIP item does not include a usable year/datetime.")
 
-    output_dir = project_dir / PROJECT_LOCAL_NAIP_ROOT / str(selected_year)
+    output_dir = project_dir / PROJECT_LOCAL_NAIP_ROOT / str(output_group) / str(selected_year) if output_group else project_dir / PROJECT_LOCAL_NAIP_ROOT / str(selected_year)
     output_path = output_dir / PROJECT_LOCAL_NAIP_FILENAME
     metadata_path = output_dir / PROJECT_LOCAL_NAIP_METADATA_FILENAME
     if (output_path.exists() or metadata_path.exists()) and not refresh:
@@ -212,8 +373,10 @@ def _materialize_naip_basemap(
         selected_items=selected_items,
         selected_year=selected_year,
         aoi_bounds=aoi_bounds,
+        aoi_source=aoi_source,
         raster_info=raster_info,
         limits=_limits(max_pixels, max_tiles, timeout_seconds),
+        metadata_context=metadata_context,
     )
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
@@ -232,6 +395,8 @@ def _materialize_naip_basemap(
         item_ids=[str(item.get("id") or "") for item in selected_items if str(item.get("id") or "").strip()],
         limits=_limits(max_pixels, max_tiles, timeout_seconds),
         raster_info=raster_info,
+        extent_class=str(metadata_context.get("extent_class")) if isinstance(metadata_context, dict) and metadata_context.get("extent_class") else None,
+        figure_extent_plan_path=Path(str(metadata_context.get("figure_extent_plan_path"))) if isinstance(metadata_context, dict) and metadata_context.get("figure_extent_plan_path") else None,
     )
 
 
@@ -426,12 +591,14 @@ def _sidecar_metadata(
     selected_items: list[dict[str, Any]],
     selected_year: int,
     aoi_bounds: dict[str, float],
+    aoi_source: str,
     raster_info: dict[str, Any],
     limits: dict[str, int],
+    metadata_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     datetimes = [_item_datetime(item) for item in selected_items if _item_datetime(item)]
     source_hrefs = [str(href) for href in raster_info.get("source_hrefs", []) if str(href).strip()]
-    return {
+    metadata = {
         "source_id": USDA_NAIP_SOURCE_ID,
         "display_name": USDA_NAIP_SOURCE_NAME,
         "provider": NAIP_PROVIDER,
@@ -443,7 +610,7 @@ def _sidecar_metadata(
         "naip_year": selected_year,
         "source_hrefs": source_hrefs,
         "signed_hrefs_stored": False,
-        "aoi_source": "project_analysis_bounds",
+        "aoi_source": aoi_source,
         "aoi_bounds_wgs84": aoi_bounds,
         "output_path": _project_relative(project_dir, output_path),
         "output_crs": raster_info.get("output_crs"),
@@ -465,11 +632,27 @@ def _sidecar_metadata(
             "Signed asset URLs are not stored as durable provenance.",
         ],
     }
+    if metadata_context:
+        metadata.update({key: value for key, value in metadata_context.items() if value not in (None, "")})
+    return metadata
 
 
-def _existing_sidecar(project_dir: Path, year: int | None) -> dict[str, Any] | None:
+def _existing_sidecar(
+    project_dir: Path,
+    year: int | None,
+    *,
+    extent_class: str | None = None,
+    required_bounds_wgs84: dict[str, float] | None = None,
+) -> dict[str, Any] | None:
     for record in discover_project_local_naip_basemaps(project_dir):
+        record_extent_class = str(record.get("extent_class") or "")
+        if extent_class is None and record_extent_class:
+            continue
+        if extent_class is not None and record_extent_class != extent_class:
+            continue
         if year is not None and _safe_int(record.get("year")) != year:
+            continue
+        if required_bounds_wgs84 and not _bbox_covers(record.get("metadata_bbox_wgs84"), required_bounds_wgs84):
             continue
         if record.get("metadata_path") and Path(str(record["metadata_path"])).exists():
             return record
@@ -491,6 +674,8 @@ def _success_result(
     item_ids: list[str],
     limits: dict[str, int],
     raster_info: dict[str, Any] | None = None,
+    extent_class: str | None = None,
+    figure_extent_plan_path: Path | None = None,
 ) -> dict[str, Any]:
     return {
         "project_id": project_id,
@@ -508,6 +693,8 @@ def _success_result(
         "sidecar_path": str(sidecar_path),
         "metadata_path": str(metadata_path) if metadata_path else None,
         "project_area_path": str(project_area_path),
+        "extent_class": extent_class,
+        "figure_extent_plan_path": str(figure_extent_plan_path) if figure_extent_plan_path else None,
         "limits": limits,
         "raster": raster_info or {},
         "validation_issues": [],
@@ -523,6 +710,7 @@ def _failure_result(
     max_tiles: int,
     timeout_seconds: int,
     message: str,
+    extent_class: str | None = None,
 ) -> dict[str, Any]:
     project_id = None
     project_name = None
@@ -547,6 +735,7 @@ def _failure_result(
         "sidecar_path": None,
         "metadata_path": None,
         "project_area_path": str(project_dir / PROJECT_AREA_PATH),
+        "extent_class": extent_class,
         "limits": _limits(max_pixels, max_tiles, timeout_seconds),
         "message": message,
         "validation_issues": [
@@ -672,6 +861,68 @@ def _bounds_dict(bounds: Any) -> dict[str, float]:
         "east": float(east),
         "north": float(north),
     }
+
+
+def _float_bounds(bounds: Any) -> tuple[float, float, float, float]:
+    west, south, east, north = [float(value) for value in bounds]
+    if west > east:
+        west, east = east, west
+    if south > north:
+        south, north = north, south
+    return west, south, east, north
+
+
+def _bounds_geometry_wgs84(bounds: Any, source_crs: str) -> BaseGeometry:
+    geom = box(*_float_bounds(bounds))
+    series = gpd.GeoSeries([geom], crs=source_crs or "EPSG:4326").to_crs("EPSG:4326")
+    result = unary_union([geometry for geometry in series.geometry if geometry is not None and not geometry.is_empty])
+    if result.is_empty:
+        raise NaipBasemapMaterializationError("Planned figure render extent is empty.")
+    return result
+
+
+def _bbox_covers(actual: Any, required: dict[str, float]) -> bool:
+    if not isinstance(actual, dict):
+        return False
+    try:
+        tolerance = 0.00001
+        return (
+            float(actual["west"]) <= float(required["west"]) + tolerance
+            and float(actual["south"]) <= float(required["south"]) + tolerance
+            and float(actual["east"]) >= float(required["east"]) - tolerance
+            and float(actual["north"]) >= float(required["north"]) - tolerance
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _dict_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
+
+
+def _dedupe_issues(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str, str, str]] = set()
+    result: list[dict[str, Any]] = []
+    for issue in issues:
+        key = (
+            str(issue.get("severity", "")),
+            str(issue.get("code", "")),
+            str(issue.get("message", "")),
+            str(issue.get("source_id", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(issue)
+    return result
 
 
 def _project_relative(project_dir: Path, path: Path) -> str:

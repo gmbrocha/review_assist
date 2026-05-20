@@ -554,6 +554,38 @@ def test_export_figure_uses_replacement_image_and_edited_caption(tmp_path: Path)
     assert "Internal reviewer note only" not in markdown
 
 
+def test_export_figure_replacement_uses_generated_caption_when_caption_is_not_edited(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    queue = load_review_queue(project_dir)
+    existing = next(item for item in queue["items"] if item["id"] == "figure-wetlands-waterbodies")
+    generated_caption = existing["assumptions"]["caption"]
+    replacement_path = project_dir / "review_queue" / "figure_replacements" / "figure-wetlands-waterbodies" / "replacement.png"
+    write_tiny_png(replacement_path)
+    replacement_rel = replacement_path.relative_to(project_dir).as_posix()
+    set_review_states(
+        project_dir,
+        default_status="declined",
+        overrides={
+            "figure-wetlands-waterbodies": {
+                "status": "replaced",
+                "replacement_content": replacement_rel,
+                "export_eligible": True,
+            }
+        },
+    )
+
+    manifest = export_report(project_dir)
+    markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+    exported = next(item for item in manifest["included_items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert exported["caption"] == generated_caption
+    assert exported["caption_source"] == "generated_caption"
+    assert exported["image_source"] == "replacement_figure"
+    assert exported["content_source"] == "replacement_figure"
+    assert f"Caption: {generated_caption}" in markdown
+
+
 def test_export_legacy_rejected_status_is_omitted_as_declined(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)

@@ -198,15 +198,15 @@ def discover_project_local_naip_basemaps(project_dir: Path) -> list[dict[str, An
     if not root.exists():
         return []
     records: list[dict[str, Any]] = []
-    for metadata_path in sorted(root.glob(f"*/{PROJECT_LOCAL_NAIP_METADATA_FILENAME}")):
+    for metadata_path in sorted(root.glob(f"**/{PROJECT_LOCAL_NAIP_METADATA_FILENAME}")):
         record = _project_local_record_from_metadata(project_dir, metadata_path)
         if record is not None:
             records.append(record)
-    for tif_path in sorted(root.glob(f"*/{PROJECT_LOCAL_NAIP_FILENAME}")):
+    for tif_path in sorted(root.glob(f"**/{PROJECT_LOCAL_NAIP_FILENAME}")):
         if any(Path(str(record.get("path"))).resolve() == tif_path.resolve() for record in records):
             continue
         records.append(_minimal_project_local_record(project_dir, tif_path))
-    return sorted(records, key=lambda item: (str(item.get("year") or ""), str(item.get("path") or "")), reverse=True)
+    return sorted(records, key=lambda item: (str(item.get("extent_class") or ""), str(item.get("year") or ""), str(item.get("path") or "")), reverse=True)
 
 
 def format_county_name(raw_name: str) -> str:
@@ -302,6 +302,13 @@ def _project_local_record_from_metadata(project_dir: Path, metadata_path: Path) 
         "renderable": True,
         "visual_use": "rendered_basemap",
     }
+    if str(metadata.get("extent_class") or "").strip():
+        record["extent_class"] = str(metadata["extent_class"])
+    if str(metadata.get("aoi_source") or "").strip():
+        record["aoi_source"] = str(metadata["aoi_source"])
+    for key in ("core_extent", "full_render_extent", "collar_side", "render_extent_is_presentation_only"):
+        if key in metadata:
+            record[key] = metadata[key]
     if isinstance(output_bounds, dict):
         record["metadata_bbox_wgs84"] = output_bounds
     item_ids = metadata.get("item_ids")
@@ -320,10 +327,19 @@ def _metadata_output_path(project_dir: Path, metadata: dict[str, Any], metadata_
 
 
 def _minimal_project_local_record(project_dir: Path, tif_path: Path) -> dict[str, Any]:
+    relative_parts: tuple[str, ...] = ()
     try:
-        year: Any = tif_path.parent.name if tif_path.parent.parent == project_dir / PROJECT_LOCAL_NAIP_ROOT else None
+        relative_parts = tif_path.relative_to(project_dir / PROJECT_LOCAL_NAIP_ROOT).parts
     except ValueError:
-        year = None
+        relative_parts = ()
+    year: Any = None
+    extent_class: str | None = None
+    if len(relative_parts) >= 2:
+        if relative_parts[0].isdigit():
+            year = relative_parts[0]
+        else:
+            extent_class = relative_parts[0]
+            year = relative_parts[1] if relative_parts[1].isdigit() else None
     return {
         "source_id": USDA_NAIP_SOURCE_ID,
         "source_name": USDA_NAIP_SOURCE_NAME,
@@ -334,6 +350,7 @@ def _minimal_project_local_record(project_dir: Path, tif_path: Path) -> dict[str
         "status": "renderable_sidecar_available",
         "renderable": True,
         "visual_use": "rendered_basemap",
+        **({"extent_class": extent_class} if extent_class else {}),
     }
 
 

@@ -16,7 +16,7 @@ from .deliverable_matrix import (
     load_report_prompt_config,
     validate_deliverable_contract,
 )
-from .deliverable_figures import DeliverableFigureError, generate_deliverable_figures
+from .deliverable_figures import DeliverableFigureError, generate_deliverable_figures, generate_figure_extent_plan
 from .deliverable_items import DeliverableItemsError, generate_deliverable_items
 from .deliverable_tables import DeliverableTableError, generate_deliverable_tables
 from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
@@ -194,7 +194,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     naip_basemap_parser.add_argument("--refresh", action="store_true", help="Overwrite an existing project-local NAIP sidecar.")
     naip_basemap_parser.add_argument("--force", action="store_true", help="Alias for --refresh.")
+    naip_basemap_parser.add_argument(
+        "--for-figure-extents",
+        action="store_true",
+        help="Materialize grouped NAIP sidecars for planned full figure render extents.",
+    )
+    naip_basemap_parser.add_argument(
+        "--extent-class",
+        choices=["small_direct", "medium_context", "large_watershed"],
+        help="Restrict --for-figure-extents materialization to one planned extent class.",
+    )
     naip_basemap_parser.add_argument("--json", action="store_true", help="Print full JSON materialization manifest to stdout.")
+
+    figure_extent_parser = subparsers.add_parser(
+        "plan-figure-extents",
+        help="Plan presentation-only figure render extents and basemap materialization groups.",
+    )
+    figure_extent_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    figure_extent_parser.add_argument("--json", action="store_true", help="Print full JSON figure extent plan to stdout.")
 
     inventory_parser = subparsers.add_parser("generate-source-inventory", help="Generate source inventory and provenance records.")
     inventory_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -777,6 +794,8 @@ def materialize_naip_basemap_command(
     max_tiles: int,
     timeout_seconds: int,
     refresh: bool,
+    for_figure_extents: bool,
+    extent_class: str | None,
     print_json: bool,
 ) -> int:
     result = materialize_naip_basemap(
@@ -786,12 +805,17 @@ def materialize_naip_basemap_command(
         max_tiles=max_tiles,
         timeout_seconds=timeout_seconds,
         refresh=refresh,
+        for_figure_extents=for_figure_extents,
+        extent_class=extent_class,
     )
     if print_json:
         print(json.dumps(result, indent=2))
     elif result.get("success"):
         print(f"NAIP basemap materialization: {result['status']}")
         print(f"Source: {result['source_id']}")
+        if for_figure_extents:
+            print(f"Figure extent plan: {result.get('figure_extent_plan_path')}")
+            print(f"Extent groups: {len(result.get('group_results', []))}")
         print(f"Sidecar: {result.get('sidecar_path')}")
         print(f"Metadata: {result.get('metadata_path')}")
         print(f"Output: {result.get('output_path')}")
@@ -799,6 +823,23 @@ def materialize_naip_basemap_command(
         print(f"error: {result.get('message') or 'NAIP basemap materialization failed.'}", file=sys.stderr)
         print(f"Output: {result.get('output_path')}", file=sys.stderr)
     return 0 if result.get("success") else 1
+
+
+def plan_figure_extents_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = generate_figure_extent_plan(project_dir)
+    except DeliverableFigureError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+    print(f"Planned figure extents: {result['project_id']} ({result['project_name']})")
+    print(f"Figures: {result['figure_count']}")
+    print(f"Basemap groups: {len(result.get('basemap_materialization_groups', []))}")
+    print(f"Validation issues: {len(result['validation_issues'])}")
+    print(f"Output: {result['output_path']}")
+    return 0
 
 
 def generate_review_queue_command(
@@ -1361,6 +1402,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "materialize-local-sources":
         return materialize_local_sources_command(args.project_dir, args.replace, args.json)
     if args.command == "materialize-naip-basemap":
+        if args.extent_class and not args.for_figure_extents:
+            parser.error("--extent-class requires --for-figure-extents for materialize-naip-basemap.")
         return materialize_naip_basemap_command(
             args.project_dir,
             year=args.year,
@@ -1368,8 +1411,12 @@ def main(argv: list[str] | None = None) -> int:
             max_tiles=args.max_tiles,
             timeout_seconds=args.timeout_seconds,
             refresh=args.refresh or args.force,
+            for_figure_extents=args.for_figure_extents,
+            extent_class=args.extent_class,
             print_json=args.json,
         )
+    if args.command == "plan-figure-extents":
+        return plan_figure_extents_command(args.project_dir, args.json)
     if args.command == "generate-source-inventory":
         return generate_source_inventory_command(args.project_dir, args.json)
     if args.command == "generate-findings":

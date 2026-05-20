@@ -15,7 +15,13 @@ from .basemaps import MARIS_NAIP_SOURCE_ID, MARIS_NAIP_SOURCE_NAME
 from .comparison_units import ComparisonUnitError, build_comparison_units, load_comparison_units
 from .deliverable_figure_basemaps import load_basemap
 from .deliverable_figure_contract import DeliverableFigureError, validate_deliverable_figures
-from .deliverable_figure_rendering import comparison_unit_style_records, panel_bounds, render_map, source_layer_style_record
+from .deliverable_figure_rendering import (
+    comparison_unit_style_records,
+    panel_bounds,
+    plan_render_layout_for_map,
+    render_map,
+    source_layer_style_record,
+)
 from .deliverable_figure_specs import (
     MAX_PANEL_COUNT,
     MISSING_SOURCE_STATUSES,
@@ -34,7 +40,18 @@ from .deliverable_constraints import (
     load_comparison_unit_constraints,
 )
 from .deliverable_matrix import REQUIRED_STUB_TEXT, DeliverableMatrixError, FigureTarget, load_deliverable_matrix
-from .extent_policy import apply_extent_metadata, extent_policy_summary, render_extent_metadata, target_extent_metadata
+from .extent_policy import (
+    COMMUNITY_CONTEXT_EXTENT,
+    COUNTY_OR_REGIONAL_CONTEXT_EXTENT,
+    DIRECT_INTERSECTION_EXTENT,
+    NEARBY_CONTEXT_EXTENT,
+    SCREENING_BUFFER_EXTENT,
+    WATERSHED_CONTEXT_EXTENT,
+    apply_extent_metadata,
+    extent_policy_summary,
+    render_extent_metadata,
+    target_extent_metadata,
+)
 from .maps import FIGURES_DIR
 from .project_area import PROJECT_AREA_PATH, ProjectAreaError, build_project_area, load_project_area
 from .projects import ProjectManifestError, load_project_manifest
@@ -43,7 +60,13 @@ from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source
 
 
 DELIVERABLE_FIGURES_PATH = Path("deliverable/figures.json")
+FIGURE_EXTENT_PLAN_PATH = Path("maps/figure_extent_plan.json")
 DELIVERABLE_MAP_ELEMENT_BASELINE = ["legend", "north_arrow", "scale_bar"]
+FIGURE_EXTENT_PLAN_VERSION = "figure-extent-plan-v1"
+SMALL_DIRECT_EXTENT_CLASS = "small_direct"
+MEDIUM_CONTEXT_EXTENT_CLASS = "medium_context"
+LARGE_WATERSHED_EXTENT_CLASS = "large_watershed"
+PLANNED_FIGURE_STATUSES = {"planned", "planned_current_project_area_context"}
 
 
 def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
@@ -86,6 +109,10 @@ def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
         analysis_crs=analysis_crs,
         analysis_bounds=analysis_bounds,
     )
+    figure_extent_plan = generate_figure_extent_plan(project_dir)
+    figure_plan_by_id = {
+        str(record.get("figure_id")): record for record in _dict_list(figure_extent_plan.get("figures", [])) if record.get("figure_id")
+    }
     constraints = [item for item in comparison_unit_constraints.get("constraints", []) if isinstance(item, dict)]
 
     figures: list[dict[str, Any]] = []
@@ -106,6 +133,7 @@ def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
             constraints=constraints,
             comparison_unit_constraints=comparison_unit_constraints,
             source_status=source_status,
+            figure_plan=figure_plan_by_id.get(target.target_id),
         )
         figures.append(figure)
         validation_issues.extend(_dict_list(figure.get("validation_issues", [])))
@@ -144,6 +172,7 @@ def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
             "comparison_units_metadata_path": comparison_units.get("output_path"),
             "comparison_units_path": comparison_units.get("comparison_units_path"),
             "comparison_unit_constraints_path": comparison_unit_constraints.get("output_path"),
+            "figure_extent_plan_path": figure_extent_plan.get("output_path"),
             "source_status_path": source_status.get("output_path"),
             "project_area_path": project_area.get("output_path"),
         },
@@ -167,6 +196,110 @@ def load_deliverable_figures(project_dir: Path) -> dict[str, Any]:
         raise DeliverableFigureError(f"Deliverable figures artifact must be a JSON object: {path}")
     validate_deliverable_figures(data, str(path))
     return data
+
+
+def generate_figure_extent_plan(project_dir: Path) -> dict[str, Any]:
+    """Plan presentation-only render extents before figure/basemap generation."""
+
+    project_dir = project_dir.resolve()
+    try:
+        manifest = load_project_manifest(project_dir)
+        matrix = load_deliverable_matrix()
+        source_catalog = load_source_catalog()
+        comparison_units = _load_or_build_comparison_units(project_dir)
+        project_area = _load_or_build_project_area(project_dir)
+        comparison_unit_constraints = _load_or_generate_comparison_unit_constraints(project_dir)
+        source_status = _load_or_generate_source_status(project_dir)
+        unit_gdf = _comparison_unit_gdf(comparison_units)
+    except (
+        ProjectManifestError,
+        DeliverableMatrixError,
+        SourceCatalogError,
+        ComparisonUnitError,
+        ComparisonUnitConstraintError,
+        SourceStatusError,
+        ProjectAreaError,
+    ) as exc:
+        raise DeliverableFigureError(str(exc)) from exc
+
+    analysis_crs = str(
+        comparison_unit_constraints.get("analysis_crs")
+        or project_area.get("analysis_crs")
+        or _analysis_crs(unit_gdf)
+    )
+    unit_gdf = _clean_gdf(unit_gdf, analysis_crs)
+    analysis_bounds = _analysis_bounds(project_dir, analysis_crs, unit_gdf)
+    source_context = _source_context(source_status, comparison_unit_constraints, source_catalog.sources)
+    source_layers = _load_source_layers(
+        project_dir=project_dir,
+        comparison_unit_constraints=comparison_unit_constraints,
+        source_catalog=source_catalog.sources,
+        analysis_crs=analysis_crs,
+        analysis_bounds=analysis_bounds,
+    )
+
+    records: list[dict[str, Any]] = []
+    validation_issues: list[dict[str, Any]] = []
+    for target in matrix.figure_targets:
+        record, issues = _figure_extent_plan_record(
+            project_dir=project_dir,
+            target=target,
+            unit_gdf=unit_gdf,
+            analysis_bounds=analysis_bounds,
+            source_context=source_context,
+            source_layers=source_layers,
+            comparison_unit_constraints=comparison_unit_constraints,
+        )
+        records.append(record)
+        validation_issues.extend(issues)
+
+    groups = _basemap_materialization_groups(records, analysis_crs)
+    output_path = project_dir / FIGURE_EXTENT_PLAN_PATH
+    result = {
+        "project_id": manifest.project_id,
+        "project_name": manifest.name,
+        "project_dir": str(project_dir),
+        "created_at": _utc_now(),
+        "plan_version": FIGURE_EXTENT_PLAN_VERSION,
+        "analysis_crs": analysis_crs,
+        "extent_policy": extent_policy_summary(),
+        "figure_count": len(records),
+        "figures": records,
+        "basemap_materialization_groups": groups,
+        "validation_issues": _dedupe_issues(validation_issues),
+        "upstream_artifacts": {
+            "deliverable_matrix_path": "config/deliverable_section_matrix.json",
+            "comparison_units_metadata_path": comparison_units.get("output_path"),
+            "comparison_units_path": comparison_units.get("comparison_units_path"),
+            "comparison_unit_constraints_path": comparison_unit_constraints.get("output_path"),
+            "source_status_path": source_status.get("output_path"),
+            "project_area_path": project_area.get("output_path"),
+        },
+        "output_path": str(output_path),
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    return result
+
+
+def load_figure_extent_plan(project_dir: Path) -> dict[str, Any]:
+    path = project_dir.resolve() / FIGURE_EXTENT_PLAN_PATH
+    if not path.exists():
+        raise DeliverableFigureError(f"Missing figure extent plan artifact: {path}")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise DeliverableFigureError(f"Invalid figure extent plan JSON: {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise DeliverableFigureError(f"Figure extent plan artifact must be a JSON object: {path}")
+    return data
+
+
+def load_or_generate_figure_extent_plan(project_dir: Path) -> dict[str, Any]:
+    try:
+        return load_figure_extent_plan(project_dir)
+    except DeliverableFigureError:
+        return generate_figure_extent_plan(project_dir)
 
 
 def _load_or_build_comparison_units(project_dir: Path) -> dict[str, Any]:
@@ -362,6 +495,192 @@ def _load_source_layers(
     return layers
 
 
+def _figure_extent_plan_record(
+    *,
+    project_dir: Path,
+    target: FigureTarget,
+    unit_gdf: gpd.GeoDataFrame,
+    analysis_bounds: gpd.GeoDataFrame,
+    source_context: dict[str, Any],
+    source_layers: dict[str, list[dict[str, Any]]],
+    comparison_unit_constraints: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    extent = target_extent_metadata(
+        target_id=target.target_id,
+        target_type="figure",
+        source_categories=target.source_categories,
+        query_distance=comparison_unit_constraints.get("default_buffer_feet"),
+        query_units="feet",
+    )
+    extent_class = _extent_class_for_figure(extent)
+    core_bounds = _core_bounds_for_extent_class(extent_class, analysis_bounds.total_bounds)
+    issues: list[dict[str, Any]] = []
+    status = "planned"
+    status_reason = "Figure render extent is planned from current project geometry and available source layers."
+
+    spec = TARGET_SPECS.get(target.target_id, TargetFigureSpec(_target_source_refs(source_context, target.source_categories)))
+    target_source_ids = list(spec.source_ids) or _target_source_refs(source_context, target.source_categories)
+    public_source_ids = [source_id for source_id in target_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
+    layer_records = _target_source_layers(target, source_layers)
+    layer_records = [_filtered_layer(layer, spec.filter_tokens) for layer in layer_records]
+    layer_records = [layer for layer in layer_records if layer["source_id"] != RESTRICTED_CULTURAL_SOURCE_ID]
+    if target.target_id == "figure-cultural-resources":
+        layer_records = [layer for layer in layer_records if layer["source_id"] in PUBLIC_CULTURAL_SOURCE_IDS]
+
+    if extent_class == LARGE_WATERSHED_EXTENT_CLASS:
+        status = "deferred_watershed_context"
+        status_reason = (
+            "Watershed/subwatershed render context is not implemented; this plan does not use "
+            "project-area bounds as a substitute for watershed context."
+        )
+        issues.append(
+            _issue(
+                "warning",
+                "figure_extent_context_deferred",
+                status_reason,
+                str(project_dir / FIGURE_EXTENT_PLAN_PATH),
+                target_id=target.target_id,
+            )
+        )
+    elif not layer_records:
+        status = "source_unavailable_stub"
+        status_reason = "Usable public source layers are not available, so no NAIP sidecar is needed for this figure target."
+    elif extent_class == MEDIUM_CONTEXT_EXTENT_CLASS:
+        status = "planned_current_project_area_context"
+        status_reason = (
+            "Medium/context figure uses a broader presentation extent for visual context only; "
+            "automated evidence remains bounded by the current project-area source contracts."
+        )
+
+    layout = plan_render_layout_for_map(
+        unit_gdf=unit_gdf,
+        source_layers=layer_records,
+        focus_bounds=core_bounds,
+    )
+    group = extent_class if status in PLANNED_FIGURE_STATUSES and spec.prefer_basemap and layer_records else ""
+    record = {
+        "figure_id": target.target_id,
+        "section_target_id": target.section_target_id,
+        "title": target.title,
+        "extent_class": extent_class,
+        "status": status,
+        "status_reason": status_reason,
+        "source_refs": sorted(set(public_source_ids)),
+        "available_source_refs": sorted({str(layer.get("source_id")) for layer in layer_records if layer.get("source_id")}),
+        "core_extent_type": extent.get("figure_extent_type") or extent.get("analysis_extent_type"),
+        "core_bounds": [float(value) for value in core_bounds],
+        "core_bounds_crs": str(analysis_bounds.crs or ""),
+        "render_layout": layout,
+        "full_render_bounds": [float(value) for value in layout.get("expanded_bounds", [])],
+        "collar_bounds": [float(value) for value in layout.get("collar_bounds", [])],
+        "collar_side": str(layout.get("legend_side") or "none"),
+        "layout_strategy": str(layout.get("layout_strategy") or ""),
+        "map_furniture": _map_furniture_estimates(layout),
+        "render_extent_type": layout.get("render_extent_type"),
+        "render_extent_is_presentation_only": True,
+        "presentation_extent_type": layout.get("presentation_extent_type") or "",
+        "basemap_materialization_group": group,
+        "basemap_materialization_required": bool(group),
+    }
+    return record, issues
+
+
+def _extent_class_for_figure(extent: dict[str, Any]) -> str:
+    scope = str(extent.get("figure_extent_type") or extent.get("analysis_extent_type") or "")
+    if scope == WATERSHED_CONTEXT_EXTENT:
+        return LARGE_WATERSHED_EXTENT_CLASS
+    if scope in {NEARBY_CONTEXT_EXTENT, COMMUNITY_CONTEXT_EXTENT, COUNTY_OR_REGIONAL_CONTEXT_EXTENT}:
+        return MEDIUM_CONTEXT_EXTENT_CLASS
+    if scope in {DIRECT_INTERSECTION_EXTENT, SCREENING_BUFFER_EXTENT}:
+        return SMALL_DIRECT_EXTENT_CLASS
+    return SMALL_DIRECT_EXTENT_CLASS
+
+
+def _core_bounds_for_extent_class(extent_class: str, analysis_bounds: Any) -> tuple[float, float, float, float]:
+    bounds = _clean_bounds_tuple(analysis_bounds)
+    if extent_class == MEDIUM_CONTEXT_EXTENT_CLASS:
+        return _pad_bounds(bounds, 0.2)
+    return bounds
+
+
+def _basemap_materialization_groups(records: list[dict[str, Any]], analysis_crs: str) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for record in records:
+        group_id = str(record.get("basemap_materialization_group") or "")
+        if not group_id:
+            continue
+        full_bounds = _clean_bounds_tuple(record.get("full_render_bounds", []))
+        core_bounds = _clean_bounds_tuple(record.get("core_bounds", []))
+        group = grouped.setdefault(
+            group_id,
+            {
+                "group_id": group_id,
+                "extent_class": group_id,
+                "analysis_crs": analysis_crs,
+                "figure_ids": [],
+                "core_extent": list(core_bounds),
+                "full_render_extent": list(full_bounds),
+                "render_extent_is_presentation_only": True,
+                "collar_sides": [],
+                "status": "planned",
+            },
+        )
+        group["figure_ids"].append(str(record.get("figure_id")))
+        group["core_extent"] = list(_merge_bounds(group["core_extent"], core_bounds))
+        group["full_render_extent"] = list(_merge_bounds(group["full_render_extent"], full_bounds))
+        collar_side = str(record.get("collar_side") or "")
+        if collar_side and collar_side not in group["collar_sides"]:
+            group["collar_sides"].append(collar_side)
+    return [grouped[key] for key in sorted(grouped)]
+
+
+def _map_furniture_estimates(layout: dict[str, Any]) -> dict[str, Any]:
+    side = str(layout.get("legend_side") or "none")
+    bbox = layout.get("legend_bbox_axes") if isinstance(layout.get("legend_bbox_axes"), list) else []
+    collar = layout.get("collar_bounds") if isinstance(layout.get("collar_bounds"), list) else []
+    in_collar = bool(collar and side in {"right", "left", "top", "bottom"})
+    return {
+        "legend": {
+            "label_count": int(layout.get("legend_label_count") or 0),
+            "bbox_axes": bbox,
+            "placement": "presentation_collar" if in_collar else "map_frame",
+        },
+        "north_arrow": {
+            "placement": "presentation_collar" if in_collar else "map_frame",
+        },
+        "scale_bar": {
+            "placement": "presentation_collar" if in_collar else "map_frame",
+        },
+    }
+
+
+def _clean_bounds_tuple(bounds: Any) -> tuple[float, float, float, float]:
+    west, south, east, north = [float(value) for value in bounds]
+    if west > east:
+        west, east = east, west
+    if south > north:
+        south, north = north, south
+    return (west, south, east, north)
+
+
+def _pad_bounds(bounds: tuple[float, float, float, float], fraction: float) -> tuple[float, float, float, float]:
+    west, south, east, north = bounds
+    width = max(east - west, 1.0)
+    height = max(north - south, 1.0)
+    return (
+        west - width * fraction,
+        south - height * fraction,
+        east + width * fraction,
+        north + height * fraction,
+    )
+
+
+def _merge_bounds(left: Any, right: Any) -> tuple[float, float, float, float]:
+    lw, ls, le, ln = _clean_bounds_tuple(left)
+    rw, rs, re, rn = _clean_bounds_tuple(right)
+    return (min(lw, rw), min(ls, rs), max(le, re), max(ln, rn))
+
+
 def _resolve_source_path(project_dir: Path, value: Any) -> Path | None:
     if value is None:
         return None
@@ -389,6 +708,7 @@ def _figure_for_target(
     constraints: list[dict[str, Any]],
     comparison_unit_constraints: dict[str, Any],
     source_status: dict[str, Any],
+    figure_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     spec = TARGET_SPECS.get(target.target_id, TargetFigureSpec(_target_source_refs(source_context, target.source_categories)))
     target_source_ids = list(spec.source_ids) or _target_source_refs(source_context, target.source_categories)
@@ -424,6 +744,31 @@ def _figure_for_target(
         )
         uncertainty_flags.add("source_unimplemented")
 
+    if isinstance(figure_plan, dict) and str(figure_plan.get("status") or "") == "deferred_watershed_context":
+        validation_issues.append(
+            _issue(
+                "warning",
+                "figure_extent_context_deferred",
+                str(
+                    figure_plan.get("status_reason")
+                    or "Watershed/subwatershed render context is not implemented for this figure target."
+                ),
+                str(project_dir / FIGURE_EXTENT_PLAN_PATH),
+                target_id=target.target_id,
+            )
+        )
+        return _stub_figure(
+            target=target,
+            matrix_version=matrix_version,
+            public_source_ids=public_source_ids,
+            comparison_unit_ids=_comparison_unit_ids(unit_gdf),
+            comparison_unit_constraints=comparison_unit_constraints,
+            source_status=source_status,
+            uncertainty_flags=sorted(uncertainty_flags | {"figure_extent_context_deferred"}),
+            validation_issues=validation_issues,
+            figure_plan=figure_plan,
+        )
+
     available_source_ids = {str(layer["source_id"]) for layer in layer_records}
     if not available_source_ids:
         return _stub_figure(
@@ -435,6 +780,7 @@ def _figure_for_target(
             source_status=source_status,
             uncertainty_flags=sorted(uncertainty_flags | {"source_unavailable"}),
             validation_issues=validation_issues,
+            figure_plan=figure_plan,
         )
 
     if target.target_id == "figure-cultural-resources":
@@ -450,9 +796,23 @@ def _figure_for_target(
                 source_status=source_status,
                 uncertainty_flags=sorted(uncertainty_flags | {"source_unavailable"}),
                 validation_issues=validation_issues,
+                figure_plan=figure_plan,
             )
 
-    basemap = load_basemap(project_area, analysis_crs) if spec.prefer_basemap else {"layer": None, "issues": [], "flags": [], "shown_layer": None}
+    planned_layout = figure_plan.get("render_layout") if isinstance(figure_plan, dict) and isinstance(figure_plan.get("render_layout"), dict) else None
+    required_render_bounds = planned_layout.get("expanded_bounds") if isinstance(planned_layout, dict) else None
+    basemap_group = str(figure_plan.get("basemap_materialization_group") or "") if isinstance(figure_plan, dict) else ""
+    basemap = (
+        load_basemap(
+            project_area,
+            analysis_crs,
+            required_bounds=required_render_bounds,
+            required_bounds_crs=analysis_crs,
+            extent_class=basemap_group or None,
+        )
+        if spec.prefer_basemap
+        else {"layer": None, "issues": [], "flags": [], "shown_layer": None}
+    )
     validation_issues.extend(_dict_list(basemap.get("issues", [])))
     uncertainty_flags.update(_string_list(basemap.get("flags", [])))
 
@@ -469,7 +829,8 @@ def _figure_for_target(
             basemap=basemap,
             method_note=method_note,
             source_note=source_note,
-            focus_bounds=analysis_bounds.total_bounds,
+            focus_bounds=figure_plan.get("core_bounds") if isinstance(figure_plan, dict) else analysis_bounds.total_bounds,
+            render_layout=planned_layout,
         )
     except Exception as exc:  # pragma: no cover - rendering failures are backend dependent.
         validation_issues.append(
@@ -490,6 +851,7 @@ def _figure_for_target(
             source_status=source_status,
             uncertainty_flags=sorted(uncertainty_flags | {"basemap_render_failed"}),
             validation_issues=validation_issues,
+            figure_plan=figure_plan,
         )
 
     related_constraints = _related_constraint_ids(constraints, public_source_ids, spec.filter_tokens)
@@ -523,6 +885,7 @@ def _figure_for_target(
             project_area=project_area,
             basemap=basemap,
             render_layout=render_layout,
+            figure_plan=figure_plan,
         ),
         validation_issues=_dedupe_issues(validation_issues),
     )
@@ -608,6 +971,7 @@ def _stub_figure(
     source_status: dict[str, Any],
     uncertainty_flags: list[str],
     validation_issues: list[dict[str, Any]],
+    figure_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     issues = list(validation_issues)
     issues.append(
@@ -629,6 +993,7 @@ def _stub_figure(
         analysis_crs=str(comparison_unit_constraints.get("analysis_crs", "")),
         project_area=None,
         basemap=None,
+        figure_plan=figure_plan,
     )
     extent = _figure_extent(target, provenance)
     return {
@@ -729,7 +1094,7 @@ def _attachment_supporting_figures(
         return [], []
     panel_count = min(MAX_PANEL_COUNT, max(2, int(math.ceil(aspect / PANEL_ASPECT_THRESHOLD)) + 1))
     panels = panel_bounds((west, south, east, north), panel_count)
-    basemap = load_basemap(project_area, analysis_crs)
+    basemap = load_basemap(project_area, analysis_crs, extent_class=SMALL_DIRECT_EXTENT_CLASS)
     records: list[dict[str, Any]] = []
     issues: list[dict[str, Any]] = []
     for index, bounds in enumerate(panels, start=1):
@@ -846,6 +1211,7 @@ def _provenance(
     project_area: dict[str, Any] | None,
     basemap: dict[str, Any] | None,
     render_layout: dict[str, Any] | None = None,
+    figure_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     extent = target_extent_metadata(
         target_id=target.target_id,
@@ -880,6 +1246,20 @@ def _provenance(
             "selected_paths": _string_list(basemap.get("selected_paths", [])),
             "renderable_paths": _string_list(basemap.get("renderable_paths", [])),
             "rendered_path": basemap.get("shown_layer", {}).get("path") if isinstance(basemap.get("shown_layer"), dict) else None,
+            "extent_class": basemap.get("shown_layer", {}).get("extent_class") if isinstance(basemap.get("shown_layer"), dict) else None,
+        }
+    if isinstance(figure_plan, dict):
+        provenance["figure_extent_plan"] = {
+            "plan_path": str(FIGURE_EXTENT_PLAN_PATH),
+            "plan_version": FIGURE_EXTENT_PLAN_VERSION,
+            "figure_id": figure_plan.get("figure_id"),
+            "extent_class": figure_plan.get("extent_class"),
+            "status": figure_plan.get("status"),
+            "basemap_materialization_group": figure_plan.get("basemap_materialization_group"),
+            "full_render_bounds": figure_plan.get("full_render_bounds", []),
+            "collar_bounds": figure_plan.get("collar_bounds", []),
+            "collar_side": figure_plan.get("collar_side"),
+            "render_extent_is_presentation_only": True,
         }
     if render_layout:
         provenance["render_layout"] = render_layout

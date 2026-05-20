@@ -94,21 +94,6 @@ def populate_for_review(
         context = generate_project_context(project_dir)
         steps.append(_step("project_context", "completed", artifact_path=context.get("context_path")))
 
-        if materialize_naip_basemap:
-            naip_basemap_materialization = materialize_project_naip_basemap(project_dir)
-            step_status = "completed" if naip_basemap_materialization.get("success") else "warning"
-            steps.append(
-                _step(
-                    "naip_basemap_materialization",
-                    step_status,
-                    artifact_path=naip_basemap_materialization.get("output_path"),
-                    message=str(naip_basemap_materialization.get("message") or ""),
-                )
-            )
-            warnings.extend(_issue_warnings("naip_basemap_materialization", naip_basemap_materialization.get("validation_issues", [])))
-            if naip_basemap_materialization.get("success"):
-                project_area = build_project_area(project_dir)
-
         if materialize_local_sources:
             source_materialization = materialize_project_local_sources(project_dir)
             steps.append(_step("source_materialization", "completed", artifact_path=source_materialization.get("output_path")))
@@ -159,6 +144,23 @@ def populate_for_review(
         deliverable_tables = generate_deliverable_tables(project_dir)
         steps.append(_step("deliverable_tables", "completed", artifact_path=deliverable_tables.get("output_path")))
         warnings.extend(_issue_warnings("deliverable_tables", deliverable_tables.get("validation_issues", [])))
+
+        if materialize_naip_basemap:
+            naip_basemap_materialization = materialize_project_naip_basemap(project_dir, for_figure_extents=True)
+            step_status = "completed" if naip_basemap_materialization.get("success") else "warning"
+            steps.append(
+                _step(
+                    "naip_basemap_materialization",
+                    step_status,
+                    artifact_path=naip_basemap_materialization.get("output_path"),
+                    message=str(naip_basemap_materialization.get("message") or ""),
+                )
+            )
+            warnings.extend(_issue_warnings("naip_basemap_materialization", naip_basemap_materialization.get("validation_issues", [])))
+            if naip_basemap_materialization.get("success"):
+                project_area = build_project_area(project_dir)
+                source_status = resolve_source_status_set(project_dir)
+                steps.append(_step("source_status_refresh_after_naip", "completed", artifact_path=source_status.get("output_path")))
 
         deliverable_figures = generate_deliverable_figures(project_dir)
         steps.append(_step("deliverable_figures", "completed", artifact_path=deliverable_figures.get("output_path")))
