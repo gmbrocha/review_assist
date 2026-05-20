@@ -284,7 +284,7 @@ def main() -> None:
 
     app = create_app(project_root=os.environ.get("REVIEW_ASSIST_PROJECT_ROOT"))
     host = os.environ.get("REVIEW_ASSIST_WEB_HOST", "127.0.0.1")
-    port = int(os.environ.get("REVIEW_ASSIST_WEB_PORT", "8765"))
+    port = int(os.environ.get("REVIEW_ASSIST_WEB_PORT", "8766"))
     app.run(host=host, port=port, debug=False)
 
 

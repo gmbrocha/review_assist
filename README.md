@@ -65,7 +65,7 @@ Launch the local web UI shell:
 .\.venv\Scripts\review-assist-web.exe
 ```
 
-The UI runs at `http://127.0.0.1:8765` by default. Set `REVIEW_ASSIST_PROJECT_ROOT`, `REVIEW_ASSIST_WEB_HOST`, or `REVIEW_ASSIST_WEB_PORT` to override the project root or bind address for local development.
+The UI runs at `http://127.0.0.1:8766` by default. Set `REVIEW_ASSIST_PROJECT_ROOT`, `REVIEW_ASSIST_WEB_HOST`, or `REVIEW_ASSIST_WEB_PORT` to override the project root or bind address for local development.
 
 Validate the static Sprint 1.1 deliverable and prompt contracts:
 
