@@ -61,6 +61,17 @@ def process_language_gpt_response(self: section_drafting.OpenAISectionDraftProvi
     }
 
 
+def context_direct_impact_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": "Nearby community resources will impact the project based on context-only screening evidence.",
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": [],
+        "caveats": [],
+    }
+
+
 def test_gpt_env_parsing_and_missing_key(monkeypatch: pytest.MonkeyPatch) -> None:
     for value in ("1", "true", "yes", "on", "TRUE"):
         monkeypatch.setenv("GPT_DRAFTING", value)
@@ -96,7 +107,13 @@ def test_build_evidence_package_classifies_stubs_and_real_sources(tmp_path: Path
     wetlands_evidence = stub_package["section_evidence"]["wetlands-and-waterbodies"]
     assert "table-wetlands-waterbodies" in wetlands_evidence["deliverable_table_ids"]
     assert "figure-wetlands-waterbodies" in wetlands_evidence["deliverable_figure_ids"]
+    assert wetlands_evidence["query_extent_type"] == "project_area_analysis_bounds"
+    assert wetlands_evidence["analysis_extent_type"] in {"direct_intersection_extent", "mixed_extent_types"}
     assert wetlands_evidence["figure_availability"]["stub_count"] >= 1
+    water_quality = stub_package["section_evidence"]["water-quality"]
+    assert water_quality["analysis_extent_type"] == "watershed_context_extent"
+    health_care = stub_package["section_evidence"]["health-care-facilities"]
+    assert health_care["analysis_extent_type"] == "community_context_extent"
     assert (project_dir / "evidence" / "evidence_package.json").exists()
 
     real_project_dir = write_project(tmp_path / "real")
@@ -169,6 +186,8 @@ def test_deliverable_item_gpt_payload_includes_prompt_contract_and_matrix_target
     assert payload["prompt_contract"]["section_prompt"]["prompt_key"] == payload["section"]["prompt_key"]
     assert payload["prompt_contract"]["allowed_inputs"]
     assert payload["prompt_contract"]["citation_policy"]
+    assert payload["extent_metadata"]["query_extent_type"] == "project_area_analysis_bounds"
+    assert "interpretation_scope_label" in payload["extent_metadata"]
     assert "coordinates" not in serialized
     assert r"F:\Desktop\review_assist\sources" not in serialized
 
@@ -325,6 +344,31 @@ def test_section_drafting_rejects_process_language_in_gpt_output(monkeypatch: py
     assert result.provenance["table_refs_used"] == ["table-wetlands-waterbodies"]
     assert result.provenance["figure_refs_used"] == ["figure-wetlands-waterbodies"]
     assert any(issue["code"] == "process_language_in_gpt_output" for issue in result.validation_issues)
+
+
+def test_section_drafting_rejects_direct_impact_language_for_context_extent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", context_direct_impact_gpt_response)
+    provider = section_drafting.OpenAISectionDraftProvider(model="gpt-test", api_key="test-key")
+
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="health-care-facilities",
+            section_type="subsection",
+            title="Health Care Facilities",
+            purpose="Summarize nearby health care context.",
+            resource_category="community_socioeconomic",
+            deterministic_content="Nearby health care context is summarized for reviewer consideration.",
+            extent_metadata={
+                "query_extent_type": "project_area_analysis_bounds",
+                "analysis_extent_type": "community_context_extent",
+                "interpretation_scope_label": "near the project area / community screening context",
+            },
+        )
+    )
+
+    assert result.content == "Nearby health care context is summarized for reviewer consideration."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert any(issue["code"] == "direct_impact_language_for_context_extent" for issue in result.validation_issues)
 
 
 def test_gpt_enabled_without_key_fails_clearly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

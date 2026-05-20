@@ -22,6 +22,7 @@ from review_assist.deliverable_items import (
     load_deliverable_items,
 )
 from review_assist.deliverable_matrix import REQUIRED_STUB_TEXT, load_deliverable_matrix
+from review_assist.extent_policy import target_extent_metadata
 
 
 PROCESS_LANGUAGE = [
@@ -124,6 +125,9 @@ def test_deliverable_items_write_matrix_contract_and_dynamic_children(
     assert result["upstream_artifacts"]["deliverable_matrix_path"] == "config/deliverable_section_matrix.json"
     assert result["upstream_artifacts"]["report_generation_prompts_path"] == "config/report_generation_prompts.json"
     assert all(REQUIRED_ITEM_FIELDS <= set(item) for item in result["items"])
+    for item in result["items"]:
+        lowered = str(item["generated_content"]).lower()
+        assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
 
     dynamic_a = item_by_id(result, "wetlands-waterbodies-comparison-unit-00001")
     dynamic_b = item_by_id(result, "wetlands-waterbodies-comparison-unit-00002")
@@ -154,7 +158,7 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
     assert table["table_id"] == "table-wetlands-waterbodies"
     assert table["is_stub"] is True
     assert table["stub_text"] == REQUIRED_STUB_TEXT
-    assert "explicit review stub" in table["generated_content"]
+    assert "explicit source/data stub" in table["generated_content"]
     assert "Expected source refs" in table["generated_content"]
     assert figure["review_item_type"] == "figure"
     assert figure["figure_id"] == "figure-wetlands-waterbodies"
@@ -168,15 +172,23 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
     assert "Hazardous Materials Report" in attachment["generated_content"]
     assert "supporting attachment material" in attachment["generated_content"]
     assert "attachment-environmental-constraints-maps" in attachment_a_wrapper["generated_content"]
-    assert "Reviewer verification is required" in attachment_a_wrapper["generated_content"]
+    assert "Accepted figures and supporting panels form the attachment map package" in attachment_a_wrapper["generated_content"]
     assert attachment_a_wrapper["assumptions"]["source_gap_status"] == []
     assert "attachment-hazardous-materials-report" in attachment_b_wrapper["generated_content"]
     assert attachment_b_wrapper["assumptions"]["source_gap_status"] == []
     assert section["related_table_ids"] == ["table-wetlands-waterbodies"]
     assert section["related_figure_ids"] == ["figure-wetlands-waterbodies"]
+    assert section["evidence_refs"] == ["section_evidence:wetlands-and-waterbodies"]
     assert section["stub_text"] == REQUIRED_STUB_TEXT
     assert "explicit source/data gap" in section["generated_content"]
     assert "Related table limitation" in section["generated_content"]
+
+    contamination = item_by_id(result, "contamination-risks")
+    hazardous = item_by_id(result, "hazardous-materials-sites")
+    oil_wells = item_by_id(result, "oil-wells")
+    assert contamination["related_figure_ids"] == ["figure-hazardous-waste-sites"]
+    assert hazardous["related_figure_ids"] == ["figure-hazardous-waste-sites"]
+    assert oil_wells["related_figure_ids"] == ["figure-hazardous-waste-sites"]
 
 
 def test_load_deliverable_items_round_trip_and_validates_contract(
@@ -337,10 +349,18 @@ def test_broad_source_backed_section_prefers_available_evidence_and_limitations(
         related_tables=[],
         related_figures=[],
         comparison_unit=None,
+        extent_metadata=target_extent_metadata(
+            target_id=target.target_id,
+            target_type=target.target_type,
+            resource_category=target.resource_category,
+            source_categories=target.source_categories,
+        ),
     )
 
     lowered = content.lower()
     assert "Mapped regulated facility and contamination-risk context" in content
+    assert "in the project vicinity" in content
+    assert "within the project area" not in lowered
     assert "EPA Facility Registry Service facilities" in content
     assert "MARIS brownfields" in content
     assert "Mississippi Oil and Gas Board wells" in content
@@ -349,6 +369,35 @@ def test_broad_source_backed_section_prefers_available_evidence_and_limitations(
     assert "hazardous_materials_report=manual" in content
     assert "do not establish contamination extent" in content
     assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
+
+
+def test_watershed_section_wording_uses_context_scope_without_fake_implementation() -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.section_targets if item.target_id == "water-quality")
+
+    content = _section_content(
+        target=target,
+        context={"project_name": "Test Project"},
+        evidence={
+            "source_refs": ["usgs_nhd_flowlines"],
+            "source_gap_status": [{"category": "hydrography_crossings", "status": "provided_locally"}],
+            "constraint_summaries": [{"constraint_id": "constraint-1", "relationship_type": "crosses"}],
+        },
+        related_tables=[],
+        related_figures=[],
+        comparison_unit=None,
+        extent_metadata=target_extent_metadata(
+            target_id=target.target_id,
+            target_type=target.target_type,
+            resource_category=target.resource_category,
+            source_categories=target.source_categories,
+        ),
+    )
+
+    lowered = content.lower()
+    assert "within the watershed/subwatershed context" in content
+    assert "current automated watershed context remains limited" in content
+    assert "direct project impact" not in lowered
 
 
 def test_p2_missing_source_section_keeps_honest_source_gap_content() -> None:
@@ -506,3 +555,9 @@ def test_cli_generate_deliverable_items_json(
 
     assert payload["project_id"] == "test_project"
     assert payload["output_path"].endswith("deliverable_items.json")
+    water_quality = next(item for item in payload["items"] if item["deliverable_item_id"] == "water-quality")
+    health_care = next(item for item in payload["items"] if item["deliverable_item_id"] == "health-care-facilities")
+    assert water_quality["analysis_extent_type"] == "watershed_context_extent"
+    assert "watershed/subwatershed context" in water_quality["interpretation_scope_label"]
+    assert health_care["analysis_extent_type"] == "community_context_extent"
+    assert "near the project area" in health_care["interpretation_scope_label"]

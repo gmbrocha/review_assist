@@ -135,6 +135,24 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             flash(str(exc), "error")
         return redirect(url_for("overview"))
 
+    @app.post("/overview/reset-review-queue")
+    def reset_review_queue() -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        if request.form.get("confirm_reset") != "yes":
+            flash("Confirm the developer reset before clearing generated review candidates.", "error")
+            return redirect(url_for("overview"))
+        try:
+            result = adapter.reset_generated_review_queue(
+                project_dir,
+                include_evidence="include_evidence" in request.form,
+                include_exports="include_exports" in request.form,
+            )
+            after = result.get("after", {}) if isinstance(result.get("after"), dict) else {}
+            flash(f"Reset generated review queue completed with {after.get('review_queue_item_count', 0)} review items.", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("overview"))
+
     @app.get("/review")
     def review_queue() -> str:
         project_dir = _selected_project_dir_or_none(app)

@@ -41,6 +41,7 @@ from review_assist.project_area import PROJECT_AREA_PATH
 from review_assist.project_context import PROJECT_CONTEXT_PATH
 from review_assist.projects import MANIFEST_PATH, ProjectInput, ProjectManifest, ProjectManifestError, load_project_manifest, save_project_manifest
 from review_assist.review_queue import REVIEW_QUEUE_PATH, ReviewQueueError, load_review_queue, update_review_item
+from review_assist.review_queue_reset import ReviewQueueResetError, reset_review_queue
 from review_assist.source_status import SOURCE_STATUS_PATH
 
 
@@ -326,6 +327,43 @@ def run_populate(project_dir: Path) -> dict[str, Any]:
         status="completed",
         message=f"Create Review Queue completed with {result.get('review_queue_item_count', 0)} review items.",
         artifact_path=str(result.get("output_path") or ""),
+    )
+    return result
+
+
+def reset_generated_review_queue(
+    project_dir: Path,
+    *,
+    include_evidence: bool = False,
+    include_exports: bool = False,
+) -> dict[str, Any]:
+    """Run the developer/test reset for generated review queue artifacts."""
+
+    _write_run_status(project_dir, action="reset_review_queue", status="started", message="Reset generated review queue started.")
+    try:
+        result = reset_review_queue(
+            project_dir,
+            regenerate=True,
+            dry_run=False,
+            include_evidence=include_evidence,
+            include_exports=include_exports,
+        )
+    except ReviewQueueResetError as exc:
+        _write_run_status(
+            project_dir,
+            action="reset_review_queue",
+            status="failed",
+            message="Reset generated review queue failed.",
+            error=str(exc),
+        )
+        raise WebAdapterError(str(exc)) from exc
+    after = result.get("after", {}) if isinstance(result.get("after"), dict) else {}
+    _write_run_status(
+        project_dir,
+        action="reset_review_queue",
+        status="completed",
+        message=f"Reset generated review queue completed with {after.get('review_queue_item_count', 0)} review items.",
+        artifact_path=str(project_dir / REVIEW_QUEUE_PATH),
     )
     return result
 
@@ -965,6 +1003,12 @@ def _find_review_item(queue: dict[str, Any], item_id: str) -> dict[str, Any]:
 
 
 def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
+    table_id = str(item.get("table_id") or "")
+    figure_id = str(item.get("figure_id") or "")
+    attachment_id = str(item.get("attachment_id") or "")
+    related_table_ids = _string_list(item.get("related_table_ids", []))
+    related_figure_ids = _string_list(item.get("related_figure_ids", []))
+    related_attachment_ids = _string_list(item.get("related_attachment_ids", []))
     return {
         "id": str(item.get("id") or item.get("deliverable_item_id") or item.get("target_id") or ""),
         "deliverable_item_id": str(item.get("deliverable_item_id") or ""),
@@ -975,9 +1019,18 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
         "export_eligible": bool(item.get("export_eligible", False)),
         "section_order": item.get("section_order"),
         "heading_level": item.get("heading_level"),
-        "table_id": str(item.get("table_id") or ""),
-        "figure_id": str(item.get("figure_id") or ""),
-        "attachment_id": str(item.get("attachment_id") or ""),
+        "table_id": table_id,
+        "figure_id": figure_id,
+        "attachment_id": attachment_id,
+        "related_table_ids": related_table_ids,
+        "related_figure_ids": related_figure_ids,
+        "related_attachment_ids": related_attachment_ids,
+        "related_finding_ids": _string_list(item.get("related_finding_ids", [])),
+        "related_constraint_ids": _string_list(item.get("related_constraint_ids", [])),
+        "evidence_refs": _string_list(item.get("evidence_refs", [])),
+        "display_table_refs": [table_id] if table_id else related_table_ids,
+        "display_figure_refs": [figure_id] if figure_id else related_figure_ids,
+        "display_attachment_refs": [attachment_id] if attachment_id else related_attachment_ids,
         "comparison_unit_ids": _string_list(item.get("comparison_unit_ids", [])),
         "validation_issue_count": len(_dict_list(item.get("validation_issues", []))),
         "updated_at": item.get("updated_at"),
@@ -1131,12 +1184,17 @@ def _issue_rows(data: dict[str, Any], stage: str) -> list[dict[str, Any]]:
     if not isinstance(data, dict):
         return rows
     for issue in _dict_list(data.get("validation_issues", [])):
+        details = issue.get("details", {})
+        if not isinstance(details, dict):
+            details = {}
         rows.append(
             {
                 "stage": stage,
                 "severity": str(issue.get("severity") or ""),
                 "code": str(issue.get("code") or ""),
                 "message": str(issue.get("message") or ""),
+                "details": details,
+                "details_summary": str(details.get("summary") or ""),
             }
         )
     return rows

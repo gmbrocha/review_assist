@@ -1,6 +1,6 @@
-# Alternatives Review Assistant
+# Review Assist
 
-This project is an internal prototype for assisting with environmental and contextual review of proposed project features and alternatives.
+This project is an internal prototype for assisting with environmental and contextual review of submitted project geometry, project features, comparison units, and alternatives. It is feature-neutral: routes, corridors, sites, polygons, parcels, study areas, and other submitted features should all flow through the same source-backed review workflow.
 
 The tool is intended to generate source-backed pre-review report packages for human professionals. It should operate as a local, workspace-oriented workflow: users add project inputs, the system resolves needed source data and generates a draft review queue, humans accept/edit/reject items, and accepted content is compiled into export packages.
 
@@ -52,7 +52,7 @@ Optional NAIP basemap materialization requires imagery dependencies:
 .\.venv\Scripts\python.exe -m pip install -e ".[dev,imagery]"
 ```
 
-Inspect a project workspace. The commands below use `projects/trails` as a sample fixture; replace it with any project workspace path:
+Inspect a project workspace. The commands below use `projects/trails` as a sample/diagnostic fixture only; replace it with any project workspace path. Review Assist is not a trails app.
 
 ```powershell
 .\.venv\Scripts\review-assist.exe inspect-project projects/trails
@@ -118,7 +118,7 @@ Optionally materialize an AOI-bounded renderable NAIP basemap sidecar from Micro
 .\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/trails --refresh
 ```
 
-The command reads project analysis bounds, selects intersecting NAIP tiles deterministically, reads only the project-relevant raster window, writes `projects/<id>/basemaps/naip/<year>/naip_project_basemap.tif`, and records provenance in the adjacent JSON file plus `basemaps/naip/naip_basemap_materialization.json`. Existing sidecars are reused unless `--refresh` or `--force` is supplied. If optional imagery dependencies or network access are unavailable, the command records a controlled failure and figures can still use vector-only fallback.
+The command reads project analysis bounds, selects intersecting NAIP tiles deterministically, reads only the project-relevant raster window, writes `projects/<id>/basemaps/naip/<year>/naip_project_basemap.tif`, and records provenance in the adjacent JSON file plus `basemaps/naip/naip_basemap_materialization.json`. Oversized native-resolution windows are resampled to fit `--max-pixels`, with the native estimate and output resolution recorded in metadata. Existing sidecars are reused unless `--refresh` or `--force` is supplied. If optional imagery dependencies or network access are unavailable, the command records a controlled failure and figures can still use vector-only fallback.
 
 Build normalized project geometry and run the current constraint engine:
 
@@ -147,6 +147,8 @@ Resolve source gaps and explicitly acquire supported public sources:
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails
 .\.venv\Scripts\review-assist.exe prepare-sources projects/trails --include-optional-sources
 ```
+
+`usgs_nhd_hydrography` and `epa_envirofacts_echo` are live public download rollups. They are not required physical warehouse folders when specific seeded or reviewer-supplied local layers already satisfy the relevant source category. `mdeq_environmental_context` remains a manual residual context bucket, not an automated physical source layer.
 
 Generate deterministic draft findings, comparison tables, matrix deliverable tables/figures, draft maps, an evidence package, and draft report sections:
 
@@ -185,6 +187,15 @@ Generate and update review queue items:
 .\.venv\Scripts\review-assist.exe list-review-queue projects/trails
 .\.venv\Scripts\review-assist.exe update-review-item projects/trails report-section-wetlands-and-waterbodies --status accepted --note "Reviewed."
 ```
+
+For local POC testing only, clear generated review candidates before regenerating from current upstream artifacts:
+
+```powershell
+.\.venv\Scripts\review-assist.exe reset-review-queue projects/trails --dry-run
+.\.venv\Scripts\review-assist.exe reset-review-queue projects/trails --yes
+```
+
+The reset removes generated `deliverable/deliverable_items.json` and `review_queue/review_queue.json` by default. It preserves source data, project source registry/config, project area, comparison units, deliverable tables, deliverable figures, evidence, and exports unless explicit flags are used. It is a developer/testing cleanup command, not production review-state management.
 
 Export accepted/edited review queue content into editable Markdown and DOCX packages:
 
@@ -257,6 +268,7 @@ Implementation phases should add or update tests with the behavior they introduc
 ## Core Principles
 
 - The system drafts; humans decide.
+- The workflow remains feature-neutral; `projects/trails` is only a sample fixture.
 - No hard scoring or automatic preferred alternative.
 - Uncertainty and missing data must be preserved.
 - Generated findings should be traceable to a source, method, and review status.

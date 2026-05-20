@@ -72,6 +72,28 @@
   {% endif %}
 </section>
 
+<section class="panel">
+  <h2>Developer Testing Reset</h2>
+  <p class="muted">Local/dev action: clears generated deliverable candidates and rebuilds the standard review queue from current artifacts. Source data, project setup, tables, figures, and evidence are preserved by default.</p>
+  <form method="post" action="{{ url_for('reset_review_queue') }}">
+    <label>
+      <input type="checkbox" name="confirm_reset" value="yes" required>
+      I understand this clears generated review candidates for this workspace.
+    </label>
+    <div class="form-row">
+      <label>
+        <input type="checkbox" name="include_evidence" value="yes">
+        Rebuild evidence package first
+      </label>
+      <label>
+        <input type="checkbox" name="include_exports" value="yes">
+        Clear stale export outputs
+      </label>
+    </div>
+    <button type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Reset generated review queue</button>
+  </form>
+</section>
+
 <section class="table-section">
   <h2>Source Status</h2>
   <table>
@@ -97,7 +119,12 @@
   {% if summary.validation_issues %}
   <ul class="issue-list">
     {% for issue in summary.validation_issues %}
-      <li><strong>{{ issue.stage }}</strong> {{ issue.code }}: {{ issue.message }}</li>
+      <li>
+        <strong>{{ issue.stage }}</strong> {{ issue.code }}: {{ issue.message }}
+        {% if issue.details_summary %}
+          <div class="muted">{{ issue.details_summary }}</div>
+        {% endif %}
+      </li>
     {% endfor %}
   </ul>
   {% else %}

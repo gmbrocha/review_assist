@@ -10,9 +10,9 @@
 
 <section class="summary-grid">
   <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if item.export_eligible else 'no' }}</strong></div>
-  <div class="metric"><span>Table</span><strong>{{ item.table_id or 'none' }}</strong></div>
-  <div class="metric"><span>Figure</span><strong>{{ item.figure_id or 'none' }}</strong></div>
-  <div class="metric"><span>Attachment</span><strong>{{ item.attachment_id or 'none' }}</strong></div>
+  <div class="metric"><span>Table</span><strong>{{ item.display_table_refs|join(', ') if item.display_table_refs else 'none' }}</strong></div>
+  <div class="metric"><span>Figure</span><strong>{{ item.display_figure_refs|join(', ') if item.display_figure_refs else 'none' }}</strong></div>
+  <div class="metric"><span>Attachment</span><strong>{{ item.display_attachment_refs|join(', ') if item.display_attachment_refs else 'none' }}</strong></div>
 </section>
 
 {% if not item.is_figure %}
@@ -62,6 +62,9 @@
   <h2>Evidence And Validation Summary</h2>
   <dl class="details">
     <dt>Source Refs</dt><dd>{{ item.source_refs|join(', ') if item.source_refs else 'None recorded' }}</dd>
+    <dt>Related Tables</dt><dd>{{ item.related_table_ids|join(', ') if item.related_table_ids else 'None recorded' }}</dd>
+    <dt>Related Figures</dt><dd>{{ item.related_figure_ids|join(', ') if item.related_figure_ids else 'None recorded' }}</dd>
+    <dt>Evidence Refs</dt><dd>{{ item.evidence_refs|join(', ') if item.evidence_refs else 'None recorded' }}</dd>
     <dt>Comparison Units</dt><dd>{{ item.comparison_unit_ids|join(', ') if item.comparison_unit_ids else 'None recorded' }}</dd>
     <dt>Artifact</dt><dd>{{ item.provenance.artifact_path or 'Not recorded' }}</dd>
   </dl>

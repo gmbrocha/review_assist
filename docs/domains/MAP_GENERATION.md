@@ -45,10 +45,11 @@ Current behavior:
 - Never renders or exposes `mdah_restricted_archaeology` locations. Restricted cultural status is preserved as `restricted_source_not_mapped`.
 - Adds Attachment A supporting panel maps outside the 13 main figure count when the comparison-unit extent is too elongated for one readable figure.
 - Uses GeoPandas and Matplotlib only.
-- Adds compact export-facing map elements: abbreviated legend, north arrow, and scale bar when CRS units allow it. Review/process status stays in metadata and UI chrome, not in exported figure captions or on the map canvas. Detailed source counts, provenance, and CRS/method text remain in figure artifact caption/source/method fields rather than consuming the map canvas.
-- Can use project-local NAIP GeoTIFF basemap sidecars created by the explicit `materialize-naip-basemap` command when present.
+- Adds compact export-facing map elements: abbreviated legend, north arrow, and scale bar when CRS units allow it. Legends use a bounded map-collar/legend-bay layout that expands the visual extent only enough to place the legend adjacent to, not over, the project features. Review/process status stays in metadata and UI chrome, not in exported figure captions or on the map canvas. Detailed source counts, provenance, and CRS/method text remain in figure artifact caption/source/method fields rather than consuming the map canvas.
+- Figure artifacts record extent-policy metadata for the source/query extent, figure extent, render extent, and presentation-only collar extent. The render extent and collar extent are explicitly presentation-only and do not drive source clipping, evidence counts, findings, table rows, or narrative interpretation.
+- Non-stub matrix deliverable figures prefer project-local NAIP GeoTIFF basemap sidecars created by the explicit `materialize-naip-basemap` command when present, while vector-only fallback remains valid.
 - Renders matrix-backed deliverable comparison units as individual visual units with preserved usable KML colors or deterministic visible fallbacks, while leaving analysis geometry and comparison-unit generation unchanged.
-- Sizes deliverable figure canvas from the project/focus bounds so tall or narrow project geometries do not produce excessive empty width solely because of legend or note text.
+- Sizes deliverable figure canvas from the project/focus bounds so tall or narrow project geometries do not produce excessive empty width solely because of legend or note text. Source line/point/polygon styling is intentionally lighter than project/comparison-unit styling so context layers remain readable without overpowering submitted project geometry.
 - Stores figure captions, source notes, method notes, figure grouping, related resource categories, source refs, shown layers, provenance, uncertainty flags, validation issues, stub status, and review status in the relevant figure artifact.
 - Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.
 - Adds review queue validation items for map-generation warnings, including skipped or failed source-context figures.
@@ -107,7 +108,7 @@ Notes:
 - NAIP is a USDA imagery program.
 - Acquisition timing and resolution vary by year and state.
 - Source date and resolution should be preserved.
-- `materialize-naip-basemap` can create a project-local renderable GeoTIFF sidecar from public Microsoft Planetary Computer NAIP COG assets by project analysis bounds. The command records provenance and enforces AOI/tile/pixel/time limits.
+- `materialize-naip-basemap` can create a project-local renderable GeoTIFF sidecar from public Microsoft Planetary Computer NAIP COG assets by project analysis bounds. The command records provenance, enforces AOI/tile/pixel/time limits, and resamples oversized native-resolution windows to fit the configured output-pixel cap instead of lifting the cap or downloading whole county/state imagery.
 
 Reference: https://catalog.data.gov/dataset/national-agriculture-imagery-program-naip-imagery
 

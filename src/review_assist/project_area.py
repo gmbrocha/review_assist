@@ -265,14 +265,7 @@ def _detect_counties(
         if source.get("county_names")
     }
     if len(non_empty_sets) > 1:
-        issues.append(
-            _issue(
-                "warning",
-                "county_source_disagreement",
-                "County detection sources produced different county name sets; preferred source order was applied.",
-                str(project_dir),
-            )
-        )
+        issues.append(_county_source_disagreement_issue(project_dir, preferred, county_names, sources))
     if not county_names:
         issues.append(
             _issue(
@@ -283,6 +276,93 @@ def _detect_counties(
             )
         )
     return county_names, method, sources, issues
+
+
+def _county_source_disagreement_issue(
+    project_dir: Path,
+    preferred: dict[str, Any] | None,
+    selected_counties: list[str],
+    sources: list[dict[str, Any]],
+) -> dict[str, Any]:
+    preferred_method = str(preferred.get("method") or "unavailable") if preferred else "unavailable"
+    preferred_set = _county_set_key(selected_counties)
+    detected_sources = [_county_source_summary(source) for source in sources if source.get("county_names")]
+    alternate_sources = [
+        summary
+        for summary in detected_sources
+        if _county_set_key(_string_list(summary.get("county_names", []))) != preferred_set
+    ]
+    selected_text = _format_county_list(selected_counties) or "none"
+    alternate_text = "; ".join(
+        f"{source['method']}: {_format_county_list(_string_list(source.get('county_names', [])))}"
+        for source in alternate_sources
+    )
+    if not alternate_text:
+        alternate_text = "none"
+    preferred_reason = _county_preference_reason(preferred_method)
+    return _issue(
+        "warning",
+        "county_source_disagreement",
+        (
+            f"County detection sources disagree. Selected {selected_text} from {preferred_method}; "
+            f"alternate detections: {alternate_text}."
+        ),
+        str(project_dir),
+        details={
+            "selected_counties": selected_counties,
+            "preferred_source": preferred_method,
+            "preferred_reason": preferred_reason,
+            "detected_sources": detected_sources,
+            "alternate_county_sources": alternate_sources,
+            "final_county_list": selected_counties,
+            "reporting_impact": "Project county reporting uses the selected county list.",
+            "source_selection_impact": "Alternate metadata-only counties do not change non-basemap source selection.",
+            "basemap_selection_impact": "MARIS/NAIP county basemap provenance is selected from the final county list; broader metadata extents are not selected as project counties.",
+            "action_needed": "No action is needed unless the project geometry or preferred county boundary source appears incorrect.",
+            "summary": (
+                f"Selected counties: {selected_text}. Alternate detections: {alternate_text}. "
+                f"Reason: {preferred_reason} Action: no action unless the project geometry or preferred county boundary source appears incorrect."
+            ),
+        },
+    )
+
+
+def _county_source_summary(source: dict[str, Any]) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "method": str(source.get("method") or ""),
+        "county_names": _string_list(source.get("county_names", [])),
+        "source_id": str(source.get("source_id") or ""),
+        "confidence": str(source.get("confidence") or ""),
+    }
+    if source.get("candidate_count") is not None:
+        summary["candidate_count"] = source.get("candidate_count")
+    if source.get("source_path"):
+        summary["source_path"] = str(source.get("source_path"))
+    return summary
+
+
+def _county_set_key(county_names: list[str]) -> tuple[str, ...]:
+    return tuple(str(name).strip().lower() for name in county_names if str(name).strip())
+
+
+def _county_preference_reason(method: str) -> str:
+    if method == "maris_boundary_context":
+        return "Boundary context is the highest-confidence county source because it intersects the project geometry with a county boundary layer."
+    if method == "project_context":
+        return "Project context was used because no higher-priority boundary context was available."
+    if method == "naip_maris_metadata_extent":
+        return "NAIP/MARIS metadata extents were used only because no boundary or project-context county source was available."
+    return "No preferred county source was available."
+
+
+def _format_county_list(county_names: list[str]) -> str:
+    return ", ".join(_string_list(county_names))
+
+
+def _string_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    return [str(value) for value in values if str(value).strip()]
 
 
 def _boundary_context_counties(project_dir: Path, bounds_wgs84: gpd.GeoDataFrame) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
@@ -469,6 +549,7 @@ def _issue(
     location: str,
     *,
     source_id: str | None = None,
+    details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     issue: dict[str, Any] = {
         "severity": severity,
@@ -478,6 +559,8 @@ def _issue(
     }
     if source_id:
         issue["source_id"] = source_id
+    if details:
+        issue["details"] = details
     return issue
 
 

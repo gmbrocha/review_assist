@@ -34,6 +34,7 @@ from .deliverable_constraints import (
     load_comparison_unit_constraints,
 )
 from .deliverable_matrix import REQUIRED_STUB_TEXT, DeliverableMatrixError, FigureTarget, load_deliverable_matrix
+from .extent_policy import apply_extent_metadata, extent_policy_summary, render_extent_metadata, target_extent_metadata
 from .maps import FIGURES_DIR
 from .project_area import PROJECT_AREA_PATH, ProjectAreaError, build_project_area, load_project_area
 from .projects import ProjectManifestError, load_project_manifest
@@ -132,6 +133,7 @@ def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
         "project_dir": str(project_dir),
         "created_at": _utc_now(),
         "matrix_version": matrix.matrix_version,
+        "extent_policy": extent_policy_summary(),
         "figure_count": len(figures),
         "figures": figures,
         "attachment_supporting_figure_count": len(attachment_supporting_figures),
@@ -458,7 +460,7 @@ def _figure_for_target(
     source_note = _source_note(layer_records, basemap)
     method_note = _method_note(analysis_crs, include_basemap=bool(basemap.get("layer")))
     try:
-        render_map(
+        render_layout = render_map(
             output_path=image_path,
             title=target.title,
             unit_gdf=unit_gdf,
@@ -492,8 +494,7 @@ def _figure_for_target(
 
     related_constraints = _related_constraint_ids(constraints, public_source_ids, spec.filter_tokens)
     source_refs = sorted(available_source_ids)
-    if basemap.get("source_ref"):
-        source_refs.append(str(basemap["source_ref"]))
+    source_refs.extend(_basemap_source_refs(basemap))
     shown_layers = [
         _comparison_units_shown_layer(unit_gdf),
         *[_source_shown_layer(layer, index) for index, layer in enumerate(layer_records)],
@@ -521,6 +522,7 @@ def _figure_for_target(
             analysis_crs=analysis_crs,
             project_area=project_area,
             basemap=basemap,
+            render_layout=render_layout,
         ),
         validation_issues=_dedupe_issues(validation_issues),
     )
@@ -618,6 +620,17 @@ def _stub_figure(
         )
     )
     flags = sorted(set(uncertainty_flags or ["source_unavailable"]) | {"figure_stub"})
+    provenance = _provenance(
+        target=target,
+        matrix_version=matrix_version,
+        comparison_unit_constraints=comparison_unit_constraints,
+        source_status=source_status,
+        method="matrix_stub_for_unavailable_figure_source",
+        analysis_crs=str(comparison_unit_constraints.get("analysis_crs", "")),
+        project_area=None,
+        basemap=None,
+    )
+    extent = _figure_extent(target, provenance)
     return {
         "figure_id": target.target_id,
         "type": "deliverable_figure",
@@ -638,16 +651,8 @@ def _stub_figure(
         "layer_refs": [],
         "related_constraint_ids": [],
         "comparison_unit_ids": comparison_unit_ids,
-        "provenance": _provenance(
-            target=target,
-            matrix_version=matrix_version,
-            comparison_unit_constraints=comparison_unit_constraints,
-            source_status=source_status,
-            method="matrix_stub_for_unavailable_figure_source",
-            analysis_crs=str(comparison_unit_constraints.get("analysis_crs", "")),
-            project_area=None,
-            basemap=None,
-        ),
+        **extent,
+        "provenance": provenance,
         "uncertainty_flags": flags,
         "is_stub": True,
         "stub_text": REQUIRED_STUB_TEXT,
@@ -672,6 +677,7 @@ def _deliverable_figure(
     provenance: dict[str, Any],
     validation_issues: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    extent = _figure_extent(target, provenance)
     return {
         "figure_id": target.target_id,
         "type": "deliverable_figure",
@@ -692,6 +698,7 @@ def _deliverable_figure(
         "layer_refs": [str(layer.get("path")) for layer in shown_layers if layer.get("path")],
         "related_constraint_ids": related_constraint_ids,
         "comparison_unit_ids": comparison_unit_ids,
+        **extent,
         "provenance": provenance,
         "uncertainty_flags": uncertainty_flags,
         "is_stub": False,
@@ -729,7 +736,7 @@ def _attachment_supporting_figures(
         panel_id = f"attachment-a-panel-{index:03d}"
         image_path = figures_dir / f"{panel_id}.png"
         try:
-            render_map(
+            render_layout = render_map(
                 output_path=image_path,
                 title=f"Attachment A Supporting Panel {index}",
                 unit_gdf=unit_gdf,
@@ -751,7 +758,8 @@ def _attachment_supporting_figures(
             )
             continue
         records.append(
-            {
+            apply_extent_metadata(
+                {
                 "figure_id": panel_id,
                 "type": "attachment_supporting_figure",
                 "figure_type": "attachment_panel_map",
@@ -767,8 +775,9 @@ def _attachment_supporting_figures(
                 "shown_layers": [
                     _comparison_units_shown_layer(unit_gdf),
                     *[_source_shown_layer(layer, source_index) for source_index, layer in enumerate(source_layers)],
+                    *([dict(basemap["shown_layer"])] if basemap.get("shown_layer") else []),
                 ],
-                "source_refs": sorted({str(layer.get("source_id")) for layer in source_layers if layer.get("source_id")}),
+                "source_refs": sorted({str(layer.get("source_id")) for layer in source_layers if layer.get("source_id")} | set(_basemap_source_refs(basemap))),
                 "provenance": {
                     "matrix_version": matrix_version,
                     "attachment_target_id": "attachment-environmental-constraints-maps",
@@ -778,13 +787,22 @@ def _attachment_supporting_figures(
                     "panel_count": panel_count,
                     "comparison_unit_constraints_path": comparison_unit_constraints.get("output_path"),
                     "source_status_path": source_status.get("output_path"),
+                    "basemap": {
+                        "source_id": str(basemap.get("source_ref") or MARIS_NAIP_SOURCE_ID),
+                        "selected_paths": _string_list(basemap.get("selected_paths", [])),
+                        "renderable_paths": _string_list(basemap.get("renderable_paths", [])),
+                        "rendered_path": basemap.get("shown_layer", {}).get("path") if isinstance(basemap.get("shown_layer"), dict) else None,
+                    },
+                    "render_layout": render_layout,
                     "review_before_export": True,
                     "desktop_screening_only": True,
                 },
-                "uncertainty_flags": ["draft_pre_review", "desktop_screening_only"],
+                "uncertainty_flags": sorted({"draft_pre_review", "desktop_screening_only", *_string_list(basemap.get("flags", []))}),
                 "review_status": "draft",
-                "validation_issues": [],
-            }
+                "validation_issues": _dict_list(basemap.get("issues", [])),
+            },
+                render_extent_metadata(render_layout),
+            )
         )
     return records, _dedupe_issues(issues)
 
@@ -827,7 +845,21 @@ def _provenance(
     analysis_crs: str,
     project_area: dict[str, Any] | None,
     basemap: dict[str, Any] | None,
+    render_layout: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    extent = target_extent_metadata(
+        target_id=target.target_id,
+        target_type="figure",
+        source_categories=target.source_categories,
+        query_distance=comparison_unit_constraints.get("default_buffer_feet"),
+        query_units="feet",
+    )
+    if render_layout:
+        render_extent = render_extent_metadata(render_layout)
+        extent["render_extent_type"] = render_extent["render_extent_type"]
+        extent["render_extent_is_presentation_only"] = render_extent["render_extent_is_presentation_only"]
+        if render_extent.get("presentation_extent_type"):
+            extent["presentation_extent_type"] = render_extent["presentation_extent_type"]
     provenance = {
         "matrix_version": matrix_version,
         "figure_target_id": target.target_id,
@@ -838,6 +870,7 @@ def _provenance(
         "project_area_path": project_area.get("output_path") if project_area else None,
         "source_categories": list(target.source_categories),
         "analysis_crs": analysis_crs,
+        "extent_policy": extent,
         "review_before_export": True,
         "desktop_screening_only": True,
     }
@@ -848,7 +881,16 @@ def _provenance(
             "renderable_paths": _string_list(basemap.get("renderable_paths", [])),
             "rendered_path": basemap.get("shown_layer", {}).get("path") if isinstance(basemap.get("shown_layer"), dict) else None,
         }
+    if render_layout:
+        provenance["render_layout"] = render_layout
     return provenance
+
+
+def _figure_extent(target: FigureTarget, provenance: dict[str, Any]) -> dict[str, Any]:
+    extent = provenance.get("extent_policy")
+    if not isinstance(extent, dict):
+        extent = target_extent_metadata(target_id=target.target_id, target_type="figure", source_categories=target.source_categories)
+    return apply_extent_metadata({}, extent)
 
 
 def _caption(target: FigureTarget) -> str:
@@ -870,8 +912,16 @@ def _source_note(source_layers: list[dict[str, Any]], basemap: dict[str, Any] | 
         label = str(shown.get("label") or MARIS_NAIP_SOURCE_NAME)
         if shown.get("renderable"):
             labels.append(f"{label} rendered from sidecar")
+        elif shown.get("renderability_status") == "materialization_failed":
+            labels.append(f"{label} materialization failed; vector-only fallback used")
         else:
             labels.append(f"{label} provenance only; no visual basemap sidecar")
+    if basemap:
+        for failure in _dict_list(basemap.get("materialization_failures", [])):
+            label = str(failure.get("label") or "USDA NAIP Project Basemap")
+            message = f"{label} materialization failed; vector-only fallback used"
+            if message not in labels:
+                labels.append(message)
     if not labels:
         return ""
     return "Sources: " + "; ".join(labels)
@@ -906,6 +956,11 @@ def _source_shown_layer(layer: dict[str, Any], index: int) -> dict[str, Any]:
         "render_style": {
             "color": render_style["color"],
             "marker": render_style["marker"],
+            "line_width": render_style["line_width"],
+            "line_alpha": render_style["line_alpha"],
+            "polygon_alpha": render_style["polygon_alpha"],
+            "marker_size": render_style["marker_size"],
+            "point_alpha": render_style["point_alpha"],
             "style_source": render_style["style_source"],
         },
         "path": layer.get("path"),
@@ -1001,6 +1056,17 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _basemap_source_refs(basemap: dict[str, Any] | None) -> list[str]:
+    if not basemap:
+        return []
+    refs = _string_list(basemap.get("source_refs", []))
+    if refs:
+        return refs
+    if basemap.get("source_ref"):
+        return [str(basemap["source_ref"])]
+    return []
 
 
 def _utc_now() -> str:

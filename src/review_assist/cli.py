@@ -43,6 +43,7 @@ from .review_queue import (
     summarize_review_queue,
     update_review_item,
 )
+from .review_queue_reset import RESET_WARNING, ReviewQueueResetError, reset_review_queue
 from .source_inventory import SourceInventoryError, generate_source_inventory
 from .source_materialization import (
     SourceMaterializationError,
@@ -340,6 +341,31 @@ def build_parser() -> argparse.ArgumentParser:
     list_queue_parser = subparsers.add_parser("list-review-queue", help="List review queue items and counts.")
     list_queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     list_queue_parser.add_argument("--json", action="store_true", help="Print full JSON review queue summary to stdout.")
+
+    reset_queue_parser = subparsers.add_parser(
+        "reset-review-queue",
+        help="Developer/test helper: clear generated review candidates and rebuild the standard queue.",
+    )
+    reset_queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    reset_queue_parser.add_argument(
+        "--regenerate",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Regenerate deliverable items and the standard review queue after deletion.",
+    )
+    reset_queue_parser.add_argument("--dry-run", action="store_true", help="Show what would be removed and regenerated.")
+    reset_queue_parser.add_argument(
+        "--include-evidence",
+        action="store_true",
+        help="Also rebuild evidence/evidence_package.json before deliverable items.",
+    )
+    reset_queue_parser.add_argument(
+        "--include-exports",
+        action="store_true",
+        help="Also clear export/package manifests and generated Markdown/DOCX outputs.",
+    )
+    reset_queue_parser.add_argument("--yes", action="store_true", help="Skip the destructive reset confirmation prompt.")
+    reset_queue_parser.add_argument("--json", action="store_true", help="Print full JSON reset summary to stdout.")
 
     update_item_parser = subparsers.add_parser("update-review-item", help="Update review status and notes for one item.")
     update_item_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -799,6 +825,61 @@ def generate_review_queue_command(
     print(f"Mode: {queue.get('queue_mode', 'deliverable_items')}")
     print(f"Items: {queue['item_count']}")
     print(f"Output: {queue['output_path']}")
+    return 0
+
+
+def reset_review_queue_command(
+    project_dir: Path,
+    *,
+    regenerate: bool,
+    dry_run: bool,
+    include_evidence: bool,
+    include_exports: bool,
+    yes: bool,
+    print_json: bool,
+) -> int:
+    if not dry_run and not yes:
+        print(f"WARNING: {RESET_WARNING}", file=sys.stderr)
+        print("This will overwrite generated deliverable candidates and standard review queue state.", file=sys.stderr)
+        response = input("Type RESET to continue: ")
+        if response.strip() != "RESET":
+            print("Reset cancelled.", file=sys.stderr)
+            return 2
+    try:
+        result = reset_review_queue(
+            project_dir,
+            regenerate=regenerate,
+            dry_run=dry_run,
+            include_evidence=include_evidence,
+            include_exports=include_exports,
+        )
+    except ReviewQueueResetError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    action = "Would reset" if dry_run else "Reset"
+    print(f"{action} generated review queue artifacts.")
+    print(f"Warning: {result['warning']}")
+    print(f"Before: {result['before'].get('deliverable_item_count', 0)} deliverable items, {result['before'].get('review_queue_item_count', 0)} review items")
+    if dry_run:
+        print("Would delete:")
+        for record in result["would_delete"]:
+            print(f"  - {record['relative_path']}")
+    else:
+        print("Deleted:")
+        for record in result["deleted"]:
+            print(f"  - {record['relative_path']}")
+        print("Regenerated:")
+        for record in result["regenerated"]:
+            print(f"  - {record['artifact']}: {record.get('item_count', 0)} items")
+    after = result["after"]
+    print(f"After: {after.get('deliverable_item_count', 0)} deliverable items, {after.get('review_queue_item_count', 0)} review items")
+    process_language = result["process_language"]["after"]
+    print(f"Process-language remains: {process_language.get('has_process_language', False)}")
     return 0
 
 
@@ -1337,6 +1418,16 @@ def main(argv: list[str] | None = None) -> int:
         return generate_review_queue_command(args.project_dir, args.include_source_inventory, args.include_legacy_artifacts, args.json)
     if args.command == "list-review-queue":
         return list_review_queue_command(args.project_dir, args.json)
+    if args.command == "reset-review-queue":
+        return reset_review_queue_command(
+            args.project_dir,
+            regenerate=args.regenerate,
+            dry_run=args.dry_run,
+            include_evidence=args.include_evidence,
+            include_exports=args.include_exports,
+            yes=args.yes,
+            print_json=args.json,
+        )
     if args.command == "update-review-item":
         return update_review_item_command(
             args.project_dir,

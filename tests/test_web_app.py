@@ -317,6 +317,34 @@ def test_overview_displays_project_populate_and_source_status(tmp_path: Path) ->
     assert "Review Items" in text
 
 
+def test_overview_displays_structured_validation_issue_details(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    project_area_path = project_dir / "context" / "project_area.json"
+    project_area = json.loads(project_area_path.read_text(encoding="utf-8"))
+    project_area["validation_issues"] = [
+        {
+            "severity": "warning",
+            "code": "county_source_disagreement",
+            "message": "County detection sources disagree.",
+            "details": {
+                "summary": "Selected counties: Test County. Alternate detections: naip_maris_metadata_extent: Adjacent County, Test County.",
+            },
+        }
+    ]
+    project_area_path.write_text(json.dumps(project_area, indent=2) + "\n", encoding="utf-8")
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/overview")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "County detection sources disagree." in text
+    assert "Selected counties: Test County" in text
+    assert "Adjacent County" in text
+
+
 def test_review_queue_default_uses_bounded_items_and_excludes_legacy_types(tmp_path: Path) -> None:
     _populated_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)
@@ -427,6 +455,23 @@ def test_non_figure_review_detail_keeps_generic_review_form(tmp_path: Path) -> N
     assert "Upload New Figure" not in text
 
 
+def test_section_review_detail_displays_related_table_figure_and_evidence_refs(tmp_path: Path) -> None:
+    _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/wetlands-and-waterbodies")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "table-wetlands-waterbodies" in text
+    assert "figure-wetlands-waterbodies" in text
+    assert "section_evidence:wetlands-and-waterbodies" in text
+    assert "<span>Table</span><strong>none</strong>" not in text
+    assert "<span>Figure</span><strong>none</strong>" not in text
+
+
 def test_figure_review_accepts_edited_caption_only(tmp_path: Path) -> None:
     project_dir = _populated_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)
@@ -532,6 +577,33 @@ def test_figure_review_replacement_upload_reuses_generated_caption(tmp_path: Pat
     assert item["figure_review"]["image_source"] == "replacement_figure"
 
 
+def test_figure_review_accepts_replacement_and_edited_caption(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies",
+        data={
+            "form_kind": "figure_review",
+            "caption": "Edited replacement figure caption.",
+            "replacement_figure": (_tiny_png_upload(tmp_path), "replacement.jpg"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    item = next(item for item in load_review_queue(project_dir)["items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert response.status_code == 200
+    assert item["status"] == "replaced"
+    assert item["export_eligible"] is True
+    assert item["edited_content"] == "Edited replacement figure caption."
+    assert item["caption"] == "Edited replacement figure caption."
+    assert item["figure_review"]["caption_source"] == "edited_caption"
+    assert item["figure_review"]["image_source"] == "replacement_figure"
+
+
 def test_figure_review_rejects_unsafe_replacement_upload_names(tmp_path: Path) -> None:
     project_dir = _populated_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)
@@ -555,6 +627,36 @@ def test_figure_review_rejects_unsafe_replacement_upload_names(tmp_path: Path) -
     assert b"path separators" in response.data
     assert item["status"] != "replaced"
     assert not (tmp_path / "escape.png").exists()
+
+
+@pytest.mark.parametrize(
+    ("filename", "message"),
+    [
+        (".hidden.png", "cannot be hidden"),
+        ("replacement.gif", "Replacement figure must be one of"),
+    ],
+)
+def test_figure_review_rejects_hidden_and_unsupported_replacement_uploads(tmp_path: Path, filename: str, message: str) -> None:
+    project_dir = _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies",
+        data={
+            "form_kind": "figure_review",
+            "caption": "Unsafe replacement caption.",
+            "replacement_figure": (io.BytesIO(b"bad"), filename),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    item = next(item for item in load_review_queue(project_dir)["items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert response.status_code == 200
+    assert message in response.data.decode()
+    assert item["status"] != "replaced"
 
 
 def test_export_readiness_disabled_until_gate_passes_then_enabled(tmp_path: Path) -> None:
@@ -692,3 +794,46 @@ def test_create_review_queue_ui_requests_local_source_materialization(monkeypatc
     assert called["path"] == project_dir.resolve()
     assert called["materialize_local_sources"] is True
     assert called["gpt_drafting"] is False
+
+
+def test_overview_exposes_dev_review_queue_reset_with_confirmation(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    overview = client.get("/overview")
+    blocked = client.post("/overview/reset-review-queue", follow_redirects=True)
+
+    assert overview.status_code == 200
+    assert b"Reset generated review queue" in overview.data
+    assert b"clears generated deliverable candidates" in overview.data
+    assert blocked.status_code == 200
+    assert b"Confirm the developer reset" in blocked.data
+
+
+def test_overview_dev_review_queue_reset_calls_adapter(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    called: dict[str, object] = {}
+
+    def fake_reset(path: Path, **kwargs: object) -> dict[str, object]:
+        called["path"] = path
+        called.update(kwargs)
+        return {"after": {"review_queue_item_count": 42}}
+
+    monkeypatch.setattr(adapter, "reset_generated_review_queue", fake_reset)
+
+    response = client.post(
+        "/overview/reset-review-queue",
+        data={"confirm_reset": "yes", "include_evidence": "yes"},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert called["path"] == project_dir.resolve()
+    assert called["include_evidence"] is True
+    assert called["include_exports"] is False
+    assert b"Reset generated review queue completed with 42 review items" in response.data

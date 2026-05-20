@@ -66,6 +66,10 @@ PROCESS_LANGUAGE_PATTERNS = {
     "reviewer focus": r"\breviewer focus\b",
     "related table status": r"\brelated table status\b",
 }
+DIRECT_IMPACT_PATTERNS = {
+    "direct impact": r"\bdirect (?:project )?impact\b|\bdirectly impact(?:s|ed)?\b",
+    "project impact": r"\bwill impact\b|\bwould impact\b|\bimpacts the project\b",
+}
 
 
 class SectionDraftingError(RuntimeError):
@@ -88,6 +92,7 @@ class SectionDraftRequest:
     visual_slots: list[str] = field(default_factory=list)
     table_slots: list[str] = field(default_factory=list)
     evidence_bundle: dict[str, Any] = field(default_factory=dict)
+    extent_metadata: dict[str, Any] = field(default_factory=dict)
     validation_issues: list[dict[str, Any]] = field(default_factory=list)
     project_context: dict[str, Any] = field(default_factory=dict)
     matrix_target: dict[str, Any] = field(default_factory=dict)
@@ -128,6 +133,7 @@ class DeterministicSectionDraftProvider:
                 "figure_refs_used": list(request.related_figure_ids),
                 "limitation_notes": _request_limitation_notes(request),
                 "warnings": _request_warning_codes(request),
+                "extent_metadata": dict(request.extent_metadata),
             },
         )
 
@@ -270,6 +276,7 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
             "table_slots": request.table_slots,
         },
         "evidence": request.evidence_bundle,
+        "extent_metadata": request.extent_metadata,
         "validation_issues": request.validation_issues,
         "constraints": [
             "Produce review-candidate report prose only; do not include process labels such as draft review candidate, pre-review, reviewer verification, reviewer focus, or related table status in output content.",
@@ -280,6 +287,7 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
             "Do not rank, score, select, reject, recommend, or identify a preferred alternative.",
             "Do not state field verification, jurisdictional determinations, approvals, no-impact conclusions, or final conclusions.",
             "Preserve missing, gated, failed, and manual-source caveats.",
+            "Use extent_metadata to choose within/near/watershed/county wording and do not upgrade context-only evidence into direct project impact language.",
         ],
     }
     return _bounded_payload(payload)
@@ -548,11 +556,23 @@ def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], c
     for label, pattern in PROCESS_LANGUAGE_PATTERNS.items():
         if re.search(pattern, lowered):
             issues.append(_issue("error", "process_language_in_gpt_output", f"GPT output included process/status language: {label}."))
+    if _context_only_extent(request.extent_metadata):
+        for label, pattern in DIRECT_IMPACT_PATTERNS.items():
+            if re.search(pattern, lowered):
+                issues.append(_issue("error", "direct_impact_language_for_context_extent", f"GPT output used {label} language for context-only extent metadata."))
     return issues
+
+
+def _context_only_extent(extent_metadata: dict[str, Any]) -> bool:
+    extent_type = str(extent_metadata.get("analysis_extent_type") or extent_metadata.get("list_extent_type") or "")
+    return extent_type in {"nearby_context_extent", "community_context_extent", "watershed_context_extent", "county_or_regional_context_extent"}
 
 
 def _request_limitation_notes(request: SectionDraftRequest) -> list[str]:
     notes: list[str] = []
+    extent_type = str(request.extent_metadata.get("analysis_extent_type") or request.extent_metadata.get("list_extent_type") or "")
+    if extent_type in {"nearby_context_extent", "community_context_extent", "watershed_context_extent", "county_or_regional_context_extent"}:
+        notes.append(f"extent_scope={extent_type}")
     if isinstance(request.evidence_bundle, dict):
         for status in request.evidence_bundle.get("source_gap_status", []):
             if isinstance(status, dict):

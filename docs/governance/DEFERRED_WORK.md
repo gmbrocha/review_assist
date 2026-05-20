@@ -43,6 +43,96 @@ Each deferred item should include:
 - `Target sprint/subunit`: Future source warehouse/data-quality hardening.
 - `Status`: open.
 
+### Source Warehouse Completion And Rollup Semantics
+
+- `Deferred item`: Finish source warehouse/source-status cleanup so broad catalog IDs remain logical downloader/manual rollups and specific seeded source IDs remain the physical warehouse/materialization contract.
+- `Why postponed`: The current stabilization pass documents the distinction but does not redesign source status grouping or catalog semantics.
+- `Affected sections/workflows`: Source catalog, source status, source inventory, local materialization, report profile mappings, reviewer source-gap interpretation.
+- `Risk if forgotten`: `usgs_nhd_hydrography`, `epa_envirofacts_echo`, or `mdeq_environmental_context` could be mistaken for missing required physical source folders even when specific local layers already satisfy the category.
+- `Temporary simplification`: Broad IDs remain visible as downloader/manual details; documentation now identifies them as rollups rather than required warehouse sources.
+- `Target sprint/subunit`: Future source warehouse/data-quality hardening.
+- `Status`: open.
+
+### Public And Restricted Cultural Resource Source Split
+
+- `Deferred item`: Add any approved public/coarse cultural context source such as OpenContext/DINAA separately from authorized or reviewer-supplied MDAH archaeological/HSMT records.
+- `Why postponed`: Public/coarse archaeological context and restricted MDAH records have different access, sensitivity, precision, and review requirements.
+- `Affected sections/workflows`: Cultural/historic source status, source catalog, source warehouse, deliverable sections, review queue caveats, map exposure rules.
+- `Risk if forgotten`: Public cultural context could be confused with authoritative restricted records, or sensitive archaeological locations could be exposed improperly.
+- `Temporary simplification`: Current public cultural materialization is limited to MARIS public cultural context; MDAH restricted archaeology remains manual/restricted and not rendered.
+- `Target sprint/subunit`: Future cultural resources/source governance pass.
+- `Status`: open.
+
+### Extent Semantics Query Implementation
+
+- `Deferred item`: Implement separate nearby/community, watershed/subwatershed, county/regional, and other named context queries where needed.
+- `Why postponed`: The current pass adds extent-policy metadata only; it does not change query buffers, source clipping, or analysis geometry.
+- `Affected sections/workflows`: Constraints, deliverable tables, evidence package, section drafting, review queue, figure metadata, report interpretation labels.
+- `Risk if forgotten`: Metadata labels could imply context extents that were not actually queried, or rendered map/collar extents could be misread as analysis extents.
+- `Temporary simplification`: Automated evidence remains bounded by current project-area/source materialization behavior unless a future pass explicitly adds named context extents.
+- `Target sprint/subunit`: Future methodology/source-query hardening.
+- `Status`: open.
+
+### Basemap And Imagery Rendering Decisions
+
+- `Deferred item`: Decide whether to support MrSID conversion/decoding, additional basemap providers, and production imagery dependencies beyond optional NAIP GeoTIFF sidecars.
+- `Why postponed`: The current workflow treats MrSID as provenance only and keeps NAIP sidecar materialization explicit and optional.
+- `Affected sections/workflows`: Project area, source status, figure rendering, map generation, source warehouse, web status display.
+- `Risk if forgotten`: Reviewers may overread MrSID provenance as a rendered basemap, or local imagery sidecars may remain inconsistent across workspaces.
+- `Temporary simplification`: Figures render vector-only or use `.tif`, `.tiff`, or `.png` sidecars when present; no MrSID decoding dependency is required.
+- `Target sprint/subunit`: Future cartography/basemap dependency decision.
+- `Status`: open.
+
+### Source Acquisition Expansion
+
+- `Deferred item`: Add or harden source acquisition for public water supply wells, RCRA/hazardous materials support sources, Census TIGER/ACS, FEMA variants where needed, parcels/property age, and other report-profile sources.
+- `Why postponed`: Current acquisition covers only the implemented explicit downloaders and seeded local warehouse materializers.
+- `Affected sections/workflows`: Source gap resolution, source acquisition, source inventory, regulated facilities, community/socioeconomic tables, parcels/property-age context, report caveats.
+- `Risk if forgotten`: Required deliverable stubs could be mistaken for implemented source-backed evidence, or users could expect unavailable public sources to populate automatically.
+- `Temporary simplification`: Missing/manual/unimplemented sources remain visible as stubs, caveats, or reviewer-needed items.
+- `Target sprint/subunit`: Future source acquisition/data-quality hardening.
+- `Status`: open.
+
+### Review Queue Freshness And Production Review-State Handling
+
+- `Deferred item`: Add upstream artifact fingerprints or equivalent freshness markers so regenerated candidates and preserved human review state can be distinguished reliably.
+- `Why postponed`: The current developer reset clears generated candidates for POC testing but does not implement production review-state migration.
+- `Affected sections/workflows`: Deliverable item generation, review queue generation, web review UI, export gating, package manifests.
+- `Risk if forgotten`: Stale deliverable items, review queue entries, or preview exports could survive upstream source/table/figure/evidence changes.
+- `Temporary simplification`: A developer/test reset can clear generated deliverable items and review queue artifacts; reviewers must regenerate upstream artifacts intentionally.
+- `Target sprint/subunit`: Future review-state/versioning pass.
+- `Status`: open.
+
+### GPT-Assisted Drafting Review Workflow
+
+- `Deferred item`: Add reviewer-controlled GPT rewrite flows, prompt tuning, and production validation beyond the current opt-in drafting path.
+- `Why postponed`: Current GPT behavior is limited to structured-evidence drafting with validation and tests; it does not support interactive rewrite management.
+- `Affected sections/workflows`: Section drafting, deliverable items, review UI, provenance, validation, export gate.
+- `Risk if forgotten`: GPT output could be treated as more authoritative than deterministic evidence or bypass human review expectations.
+- `Temporary simplification`: GPT remains opt-in, structured, validated, and review-gated.
+- `Target sprint/subunit`: Future drafting/review UX pass.
+- `Status`: open.
+
+### Figure Cartography And Supporting Panels
+
+- `Deferred item`: Continue figure cartographic polish, hazardous/regulated supporting panels, final sheet composition, and production map export formats.
+- `Why postponed`: Current figure rendering is sufficient for bounded POC review but not production cartography.
+- `Affected sections/workflows`: Deliverable figures, Attachment A panels, hazardous materials figures, DOCX/PDF export, map review UI.
+- `Risk if forgotten`: Figures may remain readable but not publication-quality, and supporting panels may not cover all expected report needs.
+- `Temporary simplification`: Matrix figures and optional supporting panels are reviewable artifacts with source/method notes and stubs where needed.
+- `Target sprint/subunit`: Future cartography/export polish.
+- `Status`: open.
+
+### Web App Operations And Production Hardening
+
+- `Deferred item`: Add advanced audit views, background jobs, role correction UI, project archive flow, PDF export, authentication, deployment, and production security hardening.
+- `Why postponed`: Sprint 4 is a local Flask/Jinja operator shell over service-layer contracts, not a hosted production system.
+- `Affected sections/workflows`: Web UI, project management, exports, long-running jobs, access control, deployment, security.
+- `Risk if forgotten`: The POC UI could be mistaken for a multi-user production application or used without appropriate operational controls.
+- `Temporary simplification`: The app remains local-first, unauthenticated, and thin over existing backend services.
+- `Target sprint/subunit`: Future web/operations hardening.
+- `Status`: open.
+
 ## Resolved Deferred Items
 
 ### Sprint 1.2 Project Intake Artifacts

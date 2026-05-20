@@ -48,7 +48,7 @@
       "path": null,
       "role": "secondary_flood_context",
       "buffer_feet": null,
-      "notes": "Optional secondary source; not a first-pass driver for the current trail prototype.",
+      "notes": "Optional secondary source; not a first-pass driver for the current sample workflow.",
       "status": "secondary_optional"
     }
   ]

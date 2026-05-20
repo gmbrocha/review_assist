@@ -169,6 +169,36 @@ def test_existing_sidecar_reuse_avoids_stac_query(tmp_path: Path, monkeypatch: p
     assert str(sidecar_path) in project_area["renderable_basemap_paths"]
 
 
+def test_refresh_overwrites_existing_sidecar_and_queries_stac(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path, monkeypatch)
+    write_existing_sidecar(project_dir)
+    item = fake_item("ms_refresh_2024", 2024, (-90.1, 31.9, -89.9, 32.1))
+    calls = {"query": 0, "write": 0}
+    monkeypatch.setattr(naip_module, "_load_imagery_dependencies", lambda: object())
+
+    def fake_query(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        calls["query"] += 1
+        return [item]
+
+    def fake_write(selected_items: list[dict[str, Any]], output_path: Path, **kwargs: Any) -> dict[str, Any]:
+        calls["write"] += 1
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"fake-geotiff-refresh")
+        return fake_raster_info()
+
+    monkeypatch.setattr(naip_module, "_query_naip_items", fake_query)
+    monkeypatch.setattr(naip_module, "_write_basemap_raster", fake_write)
+
+    result = materialize_naip_basemap(project_dir, refresh=True)
+
+    assert result["status"] == "completed"
+    assert calls == {"query": 1, "write": 1}
+    assert result["naip_year"] == 2024
+
+
 def test_successful_materialization_writes_metadata_and_project_area(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -233,6 +263,119 @@ def test_materialization_fails_before_raster_when_tile_limit_exceeded(
     assert result["status"] == "failed"
     assert "exceeding --max-tiles 1" in result["message"]
     assert (project_dir / "basemaps" / "naip" / "naip_basemap_materialization.json").exists()
+
+
+def test_raster_writer_resamples_oversized_native_window_to_pixel_cap(tmp_path: Path) -> None:
+    output_path = tmp_path / "basemaps" / "naip_project_basemap.tif"
+    captured: dict[str, Any] = {}
+
+    class FakeDataset:
+        count = 3
+        crs = "EPSG:32616"
+        res = (1.0, 1.0)
+        profile = {"driver": "GTiff", "dtype": "uint8"}
+
+        def close(self) -> None:
+            return None
+
+    class FakeWriter:
+        def __init__(self, path: Path) -> None:
+            self.path = path
+
+        def __enter__(self) -> "FakeWriter":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def write(self, data: np.ndarray) -> None:
+            captured["written_shape"] = list(data.shape)
+            self.path.write_bytes(b"fake-geotiff")
+
+    class FakeEnv:
+        def __enter__(self) -> "FakeEnv":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+    class FakeRasterio:
+        def Env(self, **kwargs: Any) -> FakeEnv:
+            captured["env"] = kwargs
+            return FakeEnv()
+
+        def open(self, path: str | Path, mode: str = "r", **kwargs: Any) -> FakeDataset | FakeWriter:
+            if mode == "w":
+                captured["write_profile"] = kwargs
+                return FakeWriter(Path(path))
+            return FakeDataset()
+
+    def fake_merge(sources: list[Any], **kwargs: Any) -> tuple[np.ndarray, Any]:
+        captured["merge_kwargs"] = kwargs
+        res = kwargs["res"]
+        data = np.ones((3, 9, 9), dtype=np.uint8)
+        transform = types.SimpleNamespace(a=float(res[0]), e=-float(res[1]))
+        return data, transform
+
+    deps = types.SimpleNamespace(
+        rasterio=FakeRasterio(),
+        merge=fake_merge,
+        transform_bounds=lambda *args, **kwargs: (0.0, 0.0, 100.0, 100.0),
+        array_bounds=lambda height, width, transform: (0.0, 0.0, width * transform.a, height * abs(transform.e)),
+        WarpedVRT=lambda dataset, crs: dataset,
+        planetary_computer=types.SimpleNamespace(sign=lambda href: href),
+    )
+
+    info = naip_module._write_basemap_raster(
+        [fake_item("tile_a", 2023, (-90.1, 31.9, -89.9, 32.1))],
+        output_path,
+        aoi_bounds={"west": -90.1, "south": 31.9, "east": -89.9, "north": 32.1},
+        max_pixels=100,
+        timeout_seconds=60,
+        deps=deps,
+    )
+
+    assert output_path.exists()
+    assert info["native_estimated_pixel_count"] == 10_000
+    assert info["pixel_count"] == 81
+    assert info["resampled_to_fit_max_pixels"] is True
+    assert captured["merge_kwargs"]["res"][0] > 1.0
+
+
+def test_materialization_fails_before_stac_when_analysis_bounds_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path, monkeypatch)
+    monkeypatch.setattr(naip_module, "_load_imagery_dependencies", lambda: object())
+    monkeypatch.setattr(naip_module, "build_project_geometry", lambda project_dir_arg: {})
+
+    def fail_query(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        raise AssertionError("STAC query should not run without project analysis bounds.")
+
+    monkeypatch.setattr(naip_module, "_query_naip_items", fail_query)
+
+    result = materialize_naip_basemap(project_dir)
+
+    assert result["status"] == "failed"
+    assert "Missing project analysis bounds" in result["message"]
+
+
+def test_invalid_pixel_limit_fails_before_stac_query(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path, monkeypatch)
+
+    def fail_query(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        raise AssertionError("STAC query should not run when limits are invalid.")
+
+    monkeypatch.setattr(naip_module, "_query_naip_items", fail_query)
+
+    result = materialize_naip_basemap(project_dir, max_pixels=0)
+
+    assert result["status"] == "failed"
+    assert "--max-pixels must be greater than zero" in result["message"]
 
 
 def test_missing_optional_dependencies_are_reported_as_controlled_failure(

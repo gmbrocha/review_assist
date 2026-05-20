@@ -6,7 +6,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import pytest
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import LineString, Point, Polygon
 
 from review_assist.cli import main
 from review_assist.deliverable_constraints import analyze_comparison_unit_constraints
@@ -131,7 +131,31 @@ def test_comparison_unit_constraints_preserve_unit_ids_and_raw_feature_ids(tmp_p
     assert constraint["raw_feature_count"] == 2
     assert len(constraint["raw_feature_ids"]) == 2
     assert constraint["analysis_geometry_kind"] == "buffered_corridor"
+    assert constraint["query_extent_type"] == "project_area_analysis_bounds"
+    assert constraint["analysis_extent_type"] == "direct_intersection_extent"
+    assert constraint["interpretation_scope_label"] == "within the submitted project feature or comparison unit"
     assert "buffer_assumption" in constraint["uncertainty_flags"]
+
+
+def test_comparison_unit_constraints_label_screening_buffer_extent(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "facilities.geojson",
+        [Point(-90.0, 32.0002)],
+        [{"FAC_NAME": "Nearby Facility", "REGISTRY_ID": "facility-1"}],
+    )
+    write_registry(project_dir, [("epa_frs_facilities_ms", "facilities.geojson")])
+
+    result = analyze_comparison_unit_constraints(project_dir)
+
+    constraint = result["constraints"][0]
+    assert result["extent_policy"]["core_rule"].startswith("Rendered map extent")
+    assert constraint["relationship_type"] == "nearest_within_buffer"
+    assert constraint["query_extent_type"] == "project_area_analysis_bounds"
+    assert constraint["analysis_extent_type"] == "screening_buffer_extent"
+    assert constraint["query_distance"] == 100.0
+    assert constraint["query_units"] == "feet"
+    assert "buffered comparison-unit screening geometry" in constraint["source_selection_reason"]
 
 
 def test_deliverable_wetlands_table_uses_exact_columns_and_deduplicated_counts(tmp_path: Path) -> None:
@@ -183,6 +207,15 @@ def test_deliverable_wetlands_table_uses_exact_columns_and_deduplicated_counts(t
     assert row_a["Stream Crossings"] == 1
     assert row_a["Freshwater Emergent Wetland"] == 1
     assert row_b["Freshwater Pond"] == 1
+    assert wetlands["query_extent_type"] == "project_area_analysis_bounds"
+    assert wetlands["table_extent_type"] == "direct_intersection_extent"
+    assert wetlands["analysis_extent_type"] == "direct_intersection_extent"
+    assert wetlands["provenance"]["extent_policy"]["table_extent_type"] == "direct_intersection_extent"  # type: ignore[index]
+
+    census = table_by_id(tables, "table-income-demographics")
+    assert census["is_stub"] is True
+    assert census["table_extent_type"] == "county_or_regional_context_extent"
+    assert "county or regional context" in census["interpretation_scope_label"]
 
 
 def test_deliverable_flood_table_uses_buffered_corridor_acreage(tmp_path: Path) -> None:

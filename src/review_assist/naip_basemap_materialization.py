@@ -360,12 +360,13 @@ def _write_basemap_raster(
                 aoi_bounds["north"],
                 densify_pts=21,
             )
-            estimated_pixels = _estimate_pixels(datasets[0], raster_bounds)
-            if estimated_pixels > max_pixels:
-                raise NaipBasemapMaterializationError(
-                    f"Estimated NAIP output size is {estimated_pixels} pixels, exceeding --max-pixels {max_pixels}."
-                )
-            data, transform = deps.merge(sources, bounds=raster_bounds, indexes=[1, 2, 3])
+            native_width, native_height = _estimate_pixel_shape(datasets[0], raster_bounds)
+            estimated_pixels = int(native_width * native_height)
+            output_res = _resolution_for_pixel_cap(datasets[0], estimated_pixels, max_pixels)
+            merge_kwargs: dict[str, Any] = {"bounds": raster_bounds, "indexes": [1, 2, 3]}
+            if output_res is not None:
+                merge_kwargs["res"] = output_res
+            data, transform = deps.merge(sources, **merge_kwargs)
             actual_pixels = int(data.shape[1] * data.shape[2])
             if actual_pixels > max_pixels:
                 raise NaipBasemapMaterializationError(
@@ -396,6 +397,11 @@ def _write_basemap_raster(
                 "output_bounds_wgs84": _bounds_dict(output_bounds_wgs84),
                 "output_shape": [int(data.shape[1]), int(data.shape[2])],
                 "pixel_count": actual_pixels,
+                "native_estimated_pixel_count": estimated_pixels,
+                "native_estimated_shape": [int(native_height), int(native_width)],
+                "native_resolution": [abs(float(datasets[0].res[0])), abs(float(datasets[0].res[1]))],
+                "output_resolution": [abs(float(transform.a)), abs(float(transform.e))],
+                "resampled_to_fit_max_pixels": output_res is not None,
                 "source_hrefs": hrefs,
             }
     finally:
@@ -445,6 +451,11 @@ def _sidecar_metadata(
         "output_bounds_wgs84": raster_info.get("output_bounds_wgs84"),
         "output_shape": raster_info.get("output_shape"),
         "pixel_count": raster_info.get("pixel_count"),
+        "native_estimated_pixel_count": raster_info.get("native_estimated_pixel_count"),
+        "native_estimated_shape": raster_info.get("native_estimated_shape"),
+        "native_resolution": raster_info.get("native_resolution"),
+        "output_resolution": raster_info.get("output_resolution"),
+        "resampled_to_fit_max_pixels": bool(raster_info.get("resampled_to_fit_max_pixels")),
         "selection_method": "latest_year_then_datetime_then_overlap_then_item_id",
         "limits": limits,
         "created_at": _utc_now(),
@@ -574,12 +585,20 @@ def _limits(max_pixels: int, max_tiles: int, timeout_seconds: int) -> dict[str, 
     }
 
 
-def _estimate_pixels(dataset: Any, raster_bounds: tuple[float, float, float, float]) -> int:
+def _estimate_pixel_shape(dataset: Any, raster_bounds: tuple[float, float, float, float]) -> tuple[int, int]:
     west, south, east, north = raster_bounds
     res_x, res_y = dataset.res
     width = max(1, math.ceil(abs(east - west) / abs(float(res_x))))
     height = max(1, math.ceil(abs(north - south) / abs(float(res_y))))
-    return int(width * height)
+    return int(width), int(height)
+
+
+def _resolution_for_pixel_cap(dataset: Any, estimated_pixels: int, max_pixels: int) -> tuple[float, float] | None:
+    if estimated_pixels <= max_pixels:
+        return None
+    res_x, res_y = dataset.res
+    scale = math.sqrt(float(estimated_pixels) / float(max_pixels)) * 1.02
+    return abs(float(res_x)) * scale, abs(float(res_y)) * scale
 
 
 def _item_assets(item: dict[str, Any]) -> dict[str, Any]:

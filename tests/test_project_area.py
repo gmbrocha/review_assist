@@ -4,7 +4,9 @@ import json
 import zipfile
 from pathlib import Path
 
+import geopandas as gpd
 import pytest
+from shapely.geometry import box
 
 import review_assist.project_area as project_area_module
 from review_assist.basemaps import build_basemap_index, renderable_sidecars_for
@@ -97,6 +99,34 @@ def write_naip_county_with_sidecar(root: Path, suffix: str, county_name: str = "
     return imagery_dir
 
 
+def write_boundary_context(project_dir: Path, county_name: str = "Test") -> None:
+    boundary_path = project_dir / "boundary.geojson"
+    gdf = gpd.GeoDataFrame(
+        [{"CONAME": county_name, "review_assist_layer_id": "county_boundaries"}],
+        geometry=[box(-90.1, 31.9, -89.9, 32.1)],
+        crs="EPSG:4326",
+    )
+    gdf.to_file(boundary_path, driver="GeoJSON")
+    (project_dir / "config" / "sources.json").write_text(
+        json.dumps(
+            {
+                "project_id": "test_project",
+                "sources": [
+                    {
+                        "source_id": "maris_boundary_context",
+                        "enabled": True,
+                        "access_method": "local_file",
+                        "path": "boundary.geojson",
+                    }
+                ]
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def issue_codes(artifact: dict[str, object]) -> set[str]:
     return {str(issue["code"]) for issue in artifact["validation_issues"]}  # type: ignore[index]
 
@@ -151,6 +181,33 @@ def test_sid_only_county_imagery_returns_selected_not_renderable(tmp_path: Path,
     assert result["selected_basemap_paths"] == [str(sid_dir / "Test_NAIP_2025.sid")]
     assert result["renderable_basemap_paths"] == []
     assert any(warning["code"] == "aerial_basemap_selected_not_renderable" for warning in result["warnings"])  # type: ignore[index]
+
+
+def test_county_source_disagreement_warning_is_actionable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project_dir = write_project(tmp_path)
+    write_boundary_context(project_dir)
+    basemap_root = tmp_path / "naip"
+    test_sid_dir = write_naip_county(basemap_root, "Test")
+    write_naip_county(basemap_root, "Adjacent")
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+
+    result = build_project_area(project_dir)
+    warning = next(issue for issue in result["validation_issues"] if issue["code"] == "county_source_disagreement")  # type: ignore[index]
+    details = warning["details"]  # type: ignore[index]
+
+    assert result["county_names"] == ["Test County"]
+    assert result["county_detection_method"] == "maris_boundary_context"
+    assert result["selected_basemap_paths"] == [str(test_sid_dir / "Test_NAIP_2025.sid")]
+    assert details["selected_counties"] == ["Test County"]
+    assert details["final_county_list"] == ["Test County"]
+    assert details["preferred_source"] == "maris_boundary_context"
+    assert "Boundary context is the highest-confidence" in details["preferred_reason"]
+    assert details["alternate_county_sources"][0]["method"] == "naip_maris_metadata_extent"
+    assert details["alternate_county_sources"][0]["county_names"] == ["Adjacent County", "Test County"]
+    assert "Alternate metadata-only counties do not change non-basemap source selection" in details["source_selection_impact"]
+    assert "broader metadata extents are not selected as project counties" in details["basemap_selection_impact"]
+    assert "Selected counties: Test County" in details["summary"]
+    assert "Adjacent County" in warning["message"]  # type: ignore[operator]
 
 
 @pytest.mark.parametrize("suffix", [".tif", ".tiff", ".png"])

@@ -12,6 +12,17 @@ from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, analy
 from .data_lineage import build_data_lineage
 from .deliverable_figures import DELIVERABLE_FIGURES_PATH, DeliverableFigureError, generate_deliverable_figures, load_deliverable_figures
 from .deliverable_tables import DELIVERABLE_TABLES_PATH, DeliverableTableError, generate_deliverable_tables, load_deliverable_tables
+from .extent_policy import (
+    COMMUNITY_CONTEXT_EXTENT,
+    COUNTY_OR_REGIONAL_CONTEXT_EXTENT,
+    DIRECT_TARGET_IDS,
+    NEARBY_CONTEXT_EXTENT,
+    WATERSHED_CONTEXT_EXTENT,
+    apply_extent_metadata,
+    extent_policy_summary,
+    merge_extent_metadata,
+    target_extent_metadata,
+)
 from .findings import FINDINGS_PATH, FindingGenerationError, generate_draft_findings, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
@@ -111,6 +122,7 @@ def build_evidence_package(project_dir: Path) -> dict[str, Any]:
         "project_name": context.get("project_name"),
         "project_dir": str(project_dir),
         "created_at": _utc_now(),
+        "extent_policy": extent_policy_summary(),
         "data_lineage": data_lineage,
         "source_acquisition": _source_acquisition_summary(source_acquisition),
         "source_status_path": source_status.get("output_path"),
@@ -272,7 +284,16 @@ def _section_bundles(
         )
         deliverable_table_summaries = [_deliverable_table_summary(table) for table in deliverable_section_tables]
         deliverable_figure_summaries = [_deliverable_figure_summary(figure) for figure in deliverable_section_figures]
-        bundles[section_id] = {
+        comparison_unit_summaries = _comparison_unit_summaries(deliverable_section_tables, deliverable_section_figures, constraints, category)
+        constraint_summaries = _constraint_summaries(constraints, category, source_refs)
+        extent = _section_extent_metadata(
+            section_id=section_id,
+            category=category,
+            tables=deliverable_table_summaries,
+            figures=deliverable_figure_summaries,
+            constraints=constraint_summaries,
+        )
+        bundles[section_id] = apply_extent_metadata({
             "section_id": section_id,
             "resource_category": category,
             "evidence_classes": _evidence_classes_for_category(
@@ -292,8 +313,8 @@ def _section_bundles(
             "deliverable_figures": deliverable_figure_summaries,
             "figure_availability": _figure_availability(deliverable_figure_summaries),
             "figures": _figures_for_refs(map_manifest, source_refs),
-            "comparison_unit_summaries": _comparison_unit_summaries(deliverable_section_tables, deliverable_section_figures, constraints, category),
-            "constraint_summaries": _constraint_summaries(constraints, category, source_refs),
+            "comparison_unit_summaries": comparison_unit_summaries,
+            "constraint_summaries": constraint_summaries,
             "source_gap_status": _source_gap_status(source_status, category),
             "raw_artifact_paths": _section_raw_artifact_paths(
                 constraints=constraints,
@@ -304,7 +325,7 @@ def _section_bundles(
             ),
             "validation_issues": _validation_issues_for_category(source_status, category)
             + _deliverable_validation_issues(deliverable_section_tables, deliverable_section_figures),
-        }
+        }, extent)
     return bundles
 
 
@@ -585,7 +606,7 @@ def _deliverable_figures_for_section(deliverable_figures: dict[str, Any], sectio
 
 def _deliverable_table_summary(table: dict[str, Any]) -> dict[str, Any]:
     rows = _dict_list(table.get("rows", []))
-    return {
+    return apply_extent_metadata({
         "table_id": table.get("table_id"),
         "table_number": table.get("table_number"),
         "title": table.get("title"),
@@ -600,11 +621,11 @@ def _deliverable_table_summary(table: dict[str, Any]) -> dict[str, Any]:
         "stub_text": table.get("stub_text", "") if table.get("is_stub") else "",
         "review_status": table.get("review_status"),
         "uncertainty_flags": _string_list(table.get("uncertainty_flags", [])),
-    }
+    }, _extent_from_record(table))
 
 
 def _deliverable_figure_summary(figure: dict[str, Any]) -> dict[str, Any]:
-    return {
+    return apply_extent_metadata({
         "figure_id": figure.get("figure_id"),
         "figure_number": figure.get("figure_number"),
         "title": figure.get("title"),
@@ -619,7 +640,7 @@ def _deliverable_figure_summary(figure: dict[str, Any]) -> dict[str, Any]:
         "review_status": figure.get("review_status"),
         "uncertainty_flags": _string_list(figure.get("uncertainty_flags", [])),
         "validation_issue_codes": sorted({str(issue.get("code")) for issue in _dict_list(figure.get("validation_issues", [])) if issue.get("code")}),
-    }
+    }, _extent_from_record(figure))
 
 
 def _row_summaries(deliverable_table_summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -627,10 +648,10 @@ def _row_summaries(deliverable_table_summaries: list[dict[str, Any]]) -> list[di
     for table in deliverable_table_summaries:
         for row in _dict_list(table.get("rows_preview", [])):
             summaries.append(
-                {
+                apply_extent_metadata({
                     "table_id": table.get("table_id"),
                     "values": row,
-                }
+                }, _extent_from_record(table))
             )
     return summaries[:12]
 
@@ -691,7 +712,7 @@ def _constraint_summaries(constraints: dict[str, Any], category: str, source_ref
         if category != "overall" and constraint.get("source_category") != category and str(constraint.get("source_id", "")) not in source_ref_set:
             continue
         summaries.append(
-            {
+            apply_extent_metadata({
                 "constraint_id": constraint.get("constraint_id"),
                 "comparison_unit_id": constraint.get("comparison_unit_id"),
                 "comparison_unit_name": constraint.get("comparison_unit_name"),
@@ -702,9 +723,62 @@ def _constraint_summaries(constraints: dict[str, Any], category: str, source_ref
                 "relationship_type": constraint.get("relationship_type"),
                 "measurements": constraint.get("measurements", {}) if isinstance(constraint.get("measurements"), dict) else {},
                 "uncertainty_flags": _string_list(constraint.get("uncertainty_flags", [])),
-            }
+            }, _extent_from_record(constraint))
         )
     return summaries[:12]
+
+
+def _section_extent_metadata(
+    *,
+    section_id: str,
+    category: str,
+    tables: list[dict[str, Any]],
+    figures: list[dict[str, Any]],
+    constraints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    fallback = target_extent_metadata(
+        target_id=section_id,
+        target_type="section",
+        resource_category=category,
+        source_categories=[category] if category and category != "overall" else [],
+    )
+    return _prefer_target_scope_for_context_targets(
+        merge_extent_metadata([*tables, *figures, *constraints], fallback=fallback),
+        fallback,
+        force_target_scope=section_id in DIRECT_TARGET_IDS,
+    )
+
+
+def _prefer_target_scope_for_context_targets(metadata: dict[str, Any], fallback: dict[str, Any], *, force_target_scope: bool = False) -> dict[str, Any]:
+    target_scope = str(fallback.get("analysis_extent_type", ""))
+    if not force_target_scope and target_scope not in {WATERSHED_CONTEXT_EXTENT, COUNTY_OR_REGIONAL_CONTEXT_EXTENT, COMMUNITY_CONTEXT_EXTENT, NEARBY_CONTEXT_EXTENT}:
+        return metadata
+    result = dict(metadata)
+    result["analysis_extent_type"] = target_scope
+    if fallback.get("list_extent_type"):
+        result["list_extent_type"] = fallback["list_extent_type"]
+    result["interpretation_scope_label"] = fallback.get("interpretation_scope_label", result.get("interpretation_scope_label", ""))
+    reason = str(fallback.get("source_selection_reason", "")).strip()
+    existing = str(result.get("source_selection_reason", "")).strip()
+    if reason and reason not in existing:
+        result["source_selection_reason"] = (existing + " " + reason).strip()
+    return result
+
+
+def _extent_from_record(record: dict[str, Any]) -> dict[str, Any]:
+    return {key: record[key] for key in (
+        "query_extent_type",
+        "query_distance",
+        "query_units",
+        "analysis_extent_type",
+        "table_extent_type",
+        "list_extent_type",
+        "figure_extent_type",
+        "render_extent_type",
+        "render_extent_is_presentation_only",
+        "interpretation_scope_label",
+        "source_selection_reason",
+    ) if key in record}
 
 
 def _source_gap_status(source_status: dict[str, Any], category: str) -> list[dict[str, Any]]:

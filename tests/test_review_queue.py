@@ -18,6 +18,7 @@ from review_assist.review_queue import (
     load_review_queue,
     update_review_item,
 )
+from review_assist.review_queue_reset import reset_review_queue
 from review_assist.spatial_analysis import analyze_project
 
 
@@ -136,7 +137,16 @@ def test_generate_review_queue_writes_bounded_deliverable_item_queue(tmp_path: P
     assert wetlands["target_id"] == "wetlands-and-waterbodies"
     assert wetlands["related_table_ids"] == ["table-wetlands-waterbodies"]
     assert wetlands["related_figure_ids"] == ["figure-wetlands-waterbodies"]
+    assert wetlands["evidence_refs"] == ["section_evidence:wetlands-and-waterbodies"]
     assert wetlands["status"] == "needs_review"
+    assert wetlands["query_extent_type"] == "project_area_analysis_bounds"
+    assert wetlands["analysis_extent_type"] in {"direct_intersection_extent", "mixed_extent_types"}
+    contamination = item_by_id(queue, "contamination-risks")
+    oil_wells = item_by_id(queue, "oil-wells")
+    assert contamination["related_figure_ids"] == ["figure-hazardous-waste-sites"]
+    assert contamination["analysis_extent_type"] == "nearby_context_extent"
+    assert "project vicinity" in contamination["interpretation_scope_label"]
+    assert oil_wells["related_figure_ids"] == ["figure-hazardous-waste-sites"]
     assert not items_by_type(queue, "draft_finding")
     assert not items_by_type(queue, "comparison_table")
     assert not items_by_type(queue, "spatial_relationship")
@@ -308,3 +318,110 @@ def test_cli_review_queue_json_output(tmp_path: Path, capsys: pytest.CaptureFixt
 
     captured = capsys.readouterr()
     assert json.loads(captured.out)["project_id"] == "test_project"
+
+
+def test_reset_review_queue_deletes_generated_candidates_and_regenerates(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_point_layer(project_dir / "wetlands.geojson", Point(-89.995, 32.0))
+    write_registry(project_dir, "usfws_nwi_wetlands", "wetlands.geojson")
+    generate_review_queue(project_dir)
+    source_registry = project_dir / "config" / "sources.json"
+    layer_artifact = project_dir / "layers" / "usfws_nwi_wetlands" / "usfws_nwi_wetlands.geojson"
+    layer_artifact.parent.mkdir(parents=True)
+    layer_artifact.write_text('{"type":"FeatureCollection","features":[]}\n', encoding="utf-8")
+    tables_path = project_dir / "deliverable" / "tables.json"
+    figures_path = project_dir / "deliverable" / "figures.json"
+    evidence_path = project_dir / "evidence" / "evidence_package.json"
+    export_manifest_path = project_dir / "exports" / "export_manifest.json"
+    export_markdown_path = project_dir / "exports" / "environmental_constraints_report.md"
+    export_manifest_path.parent.mkdir(parents=True)
+    export_manifest_path.write_text('{"status":"stale"}\n', encoding="utf-8")
+    export_markdown_path.write_text("stale export\n", encoding="utf-8")
+    deliverable_items_path = project_dir / "deliverable" / "deliverable_items.json"
+    queue_path = project_dir / "review_queue" / "review_queue.json"
+    deliverable_items_path.write_text(
+        deliverable_items_path.read_text(encoding="utf-8").replace(
+            "Wetlands and Waterbodies",
+            "Draft review candidate Wetlands and Waterbodies",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    queue_path.write_text(
+        queue_path.read_text(encoding="utf-8").replace(
+            "Wetlands and Waterbodies",
+            "Reviewer focus Wetlands and Waterbodies",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    result = reset_review_queue(project_dir, regenerate=True)
+    queue = load_review_queue(project_dir)
+    deliverable_items = load_deliverable_items(project_dir)
+    wetlands_queue = item_by_id(queue, "wetlands-and-waterbodies")
+    wetlands_item = next(item for item in deliverable_items["items"] if item["deliverable_item_id"] == "wetlands-and-waterbodies")
+
+    assert {record["relative_path"] for record in result["deleted"]} == {
+        "deliverable/deliverable_items.json",
+        "review_queue/review_queue.json",
+    }
+    assert result["before"]["deliverable_item_count"] == result["after"]["deliverable_item_count"]
+    assert result["before"]["review_queue_item_count"] == result["after"]["review_queue_item_count"]
+    assert result["process_language"]["before"]["has_process_language"] is True
+    assert result["process_language"]["after"]["has_process_language"] is False
+    assert wetlands_queue["generated_content"] == wetlands_item["generated_content"]
+    assert source_registry.exists()
+    assert layer_artifact.exists()
+    assert tables_path.exists()
+    assert figures_path.exists()
+    assert evidence_path.exists()
+    assert export_manifest_path.exists()
+    assert export_markdown_path.exists()
+
+
+def test_reset_review_queue_dry_run_does_not_delete_artifacts(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    generate_review_queue(project_dir)
+    deliverable_items_path = project_dir / "deliverable" / "deliverable_items.json"
+    queue_path = project_dir / "review_queue" / "review_queue.json"
+    before_items = deliverable_items_path.read_text(encoding="utf-8")
+    before_queue = queue_path.read_text(encoding="utf-8")
+
+    result = reset_review_queue(project_dir, dry_run=True)
+
+    assert result["dry_run"] is True
+    assert {record["relative_path"] for record in result["would_delete"]} == {
+        "deliverable/deliverable_items.json",
+        "review_queue/review_queue.json",
+    }
+    assert result["deleted"] == []
+    assert deliverable_items_path.read_text(encoding="utf-8") == before_items
+    assert queue_path.read_text(encoding="utf-8") == before_queue
+
+
+def test_reset_review_queue_include_evidence_rebuilds_evidence_first(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    generate_review_queue(project_dir)
+    evidence_path = project_dir / "evidence" / "evidence_package.json"
+    evidence_path.write_text('{"item_count": 0, "stale": true}\n', encoding="utf-8")
+
+    result = reset_review_queue(project_dir, include_evidence=True)
+    regenerated = [record["artifact"] for record in result["regenerated"]]
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    assert regenerated[:3] == ["evidence_package", "deliverable_items", "review_queue"]
+    assert "stale" not in evidence
+    assert evidence.get("project_id") == "test_project"
+
+
+def test_cli_reset_review_queue_json_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project_dir = write_project(tmp_path)
+    generate_review_queue(project_dir)
+
+    assert main(["reset-review-queue", str(project_dir), "--yes", "--json"]) == 0
+
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["after"]["review_queue_item_count"] == load_review_queue(project_dir)["item_count"]
+    assert result["process_language"]["after"]["has_process_language"] is False

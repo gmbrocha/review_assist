@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, source warehouse manifests, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, explicitly downloaded public layers, or explicitly materialized project-local basemap sidecars can be registered, inspected, and checked. `environmental_constraints_example` is the default source-requirement profile for alternatives review, while `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL effective flood hazard zones are implemented public downloaders. The local Mississippi source warehouse now uses stable app-facing source IDs with raw agency/download folder names preserved under each source's `raw/` folder; its index lives at `sources/source_warehouse_manifest.json`. Seeded local materializers cover NWI wetlands, Critical Habitat, SSURGO soils, MDOT/rail transportation, utilities, administrative/boundary context, public cultural context, community facilities, conservation/recreation lands, FEMA flood hazard, specific NHD flowline/waterbody/area layers, EPA FRS, MARIS brownfields, NPDES, landfills, Superfund, TRI, USTs, oil/gas wells, national wildlife refuges, and NRCS easements. `materialize-naip-basemap` is implemented as an explicit, optional, AOI-bounded renderable basemap sidecar workflow, not as a deterministic source-layer materializer. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, source warehouse manifests, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, explicitly downloaded public layers, or explicitly materialized project-local basemap sidecars can be registered, inspected, and checked. `environmental_constraints_example` is the default source-requirement profile for alternatives review, while `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL effective flood hazard zones are implemented public downloaders. The local Mississippi source warehouse now uses stable app-facing source IDs with raw agency/download folder names preserved under each source's `raw/` folder; its index lives at `sources/source_warehouse_manifest.json`. Seeded local materializers cover NWI wetlands, Critical Habitat, SSURGO soils, MDOT/rail transportation, utilities, administrative/boundary context, public cultural context, community facilities, conservation/recreation lands, FEMA flood hazard, specific NHD flowline/waterbody/area layers, EPA FRS, MARIS brownfields, NPDES, landfills, Superfund, TRI, USTs, oil/gas wells, national wildlife refuges, and NRCS easements. Broad IDs such as `usgs_nhd_hydrography` and `epa_envirofacts_echo` are live download rollups, not required physical warehouse folders when specific seeded or reviewer-supplied local layers satisfy the category. `mdeq_environmental_context` is manual residual context. `materialize-naip-basemap` is implemented as an explicit, optional, AOI-bounded renderable basemap sidecar workflow, not as a deterministic source-layer materializer. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -140,6 +140,8 @@ Running `populate-for-review` without `--prepare-sources` preserves the local/no
 
 The Sprint 2.1 catalog also exposes review-visible manual or stub entries for IPaC report context, state heritage review, restricted archaeology, MDEQ/manual environmental context, public water supply wells, airports, oil wells, local businesses/economic nodes, hazardous materials support reports, and agency consultation letters. These entries are not automated determinations; they keep the missing or reviewer-supplied source need visible for later deliverable tables, figures, attachments, caveats, and review items.
 
+The broad downloader IDs in the command examples are acquisition conveniences. They do not imply that a matching root `sources/<group>/<source_id>/` folder must exist, and they should not override more specific seeded warehouse IDs or reviewer-supplied project-local layers.
+
 ## Local Source Materialization
 
 The local materializer uses ignored root `sources/` storage as a Mississippi source warehouse. Stable source IDs are the app-facing folder names; raw agency/download names are preserved under `raw/` for provenance. The warehouse index and per-source manifests describe expected local layout without tracking bulk source files in Git. The materializer reads configured statewide or bulk datasets, clips them to the project analysis bounds, writes small project-ready GeoJSON files under `projects/<project_id>/layers/<source_id>/`, and registers those files as real `local_file` sources with `status: local_materialized`.
@@ -156,7 +158,7 @@ Configured materializers:
 - `maris_community_facilities`: communities, fire stations, and recreational facilities from `sources/community/maris_community_facilities/raw/`.
 - `maris_conservation_recreation_lands`: easement areas, state parks, and wildlife management areas from `sources/conservation/maris_conservation_recreation_lands/raw/`.
 - `fema_nfhl_flood_hazard`: seeded Mississippi DFIRM/FEMA flood hazard polygons from `sources/environmental/fema_nfhl_flood_hazard/raw/`.
-- `usgs_nhd_flowlines`, `usgs_nhd_waterbodies`, and `usgs_nhd_other_areas`: specific seeded NHD layers from `sources/hydrology/`; the live downloader rollup `usgs_nhd_hydrography` remains available.
+- `usgs_nhd_flowlines`, `usgs_nhd_waterbodies`, and `usgs_nhd_other_areas`: specific seeded NHD layers from `sources/hydrology/`; the live downloader rollup `usgs_nhd_hydrography` remains available but is not a physical seeded source folder.
 - `epa_frs_facilities_ms`, `maris_brownfields`, `maris_npdes_facilities`, `maris_solid_waste_landfills`, `maris_superfund_sites`, `maris_tri_facilities`, `maris_underground_storage_tanks`, and `mississippi_oil_gas_wells`: seeded regulated facility/contamination context layers from `sources/environmental/`.
 - `usfws_national_wildlife_refuges` and `usda_nrcs_easements`: seeded conservation/public lands context from `sources/conservation/`.
 
@@ -308,7 +310,7 @@ References:
 
 Implementation status:
 
-- `usgs_nhd_hydrography` is implemented as an explicit public downloader.
+- `usgs_nhd_hydrography` is implemented as an explicit public downloader rollup, not as a required physical warehouse layer.
 - The downloader queries The National Map NHD MapServer by project analysis bounds, using large-scale Flowline layer `6` and large-scale Area layer `9`.
 - Downloaded hydrography is written as a combined GeoJSON under `projects/<project_id>/source_acquisition/downloads/` with normalized Review Assist source fields added while preserving original attributes.
 - Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so the constraint engine, findings, hydrography crossing summary table, maps, report sections, and review queue consume the layer through the same path as reviewer-supplied data.
@@ -678,6 +680,7 @@ Important caveat:
 - Keep public historic context separate from restricted archaeological data.
 - Restricted data may require qualified users, subscriptions, appointments, or reviewer-supplied files.
 - MDAH restricted integration is a placeholder/stub only.
+- Public/coarse cultural context, including a future OpenContext/DINAA-style POC layer if approved, must remain separate from authorized or reviewer-supplied MDAH archaeological records.
 
 References:
 
@@ -774,7 +777,7 @@ Reference:
 
 Implementation status:
 
-- `epa_envirofacts_echo` is implemented as an explicit public downloader.
+- `epa_envirofacts_echo` is implemented as an explicit public downloader rollup, not as a required physical warehouse layer.
 - The downloader queries the public ECHO Facilities MapServer `All ECHO Facilities` layer `0` by project analysis bounds and writes GeoJSON under `projects/<project_id>/source_acquisition/downloads/`.
 - Successful downloads are registered as normal project `local_file` sources with `status: downloaded`, so constraint analysis, findings, regulated facility summary tables, source-context maps, report sections, and review queue generation consume them through the same path as reviewer-supplied data.
 - Downloaded records preserve original ECHO attributes and add normalized Review Assist source/layer/label/type/subtype/original-id/date/quality/citation fields where available.

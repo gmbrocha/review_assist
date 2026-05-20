@@ -25,6 +25,18 @@ from .deliverable_matrix import (
 from .deliverable_tables import DELIVERABLE_TABLES_PATH, DeliverableTableError, generate_deliverable_tables, load_deliverable_tables
 from .env_config import GptConfigurationError, gpt_drafting_enabled, gpt_drafting_workers, resolve_gpt_model
 from .evidence_package import EVIDENCE_PACKAGE_PATH, EvidencePackageError, build_evidence_package, load_evidence_package, section_evidence_for
+from .extent_policy import (
+    COMMUNITY_CONTEXT_EXTENT,
+    COUNTY_OR_REGIONAL_CONTEXT_EXTENT,
+    DIRECT_TARGET_IDS,
+    EXTENT_FIELD_NAMES,
+    NEARBY_CONTEXT_EXTENT,
+    WATERSHED_CONTEXT_EXTENT,
+    apply_extent_metadata,
+    extent_wording_for_scope,
+    merge_extent_metadata,
+    target_extent_metadata,
+)
 from .project_context import ProjectContextError, generate_project_context, load_project_context
 from .projects import ProjectManifestError, load_project_manifest
 from .section_drafting import (
@@ -119,6 +131,7 @@ REQUIRED_ITEM_FIELDS = {
     "related_constraint_ids",
     "related_table_ids",
     "related_figure_ids",
+    "evidence_refs",
     "comparison_unit_ids",
     "provenance",
     "assumptions",
@@ -128,6 +141,8 @@ REQUIRED_ITEM_FIELDS = {
     "review_status",
     "export_eligible",
     "validation_issues",
+    *EXTENT_FIELD_NAMES,
+    "extent_policy_version",
 }
 
 
@@ -230,8 +245,28 @@ def load_deliverable_items(project_dir: Path) -> dict[str, Any]:
         raise DeliverableItemsError(f"Invalid deliverable items JSON: {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise DeliverableItemsError(f"Deliverable items artifact must be a JSON object: {path}")
+    _normalize_deliverable_items_compat(data)
     validate_deliverable_items(data, str(path))
     return data
+
+
+def _normalize_deliverable_items_compat(data: dict[str, Any]) -> None:
+    items = data.get("items")
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+        assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+        extent = _item_extent_metadata(
+            target_id=str(item.get("target_id") or item.get("deliverable_item_id") or ""),
+            target_type=str(item.get("target_type") or ""),
+            resource_category=str(item.get("resource_category") or ""),
+            provenance=provenance,
+            assumptions=assumptions,
+        )
+        apply_extent_metadata(item, extent)
 
 
 def validate_deliverable_items(data: dict[str, Any], location: str) -> None:
@@ -284,6 +319,7 @@ def validate_deliverable_items(data: dict[str, Any], location: str) -> None:
             "related_constraint_ids",
             "related_table_ids",
             "related_figure_ids",
+            "evidence_refs",
             "comparison_unit_ids",
             "uncertainty_flags",
             "validation_issues",
@@ -487,7 +523,9 @@ def _section_item(
     )
     comparison_unit_ids = [str(comparison_unit["comparison_unit_id"])] if comparison_unit else _evidence_comparison_unit_ids(evidence, related_tables, related_figures)
     validation_issues = _target_validation_issues(evidence, related_tables, related_figures, target)
+    evidence_refs = _evidence_refs(evidence)
     source_gap_status = _dict_list(evidence.get("source_gap_status", []))
+    extent_metadata = _section_extent_metadata(target, evidence, related_tables, related_figures)
     is_stub = _section_is_stub(target, evidence, related_tables, related_figures, source_gap_status, comparison_unit)
     generated_content = _stub_section_content(target, source_gap_status, related_tables, related_figures, validation_issues) if is_stub else _section_content(
         target=target,
@@ -496,6 +534,7 @@ def _section_item(
         related_tables=related_tables,
         related_figures=related_figures,
         comparison_unit=comparison_unit,
+        extent_metadata=extent_metadata,
     )
     uncertainty_flags = _dedupe(
         [
@@ -526,6 +565,7 @@ def _section_item(
                 related_figure_ids=related_figure_ids,
                 source_refs=source_refs,
                 evidence_bundle=evidence,
+                extent_metadata=extent_metadata,
                 validation_issues=validation_issues,
                 project_context=context,
                 matrix_target=_matrix_target_summary(target, template_target=template_target, comparison_unit=comparison_unit),
@@ -566,6 +606,7 @@ def _section_item(
         related_constraint_ids=_evidence_constraint_ids(evidence),
         related_table_ids=related_table_ids,
         related_figure_ids=related_figure_ids,
+        evidence_refs=evidence_refs,
         comparison_unit_ids=comparison_unit_ids,
         provenance={
             "artifact": "deliverable_items",
@@ -577,6 +618,7 @@ def _section_item(
             "draft_provider": draft_result.provenance.get("draft_provider", getattr(draft_provider, "provider_id", "unknown")),
             "drafting": draft_result.provenance,
             "evidence_package_path": evidence_package.get("output_path"),
+            "extent_policy": extent_metadata,
             "review_before_export": True,
             "desktop_screening_only": True,
         },
@@ -584,6 +626,7 @@ def _section_item(
             "matrix_target": _matrix_target_summary(target, template_target=template_target, comparison_unit=comparison_unit),
             "prompt_contract": _prompt_summary(prompt),
             "source_gap_status": source_gap_status,
+            "extent_policy": extent_metadata,
         },
         uncertainty_flags=uncertainty_flags,
         is_stub=is_stub,
@@ -596,6 +639,10 @@ def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str
     table = _table_lookup(tables).get(target.target_id, {})
     is_stub = bool(table.get("is_stub", True))
     content = _stub_table_content(target, table) if is_stub else _generated_table_content(target, table)
+    extent_metadata = _record_extent_metadata(
+        table,
+        fallback=target_extent_metadata(target_id=target.target_id, target_type="table", source_categories=target.source_categories),
+    )
     return _base_item(
         deliverable_item_id=target.target_id,
         target_id=target.target_id,
@@ -616,6 +663,7 @@ def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str
         related_constraint_ids=_string_list(table.get("related_constraint_ids", [])),
         related_table_ids=[],
         related_figure_ids=[],
+        evidence_refs=[],
         comparison_unit_ids=_string_list(table.get("comparison_unit_ids", [])),
         provenance={
             "artifact": "deliverable_tables",
@@ -624,12 +672,14 @@ def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str
             "table_id": target.target_id,
             "section_target_id": target.section_target_id,
             "table_provenance": table.get("provenance", {}),
+            "extent_policy": extent_metadata,
             "review_before_export": True,
         },
         assumptions={
             "columns": _string_list(table.get("columns", [])),
             "row_count": table.get("row_count", 0),
             "rows_preview": _dict_list(table.get("rows", []))[:5],
+            "extent_policy": extent_metadata,
         },
         uncertainty_flags=_dedupe(["draft_pre_review", *_string_list(table.get("uncertainty_flags", []))]),
         is_stub=is_stub,
@@ -642,6 +692,10 @@ def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: 
     figure = _figure_lookup(figures).get(target.target_id, {})
     is_stub = bool(figure.get("is_stub", True))
     content = _stub_figure_content(target, figure) if is_stub else _generated_figure_content(target, figure)
+    extent_metadata = _record_extent_metadata(
+        figure,
+        fallback=target_extent_metadata(target_id=target.target_id, target_type="figure", source_categories=target.source_categories),
+    )
     return _base_item(
         deliverable_item_id=target.target_id,
         target_id=target.target_id,
@@ -662,6 +716,7 @@ def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: 
         related_constraint_ids=_string_list(figure.get("related_constraint_ids", [])),
         related_table_ids=[],
         related_figure_ids=[],
+        evidence_refs=[],
         comparison_unit_ids=_string_list(figure.get("comparison_unit_ids", [])),
         provenance={
             "artifact": "deliverable_figures",
@@ -670,6 +725,7 @@ def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: 
             "figure_id": target.target_id,
             "section_target_id": target.section_target_id,
             "figure_provenance": figure.get("provenance", {}),
+            "extent_policy": extent_metadata,
             "review_before_export": True,
         },
         assumptions={
@@ -677,6 +733,7 @@ def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: 
             "caption": figure.get("caption", ""),
             "source_note": figure.get("source_note", ""),
             "method_note": figure.get("method_note", ""),
+            "extent_policy": extent_metadata,
         },
         uncertainty_flags=_dedupe(["draft_pre_review", *_string_list(figure.get("uncertainty_flags", []))]),
         is_stub=is_stub,
@@ -700,6 +757,7 @@ def _attachment_item(target: AttachmentTarget, figures: dict[str, Any], matrix_v
         validation_issues.append(_issue("warning", "attachment_source_missing", "Required attachment support is not supplied by the automated Sprint 3.1 workflow.", str(output_path), target.target_id))
     is_stub = target.target_id != "attachment-environmental-constraints-maps" or not related_figure_ids
     content = _stub_attachment_content(target, validation_issues) if is_stub else _generated_attachment_content(target, related_figure_ids)
+    extent_metadata = target_extent_metadata(target_id=target.target_id, target_type="attachment", resource_category="attachments")
     return _base_item(
         deliverable_item_id=target.target_id,
         target_id=target.target_id,
@@ -720,6 +778,7 @@ def _attachment_item(target: AttachmentTarget, figures: dict[str, Any], matrix_v
         related_constraint_ids=[],
         related_table_ids=[],
         related_figure_ids=related_figure_ids,
+        evidence_refs=[],
         comparison_unit_ids=[],
         provenance={
             "artifact": "deliverable_items",
@@ -727,9 +786,10 @@ def _attachment_item(target: AttachmentTarget, figures: dict[str, Any], matrix_v
             "attachment_id": target.target_id,
             "section_target_id": target.section_target_id,
             "deliverable_figures_path": figures.get("output_path"),
+            "extent_policy": extent_metadata,
             "review_before_export": True,
         },
-        assumptions={"required_attachment": True},
+        assumptions={"required_attachment": True, "extent_policy": extent_metadata},
         uncertainty_flags=_dedupe(["draft_pre_review", "desktop_screening_only", *[str(issue.get("code")) for issue in validation_issues]]),
         is_stub=is_stub,
         review_status="needs_review",
@@ -758,6 +818,7 @@ def _base_item(
     related_constraint_ids: list[str],
     related_table_ids: list[str],
     related_figure_ids: list[str],
+    evidence_refs: list[str],
     comparison_unit_ids: list[str],
     provenance: dict[str, Any],
     assumptions: dict[str, Any],
@@ -768,6 +829,13 @@ def _base_item(
 ) -> dict[str, Any]:
     status = _normalized_review_status(review_status)
     issues = list(validation_issues)
+    extent_metadata = _item_extent_metadata(
+        target_id=target_id,
+        target_type=target_type,
+        resource_category=resource_category,
+        provenance=provenance,
+        assumptions=assumptions,
+    )
     if len(generated_content) > GENERATED_CONTENT_WARNING_CHAR_LIMIT:
         issues.append(
             _issue(
@@ -781,7 +849,7 @@ def _base_item(
                 target_id,
             )
         )
-    return {
+    item = {
         "deliverable_item_id": deliverable_item_id,
         "target_id": target_id,
         "target_type": target_type,
@@ -802,6 +870,7 @@ def _base_item(
         "related_constraint_ids": _dedupe(related_constraint_ids),
         "related_table_ids": _dedupe(related_table_ids),
         "related_figure_ids": _dedupe(related_figure_ids),
+        "evidence_refs": _dedupe(evidence_refs),
         "comparison_unit_ids": _dedupe(comparison_unit_ids),
         "provenance": provenance,
         "assumptions": assumptions,
@@ -812,6 +881,7 @@ def _base_item(
         "export_eligible": status in {"accepted", "edited", "replaced", "unable_to_verify"},
         "validation_issues": _dedupe_issues(issues),
     }
+    return apply_extent_metadata(item, extent_metadata)
 
 
 def _section_evidence(
@@ -953,13 +1023,13 @@ def _stub_table_content(target: TableTarget, table: dict[str, Any]) -> str:
     source_refs = _string_list(table.get("source_refs", []))
     flags = _string_list(table.get("uncertainty_flags", []))
     lines = [str(table.get("title") or target.title)]
-    lines.append("This required deliverable table is an explicit review stub because no bounded table rows could be generated from the currently registered sources.")
+    lines.append("This required deliverable table is an explicit source/data stub because no bounded table rows could be generated from the currently registered sources.")
     if source_refs:
         lines.append("Expected source refs: " + ", ".join(source_refs) + ".")
     if flags:
         lines.append("Source/data flags: " + ", ".join(flags) + ".")
     lines.append(_stub_reviewer_action(target.source_categories, source_refs))
-    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    lines.append("This table limitation does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
 
@@ -968,9 +1038,7 @@ def _generated_table_content(target: TableTarget, table: dict[str, Any]) -> str:
     rows_preview = _dict_list(table.get("rows", []))[:5]
     columns = _string_list(table.get("columns", []))
     lines = [str(table.get("title") or target.title)]
-    lines.append(
-        f"Draft table review candidate for {target.target_id}: {row_count} bounded row(s) were generated for reviewer verification."
-    )
+    lines.append(f"This table summarizes {row_count} bounded row(s) from the available screening artifacts.")
     if columns:
         lines.append("Columns: " + ", ".join(columns[:8]) + ".")
     source_refs = _string_list(table.get("source_refs", []))
@@ -983,8 +1051,8 @@ def _generated_table_content(target: TableTarget, table: dict[str, Any]) -> str:
         lines.append(
             f"Body preview is limited to {len(rows_preview)} row(s); full bounded table rows remain in deliverable/tables.json."
         )
-    lines.append("Reviewer focus: verify source attribution, row classifications/counts, and whether any caveat should be added before export.")
-    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    lines.append("Source attribution, row classifications, and caveats are recorded in the table artifact.")
+    lines.append("This table summary does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
 
@@ -1031,17 +1099,17 @@ def _generated_figure_content(target: FigureTarget, figure: dict[str, Any]) -> s
 
 def _stub_attachment_content(target: AttachmentTarget, validation_issues: list[dict[str, Any]]) -> str:
     lines = [f"Attachment {target.attachment_letter} {target.title}"]
-    lines.append("This required attachment is an explicit review stub because the supporting attachment material is not supplied by the automated workflow.")
+    lines.append("This required attachment is an explicit attachment stub because the supporting attachment material is not present in the current project workspace.")
     if target.target_id == "attachment-hazardous-materials-report":
-        lines.append("Reviewer action needed: provide or verify the hazardous materials support report before accepting this attachment.")
+        lines.append("The hazardous materials support report is not present in the current project workspace.")
     elif target.target_id == "attachment-agency-consultation-letters":
-        lines.append("Reviewer action needed: provide or verify agency consultation letters before accepting this attachment.")
+        lines.append("Agency consultation letters are not present in the current project workspace.")
     else:
-        lines.append("Reviewer action needed: provide or verify the required supporting attachment material before accepting this attachment.")
+        lines.append("Required supporting attachment material is not present in the current project workspace.")
     reason = _issue_summary(validation_issues)
     if reason:
         lines.append("Blocking issue summary: " + reason + ".")
-    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    lines.append("This attachment limitation does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
 
@@ -1049,15 +1117,13 @@ def _generated_attachment_content(target: AttachmentTarget, related_figure_ids: 
     main_figures = [figure_id for figure_id in related_figure_ids if not figure_id.startswith("attachment-a-panel")]
     panel_figures = [figure_id for figure_id in related_figure_ids if figure_id.startswith("attachment-a-panel")]
     lines = [f"Attachment {target.attachment_letter} {target.title}"]
-    lines.append(
-        "Draft attachment review candidate: the map package references generated report figures and supporting panel maps for reviewer verification."
-    )
+    lines.append("The map package references generated report figures and supporting panel maps.")
     if main_figures:
         lines.append(f"Main figure targets included: {_limited_join(main_figures, limit=13)}.")
     if panel_figures:
         lines.append(f"Supporting panel maps included: {len(panel_figures)} panel figure(s).")
-    lines.append("Reviewer focus: confirm the map package is complete, readable, and consistent with reviewed figure items before export.")
-    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    lines.append("Figure and panel completeness is tracked through the accepted figure items and attachment package.")
+    lines.append("This attachment summary does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
 
@@ -1106,10 +1172,10 @@ def _issue_summary(issues: list[dict[str, Any]]) -> str:
 
 def _stub_reviewer_action(source_categories: list[str], source_refs: list[str]) -> str:
     if source_refs:
-        return "Reviewer action needed: register/provide the listed source data or keep this item as a reviewed stub with an explicit limitation."
+        return "Listed source data are not available in the current workspace; carry this item as an explicit limitation unless the source data are supplied."
     if source_categories:
-        return "Reviewer action needed: provide source data for " + ", ".join(source_categories) + " or keep this item as a reviewed stub with an explicit limitation."
-    return "Reviewer action needed: provide the required material or keep this item as a reviewed stub with an explicit limitation."
+        return "Source data for " + ", ".join(source_categories) + " are not available in the current workspace; carry this item as an explicit limitation unless the source data are supplied."
+    return "Required supporting material is not available in the current workspace; carry this item as an explicit limitation unless the material is supplied."
 
 
 def _evidence_reference_summary(evidence: dict[str, Any]) -> str:
@@ -1135,19 +1201,18 @@ def _attachment_wrapper_content(target: SectionTarget) -> str:
     refs = ", ".join(target.attachment_refs)
     if target.target_id == "attachment-a-project-maps":
         return (
-            f"Draft Attachment A wrapper: review the generated map package target(s) {refs}; "
-            "main figures and supporting panel maps are tracked as separate attachment deliverables. "
-            "Reviewer verification is required before the attachment is included in export."
+            f"Attachment A map package target(s) {refs} are tracked as separate figure and supporting-panel deliverables. "
+            "Accepted figures and supporting panels form the attachment map package."
         )
     if target.target_id == "attachment-b-hazardous-materials-report":
         return (
-            f"Draft Attachment B wrapper: {refs} is reviewer-supplied/manual material. "
-            "Reviewer verification is required; if the support report is not provided, keep the attachment target as a reviewed limitation."
+            f"Attachment B support target(s) {refs} identify hazardous materials support material expected from reviewer-supplied or manual sources. "
+            "If the support report is unavailable, carry the absence as a limitation."
         )
     if target.target_id == "attachment-c-agency-consultation-letters":
         return (
-            f"Draft Attachment C wrapper: {refs} is reviewer-supplied/manual material. "
-            "Reviewer verification is required; if agency consultation letters are not provided, keep the attachment target as a reviewed limitation."
+            f"Attachment C support target(s) {refs} identify agency consultation materials expected from reviewer-supplied or manual sources. "
+            "If consultation letters are unavailable, carry the absence as a limitation."
         )
     return f"This attachment wrapper references matrix attachment target(s): {refs}."
 
@@ -1175,8 +1240,9 @@ def _source_backed_report_style(target: SectionTarget, evidence: dict[str, Any],
     return targeted and bool(source_states.intersection(AVAILABLE_SOURCE_STATES))
 
 
-def _section_lead_sentence(target: SectionTarget, comparison_unit: dict[str, Any] | None) -> str:
+def _section_lead_sentence(target: SectionTarget, comparison_unit: dict[str, Any] | None, extent_metadata: dict[str, Any] | None = None) -> str:
     unit_name = str((comparison_unit or {}).get("comparison_unit_name") or "").strip()
+    scope_phrase = extent_wording_for_scope(extent_metadata or {})
     if target.resource_category == "wetlands_waterbodies":
         subject = "Mapped wetland and waterbody features"
     elif target.resource_category == "cultural_historic":
@@ -1192,7 +1258,7 @@ def _section_lead_sentence(target: SectionTarget, comparison_unit: dict[str, Any
     verb = "are" if target.resource_category == "wetlands_waterbodies" else "is"
     if unit_name:
         return f"{subject} for {unit_name} {verb} summarized from the available source-backed screening evidence."
-    return f"{subject} {verb} summarized from the available source-backed screening evidence for the project area."
+    return f"{subject} {verb} summarized from the available source-backed screening evidence {scope_phrase}."
 
 
 def _source_display_name(source_ref: str) -> str:
@@ -1244,14 +1310,14 @@ def _artifact_reference_sentence(related_tables: list[dict[str, Any]], related_f
     return "Supporting evidence is " + " and ".join(parts) + "."
 
 
-def _constraint_summary_sentence(evidence: dict[str, Any], comparison_unit: dict[str, Any] | None) -> str:
+def _constraint_summary_sentence(evidence: dict[str, Any], comparison_unit: dict[str, Any] | None, extent_metadata: dict[str, Any] | None = None) -> str:
     constraints = _dict_list(evidence.get("constraint_summaries", []))
     if not constraints:
         return "The current evidence package does not include a compact mapped-overlap summary for this section."
     unit_name = str((comparison_unit or {}).get("comparison_unit_name") or "").strip()
     if not unit_name:
         names = [str(item.get("comparison_unit_name", "")).strip() for item in constraints if item.get("comparison_unit_name")]
-        unit_phrase = " across the comparison units" if len(set(names)) > 1 else " for the project area"
+        unit_phrase = " across the comparison units" if len(set(names)) > 1 else f" {extent_wording_for_scope(extent_metadata or {})}"
     else:
         unit_phrase = f" for {unit_name}"
     relationships = _relationship_counts(constraints)
@@ -1298,7 +1364,13 @@ def _comparison_unit_sentence(evidence: dict[str, Any], comparison_unit: dict[st
     return f"The summarized evidence is organized by {len(unit_ids)} {unit_word}."
 
 
-def _source_limitation_sentence(target: SectionTarget, evidence: dict[str, Any], related_tables: list[dict[str, Any]], related_figures: list[dict[str, Any]]) -> str:
+def _source_limitation_sentence(
+    target: SectionTarget,
+    evidence: dict[str, Any],
+    related_tables: list[dict[str, Any]],
+    related_figures: list[dict[str, Any]],
+    extent_metadata: dict[str, Any] | None = None,
+) -> str:
     limitations: list[str] = []
     if target.resource_category == "wetlands_waterbodies":
         limitations.append(
@@ -1320,6 +1392,9 @@ def _source_limitation_sentence(target: SectionTarget, evidence: dict[str, Any],
         limitations.append(
             "Regulated facility datasets are screening context only and do not establish contamination extent, liability, or cleanup obligations."
         )
+    extent_limitation = _extent_limitation_sentence(extent_metadata or {})
+    if extent_limitation:
+        limitations.append(extent_limitation)
     limiting_status = _limiting_source_gap_status(_dict_list(evidence.get("source_gap_status", [])))
     if limiting_status:
         limitations.append("Unavailable or deferred source categories remain limitations: " + _source_gap_summary(limiting_status) + ".")
@@ -1334,6 +1409,18 @@ def _source_limitation_sentence(target: SectionTarget, evidence: dict[str, Any],
     return " ".join(_dedupe(limitations))
 
 
+def _extent_limitation_sentence(extent_metadata: dict[str, Any]) -> str:
+    analysis_extent_type = str(extent_metadata.get("analysis_extent_type", ""))
+    source_selection_reason = str(extent_metadata.get("source_selection_reason", "")).strip()
+    if analysis_extent_type in {"nearby_context_extent", "community_context_extent"}:
+        return "Context records should not be interpreted as direct project impacts unless a direct project-area relationship is separately documented."
+    if analysis_extent_type == "watershed_context_extent":
+        return "Watershed and impaired-water context is broader than direct project-feature intersection; current automated watershed context remains limited where source acquisition is deferred."
+    if source_selection_reason and "until" in source_selection_reason:
+        return source_selection_reason
+    return ""
+
+
 def _limiting_source_gap_status(source_gap_status: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [status for status in source_gap_status if str(status.get("status", "")) not in AVAILABLE_SOURCE_STATES]
 
@@ -1345,11 +1432,13 @@ def _general_section_content(
     related_tables: list[dict[str, Any]],
     related_figures: list[dict[str, Any]],
     comparison_unit: dict[str, Any] | None,
+    extent_metadata: dict[str, Any] | None = None,
 ) -> str:
+    extent_metadata = extent_metadata or {}
     lines = [_title_line(target)]
     project_name = str(context.get("project_name") or "the project").strip()
     if comparison_unit:
-        lines.append(_section_lead_sentence(target, comparison_unit))
+        lines.append(_section_lead_sentence(target, comparison_unit, extent_metadata))
     elif target.resource_category in {"executive_summary", "constraints_inventory", "natural_ecological"}:
         lines.append(f"This section summarizes the available screening evidence for {project_name} and points to the resource sections, tables, figures, and limitations that support the report.")
     elif target.resource_category in {"introduction", "study_area"}:
@@ -1360,15 +1449,15 @@ def _general_section_content(
         lines.append("This section summarizes screening themes and remaining review needs without ranking alternatives or making final determinations.")
     elif target.source_categories:
         lines.append(
-            f"This section identifies {target.title.lower()} considerations for the project area based on currently available source status and limitations."
+            f"This section identifies {target.title.lower()} considerations {extent_wording_for_scope(extent_metadata)} based on currently available source status and limitations."
         )
     else:
-        lines.append(_section_lead_sentence(target, comparison_unit))
+        lines.append(_section_lead_sentence(target, comparison_unit, extent_metadata))
     for sentence in (
         _source_reference_sentence(_string_list(evidence.get("source_refs", []))),
         _artifact_reference_sentence(related_tables, related_figures),
-        _constraint_summary_sentence(evidence, comparison_unit) if _dict_list(evidence.get("constraint_summaries", [])) else "",
-        _source_limitation_sentence(target, evidence, related_tables, related_figures),
+        _constraint_summary_sentence(evidence, comparison_unit, extent_metadata) if _dict_list(evidence.get("constraint_summaries", [])) else "",
+        _source_limitation_sentence(target, evidence, related_tables, related_figures, extent_metadata),
     ):
         if sentence:
             lines.append(sentence)
@@ -1383,7 +1472,9 @@ def _section_content(
     related_tables: list[dict[str, Any]],
     related_figures: list[dict[str, Any]],
     comparison_unit: dict[str, Any] | None,
+    extent_metadata: dict[str, Any] | None = None,
 ) -> str:
+    extent_metadata = extent_metadata or {}
     if target.target_type == "front_matter":
         return "\n".join([_title_line(target), _front_matter_content(target, context, related_tables, related_figures)])
     if target.target_type == "attachment":
@@ -1391,17 +1482,17 @@ def _section_content(
             return "\n".join([_title_line(target), _attachment_wrapper_content(target)])
         return "\n".join([_title_line(target), "This attachment section identifies supporting materials expected for the report package."])
     if not _source_backed_report_style(target, evidence, related_tables, related_figures):
-        return _general_section_content(target, context, evidence, related_tables, related_figures, comparison_unit)
+        return _general_section_content(target, context, evidence, related_tables, related_figures, comparison_unit, extent_metadata)
 
     lines = [_title_line(target)]
     for sentence in (
-        _section_lead_sentence(target, comparison_unit),
+        _section_lead_sentence(target, comparison_unit, extent_metadata),
         _source_reference_sentence(_dedupe([*_string_list(evidence.get("source_refs", [])), *[ref for table in related_tables for ref in _string_list(table.get("source_refs", []))], *[ref for figure in related_figures for ref in _string_list(figure.get("source_refs", []))]])),
         _artifact_reference_sentence(related_tables, related_figures),
         _table_row_sentence(related_tables),
         _comparison_unit_sentence(evidence, comparison_unit),
-        _constraint_summary_sentence(evidence, comparison_unit),
-        _source_limitation_sentence(target, evidence, related_tables, related_figures),
+        _constraint_summary_sentence(evidence, comparison_unit, extent_metadata),
+        _source_limitation_sentence(target, evidence, related_tables, related_figures, extent_metadata),
     ):
         if sentence:
             lines.append(sentence)
@@ -1410,14 +1501,14 @@ def _section_content(
 
 def _front_matter_content(target: SectionTarget, context: dict[str, Any], related_tables: list[dict[str, Any]], related_figures: list[dict[str, Any]]) -> str:
     if target.target_id == "cover-title":
-        return f"{context.get('project_name', 'Project')} Environmental Constraints Report draft package for reviewer verification."
+        return f"{context.get('project_name', 'Project')} Environmental Constraints Report."
     if target.target_id == "list-of-figures":
-        return "Draft list of figures placeholder: use reviewed matrix-backed figure items in matrix order before export."
+        return "The figure list reflects matrix-backed figure items in matrix order."
     if target.target_id == "list-of-tables":
-        return "Draft list of tables placeholder: use reviewed matrix-backed table items in matrix order before export."
+        return "The table list reflects matrix-backed table items in matrix order."
     if target.target_id == "list-of-attachments":
-        return "Draft list of attachments placeholder: use reviewed Attachment A, Attachment B, and Attachment C targets before export."
-    return f"Draft front-matter content for {target.title}."
+        return "The attachment list reflects Attachment A, Attachment B, and Attachment C targets."
+    return f"Front-matter content for {target.title}."
 
 
 def _review_status(
@@ -1521,6 +1612,75 @@ def _evidence_finding_ids(evidence: dict[str, Any]) -> list[str]:
 
 def _evidence_constraint_ids(evidence: dict[str, Any]) -> list[str]:
     return _dedupe([str(item.get("constraint_id")) for item in _dict_list(evidence.get("constraint_summaries", [])) if item.get("constraint_id")])
+
+
+def _evidence_refs(evidence: dict[str, Any]) -> list[str]:
+    section_id = str(evidence.get("section_id") or "").strip()
+    if not section_id:
+        return []
+    return [f"section_evidence:{section_id}"]
+
+
+def _section_extent_metadata(
+    target: SectionTarget,
+    evidence: dict[str, Any],
+    related_tables: list[dict[str, Any]],
+    related_figures: list[dict[str, Any]],
+) -> dict[str, Any]:
+    fallback = target_extent_metadata(
+        target_id=target.target_id,
+        target_type=target.target_type,
+        resource_category=target.resource_category,
+        source_categories=target.source_categories,
+    )
+    return _prefer_target_scope_for_context_targets(
+        merge_extent_metadata([evidence, *related_tables, *related_figures], fallback=fallback),
+        fallback,
+        force_target_scope=target.target_id in DIRECT_TARGET_IDS,
+    )
+
+
+def _record_extent_metadata(record: dict[str, Any], *, fallback: dict[str, Any]) -> dict[str, Any]:
+    extent = {field: record[field] for field in EXTENT_FIELD_NAMES if field in record}
+    if extent:
+        return merge_extent_metadata([extent], fallback=fallback)
+    provenance = record.get("provenance", {}) if isinstance(record, dict) else {}
+    if isinstance(provenance, dict) and isinstance(provenance.get("extent_policy"), dict):
+        return merge_extent_metadata([provenance["extent_policy"]], fallback=fallback)
+    return fallback
+
+
+def _item_extent_metadata(
+    *,
+    target_id: str,
+    target_type: str,
+    resource_category: str,
+    provenance: dict[str, Any],
+    assumptions: dict[str, Any],
+) -> dict[str, Any]:
+    records: list[dict[str, Any]] = []
+    if isinstance(provenance.get("extent_policy"), dict):
+        records.append(provenance["extent_policy"])
+    if isinstance(assumptions.get("extent_policy"), dict):
+        records.append(assumptions["extent_policy"])
+    fallback = target_extent_metadata(target_id=target_id, target_type=target_type, resource_category=resource_category)
+    return merge_extent_metadata(records, fallback=fallback)
+
+
+def _prefer_target_scope_for_context_targets(metadata: dict[str, Any], fallback: dict[str, Any], *, force_target_scope: bool = False) -> dict[str, Any]:
+    target_scope = str(fallback.get("analysis_extent_type", ""))
+    if not force_target_scope and target_scope not in {WATERSHED_CONTEXT_EXTENT, COUNTY_OR_REGIONAL_CONTEXT_EXTENT, COMMUNITY_CONTEXT_EXTENT, NEARBY_CONTEXT_EXTENT}:
+        return metadata
+    result = dict(metadata)
+    result["analysis_extent_type"] = target_scope
+    if fallback.get("list_extent_type"):
+        result["list_extent_type"] = fallback["list_extent_type"]
+    result["interpretation_scope_label"] = fallback.get("interpretation_scope_label", result.get("interpretation_scope_label", ""))
+    reason = str(fallback.get("source_selection_reason", "")).strip()
+    existing = str(result.get("source_selection_reason", "")).strip()
+    if reason and reason not in existing:
+        result["source_selection_reason"] = (existing + " " + reason).strip()
+    return result
 
 
 def _evidence_comparison_unit_ids(

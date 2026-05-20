@@ -11,6 +11,7 @@ from typing import Any
 
 from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, load_constraint_results
 from .deliverable_items import DELIVERABLE_ITEMS_PATH, DeliverableItemsError, generate_deliverable_items, load_deliverable_items
+from .extent_policy import EXTENT_FIELD_NAMES, apply_extent_metadata, merge_extent_metadata, target_extent_metadata
 from .findings import FINDINGS_PATH, FindingGenerationError, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
@@ -55,6 +56,11 @@ REQUIRED_ITEM_FIELDS = {
     "figure_id",
     "attachment_id",
     "comparison_unit_ids",
+    "related_finding_ids",
+    "related_constraint_ids",
+    "related_table_ids",
+    "related_figure_ids",
+    "evidence_refs",
     "assumptions",
     "provenance",
     "source_refs",
@@ -63,6 +69,8 @@ REQUIRED_ITEM_FIELDS = {
     "validation_issues",
     "created_at",
     "updated_at",
+    *EXTENT_FIELD_NAMES,
+    "extent_policy_version",
 }
 
 
@@ -386,6 +394,7 @@ def _deliverable_review_item(
 ) -> dict[str, Any]:
     item_id = str(deliverable_item.get("deliverable_item_id") or deliverable_item.get("target_id") or "deliverable-item")
     status = _normalize_status(str(deliverable_item.get("review_status", "draft")))
+    extent_metadata = _review_extent_from_deliverable(deliverable_item)
     return _review_item(
         item_id=item_id,
         project_id=project_id,
@@ -401,6 +410,7 @@ def _deliverable_review_item(
             "heading_level": deliverable_item.get("heading_level"),
             "resource_category": deliverable_item.get("resource_category"),
             "target_type": deliverable_item.get("target_type"),
+            "extent_policy": extent_metadata,
         },
         provenance={
             "artifact": "deliverable_items",
@@ -408,6 +418,7 @@ def _deliverable_review_item(
             "deliverable_item_id": item_id,
             "target_id": deliverable_item.get("target_id"),
             "deliverable_item_provenance": deliverable_item.get("provenance", {}),
+            "extent_policy": extent_metadata,
             "review_before_export": True,
         },
         source_refs=_string_list(deliverable_item.get("source_refs", [])),
@@ -427,7 +438,9 @@ def _deliverable_review_item(
             "related_constraint_ids": _string_list(deliverable_item.get("related_constraint_ids", [])),
             "related_table_ids": _string_list(deliverable_item.get("related_table_ids", [])),
             "related_figure_ids": _string_list(deliverable_item.get("related_figure_ids", [])),
+            "evidence_refs": _string_list(deliverable_item.get("evidence_refs", [])),
             "validation_issues": _dict_list(deliverable_item.get("validation_issues", [])),
+            **extent_metadata,
         },
     )
 
@@ -902,6 +915,13 @@ def _review_item(
 ) -> dict[str, Any]:
     extra = dict(extra or {})
     status = _normalize_status(status)
+    extent_metadata = _review_item_extent_metadata(
+        item_id=item_id,
+        item_type=item_type,
+        assumptions=assumptions,
+        provenance=provenance,
+        extra=extra,
+    )
     item = {
         "id": item_id,
         "project_id": project_id,
@@ -922,6 +942,11 @@ def _review_item(
         "figure_id": str(extra.get("figure_id", "")),
         "attachment_id": str(extra.get("attachment_id", "")),
         "comparison_unit_ids": _string_list(extra.get("comparison_unit_ids", [])),
+        "related_finding_ids": _string_list(extra.get("related_finding_ids", [])),
+        "related_constraint_ids": _string_list(extra.get("related_constraint_ids", [])),
+        "related_table_ids": _string_list(extra.get("related_table_ids", [])),
+        "related_figure_ids": _string_list(extra.get("related_figure_ids", [])),
+        "evidence_refs": _string_list(extra.get("evidence_refs", [])),
         "assumptions": assumptions,
         "provenance": provenance,
         "source_refs": source_refs,
@@ -931,10 +956,48 @@ def _review_item(
         "created_at": now,
         "updated_at": now,
     }
+    item = apply_extent_metadata(item, extent_metadata)
     for key, value in extra.items():
         if key not in item:
             item[key] = value
     return item
+
+
+def _review_extent_from_deliverable(deliverable_item: dict[str, Any]) -> dict[str, Any]:
+    records = [{field: deliverable_item[field] for field in EXTENT_FIELD_NAMES if field in deliverable_item}]
+    provenance = deliverable_item.get("provenance", {})
+    assumptions = deliverable_item.get("assumptions", {})
+    if isinstance(provenance, dict) and isinstance(provenance.get("extent_policy"), dict):
+        records.append(provenance["extent_policy"])
+    if isinstance(assumptions, dict) and isinstance(assumptions.get("extent_policy"), dict):
+        records.append(assumptions["extent_policy"])
+    fallback = target_extent_metadata(
+        target_id=str(deliverable_item.get("target_id") or deliverable_item.get("deliverable_item_id") or ""),
+        target_type=str(deliverable_item.get("target_type") or deliverable_item.get("review_item_type") or ""),
+        resource_category=str(deliverable_item.get("resource_category") or ""),
+    )
+    return merge_extent_metadata(records, fallback=fallback)
+
+
+def _review_item_extent_metadata(
+    *,
+    item_id: str,
+    item_type: str,
+    assumptions: dict[str, Any],
+    provenance: dict[str, Any],
+    extra: dict[str, Any],
+) -> dict[str, Any]:
+    records = [{field: extra[field] for field in EXTENT_FIELD_NAMES if field in extra}]
+    if isinstance(assumptions.get("extent_policy"), dict):
+        records.append(assumptions["extent_policy"])
+    if isinstance(provenance.get("extent_policy"), dict):
+        records.append(provenance["extent_policy"])
+    fallback = target_extent_metadata(
+        target_id=str(extra.get("target_id") or item_id),
+        target_type=str(extra.get("target_type") or item_type),
+        resource_category=str(extra.get("resource_category") or ""),
+    )
+    return merge_extent_metadata(records, fallback=fallback)
 
 
 def _existing_item_lookup(queue: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -1044,6 +1107,16 @@ def _validate_queue(queue: dict[str, Any]) -> None:
             raise ReviewQueueError(f"Review item '{item_id}' reviewer_notes must be a list.")
         if not isinstance(item["comparison_unit_ids"], list):
             raise ReviewQueueError(f"Review item '{item_id}' comparison_unit_ids must be a list.")
+        if not isinstance(item["related_finding_ids"], list):
+            raise ReviewQueueError(f"Review item '{item_id}' related_finding_ids must be a list.")
+        if not isinstance(item["related_constraint_ids"], list):
+            raise ReviewQueueError(f"Review item '{item_id}' related_constraint_ids must be a list.")
+        if not isinstance(item["related_table_ids"], list):
+            raise ReviewQueueError(f"Review item '{item_id}' related_table_ids must be a list.")
+        if not isinstance(item["related_figure_ids"], list):
+            raise ReviewQueueError(f"Review item '{item_id}' related_figure_ids must be a list.")
+        if not isinstance(item["evidence_refs"], list):
+            raise ReviewQueueError(f"Review item '{item_id}' evidence_refs must be a list.")
         if not isinstance(item["validation_issues"], list):
             raise ReviewQueueError(f"Review item '{item_id}' validation_issues must be a list.")
 
@@ -1072,9 +1145,22 @@ def _normalize_queue_compat(queue: Any) -> None:
         item.setdefault("figure_id", "")
         item.setdefault("attachment_id", "")
         item.setdefault("comparison_unit_ids", [])
+        item.setdefault("related_finding_ids", [])
+        item.setdefault("related_constraint_ids", [])
+        item.setdefault("related_table_ids", [])
+        item.setdefault("related_figure_ids", [])
+        item.setdefault("evidence_refs", [])
         item.setdefault("validation_issues", [])
         item.setdefault("edited_content", "")
         item.setdefault("reviewer_notes", [])
+        extent = _review_item_extent_metadata(
+            item_id=str(item.get("id") or ""),
+            item_type=str(item.get("type") or ""),
+            assumptions=item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {},
+            provenance=item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {},
+            extra=item,
+        )
+        apply_extent_metadata(item, extent)
 
 
 def _default_export_eligible(status: str) -> bool:

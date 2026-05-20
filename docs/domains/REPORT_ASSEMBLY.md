@@ -107,6 +107,8 @@ The evidence package is the bridge between hard GIS/source artifacts and narrati
 
 Sprint 2.3 evidence also includes deliverable table refs, deliverable figure refs, compact row summaries, figure availability/stub status, comparison-unit summaries, compact source-backed constraint summaries, source-gap status, validation issue codes, and raw artifact paths. The GPT-bound evidence remains compact: no full geometries, no raw feature dumps, and no root `sources/` paths.
 
+Evidence and downstream deliverable artifacts now preserve extent-policy metadata. Current fields distinguish the query extent actually used, the analysis or interpretation extent type, table/list/figure extent type, render extent type, whether render expansion is presentation-only, and a source-selection reason. This allows report prose and reviewer metadata to distinguish direct project-area evidence from nearby/community context, watershed context, county/regional context, and map-collar rendering. This metadata does not create new query buffers or broaden existing source materialization by itself.
+
 ## Deliverable Tables
 
 The current CLI can generate the exact standard table targets from the canonical deliverable matrix:
@@ -141,9 +143,18 @@ The current CLI can generate the standard reviewable deliverable item layer from
 
 This artifact contains static section/front-matter/attachment-section targets, one dynamic wetlands/waterbodies child section per comparison unit, the four deliverable table targets, the 13 deliverable figure targets, and the three required attachment targets. Stable `deliverable_item_id` / `target_id` values are used as the standard review queue item IDs.
 
-Deliverable items carry matrix target metadata, prompt key and prompt-contract constraints, source refs, table/figure/attachment refs, comparison-unit IDs, compact source-gap and upstream validation summaries, provenance, uncertainty flags, stub state, review status, and export eligibility. Source-backed section_text items use deterministic report-style candidate prose for the standard review queue, including table/figure/source references and screening-level limitations where available. Required missing or unimplemented content uses the canonical stub text and explicit source/data-gap wording rather than unsupported narrative.
+Deliverable items carry matrix target metadata, prompt key and prompt-contract constraints, source refs, table/figure/attachment refs, evidence refs, comparison-unit IDs, extent-policy fields, compact source-gap and upstream validation summaries, provenance, uncertainty flags, stub state, review status, and export eligibility. Source-backed section_text items use deterministic report-style candidate prose for the standard review queue, including table/figure/source references and screening-level limitations where available. The standard review UI displays related table, figure, and evidence refs for source-backed section_text items so supporting artifacts are visible outside the prose body. Required missing or unimplemented content uses the canonical stub text and explicit source/data-gap wording rather than unsupported narrative.
 
-GPT-enabled deliverable item drafting receives only structured evidence, prompt metadata, and matrix target context. Raw geometries, full feature dumps, and root `sources/` paths remain excluded from GPT-bound payloads. GPT output is rejected if it cites unknown refs, uses prohibited recommendation/determination language, or copies review/process labels such as "draft review candidate", "pre-review", "reviewer verification", "reviewer focus", or "related table status" into export-facing content.
+GPT-enabled deliverable item drafting receives only structured evidence, prompt metadata, matrix target context, and extent-policy labels. Raw geometries, full feature dumps, and root `sources/` paths remain excluded from GPT-bound payloads. GPT output is rejected if it cites unknown refs, uses prohibited recommendation/determination language, copies review/process labels such as "draft review candidate", "pre-review", "reviewer verification", "reviewer focus", or "related table status" into export-facing content, or upgrades context-only extent evidence into direct project-impact language.
+
+## Developer Review Queue Reset
+
+For local manual testing, a developer-only reset command is available:
+
+- Command: `review-assist reset-review-queue <project_dir> --regenerate`
+- Dry run: `review-assist reset-review-queue <project_dir> --dry-run`
+
+The reset removes generated `deliverable/deliverable_items.json` and `review_queue/review_queue.json`, then rebuilds deliverable items with deterministic drafting and regenerates the standard review queue. It is intended for clearing stale generated candidates during POC testing, not for production review-state management. Source layers, source registry/config, project area, comparison units, deliverable tables, deliverable figures, evidence, and exports are preserved by default; `--include-evidence` and `--include-exports` must be supplied to rebuild or clear those artifacts. If upstream tables, figures, constraints, or evidence have changed, regenerate those artifacts first or use the explicit reset flags so stale candidate text, stale review state, or stale preview exports do not get mistaken for current truth.
 
 ## Current Export Baseline
 

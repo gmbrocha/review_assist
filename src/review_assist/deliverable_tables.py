@@ -22,6 +22,7 @@ from .deliverable_matrix import (
     TableTarget,
     load_deliverable_matrix,
 )
+from .extent_policy import apply_extent_metadata, extent_policy_summary, target_extent_metadata
 from .projects import ProjectManifestError, load_project_manifest
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 
@@ -93,6 +94,7 @@ def generate_deliverable_tables(project_dir: Path) -> dict[str, Any]:
         "project_dir": str(project_dir),
         "created_at": _utc_now(),
         "matrix_version": matrix.matrix_version,
+        "extent_policy": extent_policy_summary(),
         "table_count": len(tables),
         "tables": tables,
         "validation_issues": validation_issues,
@@ -574,6 +576,7 @@ def _deliverable_table(
     uncertainty_flags: list[str],
     provenance: dict[str, Any],
 ) -> dict[str, Any]:
+    extent = _table_extent(target, provenance)
     return {
         "table_id": target.target_id,
         "table_number": target.table_number,
@@ -585,6 +588,7 @@ def _deliverable_table(
         "source_refs": source_refs,
         "related_constraint_ids": related_constraint_ids,
         "comparison_unit_ids": comparison_unit_ids,
+        **extent,
         "provenance": provenance,
         "uncertainty_flags": uncertainty_flags,
         "is_stub": False,
@@ -603,6 +607,8 @@ def _stub_table(
     uncertainty_flags: list[str],
 ) -> dict[str, Any]:
     flags = sorted(set(uncertainty_flags or _category_flags(source_context, target.source_categories) or ["source_unavailable"]))
+    provenance = _provenance(target, matrix_version, comparison_unit_constraints, source_status, method="matrix_stub_for_unavailable_source")
+    extent = _table_extent(target, provenance)
     return {
         "table_id": target.target_id,
         "table_number": target.table_number,
@@ -614,7 +620,8 @@ def _stub_table(
         "source_refs": _target_source_refs(source_context, target.source_categories),
         "related_constraint_ids": [],
         "comparison_unit_ids": [],
-        "provenance": _provenance(target, matrix_version, comparison_unit_constraints, source_status, method="matrix_stub_for_unavailable_source"),
+        **extent,
+        "provenance": provenance,
         "uncertainty_flags": flags,
         "is_stub": True,
         "stub_text": REQUIRED_STUB_TEXT,
@@ -630,6 +637,13 @@ def _provenance(
     *,
     method: str,
 ) -> dict[str, Any]:
+    extent = target_extent_metadata(
+        target_id=target.target_id,
+        target_type="table",
+        source_categories=target.source_categories,
+        query_distance=comparison_unit_constraints.get("default_buffer_feet"),
+        query_units="feet",
+    )
     return {
         "matrix_version": matrix_version,
         "table_target_id": target.target_id,
@@ -638,9 +652,17 @@ def _provenance(
         "comparison_unit_constraints_path": comparison_unit_constraints.get("output_path"),
         "source_status_path": source_status.get("output_path"),
         "source_categories": list(target.source_categories),
+        "extent_policy": extent,
         "review_before_export": True,
         "desktop_screening_only": True,
     }
+
+
+def _table_extent(target: TableTarget, provenance: dict[str, Any]) -> dict[str, Any]:
+    extent = provenance.get("extent_policy")
+    if not isinstance(extent, dict):
+        extent = target_extent_metadata(target_id=target.target_id, target_type="table", source_categories=target.source_categories)
+    return apply_extent_metadata({}, extent)
 
 
 def _category_available(source_context: dict[str, Any], category: str) -> bool:

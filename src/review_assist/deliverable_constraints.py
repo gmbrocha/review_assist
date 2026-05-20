@@ -28,6 +28,16 @@ from .constraints import (
     _source_issue,
     _source_result,
 )
+from .extent_policy import (
+    COMPARISON_UNITS,
+    PROJECT_AREA_ANALYSIS_BOUNDS,
+    apply_extent_metadata,
+    base_extent_metadata,
+    constraint_extent_metadata,
+    extent_policy_summary,
+    no_overlap_extent_metadata,
+    target_extent_metadata,
+)
 from .project_geometry import PROJECT_ANALYSIS_BOUNDS_PATH, ProjectGeometryError, build_project_geometry, load_project_geometry
 from .projects import ProjectManifestError, load_project_manifest
 from .source_catalog import (
@@ -174,6 +184,7 @@ def analyze_comparison_unit_constraints(project_dir: Path, *, tolerate_source_er
             source_gdf = source_gdf.set_crs("EPSG:4326", allow_override=True)
         source_gdf = source_gdf[~source_gdf.geometry.isna()]
         source_gdf = source_gdf[~source_gdf.geometry.is_empty]
+        buffer_feet = project_source.buffer_feet if project_source.buffer_feet is not None else default_buffer_feet
         if source_gdf.empty:
             source_results.append(
                 _source_result(
@@ -191,11 +202,11 @@ def analyze_comparison_unit_constraints(project_dir: Path, *, tolerate_source_er
                     project_source=project_source,
                     source_path=source_path,
                     source_feature_count=0,
+                    buffer_feet=buffer_feet,
                 )
             )
             continue
 
-        buffer_feet = project_source.buffer_feet if project_source.buffer_feet is not None else default_buffer_feet
         source_projected = source_gdf.to_crs(analysis_crs)
         clipped = source_projected[source_projected.geometry.intersects(bounds_union)].copy()
         source_constraints = _source_comparison_unit_constraints(
@@ -216,6 +227,7 @@ def analyze_comparison_unit_constraints(project_dir: Path, *, tolerate_source_er
                 project_source=project_source,
                 source_path=source_path,
                 source_feature_count=len(clipped),
+                buffer_feet=buffer_feet,
                 constraints=source_constraints,
             )
         )
@@ -235,6 +247,19 @@ def analyze_comparison_unit_constraints(project_dir: Path, *, tolerate_source_er
         )
 
     output_path = project_dir / COMPARISON_UNIT_CONSTRAINTS_PATH
+    source_results = [_source_result_with_extent(record, default_buffer_feet=default_buffer_feet) for record in source_results]
+    artifact_extent = base_extent_metadata(
+        query_extent_type=PROJECT_AREA_ANALYSIS_BOUNDS,
+        analysis_extent_type=COMPARISON_UNITS,
+        query_distance=default_buffer_feet,
+        query_units="feet",
+        interpretation_scope_label="comparison-unit screening geometry within project-area analysis bounds",
+        source_selection_reason=(
+            "Comparison-unit constraints use registered project-local source layers clipped to "
+            "project_area_analysis_bounds, then compare features against submitted comparison-unit "
+            "geometry and configured screening buffers."
+        ),
+    )
     result = {
         "project_id": manifest.project_id,
         "project_name": manifest.name,
@@ -245,6 +270,8 @@ def analyze_comparison_unit_constraints(project_dir: Path, *, tolerate_source_er
         "analysis_bounds_path": str(project_dir / PROJECT_ANALYSIS_BOUNDS_PATH),
         "analysis_crs": analysis_crs,
         "default_buffer_feet": default_buffer_feet,
+        "extent_policy": extent_policy_summary(),
+        **artifact_extent,
         "sources": source_results,
         "constraint_count": len(constraints),
         "constraints": constraints,
@@ -386,7 +413,15 @@ def _comparison_unit_constraint_record(
         uncertainty_flags.append("buffer_assumption")
     if not _feature_date(source_row):
         uncertainty_flags.append("source_date_unknown")
-    return {
+    raw_intersects = bool(unit_geometry.intersects(source_geometry))
+    extent = constraint_extent_metadata(
+        relationship_type=relationship,
+        analysis_geometry_kind=analysis_geometry_kind,
+        raw_intersects=raw_intersects,
+        buffer_feet=buffer_feet,
+    )
+    return apply_extent_metadata(
+        {
         "constraint_id": f"comparison-unit-constraint-{constraint_id:05d}",
         "comparison_unit_id": _string_value(unit_row, "comparison_unit_id", unit_index),
         "comparison_unit_name": _string_value(unit_row, "comparison_unit_name", unit_index),
@@ -426,11 +461,14 @@ def _comparison_unit_constraint_record(
             "analysis_crs": analysis_crs,
             "analysis_geometry_kind": analysis_geometry_kind,
             "buffer_feet": buffer_feet,
+            "extent_policy": extent,
             "desktop_screening_only": True,
         },
         "uncertainty_flags": uncertainty_flags,
         "review_status": "draft",
-    }
+    },
+        extent,
+    )
 
 
 def _measure_comparison_unit_relationship(
@@ -465,6 +503,7 @@ def _no_overlap_summaries(
     project_source: ProjectSource,
     source_path: Path,
     source_feature_count: int,
+    buffer_feet: float,
     constraints: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     constraints_by_unit = {str(item.get("comparison_unit_id", "")) for item in constraints or []}
@@ -473,8 +512,10 @@ def _no_overlap_summaries(
         unit_id = _string_value(unit_row, "comparison_unit_id", unit_index)
         if unit_id in constraints_by_unit:
             continue
+        extent = no_overlap_extent_metadata(buffer_feet=buffer_feet)
         summaries.append(
-            {
+            apply_extent_metadata(
+                {
                 "comparison_unit_id": unit_id,
                 "comparison_unit_name": _string_value(unit_row, "comparison_unit_name", unit_index),
                 "comparison_unit_type": _string_value(unit_row, "comparison_unit_type", ""),
@@ -486,9 +527,25 @@ def _no_overlap_summaries(
                 "source_path": str(source_path),
                 "review_status": "draft",
                 "uncertainty_flags": ["desktop_screening_only"],
-            }
+            },
+                extent,
+            )
         )
     return summaries
+
+
+def _source_result_with_extent(record: dict[str, Any], *, default_buffer_feet: float) -> dict[str, Any]:
+    source_category = str(record.get("source_category", ""))
+    buffer_feet = record.get("buffer_feet")
+    if buffer_feet is None:
+        buffer_feet = default_buffer_feet
+    extent = target_extent_metadata(
+        resource_category=source_category,
+        source_categories=[source_category] if source_category else [],
+        query_distance=buffer_feet,
+        query_units="feet",
+    )
+    return apply_extent_metadata(dict(record), extent)
 
 
 def _report_table_source_values(row: Any) -> dict[str, str]:

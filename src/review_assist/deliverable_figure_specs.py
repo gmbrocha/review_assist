@@ -42,7 +42,6 @@ RESTRICTED_CULTURAL_SOURCE_ID = "mdah_restricted_archaeology"
 PUBLIC_CULTURAL_SOURCE_IDS = {"maris_public_cultural_context", "mdah_public_historic_resources"}
 NHD_SOURCE_IDS = ("usgs_nhd_hydrography", "usgs_nhd_flowlines", "usgs_nhd_waterbodies", "usgs_nhd_other_areas")
 REGULATED_FACILITY_SOURCE_IDS = (
-    "epa_envirofacts_echo",
     "epa_frs_facilities_ms",
     "maris_brownfields",
     "maris_npdes_facilities",
@@ -50,7 +49,6 @@ REGULATED_FACILITY_SOURCE_IDS = (
     "maris_superfund_sites",
     "maris_tri_facilities",
     "maris_underground_storage_tanks",
-    "mdeq_environmental_context",
     "mississippi_oil_gas_wells",
 )
 RENDERABLE_BASEMAP_SUFFIXES = {".tif", ".tiff", ".png"}
@@ -63,7 +61,7 @@ class TargetFigureSpec:
     source_ids: tuple[str, ...]
     filter_tokens: tuple[str, ...] = ()
     source_unimplemented_note: str = ""
-    prefer_basemap: bool = False
+    prefer_basemap: bool = True
 
 
 TARGET_SPECS: dict[str, TargetFigureSpec] = {

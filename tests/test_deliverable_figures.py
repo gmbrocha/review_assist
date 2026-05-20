@@ -6,12 +6,19 @@ from pathlib import Path
 
 import geopandas as gpd
 import matplotlib
+import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon
 
 import review_assist.project_area as project_area_module
 from review_assist.cli import main
-from review_assist.deliverable_figure_rendering import comparison_unit_style_records, render_map, source_layer_style_record
+from review_assist.deliverable_figure_rendering import (
+    choose_legend_collar_side,
+    comparison_unit_style_records,
+    compute_visual_extent_with_legend_collar,
+    render_map,
+    source_layer_style_record,
+)
 from review_assist.deliverable_figures import DeliverableFigureError, generate_deliverable_figures, load_deliverable_figures
 from review_assist.deliverable_matrix import REQUIRED_STUB_TEXT, load_deliverable_matrix
 from review_assist.populate_for_review import populate_for_review
@@ -136,6 +143,66 @@ def write_png_sidecar(imagery_dir: Path, county_name: str = "Test") -> Path:
     return path
 
 
+def write_project_local_naip_tif(project_dir: Path, *, year: int = 2023) -> Path:
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_bounds
+
+    output_dir = project_dir / "basemaps" / "naip" / str(year)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    tif_path = output_dir / "naip_project_basemap.tif"
+    data = np.zeros((3, 8, 8), dtype=np.uint8)
+    data[0, :, :] = 120
+    data[1, :, :] = 155
+    data[2, :, :] = 105
+    bounds = (-90.01, 31.99, -89.98, 32.01)
+    with rasterio.open(
+        tif_path,
+        "w",
+        driver="GTiff",
+        height=data.shape[1],
+        width=data.shape[2],
+        count=3,
+        dtype=data.dtype,
+        crs="EPSG:4326",
+        transform=from_bounds(*bounds, width=data.shape[2], height=data.shape[1]),
+    ) as dataset:
+        dataset.write(data)
+    metadata_path = output_dir / "naip_project_basemap.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "source_id": "usda_naip_imagery",
+                "display_name": "USDA NAIP Project Basemap",
+                "provider": "Microsoft Planetary Computer",
+                "collection_id": "naip",
+                "asset_key": "image",
+                "item_ids": ["test-naip-item"],
+                "item_datetimes": [f"{year}-08-13T16:00:00Z"],
+                "source_datetime": f"{year}-08-13T16:00:00Z",
+                "naip_year": year,
+                "source_hrefs": ["https://example.invalid/test-naip-item.tif"],
+                "signed_hrefs_stored": False,
+                "aoi_source": "project_analysis_bounds",
+                "aoi_bounds_wgs84": {"west": bounds[0], "south": bounds[1], "east": bounds[2], "north": bounds[3]},
+                "output_path": f"basemaps/naip/{year}/naip_project_basemap.tif",
+                "output_crs": "EPSG:4326",
+                "output_bounds_wgs84": {"west": bounds[0], "south": bounds[1], "east": bounds[2], "north": bounds[3]},
+                "output_shape": [8, 8],
+                "pixel_count": 64,
+                "selection_method": "latest_year_then_datetime_then_overlap_then_item_id",
+                "limits": {"max_pixels": 25_000_000, "max_tiles": 12, "timeout_seconds": 60},
+                "created_at": "2026-05-19T00:00:00+00:00",
+                "acquisition_method": "planetary_computer_stac_cog_window",
+                "known_limitations": ["Imagery is visual context only."],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return tif_path
+
+
 def figure_by_id(figures: dict[str, object], figure_id: str) -> dict[str, object]:
     return next(figure for figure in figures["figures"] if figure["figure_id"] == figure_id)  # type: ignore[index]
 
@@ -209,6 +276,47 @@ def test_sid_only_basemap_warns_and_vector_figure_still_renders(
     assert "maris_naip_2025_imagery" in wetlands["source_refs"]  # type: ignore[operator]
 
 
+def test_sid_only_basemap_keeps_naip_materialization_failure_visible(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "naip"
+    write_naip_county(basemap_root)
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    run_manifest = project_dir / "basemaps" / "naip" / "naip_basemap_materialization.json"
+    run_manifest.parent.mkdir(parents=True, exist_ok=True)
+    run_manifest.write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "success": False,
+                "source_id": "usda_naip_imagery",
+                "message": "mock NAIP materialization failure",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
+
+    assert "basemap_selected_not_renderable" in issue_codes(wetlands)
+    assert "naip_basemap_materialization_failed" in issue_codes(wetlands)
+    assert "maris_naip_2025_imagery" in wetlands["source_refs"]  # type: ignore[operator]
+    assert "usda_naip_imagery" in wetlands["source_refs"]  # type: ignore[operator]
+    assert "MARIS/NAIP 2025 Imagery provenance only; no visual basemap sidecar" in wetlands["source_note"]  # type: ignore[operator]
+    assert "USDA NAIP Project Basemap materialization failed; vector-only fallback used" in wetlands["source_note"]  # type: ignore[operator]
+
+
 def test_renderable_png_sidecar_is_selected_when_metadata_is_available(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -236,6 +344,181 @@ def test_renderable_png_sidecar_is_selected_when_metadata_is_available(
     assert shown_basemaps[0]["visual_use"] == "rendered_basemap"
     assert wetlands["provenance"]["basemap"]["renderable_paths"] == [str(png_path)]  # type: ignore[index]
     assert wetlands["provenance"]["basemap"]["rendered_path"] == str(png_path)  # type: ignore[index]
+
+
+def test_project_local_naip_geotiff_sidecar_is_rendered_in_deliverable_figures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("rasterio")
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    tif_path = write_project_local_naip_tif(project_dir)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
+
+    assert result["figure_count"] == 13
+    assert wetlands["is_stub"] is False
+    shown_basemaps = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap"]  # type: ignore[index]
+    assert shown_basemaps
+    assert shown_basemaps[0]["source_id"] == "usda_naip_imagery"
+    assert shown_basemaps[0]["path"] == str(tif_path)
+    assert shown_basemaps[0]["renderability_status"] == "rendered"
+    assert shown_basemaps[0]["visual_use"] == "rendered_basemap"
+    assert "USDA NAIP Project Basemap rendered from sidecar" in wetlands["source_note"]  # type: ignore[operator]
+    assert "Vector and selected renderable basemap sidecar" in wetlands["method_note"]  # type: ignore[operator]
+    assert "usda_naip_imagery" in wetlands["source_refs"]  # type: ignore[operator]
+    assert wetlands["provenance"]["basemap"]["rendered_path"] == str(tif_path)  # type: ignore[index]
+
+
+def test_project_local_naip_sidecar_is_rendered_in_regulated_facilities_figure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("rasterio")
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    tif_path = write_project_local_naip_tif(project_dir)
+    write_layer(
+        project_dir / "frs.geojson",
+        [Point(-90.0, 32.0)],
+        [{"REGISTRY_ID": "FRS-1", "PRIMARY_NAME": "Synthetic facility"}],
+    )
+    write_registry(project_dir, [("epa_frs_facilities_ms", "frs.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    hazardous = figure_by_id(result, "figure-hazardous-waste-sites")
+
+    assert result["figure_count"] == 13
+    assert hazardous["is_stub"] is False
+    shown_basemaps = [layer for layer in hazardous["shown_layers"] if layer["layer_type"] == "basemap"]  # type: ignore[index]
+    assert shown_basemaps
+    assert shown_basemaps[0]["source_id"] == "usda_naip_imagery"
+    assert shown_basemaps[0]["path"] == str(tif_path)
+    assert shown_basemaps[0]["visual_use"] == "rendered_basemap"
+    assert "USDA NAIP Project Basemap rendered from sidecar" in hazardous["source_note"]  # type: ignore[operator]
+
+
+def test_specific_regulated_sources_satisfy_hazardous_figure_without_legacy_broad_ids(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    source_ids = [
+        "epa_frs_facilities_ms",
+        "maris_brownfields",
+        "maris_npdes_facilities",
+        "maris_solid_waste_landfills",
+        "maris_superfund_sites",
+        "maris_tri_facilities",
+        "maris_underground_storage_tanks",
+        "mississippi_oil_gas_wells",
+    ]
+    for index, source_id in enumerate(source_ids):
+        write_layer(
+            project_dir / f"{source_id}.geojson",
+            [Point(-90.0 + index * 0.0001, 32.0)],
+            [{"name": f"{source_id} feature"}],
+        )
+    write_registry(project_dir, [(source_id, f"{source_id}.geojson") for source_id in source_ids])
+
+    result = generate_deliverable_figures(project_dir)
+    hazardous = figure_by_id(result, "figure-hazardous-waste-sites")
+    serialized_issues = json.dumps(hazardous["validation_issues"])
+
+    assert hazardous["is_stub"] is False
+    assert "epa_envirofacts_echo" not in hazardous["source_refs"]  # type: ignore[operator]
+    assert "mdeq_environmental_context" not in hazardous["source_refs"]  # type: ignore[operator]
+    assert "epa_envirofacts_echo" not in serialized_issues
+    assert "mdeq_environmental_context" not in serialized_issues
+    assert set(source_ids).issubset(set(hazardous["source_refs"]))  # type: ignore[arg-type]
+    shown_source_ids = {layer.get("source_id") for layer in hazardous["shown_layers"] if layer.get("layer_type") == "source_layer"}  # type: ignore[union-attr]
+    assert set(source_ids).issubset(shown_source_ids)
+    assert "EPA Facility Registry Service" in hazardous["source_note"]  # type: ignore[operator]
+    assert "EPA FRS hazardous" not in hazardous["source_note"]  # type: ignore[operator]
+
+
+def test_naip_materialization_failure_is_reported_in_vector_only_figure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    run_manifest = project_dir / "basemaps" / "naip" / "naip_basemap_materialization.json"
+    run_manifest.parent.mkdir(parents=True, exist_ok=True)
+    run_manifest.write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "success": False,
+                "source_id": "usda_naip_imagery",
+                "message": "mock NAIP materialization failure",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
+
+    assert wetlands["is_stub"] is False
+    assert "naip_basemap_materialization_failed" in issue_codes(wetlands)
+    shown_basemaps = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap_provenance"]  # type: ignore[index]
+    assert shown_basemaps
+    assert shown_basemaps[0]["source_id"] == "usda_naip_imagery"
+    assert shown_basemaps[0]["renderability_status"] == "materialization_failed"
+    assert shown_basemaps[0]["visual_use"] == "failed_not_rendered"
+    assert "USDA NAIP Project Basemap materialization failed; vector-only fallback used" in wetlands["source_note"]  # type: ignore[operator]
+    assert "Vector-only" in wetlands["method_note"]  # type: ignore[operator]
+    assert "usda_naip_imagery" in wetlands["source_refs"]  # type: ignore[operator]
+
+
+def test_attachment_panel_records_project_local_naip_basemap_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("rasterio")
+    project_dir = write_project(tmp_path, coordinates="-90.5000,32.0000,0 -89.5000,32.0000,0")
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    tif_path = write_project_local_naip_tif(project_dir)
+
+    result = generate_deliverable_figures(project_dir)
+
+    assert result["figure_count"] == 13
+    assert result["attachment_supporting_figure_count"] > 0
+    panel = result["attachment_supporting_figures"][0]
+    shown_basemaps = [layer for layer in panel["shown_layers"] if layer["layer_type"] == "basemap"]
+    assert shown_basemaps
+    assert shown_basemaps[0]["source_id"] == "usda_naip_imagery"
+    assert shown_basemaps[0]["path"] == str(tif_path)
+    assert "usda_naip_imagery" in panel["source_refs"]
+    assert panel["provenance"]["basemap"]["rendered_path"] == str(tif_path)
 
 
 def test_comparison_unit_styles_use_usable_kml_colors_and_visible_fallbacks() -> None:
@@ -319,6 +602,84 @@ def test_regulated_facility_source_styles_are_distinct_and_compact() -> None:
     assert [style["label"] for style in styles] == ["EPA FRS", "Brownfields", "NPDES", "USTs"]
     assert len({style["color"] for style in styles}) == len(styles)
     assert len({style["marker"] for style in styles}) == len(styles)
+    assert all(style["line_width"] < 0.7 for style in styles)
+    assert all(style["marker_size"] <= 15 for style in styles)
+
+
+def test_legend_label_abbreviations_keep_source_labels_compact() -> None:
+    labels = [
+        source_layer_style_record({"source_id": "usfws_nwi_wetlands", "source_name": "National Wetlands Inventory", "source_category": "wetlands_waterbodies"}, 0)["label"],
+        source_layer_style_record({"source_id": "usgs_nhd_flowlines", "source_name": "USGS NHD Flowlines Mississippi", "source_category": "hydrography"}, 1)["label"],
+        source_layer_style_record({"source_id": "usgs_nhd_waterbodies", "source_name": "USGS NHD Waterbodies Mississippi", "source_category": "hydrography"}, 2)["label"],
+        source_layer_style_record({"source_id": "usgs_nhd_other_areas", "source_name": "USGS NHD Other Areas Mississippi", "source_category": "hydrography"}, 3)["label"],
+    ]
+
+    assert labels == ["NWI Wetlands", "NHD Flowlines", "NHD Waterbodies", "NHD Other Areas"]
+    assert all(len(label) <= 18 for label in labels)
+
+
+def test_tall_project_uses_side_legend_collar_and_expands_x_extent() -> None:
+    layout = compute_visual_extent_with_legend_collar(
+        (-250, 0, 250, 10_000),
+        legend_labels=["Alternative A", "EPA FRS", "Brownfields", "NPDES"],
+        feature_layers=[],
+    )
+    base_w, base_s, base_e, base_n = layout["base_bounds"]
+    ext_w, ext_s, ext_e, ext_n = layout["expanded_bounds"]
+    collar_w, collar_s, collar_e, collar_n = layout["collar_bounds"]
+
+    assert layout["legend_side"] in {"right", "left"}
+    assert layout["render_extent_type"] == "figure_render_extent"
+    assert layout["render_extent_is_presentation_only"] is True
+    assert layout["presentation_extent_type"] == "presentation_only_collar_extent"
+    assert (ext_e - ext_w) > (base_e - base_w)
+    assert (ext_n - ext_s) == pytest.approx(base_n - base_s)
+    assert collar_w >= base_e or collar_e <= base_w
+    assert collar_s == pytest.approx(base_s)
+    assert collar_n == pytest.approx(base_n)
+
+
+def test_wide_project_can_use_horizontal_legend_collar() -> None:
+    side = choose_legend_collar_side(
+        (0, -250, 10_000, 250),
+        ["Alternative A", "NWI Wetlands", "NHD Flowlines", "NHD Waterbodies"],
+        [],
+    )
+
+    assert side in {"top", "bottom"}
+
+
+def test_legend_collar_expansion_is_bounded_and_bbox_stays_in_collar() -> None:
+    layout = compute_visual_extent_with_legend_collar(
+        (0, 0, 1000, 1000),
+        legend_labels=[f"Layer {index}" for index in range(12)],
+        feature_layers=[],
+    )
+    base_w, base_s, base_e, base_n = layout["base_bounds"]
+    ext_w, ext_s, ext_e, ext_n = layout["expanded_bounds"]
+    bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layout["legend_bbox_axes"]
+
+    assert (ext_e - ext_w) <= (base_e - base_w) * 1.6
+    assert (ext_n - ext_s) <= (base_n - base_s) * 1.6
+    assert 0 <= bbox_x0 < bbox_x1 <= 1
+    assert 0 <= bbox_y0 < bbox_y1 <= 1
+
+
+def test_dense_feature_conflicts_can_fall_back_to_outside_frame_legend() -> None:
+    surrounding_features = gpd.GeoDataFrame(
+        [{"name": "surrounding feature"}],
+        geometry=[Polygon([(-1000, -1000), (2000, -1000), (2000, 2000), (-1000, 2000), (-1000, -1000)])],
+        crs="EPSG:32616",
+    )
+
+    layout = compute_visual_extent_with_legend_collar(
+        (0, 0, 1000, 1000),
+        legend_labels=["Alternative A", "NWI Wetlands", "EPA FRS"],
+        feature_layers=[surrounding_features],
+    )
+
+    assert layout["layout_strategy"] == "outside_frame_legend"
+    assert layout["expanded_bounds"] == layout["base_bounds"]
 
 
 def test_render_map_keeps_long_notes_out_of_image_canvas(tmp_path: Path) -> None:
@@ -334,7 +695,7 @@ def test_render_map_keeps_long_notes_out_of_image_canvas(tmp_path: Path) -> None
     )
     output_path = tmp_path / "compact-map.png"
 
-    render_map(
+    layout = render_map(
         output_path=output_path,
         title="Hazardous Waste Sites near the Project Area",
         unit_gdf=unit_gdf,
@@ -357,6 +718,8 @@ def test_render_map_keeps_long_notes_out_of_image_canvas(tmp_path: Path) -> None
     height, width = image.shape[:2]
     assert height > width * 1.25
     assert width < 950
+    assert layout["layout_strategy"] == "legend_collar"
+    assert layout["legend_side"] in {"right", "left"}
 
 
 def test_generated_figures_record_distinct_comparison_unit_visual_styles(
@@ -380,14 +743,27 @@ def test_generated_figures_record_distinct_comparison_unit_visual_styles(
 
     assert result["figure_count"] == 13
     assert wetlands["is_stub"] is False
+    assert result["extent_policy"]["core_rule"].startswith("Rendered map extent")
+    assert wetlands["query_extent_type"] == "project_area_analysis_bounds"
+    assert wetlands["figure_extent_type"] == "direct_intersection_extent"
+    assert wetlands["render_extent_type"] == "figure_render_extent"
+    assert wetlands["render_extent_is_presentation_only"] is True
+    assert wetlands["provenance"]["render_layout"]["layout_strategy"] == "legend_collar"  # type: ignore[index]
+    assert wetlands["provenance"]["render_layout"]["render_extent_is_presentation_only"] is True  # type: ignore[index]
     assert comparison_layer["rendered_as"] == "individual_comparison_units"
     assert comparison_layer["geometry_type_counts"] == {"LineString": 1}
     assert comparison_layer["unit_styles"]
     assert comparison_layer["unit_styles"][0]["label"] == "Alternative A"
     assert comparison_layer["unit_styles"][0]["style_source"] == "deterministic_fallback"
     source_layer = next(layer for layer in wetlands["shown_layers"] if layer.get("source_id") == "usfws_nwi_wetlands")  # type: ignore[index]
-    assert source_layer["legend_label"] == "NWI wetlands"
+    assert source_layer["legend_label"] == "NWI Wetlands"
     assert source_layer["render_style"]["color"]
+    assert source_layer["render_style"]["line_width"] < comparison_layer["unit_styles"][0]["line_width"]
+
+    streams = figure_by_id(result, "figure-streams-impaired-waters")
+    assert streams["figure_extent_type"] == "watershed_context_extent"
+    assert streams["analysis_extent_type"] == "watershed_context_extent"
+    assert "watershed_context_extent and 303(d) acquisition" in streams["source_selection_reason"]
 
 
 def test_restricted_cultural_source_is_not_mapped_or_exposed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
