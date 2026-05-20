@@ -14,7 +14,7 @@ from review_assist.web import adapter
 from review_assist.web.app import create_app
 
 from test_deliverable_compactness import _write_large_deliverable_table
-from test_export_report import kml_document, kmz_bytes, set_review_states, write_project
+from test_export_report import kml_document, kmz_bytes, set_review_states, write_project, write_tiny_png
 
 
 @pytest.fixture
@@ -41,6 +41,12 @@ def _valid_kmz_upload() -> io.BytesIO:
         """
     )
     return io.BytesIO(kmz_bytes(kml))
+
+
+def _tiny_png_upload(tmp_path: Path) -> io.BytesIO:
+    path = tmp_path / "tiny.png"
+    write_tiny_png(path)
+    return io.BytesIO(path.read_bytes())
 
 
 def test_app_loads_with_no_selected_project_empty_state(app_client) -> None:
@@ -384,6 +390,171 @@ def test_review_action_persists_through_backend_update(tmp_path: Path) -> None:
     assert item["status"] == "accepted"
     assert item["export_eligible"] is True
     assert item["reviewer_notes"][-1]["note"] == "Reviewed in web UI."
+
+
+def test_figure_review_detail_uses_figure_specific_form(tmp_path: Path) -> None:
+    _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/figure-wetlands-waterbodies")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Proposed Export Figure" in text
+    assert "Edited Caption" in text
+    assert "Upload New Figure" in text
+    assert "Accept Final" in text
+    assert "Edited content" not in text
+    assert "Replacement content" not in text
+    assert "Export eligible when unable to verify" not in text
+
+
+def test_non_figure_review_detail_keeps_generic_review_form(tmp_path: Path) -> None:
+    _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/wetlands-and-waterbodies")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Reviewed Content Candidate" in text
+    assert "Edited content" in text
+    assert "Replacement content" in text
+    assert "Upload New Figure" not in text
+
+
+def test_figure_review_accepts_edited_caption_only(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies",
+        data={"form_kind": "figure_review", "caption": "Edited final figure caption."},
+        follow_redirects=True,
+    )
+    queue = load_review_queue(project_dir)
+    item = next(item for item in queue["items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert response.status_code == 200
+    assert item["status"] == "edited"
+    assert item["export_eligible"] is True
+    assert item["edited_content"] == "Edited final figure caption."
+    assert item["caption"] == "Edited final figure caption."
+    assert item["figure_review"]["caption_source"] == "edited_caption"
+
+
+def test_figure_review_accepts_generated_caption_and_figure(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    queue = load_review_queue(project_dir)
+    existing = next(item for item in queue["items"] if item["id"] == "figure-wetlands-waterbodies")
+    generated_caption = existing["assumptions"]["caption"]
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies",
+        data={"form_kind": "figure_review", "caption": generated_caption},
+        follow_redirects=True,
+    )
+    updated = next(item for item in load_review_queue(project_dir)["items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert response.status_code == 200
+    assert updated["status"] == "accepted"
+    assert updated["export_eligible"] is True
+    assert updated["edited_content"] == ""
+    assert updated["replacement_content"] == ""
+    assert updated["caption"] == generated_caption
+    assert updated["figure_review"]["caption_source"] == "generated_caption"
+
+
+def test_figure_review_replacement_upload_saves_inside_project(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies",
+        data={
+            "form_kind": "figure_review",
+            "caption": "Replacement figure caption.",
+            "replacement_figure": (_tiny_png_upload(tmp_path), "replacement.png"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    queue = load_review_queue(project_dir)
+    item = next(item for item in queue["items"] if item["id"] == "figure-wetlands-waterbodies")
+    replacement_path = project_dir / item["replacement_content"]
+
+    assert response.status_code == 200
+    assert item["status"] == "replaced"
+    assert item["export_eligible"] is True
+    assert item["image_path"] == item["replacement_content"]
+    assert item["figure_review"]["image_source"] == "replacement_figure"
+    assert replacement_path.exists()
+    assert replacement_path.resolve().is_relative_to(project_dir.resolve())
+
+
+def test_figure_review_replacement_upload_reuses_generated_caption(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    queue = load_review_queue(project_dir)
+    existing = next(item for item in queue["items"] if item["id"] == "figure-wetlands-waterbodies")
+    generated_caption = existing["assumptions"]["caption"]
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies",
+        data={
+            "form_kind": "figure_review",
+            "caption": generated_caption,
+            "replacement_figure": (_tiny_png_upload(tmp_path), "replacement.png"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    item = next(item for item in load_review_queue(project_dir)["items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert response.status_code == 200
+    assert item["status"] == "replaced"
+    assert item["edited_content"] == ""
+    assert item["caption"] == generated_caption
+    assert item["figure_review"]["caption_source"] == "generated_caption"
+    assert item["figure_review"]["image_source"] == "replacement_figure"
+
+
+def test_figure_review_rejects_unsafe_replacement_upload_names(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies",
+        data={
+            "form_kind": "figure_review",
+            "caption": "Unsafe replacement caption.",
+            "replacement_figure": (io.BytesIO(b"bad"), "../escape.png"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    queue = load_review_queue(project_dir)
+    item = next(item for item in queue["items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert response.status_code == 200
+    assert b"path separators" in response.data
+    assert item["status"] != "replaced"
+    assert not (tmp_path / "escape.png").exists()
 
 
 def test_export_readiness_disabled_until_gate_passes_then_enabled(tmp_path: Path) -> None:

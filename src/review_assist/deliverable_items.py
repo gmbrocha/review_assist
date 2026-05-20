@@ -955,24 +955,24 @@ def _stub_figure_content(target: FigureTarget, figure: dict[str, Any]) -> str:
     source_refs = _string_list(figure.get("source_refs", []))
     issues = _dict_list(figure.get("validation_issues", []))
     lines = [str(figure.get("title") or target.title)]
-    lines.append("This required deliverable figure is an explicit review stub because the source layer or rendering path is not available for automated draft figure generation.")
+    lines.append("This required deliverable figure could not be generated because the source layer or rendering path is not available.")
     if source_refs:
         lines.append("Expected source refs: " + ", ".join(source_refs) + ".")
     reason = _issue_summary(issues)
     if reason:
         lines.append("Blocking issue summary: " + reason + ".")
-    lines.append(_stub_reviewer_action(target.source_categories, source_refs))
-    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    if source_refs:
+        lines.append("Required source data should be provided or the missing figure should be carried as an explicit limitation.")
+    elif target.source_categories:
+        lines.append("Source data for " + ", ".join(target.source_categories) + " should be provided or the missing figure should be carried as an explicit limitation.")
+    else:
+        lines.append("Required figure support should be provided or the missing figure should be carried as an explicit limitation.")
+    lines.append("This content does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
 
 def _generated_figure_content(target: FigureTarget, figure: dict[str, Any]) -> str:
     lines = [str(figure.get("title") or target.title)]
-    image_path = str(figure.get("image_path") or "").strip()
-    lines.append(
-        f"Draft figure review candidate for {target.target_id}: a report-facing image artifact is available"
-        + (f" at {image_path}." if image_path else ".")
-    )
     caption = str(figure.get("caption") or "").strip()
     source_note = str(figure.get("source_note") or "").strip()
     method_note = str(figure.get("method_note") or "").strip()
@@ -987,9 +987,8 @@ def _generated_figure_content(target: FigureTarget, figure: dict[str, Any]) -> s
         lines.append("Method note: " + method_note)
     issue_summary = _issue_summary(_dict_list(figure.get("validation_issues", [])))
     if issue_summary:
-        lines.append("Reviewer note: " + issue_summary + ".")
-    lines.append("Reviewer focus: verify layer visibility, extent, labels, and source/method notes before accepting the figure.")
-    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+        lines.append("Validation issue summary: " + issue_summary + ".")
+    lines.append("This content does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
 

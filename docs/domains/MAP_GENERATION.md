@@ -43,11 +43,12 @@ Current behavior:
 - Stores deliverable PNGs under `projects/<project_id>/maps/figures/`; unavailable or unsupported figures are explicit stubs with the canonical stub text.
 - Renders comparison units with target-specific public/allowed layers for wetlands/NWI/hydrography, FEMA flood zones, hydrography with impaired-waters caveat, public cultural context, community facility subtypes, public water wells, energy/utility infrastructure, regulated facilities, and Census tracts when source data is available.
 - Never renders or exposes `mdah_restricted_archaeology` locations. Restricted cultural status is preserved as `restricted_source_not_mapped`.
-- Adds Attachment A supporting panel maps outside the 13 main figure count when the comparison-unit extent is too elongated for a single 6.5-inch figure.
+- Adds Attachment A supporting panel maps outside the 13 main figure count when the comparison-unit extent is too elongated for one readable figure.
 - Uses GeoPandas and Matplotlib only.
-- Adds draft map elements: legend, north arrow, scale bar when CRS units allow it, source note, CRS/method note, and draft/pre-review label.
+- Adds compact export-facing map elements: abbreviated legend, north arrow, and scale bar when CRS units allow it. Review/process status stays in metadata and UI chrome, not in exported figure captions or on the map canvas. Detailed source counts, provenance, and CRS/method text remain in figure artifact caption/source/method fields rather than consuming the map canvas.
 - Can use project-local NAIP GeoTIFF basemap sidecars created by the explicit `materialize-naip-basemap` command when present.
 - Renders matrix-backed deliverable comparison units as individual visual units with preserved usable KML colors or deterministic visible fallbacks, while leaving analysis geometry and comparison-unit generation unchanged.
+- Sizes deliverable figure canvas from the project/focus bounds so tall or narrow project geometries do not produce excessive empty width solely because of legend or note text.
 - Stores figure captions, source notes, method notes, figure grouping, related resource categories, source refs, shown layers, provenance, uncertainty flags, validation issues, stub status, and review status in the relevant figure artifact.
 - Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.
 - Adds review queue validation items for map-generation warnings, including skipped or failed source-context figures.
@@ -73,7 +74,7 @@ The likely open-source workflow is:
 3. Generate map extents from project footprint, alternatives, or panel grid.
 4. Render layers with Matplotlib.
 5. Add basemap or local raster imagery where appropriate.
-6. Add legend, title, scale/context, source notes, draft label, and figure number.
+6. Add legend, title, scale/context, source notes, and figure number.
 7. Export PNG/PDF/SVG outputs.
 8. Register figure metadata as a review queue item and later in the package manifest if accepted.
 
@@ -217,7 +218,7 @@ Each figure should eventually include or preserve:
 - Source names.
 - Source dates where available.
 - Access date for remote layers where appropriate.
-- Draft/pre-review label.
+- Review status in metadata/UI, not in exported figure content.
 - Figure ID.
 - Generated timestamp.
 

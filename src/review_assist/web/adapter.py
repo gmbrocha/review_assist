@@ -86,6 +86,8 @@ STAGING_UPLOADS_DIR = Path("staging/uploads")
 INPUTS_DIR = Path("inputs")
 WEB_RUN_STATUS_PATH = Path("web_runs/latest_run.json")
 ALLOWED_UPLOAD_EXTENSIONS = PROJECT_GEOMETRY_EXTENSIONS | SOURCE_LAYER_EXTENSIONS | DOCUMENT_EXTENSIONS | IMAGERY_EXTENSIONS
+FIGURE_REPLACEMENTS_DIR = Path("review_queue/figure_replacements")
+FIGURE_REPLACEMENT_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 REVIEW_PREVIEW_TEXT_LIMIT = 1200
 REVIEW_TABLE_PREVIEW_LIMIT = 5
 
@@ -673,9 +675,11 @@ def review_item_detail(project_dir: Path, item_id: str) -> dict[str, Any]:
     assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
     row_preview = _dict_list(item.get("rows_preview", [])) or _dict_list(assumptions.get("rows_preview", []))
     columns = _string_list(item.get("columns", [])) or _string_list(assumptions.get("columns", []))
-    image_path = str(item.get("image_path") or assumptions.get("image_path") or "").strip()
+    image_path = _effective_figure_image_path(item, assumptions)
+    caption = _effective_figure_caption(item, assumptions)
     return {
         **_queue_row(item),
+        "is_figure": _is_figure_item(item),
         "generated_content": _trim_body_text(item.get("generated_content")),
         "edited_content": str(item.get("edited_content") or ""),
         "replacement_content": str(item.get("replacement_content") or ""),
@@ -691,9 +695,11 @@ def review_item_detail(project_dir: Path, item_id: str) -> dict[str, Any]:
             "figure_id": str(item.get("figure_id") or ""),
             "image_path": _project_relative_path(project_dir, image_path),
             "artifact_link_path": _artifact_link_path(project_dir, image_path),
-            "caption": item.get("caption") or assumptions.get("caption"),
+            "caption": caption,
             "source_note": item.get("source_note") or assumptions.get("source_note"),
             "method_note": item.get("method_note") or assumptions.get("method_note"),
+            "caption_source": _figure_caption_source(item),
+            "image_source": _figure_image_source(item),
         },
         "provenance": _provenance_summary(item.get("provenance", {})),
         "source_refs": _string_list(item.get("source_refs", [])),
@@ -729,6 +735,60 @@ def save_review_action(
         )
     except ReviewQueueError as exc:
         raise WebAdapterError(str(exc)) from exc
+
+
+def save_figure_review_action(
+    project_dir: Path,
+    item_id: str,
+    *,
+    caption: str | None,
+    replacement_file: Any | None = None,
+    note: str | None = None,
+) -> dict[str, Any]:
+    """Accept a figure item with optional caption override and replacement image."""
+
+    queue = _load_standard_queue(project_dir)
+    existing = _find_review_item(queue, item_id)
+    if not _is_figure_item(existing):
+        raise WebAdapterError("Figure review actions can only be used for figure review items.")
+
+    assumptions = existing.get("assumptions", {}) if isinstance(existing.get("assumptions"), dict) else {}
+    generated_caption = _generated_figure_caption(existing, assumptions)
+    final_caption = str(caption or "").strip() or generated_caption or str(existing.get("title") or existing.get("figure_id") or "")
+    replacement_path = _store_figure_replacement(project_dir, existing, replacement_file)
+    caption_changed = bool(final_caption.strip()) and final_caption.strip() != generated_caption.strip()
+    status = "replaced" if replacement_path else ("edited" if caption_changed else "accepted")
+
+    try:
+        update_review_item(
+            project_dir,
+            item_id,
+            status=status,
+            note=note,
+            edited_content=final_caption if caption_changed else "",
+            replacement_content=replacement_path,
+        )
+    except ReviewQueueError as exc:
+        raise WebAdapterError(str(exc)) from exc
+
+    queue = load_review_queue(project_dir)
+    item = _find_review_item(queue, item_id)
+    current_assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+    generated_image = str(current_assumptions.get("image_path") or "").strip()
+    final_image = replacement_path or str(item.get("image_path") or generated_image or "").strip()
+    item["caption"] = final_caption
+    item["image_path"] = final_image
+    item["figure_review"] = {
+        "caption": final_caption,
+        "caption_source": "edited_caption" if caption_changed else "generated_caption",
+        "image_path": final_image,
+        "image_source": "replacement_figure" if replacement_path else "generated_figure",
+        "generated_image_path": generated_image,
+        "replacement_figure_path": replacement_path,
+        "reviewer_note_internal_only": bool(str(note or "").strip()),
+    }
+    _write_json(Path(queue["output_path"]), queue)
+    return item
 
 
 def export_readiness(project_dir: Path) -> dict[str, Any]:
@@ -967,6 +1027,80 @@ def _status(item: dict[str, Any]) -> str:
     return "declined" if status == "rejected" else status
 
 
+def _is_figure_item(item: dict[str, Any]) -> bool:
+    return str(item.get("type") or "") in {"figure", "map_figure"} or bool(str(item.get("figure_id") or "").strip())
+
+
+def _effective_figure_caption(item: dict[str, Any], assumptions: dict[str, Any]) -> str:
+    figure_review = item.get("figure_review", {}) if isinstance(item.get("figure_review"), dict) else {}
+    reviewed = str(figure_review.get("caption") or "").strip()
+    if reviewed:
+        return reviewed
+    edited = str(item.get("edited_content") or "").strip()
+    if _is_figure_item(item) and edited:
+        return edited
+    return _generated_figure_caption(item, assumptions)
+
+
+def _generated_figure_caption(item: dict[str, Any], assumptions: dict[str, Any]) -> str:
+    return str(item.get("caption") or assumptions.get("caption") or "").strip()
+
+
+def _effective_figure_image_path(item: dict[str, Any], assumptions: dict[str, Any]) -> str:
+    figure_review = item.get("figure_review", {}) if isinstance(item.get("figure_review"), dict) else {}
+    reviewed = str(figure_review.get("image_path") or "").strip()
+    if reviewed:
+        return reviewed
+    replacement = str(item.get("replacement_content") or "").strip()
+    if _is_figure_item(item) and Path(replacement).suffix.lower() in FIGURE_REPLACEMENT_EXTENSIONS:
+        return replacement
+    return str(item.get("image_path") or assumptions.get("image_path") or "").strip()
+
+
+def _figure_caption_source(item: dict[str, Any]) -> str:
+    figure_review = item.get("figure_review", {}) if isinstance(item.get("figure_review"), dict) else {}
+    if figure_review.get("caption_source"):
+        return str(figure_review["caption_source"])
+    if _is_figure_item(item) and str(item.get("edited_content") or "").strip():
+        return "edited_caption"
+    return "generated_caption"
+
+
+def _figure_image_source(item: dict[str, Any]) -> str:
+    figure_review = item.get("figure_review", {}) if isinstance(item.get("figure_review"), dict) else {}
+    if figure_review.get("image_source"):
+        return str(figure_review["image_source"])
+    if _is_figure_item(item) and Path(str(item.get("replacement_content") or "")).suffix.lower() in FIGURE_REPLACEMENT_EXTENSIONS:
+        return "replacement_figure"
+    return "generated_figure"
+
+
+def _store_figure_replacement(project_dir: Path, item: dict[str, Any], upload: Any | None) -> str:
+    filename = str(getattr(upload, "filename", "") or "").strip()
+    if not filename:
+        return ""
+    safe_name = _safe_upload_filename(filename)
+    if Path(safe_name).suffix.lower() not in FIGURE_REPLACEMENT_EXTENSIONS:
+        allowed = ", ".join(sorted(FIGURE_REPLACEMENT_EXTENSIONS))
+        raise WebAdapterError(f"Replacement figure must be one of: {allowed}.")
+    item_key = _safe_filename_component(str(item.get("id") or item.get("figure_id") or "figure"))
+    destination_dir = _safe_project_subdir(project_dir, FIGURE_REPLACEMENTS_DIR / item_key)
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = (destination_dir / safe_name).resolve()
+    if not _is_relative_to(destination, project_dir.resolve()):
+        raise WebAdapterError("Replacement figure path escapes the selected project.")
+    try:
+        upload.save(destination)
+    except OSError as exc:
+        raise WebAdapterError(f"Replacement figure could not be saved: {exc}") from exc
+    return destination.relative_to(project_dir.resolve()).as_posix()
+
+
+def _safe_filename_component(value: str) -> str:
+    component = secure_filename(re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value or ""))).strip("._-")
+    return component or "figure"
+
+
 def _best_review_content(item: dict[str, Any]) -> str:
     return str(item.get("replacement_content") or item.get("edited_content") or item.get("generated_content") or "").strip()
 
@@ -1082,7 +1216,7 @@ def _allowed_artifact_rows(project_dir: Path) -> list[dict[str, str]]:
         if item.get("type") != "figure":
             continue
         assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
-        rel = _artifact_link_path(project_dir, str(item.get("image_path") or assumptions.get("image_path") or ""))
+        rel = _artifact_link_path(project_dir, _effective_figure_image_path(item, assumptions))
         if rel:
             rows.append(
                 {

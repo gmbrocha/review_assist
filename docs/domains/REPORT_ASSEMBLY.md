@@ -128,7 +128,7 @@ The current CLI can generate the exact standard figure targets from the canonica
 
 This artifact contains the 13 matrix main figure targets in matrix order. It consumes comparison units, `constraints/comparison_unit_constraints.json`, source status, and project-area basemap context. Legacy `maps/map_manifest.json` remains a raw evidence/audit artifact and is not replaced.
 
-Unavailable source data or unsupported rendering produces explicit stubs with the canonical stub text and review-needed status. Rendered figures preserve source refs, related comparison-unit constraint IDs, comparison unit IDs, shown-layer summaries, provenance, uncertainty flags, validation issues, and draft review status.
+Unavailable source data or unsupported rendering produces explicit stubs with the canonical stub text and review-needed status. Rendered figures preserve source refs, related comparison-unit constraint IDs, comparison unit IDs, shown-layer summaries, provenance, uncertainty flags, validation issues, and draft review status. Export-facing figure captions, source notes, method notes, and rendered images do not carry review/process instructions; those remain in review queue status, metadata, and UI chrome.
 
 Deliverable figures may use selected MARIS/NAIP `.png`, `.tif`, or `.tiff` sidecars when available. `.sid` paths are provenance only. Restricted archaeology locations are never rendered or exposed; restricted cultural status is represented by `restricted_source_not_mapped`.
 
@@ -158,7 +158,7 @@ The current CLI can compile reviewed queue items into editable Markdown and DOCX
 
 Default export is review-gated and fails before writing a reviewed-content package if any standard matrix-backed deliverable item is still `draft`, `needs_review`, `needs_verification`, `replaced` without replacement content, or `unable_to_verify` without explicit export eligibility and usable content. Gate failures are structured in CLI JSON mode and actionable in text mode, including unreviewed counts and a preview of blocking item IDs.
 
-When the gate passes, default export includes `accepted` generated content, `edited` reviewer content when present, `replaced` replacement content, and explicitly export-eligible `unable_to_verify` content. `edited` items without edited content fall back to generated content with a warning. `declined` and legacy `rejected` items are omitted.
+When the gate passes, default export includes `accepted` generated content, `edited` reviewer content when present, `replaced` replacement content, and explicitly export-eligible `unable_to_verify` content. Figure review items use the reviewed caption and replacement image metadata when present instead of treating figure replacements as generic narrative body text. `edited` items without edited content fall back to generated content with a warning. `declined` and legacy `rejected` items are omitted.
 
 The `--include-draft` option is for internal preview only. It includes unaccepted non-declined items and marks the Markdown/DOCX output as an internal preview, not an external report.
 

@@ -150,8 +150,8 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
     assert figure["figure_id"] == "figure-wetlands-waterbodies"
     assert figure["is_stub"] is True
     assert figure["stub_text"] == REQUIRED_STUB_TEXT
-    assert "explicit review stub" in figure["generated_content"]
-    assert "Reviewer action needed" in figure["generated_content"]
+    assert "could not be generated" in figure["generated_content"]
+    assert "missing figure should be carried as an explicit limitation" in figure["generated_content"]
     assert attachment["review_item_type"] == "attachment"
     assert attachment["attachment_id"] == "attachment-hazardous-materials-report"
     assert attachment["stub_text"] == REQUIRED_STUB_TEXT
@@ -330,7 +330,7 @@ def test_generated_figure_candidate_includes_caption_source_method_and_image_sta
         "image_path": "maps/figures/figure-wetlands-waterbodies.png",
         "caption": "Wetlands and waterbodies in and near the project area.",
         "source_note": "USFWS NWI and project geometry.",
-        "method_note": "Vector overlay for reviewer verification.",
+        "method_note": "Vector overlay screening map.",
         "source_refs": ["usfws_nwi_wetlands"],
         "related_constraint_ids": [],
         "comparison_unit_ids": ["comparison-unit-00001"],
@@ -343,11 +343,12 @@ def test_generated_figure_candidate_includes_caption_source_method_and_image_sta
 
     item = _figure_item(target, {"output_path": "deliverable/figures.json", "figures": [figure]}, "test", tmp_path / "deliverable_items.json")
 
-    assert "report-facing image artifact is available" in item["generated_content"]
     assert "Caption: Wetlands and waterbodies" in item["generated_content"]
     assert "Source note: USFWS NWI" in item["generated_content"]
     assert "Method note: Vector overlay" in item["generated_content"]
-    assert "Reviewer focus: verify layer visibility" in item["generated_content"]
+    assert "reviewer verification" not in item["generated_content"].lower()
+    assert "draft/pre-review" not in item["generated_content"].lower()
+    assert "Draft figure review candidate" not in item["generated_content"]
     assert "Generated deliverable figure" not in item["generated_content"]
 
 

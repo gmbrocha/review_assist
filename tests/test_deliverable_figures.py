@@ -11,7 +11,7 @@ from shapely.geometry import LineString, Point, Polygon
 
 import review_assist.project_area as project_area_module
 from review_assist.cli import main
-from review_assist.deliverable_figure_rendering import comparison_unit_style_records
+from review_assist.deliverable_figure_rendering import comparison_unit_style_records, render_map, source_layer_style_record
 from review_assist.deliverable_figures import DeliverableFigureError, generate_deliverable_figures, load_deliverable_figures
 from review_assist.deliverable_matrix import REQUIRED_STUB_TEXT, load_deliverable_matrix
 from review_assist.populate_for_review import populate_for_review
@@ -163,6 +163,15 @@ def test_deliverable_figures_write_13_matrix_records_and_missing_source_stubs(
     assert all(figure["section_target_id"] for figure in result["figures"])
     assert all(figure["comparison_unit_ids"] for figure in result["figures"])
     assert all(figure["is_stub"] is True for figure in result["figures"])
+    serialized_export_fields = "\n".join(
+        str(value)
+        for figure in result["figures"]
+        for value in (figure.get("caption"), figure.get("source_note"), figure.get("method_note"))
+    ).lower()
+    assert "reviewer verification" not in serialized_export_fields
+    assert "pre-review" not in serialized_export_fields
+    assert "draft desktop" not in serialized_export_fields
+    assert all("draft_label" not in figure["map_elements"] for figure in result["figures"])
 
     census = figure_by_id(result, "figure-census-tracts")
     assert census["stub_text"] == REQUIRED_STUB_TEXT
@@ -266,7 +275,88 @@ def test_comparison_unit_styles_use_usable_kml_colors_and_visible_fallbacks() ->
     assert styles[1]["style_source"] == "deterministic_fallback"
     assert styles[2]["color"] != styles[1]["color"]
     assert styles[2]["style_source"] == "deterministic_fallback"
-    assert all(style["line_width"] < 2.0 for style in styles)
+    assert all(1.0 < style["line_width"] < 2.0 for style in styles)
+
+
+def test_comparison_unit_labels_are_compact_for_legend() -> None:
+    gdf = gpd.GeoDataFrame(
+        [
+            {
+                "comparison_unit_id": "comparison-unit-00001",
+                "comparison_unit_name": "ali_option1A_2013.dwg",
+                "style_color": "",
+            },
+            {
+                "comparison_unit_id": "comparison-unit-00002",
+                "comparison_unit_name": "Very Long Submitted Project Feature Name With Extra Metadata",
+                "style_color": "",
+            },
+        ],
+        geometry=[
+            LineString([(-90.0, 32.0), (-89.99, 32.0)]),
+            LineString([(-90.0, 32.001), (-89.99, 32.001)]),
+        ],
+        crs="EPSG:4326",
+    )
+
+    styles = comparison_unit_style_records(gdf)
+
+    assert styles[0]["label"] == "Option 1A"
+    assert styles[0]["full_label"] == "ali_option1A_2013.dwg"
+    assert len(styles[1]["label"]) <= 24
+
+
+def test_regulated_facility_source_styles_are_distinct_and_compact() -> None:
+    layers = [
+        {"source_id": "epa_frs_facilities_ms", "source_name": "EPA Facility Registry Service Facilities Mississippi", "source_category": "regulated_facilities"},
+        {"source_id": "maris_brownfields", "source_name": "MARIS Brownfields", "source_category": "regulated_facilities"},
+        {"source_id": "maris_npdes_facilities", "source_name": "MARIS NPDES Facilities", "source_category": "regulated_facilities"},
+        {"source_id": "maris_underground_storage_tanks", "source_name": "MARIS Underground Storage Tanks", "source_category": "regulated_facilities"},
+    ]
+
+    styles = [source_layer_style_record(layer, index) for index, layer in enumerate(layers)]
+
+    assert [style["label"] for style in styles] == ["EPA FRS", "Brownfields", "NPDES", "USTs"]
+    assert len({style["color"] for style in styles}) == len(styles)
+    assert len({style["marker"] for style in styles}) == len(styles)
+
+
+def test_render_map_keeps_long_notes_out_of_image_canvas(tmp_path: Path) -> None:
+    unit_gdf = gpd.GeoDataFrame(
+        [{"comparison_unit_id": "comparison-unit-00001", "comparison_unit_name": "Alternative A"}],
+        geometry=[LineString([(0, 0), (0, 10_000)])],
+        crs="EPSG:32616",
+    )
+    source_gdf = gpd.GeoDataFrame(
+        [{"review_assist_source_id": "epa_frs_facilities_ms"}],
+        geometry=[Point(120, 4000)],
+        crs="EPSG:32616",
+    )
+    output_path = tmp_path / "compact-map.png"
+
+    render_map(
+        output_path=output_path,
+        title="Hazardous Waste Sites near the Project Area",
+        unit_gdf=unit_gdf,
+        analysis_crs="EPSG:32616",
+        source_layers=[
+            {
+                "source_id": "epa_frs_facilities_ms",
+                "source_name": "EPA Facility Registry Service Facilities Mississippi",
+                "source_category": "regulated_facilities",
+                "gdf": source_gdf,
+            }
+        ],
+        basemap={"layer": None},
+        method_note="Vector-only desktop screening map. Analysis CRS: EPSG:32616.",
+        source_note="Sources: " + "; ".join(["A very long source/provenance note"] * 20),
+        focus_bounds=(-250, 0, 250, 10_000),
+    )
+
+    image = plt.imread(output_path)
+    height, width = image.shape[:2]
+    assert height > width * 1.25
+    assert width < 950
 
 
 def test_generated_figures_record_distinct_comparison_unit_visual_styles(
@@ -295,6 +385,9 @@ def test_generated_figures_record_distinct_comparison_unit_visual_styles(
     assert comparison_layer["unit_styles"]
     assert comparison_layer["unit_styles"][0]["label"] == "Alternative A"
     assert comparison_layer["unit_styles"][0]["style_source"] == "deterministic_fallback"
+    source_layer = next(layer for layer in wetlands["shown_layers"] if layer.get("source_id") == "usfws_nwi_wetlands")  # type: ignore[index]
+    assert source_layer["legend_label"] == "NWI wetlands"
+    assert source_layer["render_style"]["color"]
 
 
 def test_restricted_cultural_source_is_not_mapped_or_exposed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

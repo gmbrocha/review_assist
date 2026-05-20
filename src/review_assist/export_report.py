@@ -27,6 +27,7 @@ EXPORT_MARKDOWN_PATH = EXPORT_DIR / "environmental_constraints_report.md"
 EXPORT_DOCX_PATH = EXPORT_DIR / "environmental_constraints_report.docx"
 EXPORT_FIGURE_ASSETS_DIR = EXPORT_DIR / "assets" / "figures"
 SUPPORTED_OUTPUT_FORMATS = {"markdown", "docx", "both"}
+FIGURE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
 DOCX_TABLE_ROW_LIMIT = 50
 DELIVERABLE_TABLE_BODY_PREVIEW_LIMIT = 5
 EXPORT_BODY_CONTENT_WARNING_CHAR_LIMIT = 4000
@@ -587,10 +588,28 @@ def _partition_export_items(
 
 def _export_item(item: dict[str, Any]) -> dict[str, Any]:
     status = _normalized_status(item.get("status"))
+    assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+    matrix_target = assumptions.get("matrix_target", {}) if isinstance(assumptions.get("matrix_target"), dict) else {}
+    provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
     generated = _generated_content(item)
     edited = _edited_content(item)
     replacement = _replacement_content(item)
-    if status == "replaced":
+    if _is_figure_item(item):
+        caption, caption_source = _figure_caption(item, assumptions)
+        image_path, image_source = _figure_image_path(item, assumptions)
+        if image_path:
+            content = ""
+            content_source = image_source if image_source == "replacement_figure" else caption_source
+        elif status == "replaced" and replacement and not _is_figure_image_path(replacement):
+            content = replacement
+            content_source = "replacement_content"
+        elif status == "edited" and edited:
+            content = edited
+            content_source = "edited_caption"
+        else:
+            content = generated
+            content_source = "generated_content"
+    elif status == "replaced":
         content = replacement
         content_source = "replacement_content"
     elif status == "edited" and edited:
@@ -602,9 +621,11 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
     else:
         content = generated
         content_source = "generated_content"
-    assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
-    matrix_target = assumptions.get("matrix_target", {}) if isinstance(assumptions.get("matrix_target"), dict) else {}
-    provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+    if not _is_figure_item(item):
+        caption = item.get("caption") or assumptions.get("caption")
+        caption_source = "generated_caption"
+        image_path = item.get("image_path") or assumptions.get("image_path")
+        image_source = "generated_figure"
     return {
         "id": str(item.get("id", "")),
         "target_id": str(item.get("target_id") or item.get("id", "")),
@@ -625,10 +646,12 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "table_slots": _string_list(assumptions.get("table_slots", [])),
         "related_figure_ids": _string_list(item.get("related_figure_ids", [])),
         "related_table_ids": _string_list(item.get("related_table_ids", [])),
-        "image_path": item.get("image_path") or assumptions.get("image_path"),
+        "image_path": image_path,
         "figure_id": item.get("figure_id"),
         "figure_type": item.get("figure_type"),
-        "caption": item.get("caption") or assumptions.get("caption"),
+        "caption": caption,
+        "caption_source": caption_source,
+        "image_source": image_source,
         "source_note": item.get("source_note") or assumptions.get("source_note"),
         "method_note": item.get("method_note") or assumptions.get("method_note"),
         "map_elements": _string_list(item.get("map_elements", [])),
@@ -643,6 +666,37 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "artifact_path": provenance.get("artifact_path"),
         "provenance": provenance,
     }
+
+
+def _is_figure_item(item: dict[str, Any]) -> bool:
+    return str(item.get("type") or "") in {"map_figure", "figure"} or bool(str(item.get("figure_id") or "").strip())
+
+
+def _figure_caption(item: dict[str, Any], assumptions: dict[str, Any]) -> tuple[str, str]:
+    figure_review = item.get("figure_review", {}) if isinstance(item.get("figure_review"), dict) else {}
+    reviewed_caption = str(figure_review.get("caption") or "").strip()
+    if reviewed_caption:
+        return reviewed_caption, str(figure_review.get("caption_source") or "reviewed_caption")
+    edited = _edited_content(item)
+    if edited:
+        return edited, "edited_caption"
+    return str(item.get("caption") or assumptions.get("caption") or "").strip(), "generated_caption"
+
+
+def _figure_image_path(item: dict[str, Any], assumptions: dict[str, Any]) -> tuple[Any, str]:
+    figure_review = item.get("figure_review", {}) if isinstance(item.get("figure_review"), dict) else {}
+    reviewed_image = str(figure_review.get("image_path") or "").strip()
+    if reviewed_image:
+        return reviewed_image, str(figure_review.get("image_source") or "reviewed_figure")
+    replacement = _replacement_content(item)
+    if _is_figure_image_path(replacement):
+        return replacement, "replacement_figure"
+    return item.get("image_path") or assumptions.get("image_path"), "generated_figure"
+
+
+def _is_figure_image_path(value: Any) -> bool:
+    text = str(value or "").strip()
+    return bool(text) and Path(text).suffix.lower() in FIGURE_IMAGE_EXTENSIONS
 
 
 def _skipped_item(item: dict[str, Any], *, include_draft: bool) -> dict[str, Any]:
@@ -1396,7 +1450,7 @@ def _add_docx_item(
     content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), heading, str(item.get("title", "")))
     if content:
         _add_docx_content(document, content)
-    else:
+    elif item_type not in {"map_figure", "figure"}:
         document.add_paragraph("No generated or reviewer-edited content was available for this item.")
 
     if item_type in {"comparison_table", "table"}:

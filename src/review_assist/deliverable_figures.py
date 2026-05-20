@@ -15,7 +15,7 @@ from .basemaps import MARIS_NAIP_SOURCE_ID, MARIS_NAIP_SOURCE_NAME
 from .comparison_units import ComparisonUnitError, build_comparison_units, load_comparison_units
 from .deliverable_figure_basemaps import load_basemap
 from .deliverable_figure_contract import DeliverableFigureError, validate_deliverable_figures
-from .deliverable_figure_rendering import comparison_unit_style_records, panel_bounds, render_map
+from .deliverable_figure_rendering import comparison_unit_style_records, panel_bounds, render_map, source_layer_style_record
 from .deliverable_figure_specs import (
     MAX_PANEL_COUNT,
     MISSING_SOURCE_STATUSES,
@@ -34,7 +34,7 @@ from .deliverable_constraints import (
     load_comparison_unit_constraints,
 )
 from .deliverable_matrix import REQUIRED_STUB_TEXT, DeliverableMatrixError, FigureTarget, load_deliverable_matrix
-from .maps import FIGURES_DIR, MAP_ELEMENT_BASELINE
+from .maps import FIGURES_DIR
 from .project_area import PROJECT_AREA_PATH, ProjectAreaError, build_project_area, load_project_area
 from .projects import ProjectManifestError, load_project_manifest
 from .source_catalog import SourceCatalogError, load_source_catalog
@@ -42,6 +42,7 @@ from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source
 
 
 DELIVERABLE_FIGURES_PATH = Path("deliverable/figures.json")
+DELIVERABLE_MAP_ELEMENT_BASELINE = ["legend", "north_arrow", "scale_bar"]
 
 
 def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
@@ -495,7 +496,7 @@ def _figure_for_target(
         source_refs.append(str(basemap["source_ref"]))
     shown_layers = [
         _comparison_units_shown_layer(unit_gdf),
-        *[_source_shown_layer(layer) for layer in layer_records],
+        *[_source_shown_layer(layer, index) for index, layer in enumerate(layer_records)],
     ]
     if basemap.get("shown_layer"):
         shown_layers.append(dict(basemap["shown_layer"]))
@@ -627,7 +628,7 @@ def _stub_figure(
         "image_path": "",
         "file_format": "png",
         "caption": _caption(target),
-        "source_note": "Source data unavailable or unsupported for automated draft figure rendering.",
+        "source_note": "Source data unavailable or unsupported for automated figure rendering.",
         "method_note": "Matrix-required figure placeholder. No regulatory determination is made.",
         "map_elements": [],
         "figure_group": "deliverable_main",
@@ -683,7 +684,7 @@ def _deliverable_figure(
         "caption": caption,
         "source_note": source_note,
         "method_note": method_note,
-        "map_elements": MAP_ELEMENT_BASELINE,
+        "map_elements": DELIVERABLE_MAP_ELEMENT_BASELINE,
         "figure_group": "deliverable_main",
         "related_resource_categories": list(target.source_categories),
         "shown_layers": shown_layers,
@@ -758,14 +759,14 @@ def _attachment_supporting_figures(
                 "section_target_id": "attachment-a-project-maps",
                 "image_path": str(image_path),
                 "file_format": "png",
-                "caption": f"Supporting panel map {index} for elongated project extent. Draft/pre-review context only.",
+                "caption": f"Supporting panel map {index} for elongated project extent.",
                 "source_note": _source_note(source_layers, basemap),
                 "method_note": _method_note(analysis_crs, include_basemap=bool(basemap.get("layer"))),
-                "map_elements": MAP_ELEMENT_BASELINE,
+                "map_elements": DELIVERABLE_MAP_ELEMENT_BASELINE,
                 "figure_group": "attachment_supporting_figures",
                 "shown_layers": [
                     _comparison_units_shown_layer(unit_gdf),
-                    *[_source_shown_layer(layer) for layer in source_layers],
+                    *[_source_shown_layer(layer, source_index) for source_index, layer in enumerate(source_layers)],
                 ],
                 "source_refs": sorted({str(layer.get("source_id")) for layer in source_layers if layer.get("source_id")}),
                 "provenance": {
@@ -851,12 +852,12 @@ def _provenance(
 
 
 def _caption(target: FigureTarget) -> str:
-    return f"{target.title}. Draft desktop-screening figure for reviewer verification before export."
+    return str(target.title)
 
 
 def _method_note(analysis_crs: str, *, include_basemap: bool) -> str:
     method = "Vector and selected renderable basemap sidecar" if include_basemap else "Vector-only"
-    return f"{method} desktop screening map. Analysis CRS: {analysis_crs}."
+    return f"{method} screening map. Analysis CRS: {analysis_crs}."
 
 
 def _source_note(source_layers: list[dict[str, Any]], basemap: dict[str, Any] | None) -> str:
@@ -873,8 +874,7 @@ def _source_note(source_layers: list[dict[str, Any]], basemap: dict[str, Any] | 
             labels.append(f"{label} provenance only; no visual basemap sidecar")
     if not labels:
         return ""
-    text = "Sources: " + "; ".join(labels)
-    return text if len(text) <= 190 else text[:187].rstrip() + "..."
+    return "Sources: " + "; ".join(labels)
 
 
 def _comparison_unit_ids(unit_gdf: gpd.GeoDataFrame) -> list[str]:
@@ -895,12 +895,19 @@ def _comparison_units_shown_layer(unit_gdf: gpd.GeoDataFrame) -> dict[str, Any]:
     }
 
 
-def _source_shown_layer(layer: dict[str, Any]) -> dict[str, Any]:
+def _source_shown_layer(layer: dict[str, Any], index: int) -> dict[str, Any]:
     gdf = layer["gdf"]
+    render_style = source_layer_style_record(layer, index)
     return {
         "layer_type": "source_layer",
         "source_id": layer.get("source_id"),
         "label": layer.get("source_name") or layer.get("source_id"),
+        "legend_label": render_style["label"],
+        "render_style": {
+            "color": render_style["color"],
+            "marker": render_style["marker"],
+            "style_source": render_style["style_source"],
+        },
         "path": layer.get("path"),
         "feature_count": int(len(gdf)),
         "geometry_type_counts": _geometry_type_counts(gdf),

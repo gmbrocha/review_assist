@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import textwrap
 from typing import Any
 
 import geopandas as gpd
@@ -18,16 +19,63 @@ from pyproj import CRS
 from .maps import SOURCE_CATEGORY_COLORS
 
 COMPARISON_UNIT_FALLBACK_COLORS = [
-    "#2F80ED",
+    "#0057B8",
     "#D55E00",
-    "#009E73",
-    "#9B51E0",
-    "#EB5757",
+    "#008A5B",
+    "#7B2CBF",
+    "#C1121F",
     "#0072B2",
-    "#CC79A7",
-    "#7A5C00",
+    "#B0006D",
+    "#6F5200",
 ]
-COMPARISON_UNIT_LINE_WIDTH = 1.15
+COMPARISON_UNIT_LINE_WIDTH = 1.55
+MAX_LEGEND_LABEL_LENGTH = 30
+
+SOURCE_LABEL_OVERRIDES = {
+    "epa_envirofacts_echo": "EPA ECHO",
+    "epa_frs_facilities_ms": "EPA FRS",
+    "fema_nfhl_flood_hazard": "FEMA flood",
+    "local_utility_infrastructure": "Utilities",
+    "maris_brownfields": "Brownfields",
+    "maris_community_facilities": "Community facilities",
+    "maris_npdes_facilities": "NPDES",
+    "maris_public_cultural_context": "Public cultural",
+    "maris_solid_waste_landfills": "Landfills",
+    "maris_superfund_sites": "Superfund",
+    "maris_tri_facilities": "TRI",
+    "maris_underground_storage_tanks": "USTs",
+    "mdot_transportation_context": "Roads/rail",
+    "mississippi_oil_gas_wells": "Oil/gas wells",
+    "usda_nrcs_easements": "NRCS easements",
+    "usda_nrcs_ssurgo_soils": "SSURGO soils",
+    "usfws_critical_habitat": "Critical habitat",
+    "usfws_national_wildlife_refuges": "Wildlife refuges",
+    "usfws_nwi_wetlands": "NWI wetlands",
+    "usgs_nhd_flowlines": "NHD flowlines",
+    "usgs_nhd_hydrography": "NHD hydrography",
+    "usgs_nhd_other_areas": "NHD areas",
+    "usgs_nhd_waterbodies": "NHD waterbodies",
+}
+SOURCE_STYLE_OVERRIDES = {
+    "epa_envirofacts_echo": {"color": "#E15759", "marker": "o"},
+    "epa_frs_facilities_ms": {"color": "#5E3C99", "marker": "D"},
+    "maris_brownfields": {"color": "#B86B00", "marker": "s"},
+    "maris_npdes_facilities": {"color": "#0072B2", "marker": "^"},
+    "maris_solid_waste_landfills": {"color": "#4D4D4D", "marker": "P"},
+    "maris_superfund_sites": {"color": "#D55E00", "marker": "*"},
+    "maris_tri_facilities": {"color": "#CC79A7", "marker": "h"},
+    "maris_underground_storage_tanks": {"color": "#009E73", "marker": "v"},
+    "mdeq_environmental_context": {"color": "#8C564B", "marker": "X"},
+    "mississippi_oil_gas_wells": {"color": "#6F4E37", "marker": "X"},
+    "fema_nfhl_flood_hazard": {"color": "#7B2CBF", "marker": "o"},
+    "usfws_nwi_wetlands": {"color": "#009E73", "marker": "o"},
+    "usgs_nhd_flowlines": {"color": "#2F80ED", "marker": "o"},
+    "usgs_nhd_hydrography": {"color": "#2F80ED", "marker": "o"},
+    "usgs_nhd_waterbodies": {"color": "#56CCF2", "marker": "o"},
+    "usgs_nhd_other_areas": {"color": "#2D9CDB", "marker": "o"},
+    "local_utility_infrastructure": {"color": "#9467BD", "marker": "s"},
+    "mdot_transportation_context": {"color": "#5C677D", "marker": "o"},
+}
 
 
 def render_map(
@@ -42,7 +90,7 @@ def render_map(
     source_note: str,
     focus_bounds: Any | None = None,
 ) -> None:
-    fig, ax = plt.subplots(figsize=(6.5, 4.25), dpi=180)
+    fig, ax = plt.subplots(figsize=_figure_size_for_bounds(focus_bounds), dpi=180)
     try:
         handles: list[Any] = []
         plotted: list[gpd.GeoDataFrame] = []
@@ -53,9 +101,8 @@ def render_map(
         source_handles: list[Any] = []
         for index, layer in enumerate(source_layers):
             gdf = layer["gdf"]
-            color = SOURCE_CATEGORY_COLORS.get(str(layer.get("source_category", "")), _source_color(index))
-            label = str(layer.get("source_name") or layer.get("source_id") or "Source layer")
-            source_handles.extend(_plot_gdf(ax, gdf, color=color, label=label, is_project=False))
+            style = source_layer_style_record(layer, index)
+            source_handles.extend(_plot_gdf(ax, gdf, style=style, is_project=False))
             if not gdf.empty:
                 plotted.append(gdf)
 
@@ -68,37 +115,27 @@ def render_map(
             _set_bounds(ax, focus_bounds)
         else:
             _set_extent(ax, plotted)
-        ax.set_title(title, fontsize=10, pad=7)
+        ax.set_title(_wrap_title(title), fontsize=9.3, pad=4)
         ax.set_axis_off()
         if handles:
-            ax.legend(handles=_dedupe_handles(handles), loc="upper left", frameon=True, framealpha=0.94, fontsize=6.2, title="Mapped layers", title_fontsize=6.4)
+            ax.legend(
+                handles=_dedupe_handles(handles),
+                loc="upper right",
+                frameon=True,
+                framealpha=0.9,
+                fontsize=5.7,
+                title="Layers",
+                title_fontsize=5.8,
+                borderpad=0.35,
+                labelspacing=0.25,
+                handlelength=1.35,
+                handletextpad=0.45,
+            )
         _add_north_arrow(ax)
         _add_scale_bar(ax, analysis_crs)
-        if source_note:
-            ax.text(
-                0.01,
-                0.01,
-                source_note,
-                transform=ax.transAxes,
-                ha="left",
-                va="bottom",
-                fontsize=5.8,
-                color="#333333",
-                bbox={"facecolor": "white", "edgecolor": "#D0D0D0", "alpha": 0.9, "pad": 2},
-            )
-        ax.text(
-            0.99,
-            0.01,
-            "Draft / Pre-Review\n" + method_note,
-            transform=ax.transAxes,
-            ha="right",
-            va="bottom",
-            fontsize=5.8,
-            color="#333333",
-            bbox={"facecolor": "white", "edgecolor": "#BDBDBD", "alpha": 0.9, "pad": 2},
-        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(output_path, bbox_inches="tight", facecolor="white")
+        fig.subplots_adjust(left=0.015, right=0.985, top=0.94, bottom=0.015)
+        fig.savefig(output_path, bbox_inches="tight", pad_inches=0.035, facecolor="white")
     finally:
         plt.close(fig)
 
@@ -129,7 +166,8 @@ def comparison_unit_style_records(gdf: gpd.GeoDataFrame) -> list[dict[str, Any]]
         return records
     for index, (_, row) in enumerate(gdf.iterrows()):
         unit_id = _row_text(row, "comparison_unit_id") or f"comparison-unit-{index + 1:05d}"
-        label = _comparison_unit_label(row, index)
+        full_label = _comparison_unit_label(row, index)
+        label = _compact_comparison_unit_label(full_label, index)
         original_style_color = _row_text(row, "style_color")
         color = _kml_color_to_visible_hex(original_style_color)
         style_source = "kml_style_color"
@@ -140,6 +178,7 @@ def comparison_unit_style_records(gdf: gpd.GeoDataFrame) -> list[dict[str, Any]]
             {
                 "comparison_unit_id": unit_id,
                 "label": label,
+                "full_label": full_label,
                 "color": color,
                 "line_width": COMPARISON_UNIT_LINE_WIDTH,
                 "style_source": style_source,
@@ -167,22 +206,53 @@ def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame) -> list[Any]:
         color = str(style["color"])
         geom_type = geometry.geom_type
         if "Polygon" in geom_type:
-            one.plot(ax=ax, facecolor=color, edgecolor=color, linewidth=0.9, alpha=0.14, zorder=6)
+            one.plot(ax=ax, facecolor=color, edgecolor="white", linewidth=2.2, alpha=0.2, zorder=6)
+            one.plot(ax=ax, facecolor=color, edgecolor=color, linewidth=1.05, alpha=0.18, zorder=6.2)
             handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.14, label=label))
         elif "LineString" in geom_type:
             width = float(style["line_width"])
-            one.plot(ax=ax, color=color, linewidth=width, alpha=0.92, zorder=7)
+            one.plot(ax=ax, color="white", linewidth=width + 1.15, alpha=0.92, zorder=6.8)
+            one.plot(ax=ax, color=color, linewidth=width, alpha=0.96, zorder=7)
             handles.append(Line2D([0], [0], color=color, lw=width, label=label))
         elif "Point" in geom_type:
-            one.plot(ax=ax, color=color, markersize=28, alpha=0.92, zorder=8)
+            one.plot(ax=ax, color="white", markersize=34, alpha=0.92, zorder=7.8)
+            one.plot(ax=ax, color=color, markersize=24, alpha=0.96, zorder=8)
             handles.append(Line2D([0], [0], marker="o", color="none", markerfacecolor=color, markersize=5.5, label=label))
     return handles
 
 
-def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, color: str, label: str, is_project: bool) -> list[Any]:
+def source_layer_style_record(layer: dict[str, Any], index: int) -> dict[str, Any]:
+    source_id = str(layer.get("source_id") or "")
+    override = SOURCE_STYLE_OVERRIDES.get(source_id, {})
+    color = str(override.get("color") or SOURCE_CATEGORY_COLORS.get(str(layer.get("source_category", ""))) or _source_color(index))
+    marker = str(override.get("marker") or _source_marker(index))
+    return {
+        "source_id": source_id,
+        "label": legend_label_for_layer(layer),
+        "color": color,
+        "marker": marker,
+        "style_source": "source_id_override" if override else "category_or_sequence",
+    }
+
+
+def legend_label_for_layer(layer: dict[str, Any]) -> str:
+    source_id = str(layer.get("source_id") or "")
+    if source_id in SOURCE_LABEL_OVERRIDES:
+        return SOURCE_LABEL_OVERRIDES[source_id]
+    label = str(layer.get("source_name") or layer.get("source_id") or "Source layer")
+    label = re.sub(r"\bMississippi\b", "", label, flags=re.IGNORECASE)
+    label = re.sub(r"\bFacilities\b", "", label, flags=re.IGNORECASE)
+    label = re.sub(r"\s+", " ", label.replace("/", " / ")).strip(" -/")
+    return _truncate_label(label, MAX_LEGEND_LABEL_LENGTH)
+
+
+def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, style: dict[str, Any], is_project: bool) -> list[Any]:
     if gdf.empty:
         return []
     handles: list[Any] = []
+    color = str(style.get("color") or "#6BAA75")
+    label = str(style.get("label") or "Source layer")
+    marker = str(style.get("marker") or "o")
     polygon_gdf = gdf[gdf.geometry.geom_type.str.contains("Polygon", na=False)]
     line_gdf = gdf[gdf.geometry.geom_type.str.contains("LineString", na=False)]
     point_gdf = gdf[gdf.geometry.geom_type.str.contains("Point", na=False)]
@@ -191,16 +261,18 @@ def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, color: str, label: str, is_proj
             polygon_gdf.plot(ax=ax, facecolor="none", edgecolor=color, linewidth=1.5, zorder=5)
             handles.append(Patch(facecolor="none", edgecolor=color, label=label))
         else:
-            polygon_gdf.plot(ax=ax, facecolor=color, edgecolor=color, linewidth=0.6, alpha=0.32, zorder=3)
-            handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.32, label=label))
+            polygon_gdf.plot(ax=ax, facecolor=color, edgecolor=color, linewidth=0.45, alpha=0.22, zorder=3)
+            handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.25, label=label))
     if not line_gdf.empty:
-        width = 2.0 if is_project else 1.1
-        line_gdf.plot(ax=ax, color=color, linewidth=width, alpha=0.94 if is_project else 0.7, zorder=6 if is_project else 4)
+        width = 2.0 if is_project else 0.85
+        line_gdf.plot(ax=ax, color=color, linewidth=width, alpha=0.94 if is_project else 0.58, zorder=6 if is_project else 4)
         handles.append(Line2D([0], [0], color=color, lw=width, label=label))
     if not point_gdf.empty:
-        size = 34 if is_project else 20
-        point_gdf.plot(ax=ax, color=color, markersize=size, alpha=0.94 if is_project else 0.72, zorder=7 if is_project else 5)
-        handles.append(Line2D([0], [0], marker="o", color="none", markerfacecolor=color, markersize=5.5, label=label))
+        size = 34 if is_project else 22
+        if not is_project:
+            point_gdf.plot(ax=ax, marker=marker, color="white", markersize=size + 10, alpha=0.82, zorder=4.8)
+        point_gdf.plot(ax=ax, marker=marker, color=color, markersize=size, alpha=0.94 if is_project else 0.78, zorder=7 if is_project else 5)
+        handles.append(Line2D([0], [0], marker=marker, color="none", markerfacecolor=color, markeredgecolor="#333333", markeredgewidth=0.45, markersize=5.5, label=label))
     return handles[:1]
 
 
@@ -211,6 +283,29 @@ def _comparison_unit_label(row: Any, index: int) -> str:
             return value
     unit_id = _row_text(row, "comparison_unit_id")
     return unit_id or f"Comparison unit {index + 1}"
+
+
+def _compact_comparison_unit_label(label: str, index: int) -> str:
+    text = str(label or "").strip()
+    text = re.sub(r"\.(dwg|kmz|kml|shp|geojson)$", "", text, flags=re.IGNORECASE)
+    normalized = re.sub(r"[_-]+", " ", text)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    simple_alternative = re.fullmatch(r"(alternative)\s+([0-9]+[A-Za-z]?|[A-Za-z])", normalized, flags=re.IGNORECASE)
+    if simple_alternative:
+        return f"Alternative {simple_alternative.group(2).upper()}"
+    option_match = re.search(r"\b(?:alternative|option|alt)\s*([0-9]+[A-Za-z]?|[A-Za-z])\b", normalized, flags=re.IGNORECASE)
+    if option_match:
+        prefix = "Alt" if re.search(r"\b(?:alternative|alt)\b", text, flags=re.IGNORECASE) else "Option"
+        return f"{prefix} {option_match.group(1).upper()}"
+    route_match = re.search(r"\broute\s*([0-9]+[A-Za-z]?|[A-Za-z])\b", normalized, flags=re.IGNORECASE)
+    if route_match:
+        return f"Route {route_match.group(1).upper()}"
+    unit_match = re.search(r"comparison[-_ ]unit[-_ ]0*(\d+)", normalized, flags=re.IGNORECASE)
+    if unit_match:
+        return f"Unit {int(unit_match.group(1))}"
+    text = re.sub(r"\b20\d{2}\b", "", normalized)
+    text = re.sub(r"\s+", " ", text).strip()
+    return _truncate_label(text or f"Unit {index + 1}", 24)
 
 
 def _row_text(row: Any, column: str) -> str:
@@ -278,8 +373,8 @@ def _set_bounds(ax: Any, bounds: Any) -> None:
     west, south, east, north = [float(value) for value in bounds]
     width = east - west
     height = north - south
-    pad_x = width * 0.08 if width > 0 else 250
-    pad_y = height * 0.08 if height > 0 else 250
+    pad_x = width * 0.055 if width > 0 else 250
+    pad_y = height * 0.055 if height > 0 else 250
     ax.set_xlim(west - pad_x, east + pad_x)
     ax.set_ylim(south - pad_y, north + pad_y)
     ax.set_aspect("equal", adjustable="box")
@@ -366,3 +461,42 @@ def _dedupe_handles(handles: list[Any]) -> list[Any]:
 def _source_color(index: int) -> str:
     colors = ["#6BAA75", "#E45E5E", "#7A6FF0", "#D99A2B", "#3A8D8F", "#A35C9F"]
     return colors[index % len(colors)]
+
+
+def _source_marker(index: int) -> str:
+    markers = ["o", "s", "^", "D", "P", "v", "h", "*"]
+    return markers[index % len(markers)]
+
+
+def _figure_size_for_bounds(bounds: Any | None) -> tuple[float, float]:
+    if bounds is None:
+        return (5.4, 4.7)
+    try:
+        west, south, east, north = [float(value) for value in bounds]
+    except Exception:
+        return (5.4, 4.7)
+    width = abs(east - west)
+    height = abs(north - south)
+    if width <= 0 or height <= 0:
+        return (5.4, 4.7)
+    aspect = width / height
+    if aspect < 0.45:
+        return (4.1, 6.4)
+    if aspect < 0.8:
+        return (4.7, 5.9)
+    if aspect > 2.5:
+        return (6.4, 3.7)
+    if aspect > 1.45:
+        return (6.0, 4.3)
+    return (5.3, 5.0)
+
+
+def _wrap_title(title: str) -> str:
+    return "\n".join(textwrap.wrap(str(title), width=58)) or str(title)
+
+
+def _truncate_label(label: str, max_length: int) -> str:
+    text = str(label or "").strip()
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 1].rstrip() + "…"

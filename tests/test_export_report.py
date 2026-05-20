@@ -486,6 +486,74 @@ def test_export_replaced_requires_replacement_content_and_exports_replacement(tm
     assert exported["content_source"] == "replacement_content"
 
 
+def test_export_figure_uses_edited_caption_with_generated_image(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    image_path = project_dir / "maps" / "figures" / "generated-figure.png"
+    write_tiny_png(image_path)
+    set_review_states(
+        project_dir,
+        default_status="declined",
+        overrides={
+            "figure-wetlands-waterbodies": {
+                "status": "edited",
+                "edited_content": "Reviewed wetlands and waterbodies caption.",
+                "export_eligible": True,
+            }
+        },
+    )
+    set_queue_item(project_dir, "figure-wetlands-waterbodies", image_path="maps/figures/generated-figure.png")
+
+    manifest = export_report(project_dir)
+    markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+    exported = next(item for item in manifest["included_items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert exported["caption"] == "Reviewed wetlands and waterbodies caption."
+    assert exported["caption_source"] == "edited_caption"
+    assert exported["image_source"] == "generated_figure"
+    assert exported["content"] == ""
+    assert "Caption: Reviewed wetlands and waterbodies caption." in markdown
+    assert "reviewer verification" not in markdown.lower()
+    assert "draft figure review" not in markdown.lower()
+
+
+def test_export_figure_uses_replacement_image_and_edited_caption(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    replacement_path = project_dir / "review_queue" / "figure_replacements" / "figure-wetlands-waterbodies" / "replacement.png"
+    write_tiny_png(replacement_path)
+    replacement_rel = replacement_path.relative_to(project_dir).as_posix()
+    set_review_states(
+        project_dir,
+        default_status="declined",
+        overrides={
+            "figure-wetlands-waterbodies": {
+                "status": "replaced",
+                "edited_content": "Replacement wetlands figure caption.",
+                "replacement_content": replacement_rel,
+                "export_eligible": True,
+            }
+        },
+    )
+    set_queue_item(project_dir, "figure-wetlands-waterbodies", reviewer_notes=[{"created_at": "now", "note": "Internal reviewer note only."}])
+
+    manifest = export_report(project_dir)
+    markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+    exported = next(item for item in manifest["included_items"] if item["id"] == "figure-wetlands-waterbodies")
+    asset = next(item for item in manifest["export_figure_assets"] if item["figure_id"] == "figure-wetlands-waterbodies")
+
+    assert exported["caption"] == "Replacement wetlands figure caption."
+    assert exported["image_path"] == replacement_rel
+    assert exported["caption_source"] == "edited_caption"
+    assert exported["image_source"] == "replacement_figure"
+    assert exported["content_source"] == "replacement_figure"
+    assert Path(asset["source_image_path"]) == replacement_path
+    assert asset["export_asset_path"] == "assets/figures/figure-wetlands-waterbodies.png"
+    assert "Caption: Replacement wetlands figure caption." in markdown
+    assert "Map file: `assets/figures/figure-wetlands-waterbodies.png`" in markdown
+    assert "Internal reviewer note only" not in markdown
+
+
 def test_export_legacy_rejected_status_is_omitted_as_declined(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)

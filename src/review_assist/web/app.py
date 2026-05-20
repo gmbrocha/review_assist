@@ -161,17 +161,27 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
     @app.post("/review/<item_id>")
     def review_update(item_id: str) -> Any:
         project_dir = _selected_project_dir_or_abort(app)
-        status = str(request.form.get("status") or "")
+        form_kind = str(request.form.get("form_kind") or "")
         try:
-            adapter.save_review_action(
-                project_dir,
-                item_id,
-                status=status,
-                note=request.form.get("note") or None,
-                edited_content=request.form.get("edited_content") if status == "edited" else None,
-                replacement_content=request.form.get("replacement_content") if status == "replaced" else None,
-                export_eligible=("export_eligible" in request.form) if status == "unable_to_verify" else None,
-            )
+            if form_kind == "figure_review":
+                adapter.save_figure_review_action(
+                    project_dir,
+                    item_id,
+                    caption=request.form.get("caption"),
+                    replacement_file=request.files.get("replacement_figure"),
+                    note=request.form.get("note") or None,
+                )
+            else:
+                status = str(request.form.get("status") or "")
+                adapter.save_review_action(
+                    project_dir,
+                    item_id,
+                    status=status,
+                    note=request.form.get("note") or None,
+                    edited_content=request.form.get("edited_content") if status == "edited" else None,
+                    replacement_content=request.form.get("replacement_content") if status == "replaced" else None,
+                    export_eligible=("export_eligible" in request.form) if status == "unable_to_verify" else None,
+                )
             flash("Review item updated.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")

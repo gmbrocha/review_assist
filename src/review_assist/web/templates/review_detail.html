@@ -15,10 +15,12 @@
   <div class="metric"><span>Attachment</span><strong>{{ item.attachment_id or 'none' }}</strong></div>
 </section>
 
+{% if not item.is_figure %}
 <section class="panel">
   <h2>Reviewed Content Candidate</h2>
   <pre class="content-preview">{{ item.generated_content or 'No generated content recorded.' }}</pre>
 </section>
+{% endif %}
 
 {% if item.table_preview.table_id %}
 <section class="table-section">
@@ -42,7 +44,7 @@
 
 {% if item.figure.figure_id %}
 <section class="panel">
-  <h2>Figure Reference</h2>
+  <h2>Proposed Export Figure</h2>
   {% if item.figure.artifact_link_path %}
     <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=item.figure.artifact_link_path) }}" alt="{{ item.figure.figure_id }}">
   {% else %}
@@ -74,6 +76,21 @@
 
 <section class="panel">
   <h2>Review Action</h2>
+  {% if item.is_figure %}
+  <form method="post" class="review-form" enctype="multipart/form-data">
+    <input type="hidden" name="form_kind" value="figure_review">
+    <label>Edited Caption
+      <textarea name="caption" rows="3">{{ item.figure.caption }}</textarea>
+    </label>
+    <label>Upload New Figure
+      <input type="file" name="replacement_figure" accept=".png,.jpg,.jpeg,image/png,image/jpeg">
+    </label>
+    <label>Internal reviewer note
+      <textarea name="note" rows="3"></textarea>
+    </label>
+    <button class="primary" type="submit">Accept Final</button>
+  </form>
+  {% else %}
   <form method="post" class="review-form">
     <label>Status
       <select name="status">
@@ -96,5 +113,6 @@
     </label>
     <button class="primary" type="submit">Save Review Action</button>
   </form>
+  {% endif %}
 </section>
 {% endblock %}
