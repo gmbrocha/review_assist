@@ -110,7 +110,7 @@ def test_validate_deliverable_matrix_cli_json(capsys: pytest.CaptureFixture[str]
     assert payload["profile_id"] == "environmental_constraints_example"
     assert payload["section_target_count"] == 44
     assert payload["table_target_count"] == 4
-    assert payload["figure_target_count"] == 13
+    assert payload["figure_target_count"] == 15
     assert payload["attachment_target_count"] == 3
     assert payload["prompt_count"] == 45
 

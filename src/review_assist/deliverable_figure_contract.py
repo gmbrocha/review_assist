@@ -19,8 +19,8 @@ def validate_deliverable_figures(data: dict[str, Any], location: str) -> None:
         raise DeliverableFigureError(f"Deliverable figures artifact requires a list field named 'figures': {location}")
     if data.get("figure_count") != len(figures):
         raise DeliverableFigureError(f"Deliverable figures artifact figure_count does not match figures: {location}")
-    if len(figures) != 13:
-        raise DeliverableFigureError(f"Deliverable figures artifact must contain exactly 13 main figures: {location}")
+    if len(figures) != 15:
+        raise DeliverableFigureError(f"Deliverable figures artifact must contain exactly 15 main figures: {location}")
     if not isinstance(data.get("attachment_supporting_figures", []), list):
         raise DeliverableFigureError(f"Deliverable figures artifact attachment_supporting_figures must be a list: {location}")
     if data.get("attachment_supporting_figure_count", 0) != len(data.get("attachment_supporting_figures", [])):

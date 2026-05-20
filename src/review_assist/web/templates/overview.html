@@ -72,6 +72,72 @@
   {% endif %}
 </section>
 
+{% set gpt = summary.gpt_interpretive_assist %}
+<section class="panel">
+  <div class="section-title-row">
+    <h2>GPT Interpretive Assist</h2>
+    <form method="post" action="{{ url_for('toggle_gpt_interpretive_assist') }}">
+      {% if gpt.ui_enabled %}
+        <input type="hidden" name="gpt_interpretive_assist_enabled" value="no">
+        <button type="submit">Turn Off</button>
+      {% else %}
+        <input type="hidden" name="gpt_interpretive_assist_enabled" value="yes">
+        <button type="submit">Turn On</button>
+      {% endif %}
+    </form>
+  </div>
+  <p class="muted">Optional, cached GPT drafting for source-backed section review candidates. Turning this on does not call GPT; generation only happens from the button below.</p>
+  <dl class="details">
+    <dt>Status</dt><dd>{{ gpt.status }}{% if gpt.message %} - {{ gpt.message }}{% endif %}</dd>
+    <dt>Model</dt><dd>{{ gpt.model }}</dd>
+    <dt>Planned Calls</dt><dd>{{ gpt.planned_call_count }}</dd>
+    <dt>Last Run</dt><dd>{{ gpt.last_run.created_at or 'Not run' }}</dd>
+    <dt>GPT Validated / Rejected</dt><dd>{{ gpt.accepted_gpt_draft_count }} / {{ gpt.rejected_gpt_draft_count }}</dd>
+    <dt>Deterministic Fallbacks</dt><dd>{{ gpt.deterministic_fallback_count }}</dd>
+    <dt>Cache Hits</dt><dd>{{ gpt.cache_hit_count }}</dd>
+    <dt>Token Usage</dt><dd>{% if gpt.last_run.token_usage %}{{ gpt.last_run.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
+  </dl>
+  {% if gpt.ui_enabled %}
+    <form method="post" action="{{ url_for('generate_gpt_interpretive_assist') }}">
+      <div class="form-row">
+        <label>
+          Max sections/calls
+          <input type="number" name="max_calls" min="0" max="25" value="5">
+        </label>
+        <label>
+          <input type="checkbox" name="skip_existing" value="yes" checked>
+          Skip existing GPT draft if evidence is unchanged
+        </label>
+        <label>
+          <input type="checkbox" name="source_backed_only" value="yes" checked>
+          Source-backed sections only
+        </label>
+        <label>
+          <input type="checkbox" name="dry_run" value="yes">
+          Dry run / preview planned calls
+        </label>
+        <label>
+          <input type="checkbox" name="force_refresh" value="yes">
+          Force refresh cached drafts
+        </label>
+      </div>
+      <div class="checkbox-list">
+        {% for section in gpt.eligible_sections[:12] %}
+          <label>
+            <input type="checkbox" name="sections" value="{{ section.target_id }}" checked>
+            {{ section.title }} <span class="muted">({{ section.target_id }})</span>
+          </label>
+        {% else %}
+          <p class="empty">No source-backed GPT-eligible section review candidates are currently planned.</p>
+        {% endfor %}
+      </div>
+      <button type="submit" {% if gpt.status != 'ready' %}disabled{% endif %}>Generate GPT Drafts</button>
+    </form>
+  {% else %}
+    <p class="empty">Controls are hidden while GPT Interpretive Assist is off.</p>
+  {% endif %}
+</section>
+
 <section class="panel">
   <h2>Developer Testing Reset</h2>
   <p class="muted">Local/dev action: refreshes deterministic review artifacts, then rebuilds the standard queue. It reruns local artifact generation from current inputs and registered source layers, without source acquisition, NAIP acquisition, source materialization, or GPT drafting.</p>

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .report_section_policy import report_extent_scope_for_target
+
 
 EXTENT_POLICY_VERSION = "extent-policy-v1"
 
@@ -60,6 +62,8 @@ WATERSHED_TARGET_IDS = {
 }
 COUNTY_OR_REGIONAL_TARGET_IDS = {
     "demographics-and-socioeconomics",
+    "socioeconomic-and-business-considerations",
+    "demographic-characteristics",
     "income-demographics",
     "race-demographics",
     "figure-census-tracts",
@@ -253,6 +257,7 @@ def extent_policy_summary() -> dict[str, Any]:
             FIGURE_RENDER_EXTENT,
             PRESENTATION_ONLY_COLLAR_EXTENT,
         ],
+        "report_section_policy_path": "config/report_section_policy.json",
         "core_rule": "Rendered map extent and legend/basemap collar extent are presentation-only and must not drive counts, findings, source inclusion, or interpretation.",
     }
 
@@ -290,6 +295,9 @@ def _primary_category(resource_category: str, source_categories: list[str] | tup
 
 
 def _scope_for_target(target_id: str, category: str) -> str:
+    configured_scope = report_extent_scope_for_target(target_id)
+    if configured_scope:
+        return configured_scope
     if target_id in DIRECT_TARGET_IDS:
         return DIRECT_INTERSECTION_EXTENT
     if target_id in WATERSHED_TARGET_IDS:

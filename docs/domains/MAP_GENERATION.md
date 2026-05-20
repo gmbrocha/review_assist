@@ -41,17 +41,19 @@ Current behavior:
 - Generates legacy `project-overview` from normalized project geometry.
 - Generates legacy `source-context-<source_id>` for each analyzed local source clipped layer from `constraints/constraint_results.json` when present, with legacy `spatial_relationships.json` as a fallback.
 - Generates legacy `environmental-constraints-overview` when analyzed source layers have mapped features inside the analysis bounds.
-- Generates exactly 13 main deliverable figure records from `config/deliverable_section_matrix.json` in matrix order at `deliverable/figures.json`.
+- Generates exactly 15 main deliverable figure records from `config/deliverable_section_matrix.json` in matrix order at `deliverable/figures.json`.
 - Stores deliverable PNGs under `projects/<project_id>/maps/figures/`; unavailable or unsupported figures are explicit stubs with the canonical stub text.
-- Renders comparison units with target-specific public/allowed layers for wetlands/NWI/hydrography, FEMA flood zones, hydrography with impaired-waters caveat, public cultural context, community facility subtypes, public water wells, energy/utility infrastructure, regulated facilities, and Census tracts when source data is available.
+- Renders comparison units with target-specific public/allowed layers for wetlands/NWI/hydrography, FEMA flood zones, hydrography with impaired-waters caveat, public cultural context, community facility subtypes, public water wells, energy/utility infrastructure, split regulated-facility groups, oil/gas wells, and Census tracts when source data is available.
 - Never renders or exposes `mdah_restricted_archaeology` locations. Restricted cultural status is preserved as `restricted_source_not_mapped`.
-- Adds Attachment A supporting panel maps outside the 13 main figure count when the comparison-unit extent is too elongated for one readable figure.
+- Adds Attachment A supporting panel maps outside the 15 main figure count when the comparison-unit extent is too elongated for one readable figure.
 - Uses GeoPandas and Matplotlib only.
 - Adds compact export-facing map elements: abbreviated legend, north arrow, and scale bar when CRS units allow it. Legends use a bounded map-collar/legend-bay layout that expands the visual extent enough to place the measured rendered legend inside adjacent map context, not over the core project extent or in a plain white margin. Report-ready PNGs are map panels only: captions, report-facing figure titles, source notes, method notes, and review/process status stay in metadata, UI chrome, and export text rather than being baked into the map canvas.
 - Figure extent planning writes a non-network `maps/figure_extent_plan.json` artifact before rendering. The plan records each target's extent class, core bounds, full render bounds, collar side/bounds, map-furniture placement, and grouped NAIP materialization need. Small/direct and medium/context figure groups can request distinct basemap sidecars; large/watershed figure targets remain explicit deferred/stub states until real watershed context extents are implemented.
 - Figure artifacts record extent-policy metadata for the source/query extent, figure extent, render extent, and presentation-only collar extent. The render extent and collar extent are explicitly presentation-only and do not drive source clipping, evidence counts, findings, table rows, or narrative interpretation.
+- County/regional figure targets preserve `county_regional` visual semantics in figure planning metadata. Current rendering may reuse medium/context bounds behavior until separate county/regional query and cartographic rules are implemented.
 - Non-stub matrix deliverable figures prefer project-local NAIP GeoTIFF basemap sidecars created by the explicit `materialize-naip-basemap --for-figure-extents` command when present. A selected sidecar must cover the full planned render extent, including any collar; insufficient sidecars produce vector-only fallback plus `basemap_sidecar_extent_insufficient` warnings rather than blank collar space.
-- Renders matrix-backed deliverable comparison units as individual visual units with preserved usable KML colors or deterministic visible fallbacks, while leaving analysis geometry and comparison-unit generation unchanged.
+- Renders matrix-backed deliverable comparison units as individual visual units with saturated, high-separation deterministic colors. Usable KML colors are preserved only when they are saturated/readable on aerial imagery and not too similar to already assigned route colors; route/line styling remains a clean single-color line without the earlier heavy white casing while leaving analysis geometry and comparison-unit generation unchanged.
+- Uses high-contrast source marker fills, compact marker sizes, light marker halos/dark outlines, and saturated water/wetland overlay colors so source layers remain visible on aerial imagery without overpowering comparison units.
 - Sizes deliverable figure canvas from the project/focus bounds so tall or narrow project geometries do not produce excessive empty width solely because of legend or note text. Source line/point/polygon styling is intentionally lighter than project/comparison-unit styling so context layers remain readable without overpowering submitted project geometry.
 - Stores figure captions, source notes, method notes, figure grouping, related resource categories, source refs, shown layers, provenance, uncertainty flags, validation issues, stub status, and review status in the relevant figure artifact.
 - Adds `map_figure` review queue items with deterministic IDs such as `map-figure-project-overview`.
@@ -186,7 +188,7 @@ Common overlays:
 - Community facilities.
 - Public water supply wells.
 - Utility and pipeline infrastructure.
-- Hazardous materials sites.
+- Hazardous/regulated sites, water-discharge/waste facilities, and oil/gas wells as split regulated-facility figures.
 - Census tracts or demographic context.
 - Imagery-observed review items.
 

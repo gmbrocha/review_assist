@@ -45,6 +45,10 @@ class ReportPromptConfigError(RuntimeError):
     """Raised when the report prompt config is missing or invalid."""
 
 
+class ReportSectionPolicyConfigError(RuntimeError):
+    """Raised when report section policy config is missing or invalid."""
+
+
 @dataclass(frozen=True)
 class SectionTarget:
     target_id: str
@@ -258,8 +262,8 @@ class DeliverableMatrixConfig:
 
         if len(self.table_targets) != 4:
             raise DeliverableMatrixError("Deliverable matrix must define exactly 4 table targets.")
-        if len(self.figure_targets) != 13:
-            raise DeliverableMatrixError("Deliverable matrix must define exactly 13 figure targets.")
+        if len(self.figure_targets) != 15:
+            raise DeliverableMatrixError("Deliverable matrix must define exactly 15 figure targets.")
         if len(self.attachment_targets) != 3:
             raise DeliverableMatrixError("Deliverable matrix must define exactly 3 attachment targets.")
 
@@ -396,6 +400,7 @@ def validate_deliverable_contract(
     matrix = load_deliverable_matrix(matrix_path)
     prompts = load_report_prompt_config(prompt_path)
     _validate_matrix_prompt_refs(matrix, prompts)
+    _validate_report_section_policy_refs(matrix)
     return matrix
 
 
@@ -425,6 +430,15 @@ def _validate_matrix_prompt_refs(matrix: DeliverableMatrixConfig, prompts: Repor
                 invalid_target_refs.append(f"{prompt.prompt_key}->{target_id}")
     if invalid_target_refs:
         raise ReportPromptConfigError(f"Report prompts reference unknown matrix target(s): {', '.join(sorted(invalid_target_refs))}")
+
+
+def _validate_report_section_policy_refs(matrix: DeliverableMatrixConfig) -> None:
+    from .report_section_policy import ReportSectionPolicyError, validate_report_section_policy
+
+    try:
+        validate_report_section_policy(matrix=matrix)
+    except ReportSectionPolicyError as exc:
+        raise ReportSectionPolicyConfigError(str(exc)) from exc
 
 
 def _load_json_object(path: Path, label: str, error_type: type[RuntimeError]) -> dict[str, Any]:

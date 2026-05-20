@@ -143,10 +143,14 @@ def test_generate_review_queue_writes_bounded_deliverable_item_queue(tmp_path: P
     assert wetlands["analysis_extent_type"] in {"direct_intersection_extent", "mixed_extent_types"}
     contamination = item_by_id(queue, "contamination-risks")
     oil_wells = item_by_id(queue, "oil-wells")
-    assert contamination["related_figure_ids"] == ["figure-hazardous-waste-sites"]
+    demographics = item_by_id(queue, "demographic-characteristics")
+    assert contamination["related_figure_ids"] == ["figure-hazardous-waste-sites", "figure-water-discharge-waste-facilities"]
     assert contamination["analysis_extent_type"] == "nearby_context_extent"
     assert "project vicinity" in contamination["interpretation_scope_label"]
-    assert oil_wells["related_figure_ids"] == ["figure-hazardous-waste-sites"]
+    assert oil_wells["related_figure_ids"] == ["figure-oil-gas-wells"]
+    assert oil_wells["analysis_extent_type"] == "direct_intersection_extent"
+    assert demographics["analysis_extent_type"] == "county_or_regional_context_extent"
+    assert "county or regional context" in demographics["interpretation_scope_label"]
     assert not items_by_type(queue, "draft_finding")
     assert not items_by_type(queue, "comparison_table")
     assert not items_by_type(queue, "spatial_relationship")
@@ -371,6 +375,7 @@ def test_reset_review_queue_deletes_generated_candidates_and_regenerates(tmp_pat
     }
     assert result["before"]["deliverable_item_count"] == result["after"]["deliverable_item_count"]
     assert result["before"]["review_queue_item_count"] == result["after"]["review_queue_item_count"]
+    assert result["after"]["deliverable_figure_count"] == 15
     assert result["process_language"]["before"]["has_process_language"] is True
     assert result["process_language"]["after"]["has_process_language"] is False
     assert result["refresh_upstream_artifacts"] is True
@@ -442,4 +447,5 @@ def test_cli_reset_review_queue_json_output(tmp_path: Path, capsys: pytest.Captu
     captured = capsys.readouterr()
     result = json.loads(captured.out)
     assert result["after"]["review_queue_item_count"] == load_review_queue(project_dir)["item_count"]
+    assert result["after"]["deliverable_figure_count"] == 15
     assert result["process_language"]["after"]["has_process_language"] is False

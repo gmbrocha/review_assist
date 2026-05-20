@@ -124,7 +124,7 @@ def test_populate_for_review_writes_manifest_and_review_queue(tmp_path: Path) ->
     assert "basemap_rendering_status" in result
     assert result["comparison_unit_count"] == 1
     assert result["deliverable_table_count"] == 4
-    assert result["deliverable_figure_count"] == 13
+    assert result["deliverable_figure_count"] == 15
     assert result["deliverable_item_count"] > 0
     assert result["expected_count_status"] == "not_configured"
     assert result["review_queue_item_count"] > 0

@@ -77,6 +77,29 @@
   {% endif %}
 </section>
 
+{% if item.provenance.gpt_interpretive_assist.enabled %}
+<section class="panel">
+  <h2>GPT Assist Provenance</h2>
+  <p class="muted">GPT-assisted content remains a review candidate and is not export eligible until a reviewer accepts or edits it.</p>
+  <dl class="details">
+    <dt>Provider</dt><dd>{{ item.provenance.gpt_interpretive_assist.draft_provider }}</dd>
+    <dt>Model</dt><dd>{{ item.provenance.gpt_interpretive_assist.model }}</dd>
+    <dt>Prompt Version</dt><dd>{{ item.provenance.gpt_interpretive_assist.prompt_version }}</dd>
+    <dt>Cached</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist.cached else 'no' }}</dd>
+    <dt>Generated</dt><dd>{{ item.provenance.gpt_interpretive_assist.generated_at or 'Not recorded' }}</dd>
+    <dt>Review Before Export</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist.review_before_export else 'no' }}</dd>
+    <dt>Source Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.source_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.source_refs_used else 'None recorded' }}</dd>
+    <dt>Table Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.table_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.table_refs_used else 'None recorded' }}</dd>
+    <dt>Figure Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.figure_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.figure_refs_used else 'None recorded' }}</dd>
+    <dt>Token Usage</dt><dd>{% if item.provenance.gpt_interpretive_assist.token_usage %}{{ item.provenance.gpt_interpretive_assist.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
+    <dt>Evidence Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.evidence_payload_hash or 'Not recorded' }}</dd>
+    <dt>Policy Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.section_policy_hash or 'Not recorded' }}</dd>
+    <dt>Prompt Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.prompt_contract_hash or 'Not recorded' }}</dd>
+    <dt>Style Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.style_context_hash or 'Not recorded' }}</dd>
+  </dl>
+</section>
+{% endif %}
+
 <section class="panel">
   <h2>Review Action</h2>
   {% if item.is_figure %}

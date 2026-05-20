@@ -94,6 +94,8 @@ EXPECTED_FIGURE_IDS = [
     "figure-public-water-supply-wells",
     "figure-energy-infrastructure",
     "figure-hazardous-waste-sites",
+    "figure-water-discharge-waste-facilities",
+    "figure-oil-gas-wells",
     "figure-census-tracts",
 ]
 
@@ -117,7 +119,7 @@ def test_standard_deliverable_outline_is_bounded(tmp_path: Path) -> None:
     assert len(static_sections) == 43
     assert len(dynamic_templates) == 1
     assert len(matrix.table_targets) == 4
-    assert len(matrix.figure_targets) == 13
+    assert len(matrix.figure_targets) == 15
     assert len(matrix.attachment_targets) == 3
     assert result["item_count"] == expected_count
     assert result["expected_item_count"] == expected_count
@@ -176,7 +178,7 @@ def test_export_manifest_reports_compactness_budget(tmp_path: Path) -> None:
 
     assert budget["included_section_count"] > 0
     assert budget["included_table_count"] == 4
-    assert budget["included_figure_count"] == 13
+    assert budget["included_figure_count"] == 15
     assert budget["included_attachment_count"] == 3
     assert budget["stub_item_count"] == manifest["stub_item_count"]
     assert budget["rendered_table_preview_row_count"] <= 4 * 5

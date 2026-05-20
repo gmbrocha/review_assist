@@ -2,9 +2,11 @@
 
 This document captures the pipeline for assembling editable pre-review report packages.
 
-A deterministic draft section baseline exists, optional GPT section drafting now runs from structured evidence when enabled, and the reviewed-content export compiler writes Markdown, DOCX, and an export manifest after the standard review queue passes the review-complete gate. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first, blocks packages that contain mock/test fixture source evidence or no real source layers, and records whether it produced reviewed output or internal preview output.
+A deterministic draft section baseline exists, explicit GPT Interpretive Assist can draft cached source-backed review candidates when invoked, and the reviewed-content export compiler writes Markdown, DOCX, and an export manifest after the standard review queue passes the review-complete gate. An internal demo deliverable command can run the current pipeline and create a visibly pre-review package without auto-accepting queue items. A stricter MVP deliverable command runs source preparation first, blocks packages that contain mock/test fixture source evidence or no real source layers, and records whether it produced reviewed output or internal preview output.
 
 Sprint 1.1 added static deliverable and prompt contracts at `config/deliverable_section_matrix.json` and `config/report_generation_prompts.json`, plus validation commands for those contracts. Sprint 2.2 wires the deliverable matrix into exact standard table generation at `projects/<project_id>/deliverable/tables.json`. Sprint 2.3 wires the matrix into exact standard figure generation at `projects/<project_id>/deliverable/figures.json` and evidence package refs. Sprint 3.1 wires the matrix and prompt contract into standard deliverable item generation at `projects/<project_id>/deliverable/deliverable_items.json` and makes the bounded review queue consume that artifact by default. Sprint 3.2 wires the bounded queue into default export gating and package manifest review-gate summaries. Legacy `drafts/report_sections.json` remains available for compatibility/audit context.
+
+`config/report_section_policy.json` is the canonical section policy layer for report interpretation. It defines each section's extent scope, visual extent class, comparison-unit expansion policy, evidence pattern, caveats, prohibited claims, and GPT readiness for deterministic drafting and explicit GPT Interpretive Assist.
 
 ## Goal
 
@@ -63,7 +65,7 @@ These missing-data statements should be review queue items before they are inclu
 The current CLI can generate draft report section artifacts:
 
 - Command: `review-assist generate-report-sections <project_dir>`
-- Deterministic override: `review-assist generate-report-sections <project_dir> --no-gpt-drafting`
+- Legacy GPT opt-in: `review-assist generate-report-sections <project_dir> --gpt-drafting`
 - Output: `projects/<project_id>/drafts/report_sections.json`
 - Template config: `config/report_section_templates.json`
 
@@ -80,11 +82,11 @@ The generator creates no-blank-page section drafts from existing structured arti
 
 Current section drafts follow the example report structure more closely: front matter, executive summary, introduction/study area, methodology/data sources, mapping and analysis procedures, limitations/data gaps, environmental constraints inventory, resource sections, comparison/maps, conclusion/next steps, attachments, and reviewer follow-up.
 
-The active provider is deterministic unless root `.env` enables GPT with `GPT_DRAFTING=1`. When enabled, the OpenAI provider uses `OPENAI_API_KEY` and `OPENAI_INTERPRETER_MODEL`, sends only structured evidence and deterministic baseline copy, and stores provider/model/prompt/schema/input digest/output digest provenance. GPT calls default to two parallel section-drafting workers through `GPT_DRAFTING_WORKERS=2`. Raw source files, geometries, GeoJSON feature dumps, shapefile paths, and root `sources/` paths are withheld from GPT payloads. GPT output remains draft/pre-review content on a standard deliverable item or legacy `report_section` item and is never auto-accepted.
+The legacy report-section generator remains deterministic unless explicitly run with `--gpt-drafting` and the GPT environment gate is enabled. Standard populate, web Create Review Queue, and developer reset are deterministic by default and do not call GPT from `GPT_DRAFTING` alone.
 
 Resource sections now cite related finding, table, and figure IDs where structured artifacts exist, including source-backed wetlands, hydrography, soils/SSURGO map units, flood hazard, USFWS critical habitat, and EPA/ECHO regulated facility summaries. Introduction/study-area/methodology sections reference the project overview figure, the constraints inventory references the combined environmental constraints overview when available, and resource sections reference matching source-context figures. Missing or failed source categories still generate caveats rather than unsupported conclusions.
 
-GPT guardrails reject or flag unknown cited finding/table/figure/source IDs and prohibited recommendation/ranking/scoring/selection/rejection/final-determination/jurisdictional/field-verification language. If GPT is enabled but the API key is missing, the command fails clearly instead of silently pretending GPT ran. If GPT is disabled or `--no-gpt-drafting` is supplied, deterministic sections remain the active path.
+GPT guardrails reject or flag unknown cited finding/table/figure/source IDs and prohibited recommendation/ranking/scoring/selection/rejection/final-determination/jurisdictional/field-verification language. They also reject process labels, style-context citation, example/style fact leakage, raw rows/coordinates/GeoJSON/source paths, required-caveat omissions, section-policy prohibited claims, public cultural context overclaims, and context-only direct-impact wording. If GPT is requested but the API key is missing, the command fails clearly instead of silently pretending GPT ran. If GPT is disabled or `--no-gpt-drafting` is supplied, deterministic sections remain the active path.
 
 These legacy sections are not final exports. The standard review queue now uses matrix-backed deliverable items; legacy `report_section` items remain available for compatibility/audit workflows and still require human review before any reviewed-content export.
 
@@ -128,7 +130,7 @@ The current CLI can generate the exact standard figure targets from the canonica
 - Output: `projects/<project_id>/deliverable/figures.json`
 - PNG directory: `projects/<project_id>/maps/figures/`
 
-This artifact contains the 13 matrix main figure targets in matrix order. It consumes comparison units, `constraints/comparison_unit_constraints.json`, source status, and project-area basemap context. Legacy `maps/map_manifest.json` remains a raw evidence/audit artifact and is not replaced.
+This artifact contains the 15 matrix main figure targets in matrix order, including split regulated-facility figures for hazardous/regulated sites, water-discharge/waste facilities, and oil/gas wells. It consumes comparison units, `constraints/comparison_unit_constraints.json`, source status, and project-area basemap context. Legacy `maps/map_manifest.json` remains a raw evidence/audit artifact and is not replaced.
 
 Unavailable source data or unsupported rendering produces explicit stubs with the canonical stub text and review-needed status. Rendered figures preserve source refs, related comparison-unit constraint IDs, comparison unit IDs, shown-layer summaries, provenance, uncertainty flags, validation issues, and draft review status. Report-ready generated PNGs are map panels only: they include the map, source layers, legend, north arrow, and scale bar, but do not embed captions, source notes, method notes, review/process instructions, or report-facing figure titles. Captions, source notes, and method notes remain editable figure metadata and are written below/near the figure as normal Markdown/DOCX text during export.
 
@@ -141,11 +143,28 @@ The current CLI can generate the standard reviewable deliverable item layer from
 - Command: `review-assist generate-deliverable-items <project_dir>`
 - Output: `projects/<project_id>/deliverable/deliverable_items.json`
 
-This artifact contains static section/front-matter/attachment-section targets, one dynamic wetlands/waterbodies child section per comparison unit, the four deliverable table targets, the 13 deliverable figure targets, and the three required attachment targets. Stable `deliverable_item_id` / `target_id` values are used as the standard review queue item IDs.
+This artifact contains static section/front-matter/attachment-section targets, one dynamic wetlands/waterbodies child section per comparison unit, the four deliverable table targets, the 15 deliverable figure targets, and the three required attachment targets. Stable `deliverable_item_id` / `target_id` values are used as the standard review queue item IDs.
 
 Deliverable items carry matrix target metadata, prompt key and prompt-contract constraints, source refs, table/figure/attachment refs, evidence refs, comparison-unit IDs, extent-policy fields, compact source-gap and upstream validation summaries, provenance, uncertainty flags, stub state, review status, and export eligibility. Source-backed section_text items use deterministic report-style candidate prose for the standard review queue, including table/figure/source references and screening-level limitations where available. The standard review UI displays related table, figure, and evidence refs for source-backed section_text items so supporting artifacts are visible outside the prose body. Required missing or unimplemented content uses the canonical stub text and explicit source/data-gap wording rather than unsupported narrative.
 
 GPT-enabled deliverable item drafting receives only structured evidence, prompt metadata, matrix target context, and extent-policy labels. Raw geometries, full feature dumps, and root `sources/` paths remain excluded from GPT-bound payloads. GPT output is rejected if it cites unknown refs, uses prohibited recommendation/determination language, copies review/process labels such as "draft review candidate", "pre-review", "reviewer verification", "reviewer focus", or "related table status" into export-facing content, or upgrades context-only extent evidence into direct project-impact language.
+
+## GPT Interpretive Assist
+
+GPT Interpretive Assist is the explicit standard-queue GPT path:
+
+- CLI: `review-assist draft-section-candidates <project_dir> --provider gpt`.
+- UI: Overview toggle `GPT Interpretive Assist`, then explicit `Generate GPT Drafts`.
+
+Turning the UI toggle on does not call GPT. Page load, overview refresh, Create Review Queue, reset, and default populate do not call GPT. Dry runs report eligible/planned sections without API calls.
+
+The service drafts only eligible source-backed `section_text` items by default. Front matter, final conclusion, table items, figure items, attachments, manual/reviewer-supplied sections, P2/missing-source stubs, and presentation-only collar/render content are ineligible by default. Existing human-reviewed terminal items are preserved.
+
+Inputs include section policy, current project evidence, extent metadata, allowed/prohibited wording, source/table/figure refs, compact evidence summaries, source gaps/limitations, and `config/report_style_context/environmental_constraints_report_style.md`. The style context is non-evidence style guidance only. It must not be cited, and example-report facts, trail-specific assumptions, or PEL-specific assumptions must not be imported into project drafts.
+
+Accepted GPT output updates `generated_content` only as an unaccepted review candidate, sets status to `needs_review`, sets `export_eligible` false, records GPT provenance, and keeps the export gate intact. Rejected GPT output is recorded in rejected run/cache metadata without replacing the last accepted cache entry, and deterministic content remains in place.
+
+Drafts are cached under `projects/<project_id>/drafts/gpt_interpretive_assist_cache.json` by evidence payload hash, section-policy hash, prompt-contract hash, style-context hash, prompt version, and model. The default run skips current GPT drafts and reuses matching cached accepted output unless `--force-refresh` is supplied. Run/provenance metadata records token usage when the provider reports it.
 
 ## Developer Review Queue Reset
 

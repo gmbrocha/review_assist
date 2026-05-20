@@ -103,13 +103,13 @@ Each deferred item should include:
 - `Target sprint/subunit`: Future review-state/versioning pass.
 - `Status`: open.
 
-### GPT-Assisted Drafting Review Workflow
+### GPT-Assisted Drafting Review Workflow Expansion
 
-- `Deferred item`: Add reviewer-controlled GPT rewrite flows, prompt tuning, and production validation beyond the current opt-in drafting path.
-- `Why postponed`: Current GPT behavior is limited to structured-evidence drafting with validation and tests; it does not support interactive rewrite management.
+- `Deferred item`: Add reviewer-controlled GPT rewrite/refine flows, prompt/style tuning, production usage telemetry, and stronger unsupported-fact validation beyond the current explicit GPT Interpretive Assist path.
+- `Why postponed`: Current GPT behavior is limited to explicit source-backed section candidate drafting with validation, cache/fingerprint reuse, style guidance, and tests. It does not support interactive rewrite management or production prompt operations.
 - `Affected sections/workflows`: Section drafting, deliverable items, review UI, provenance, validation, export gate.
-- `Risk if forgotten`: GPT output could be treated as more authoritative than deterministic evidence or bypass human review expectations.
-- `Temporary simplification`: GPT remains opt-in, structured, validated, and review-gated.
+- `Risk if forgotten`: GPT output could be treated as more authoritative than deterministic evidence, reviewers may repeatedly spend API cost on unchanged evidence, or future rewrite tools could bypass human review expectations.
+- `Temporary simplification`: GPT Interpretive Assist is opt-in, source-backed, cached, style-guided, validated, and review-gated; rejected output falls back to deterministic content.
 - `Target sprint/subunit`: Future drafting/review UX pass.
 - `Status`: open.
 
@@ -162,7 +162,7 @@ Each deferred item should include:
 ### Sprint 2.3 Figures, Evidence, And Validation
 
 - `Deferred item`: Implement matrix-backed deliverable figures and align them with evidence package refs.
-- `Resolution`: Implemented `deliverable/figures.json`, 13 exact main figure records in matrix order, explicit source/implementation stubs, selected-sidecar basemap rendering/fallbacks, restricted cultural exclusion, Attachment A supporting panel maps outside the main figure count, CLI/populate wiring, evidence package table/figure refs, compact row/figure/constraint summaries, GPT-safe payload handling, docs, and focused tests.
+- `Resolution`: Implemented `deliverable/figures.json`, exact main figure records in matrix order, explicit source/implementation stubs, selected-sidecar basemap rendering/fallbacks, restricted cultural exclusion, split regulated-facility figure targets, Attachment A supporting panel maps outside the main figure count, CLI/populate wiring, evidence package table/figure refs, compact row/figure/constraint summaries, GPT-safe payload handling, docs, and focused tests.
 - `Remaining limitation`: Export gates and reviewed-package manifest enforcement are resolved by Sprint 3.2. Local NAIP warehouses that are `.sid`-only remain provenance-only and produce vector-only figures or stubs; GeoTIFF rendering depends on optional `rasterio`.
 - `Target sprint/subunit`: Sprint 2.3.
 - `Status`: resolved.

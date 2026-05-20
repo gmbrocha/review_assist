@@ -186,9 +186,9 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
     contamination = item_by_id(result, "contamination-risks")
     hazardous = item_by_id(result, "hazardous-materials-sites")
     oil_wells = item_by_id(result, "oil-wells")
-    assert contamination["related_figure_ids"] == ["figure-hazardous-waste-sites"]
-    assert hazardous["related_figure_ids"] == ["figure-hazardous-waste-sites"]
-    assert oil_wells["related_figure_ids"] == ["figure-hazardous-waste-sites"]
+    assert contamination["related_figure_ids"] == ["figure-hazardous-waste-sites", "figure-water-discharge-waste-facilities"]
+    assert hazardous["related_figure_ids"] == ["figure-hazardous-waste-sites", "figure-water-discharge-waste-facilities"]
+    assert oil_wells["related_figure_ids"] == ["figure-oil-gas-wells"]
 
 
 def test_load_deliverable_items_round_trip_and_validates_contract(
@@ -557,7 +557,10 @@ def test_cli_generate_deliverable_items_json(
     assert payload["output_path"].endswith("deliverable_items.json")
     water_quality = next(item for item in payload["items"] if item["deliverable_item_id"] == "water-quality")
     health_care = next(item for item in payload["items"] if item["deliverable_item_id"] == "health-care-facilities")
+    demographics = next(item for item in payload["items"] if item["deliverable_item_id"] == "demographic-characteristics")
     assert water_quality["analysis_extent_type"] == "watershed_context_extent"
     assert "watershed/subwatershed context" in water_quality["interpretation_scope_label"]
     assert health_care["analysis_extent_type"] == "community_context_extent"
     assert "near the project area" in health_care["interpretation_scope_label"]
+    assert demographics["analysis_extent_type"] == "county_or_regional_context_extent"
+    assert "county or regional context" in demographics["interpretation_scope_label"]

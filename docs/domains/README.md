@@ -9,6 +9,7 @@ Use this index to load only the docs relevant to the subsystem being touched.
 | Local source warehouse layout | `docs/domains/SOURCE_WAREHOUSE.md` | Stable source warehouse folders, raw source provenance layout, source manifests, seeded-source materialization. |
 | Review policy and reviewer states | `docs/domains/REVIEW_POLICY.md` | Review queue states, reviewer actions, export eligibility, human review boundaries. |
 | Report assembly and exports | `docs/domains/REPORT_ASSEMBLY.md` | Markdown/DOCX exports, report sections, package manifests, export behavior. |
+| Report policy and extent semantics | `docs/domains/REPORT_POLICY.md` | Section extent scope, visual extent class, comparison-unit expansion policy, GPT readiness, and report wording boundaries. |
 | Report taxonomy and deliverable shape | `docs/domains/REPORT_TAXONOMY.md` | Section taxonomy, report categories, deliverable organization. |
 | Findings and finding types | `docs/domains/FINDING_TYPES.md` | Draft findings, finding templates, finding semantics, implication phrasing. |
 | Uncertainty and provenance | `docs/domains/UNCERTAINTY_AND_PROVENANCE.md` | Source confidence, uncertainty flags, provenance, caveats, assumptions. |

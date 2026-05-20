@@ -2132,6 +2132,9 @@ def _gpt_drafting_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _item_drafting_provenance(item: dict[str, Any]) -> dict[str, Any]:
     provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+    interpretive = provenance.get("gpt_interpretive_assist", {}) if isinstance(provenance.get("gpt_interpretive_assist"), dict) else {}
+    if interpretive:
+        return interpretive
     section_provenance = provenance.get("section_provenance", {}) if isinstance(provenance.get("section_provenance"), dict) else {}
     if section_provenance:
         return section_provenance

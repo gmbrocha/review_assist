@@ -210,6 +210,12 @@ code {
   margin: 0;
 }
 
+.checkbox-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
 .status,
 .tag {
   background: #eef5f8;
@@ -326,9 +332,11 @@ input:not([type]) {
   border: 1px solid var(--line);
   border-radius: 6px;
   display: block;
+  height: auto;
   max-height: 420px;
-  max-width: 100%;
+  max-width: 30%;
   object-fit: contain;
+  width: 30%;
 }
 
 @media (max-width: 800px) {

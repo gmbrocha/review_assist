@@ -123,6 +123,7 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
         if project_dir is None:
             return render_template("empty_project.html", active_page="overview", title="Overview")
         summary = adapter.project_summary(project_dir)
+        summary["gpt_interpretive_assist"]["ui_enabled"] = bool(session.get("gpt_interpretive_assist_enabled", False))
         return render_template("overview.html", active_page="overview", summary=summary)
 
     @app.post("/overview/populate")
@@ -131,6 +132,48 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
         try:
             result = adapter.run_populate(project_dir)
             flash(f"Create Review Queue completed with {result.get('review_queue_item_count', 0)} review items.", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("overview"))
+
+    @app.post("/overview/gpt-interpretive-assist/toggle")
+    def toggle_gpt_interpretive_assist() -> Any:
+        _selected_project_dir_or_abort(app)
+        enabled = request.form.get("gpt_interpretive_assist_enabled") == "yes"
+        session["gpt_interpretive_assist_enabled"] = enabled
+        flash("GPT Interpretive Assist controls enabled." if enabled else "GPT Interpretive Assist controls disabled.", "success")
+        return redirect(url_for("overview"))
+
+    @app.post("/overview/gpt-interpretive-assist/generate")
+    def generate_gpt_interpretive_assist() -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        if not session.get("gpt_interpretive_assist_enabled", False):
+            flash("Turn on GPT Interpretive Assist before generating GPT drafts.", "error")
+            return redirect(url_for("overview"))
+        dry_run = "dry_run" in request.form
+        if not dry_run:
+            status = adapter.project_summary(project_dir).get("gpt_interpretive_assist", {})
+            if isinstance(status, dict) and status.get("status") != "ready":
+                flash("GPT Interpretive Assist is not ready. Check GPT_DRAFTING and OPENAI_API_KEY before generating drafts.", "error")
+                return redirect(url_for("overview"))
+        try:
+            result = adapter.run_gpt_interpretive_assist(
+                project_dir,
+                sections=request.form.getlist("sections") or None,
+                max_calls=_form_int(request.form.get("max_calls"), default=5),
+                dry_run=dry_run,
+                skip_existing="skip_existing" in request.form,
+                source_backed_only="source_backed_only" in request.form,
+                force_refresh="force_refresh" in request.form,
+            )
+            if result.get("dry_run"):
+                flash(f"GPT dry run planned {result.get('planned_call_count', 0)} section draft call(s).", "success")
+            else:
+                flash(
+                    f"GPT Interpretive Assist generated/reused {result.get('accepted_gpt_draft_count', 0)} draft candidate(s); "
+                    f"{result.get('rejected_gpt_draft_count', 0)} output(s) were rejected.",
+                    "success",
+                )
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
         return redirect(url_for("overview"))
@@ -276,6 +319,13 @@ def _selected_project_dir_or_abort(app: Flask) -> Path:
     if project_dir is None:
         abort(400, "No project selected.")
     return project_dir
+
+
+def _form_int(value: str | None, *, default: int) -> int:
+    try:
+        return int(str(value or "").strip())
+    except ValueError:
+        return default
 
 
 def main() -> None:

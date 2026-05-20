@@ -369,7 +369,7 @@ def _load_or_generate_deliverable_items(project_dir: Path) -> dict[str, Any]:
     try:
         if (project_dir / DELIVERABLE_ITEMS_PATH).exists():
             return load_deliverable_items(project_dir)
-        return generate_deliverable_items(project_dir)
+        return generate_deliverable_items(project_dir, gpt_drafting=False)
     except DeliverableItemsError as exc:
         raise ReviewQueueError(str(exc)) from exc
 

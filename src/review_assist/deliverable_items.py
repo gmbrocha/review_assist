@@ -1119,7 +1119,7 @@ def _generated_attachment_content(target: AttachmentTarget, related_figure_ids: 
     lines = [f"Attachment {target.attachment_letter} {target.title}"]
     lines.append("The map package references generated report figures and supporting panel maps.")
     if main_figures:
-        lines.append(f"Main figure targets included: {_limited_join(main_figures, limit=13)}.")
+        lines.append(f"Main figure targets included: {_limited_join(main_figures, limit=15)}.")
     if panel_figures:
         lines.append(f"Supporting panel maps included: {len(panel_figures)} panel figure(s).")
     lines.append("Figure and panel completeness is tracked through the accepted figure items and attachment package.")

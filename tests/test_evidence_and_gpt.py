@@ -72,6 +72,17 @@ def context_direct_impact_gpt_response(self: section_drafting.OpenAISectionDraft
     }
 
 
+def policy_prohibited_claim_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": "Nearby regulated facility context creates a cleanup obligation for the project.",
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": [],
+        "caveats": ["screening_context_only", "nearby_context_not_direct_impact", "not_contamination_extent_or_liability"],
+    }
+
+
 def test_gpt_env_parsing_and_missing_key(monkeypatch: pytest.MonkeyPatch) -> None:
     for value in ("1", "true", "yes", "on", "TRUE"):
         monkeypatch.setenv("GPT_DRAFTING", value)
@@ -102,8 +113,8 @@ def test_build_evidence_package_classifies_stubs_and_real_sources(tmp_path: Path
     assert stub_package["real_source_count"] == 0
     assert stub_package["evidence_class_counts"]["stub_or_manual"] > 0
     assert stub_package["deliverable_table_count"] == 4
-    assert stub_package["deliverable_figure_count"] == 13
-    assert stub_package["deliverable_figure_stub_count"] == 13
+    assert stub_package["deliverable_figure_count"] == 15
+    assert stub_package["deliverable_figure_stub_count"] == 15
     wetlands_evidence = stub_package["section_evidence"]["wetlands-and-waterbodies"]
     assert "table-wetlands-waterbodies" in wetlands_evidence["deliverable_table_ids"]
     assert "figure-wetlands-waterbodies" in wetlands_evidence["deliverable_figure_ids"]
@@ -371,6 +382,39 @@ def test_section_drafting_rejects_direct_impact_language_for_context_extent(monk
     assert any(issue["code"] == "direct_impact_language_for_context_extent" for issue in result.validation_issues)
 
 
+def test_section_drafting_rejects_section_policy_prohibited_claims(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", policy_prohibited_claim_response)
+    provider = section_drafting.OpenAISectionDraftProvider(model="gpt-test", api_key="test-key")
+
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="contamination-risks",
+            section_type="section_text",
+            title="Contamination Risks",
+            purpose="Draft bounded contamination context.",
+            resource_category="regulated_facilities",
+            deterministic_content="Deterministic regulated facility context remains for review.",
+            section_policy={
+                "section_id": "contamination-risks",
+                "required_caveats": [
+                    "screening_context_only",
+                    "nearby_context_not_direct_impact",
+                    "not_contamination_extent_or_liability",
+                ],
+                "prohibited_claims": ["cleanup obligation", "liability determination"],
+            },
+            extent_metadata={
+                "analysis_extent_type": "nearby_context_extent",
+                "interpretation_scope_label": "nearby context",
+            },
+        )
+    )
+
+    assert result.content == "Deterministic regulated facility context remains for review."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert any(issue["code"] == "policy_prohibited_claim" for issue in result.validation_issues)
+
+
 def test_gpt_enabled_without_key_fails_clearly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_dir = write_project(tmp_path)
     monkeypatch.setenv("GPT_DRAFTING", "1")
@@ -394,6 +438,34 @@ def test_cli_no_gpt_drafting_overrides_enabled_env(
     payload = json.loads(captured.out)
 
     assert payload["gpt_drafting"]["enabled"] is False
+
+
+def test_cli_legacy_report_sections_default_to_deterministic_even_when_env_enabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = write_project(tmp_path)
+    monkeypatch.setenv("GPT_DRAFTING", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    assert main(["generate-report-sections", str(project_dir), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["gpt_drafting"]["enabled"] is False
+
+
+def test_cli_legacy_report_sections_require_explicit_gpt_flag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_dir = write_project(tmp_path)
+    monkeypatch.setenv("GPT_DRAFTING", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    assert main(["generate-report-sections", str(project_dir), "--gpt-drafting", "--json"]) == 1
+    assert "OPENAI_API_KEY" in capsys.readouterr().err
 
 
 def test_build_mvp_deliverable_records_evidence_and_gpt_provenance(

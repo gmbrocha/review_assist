@@ -41,15 +41,24 @@ MISSING_SOURCE_STATUSES = {
 RESTRICTED_CULTURAL_SOURCE_ID = "mdah_restricted_archaeology"
 PUBLIC_CULTURAL_SOURCE_IDS = {"maris_public_cultural_context", "mdah_public_historic_resources"}
 NHD_SOURCE_IDS = ("usgs_nhd_hydrography", "usgs_nhd_flowlines", "usgs_nhd_waterbodies", "usgs_nhd_other_areas")
-REGULATED_FACILITY_SOURCE_IDS = (
+HAZARDOUS_REGULATED_SOURCE_IDS = (
     "epa_frs_facilities_ms",
     "maris_brownfields",
-    "maris_npdes_facilities",
-    "maris_solid_waste_landfills",
     "maris_superfund_sites",
     "maris_tri_facilities",
     "maris_underground_storage_tanks",
+)
+WATER_DISCHARGE_WASTE_SOURCE_IDS = (
+    "maris_npdes_facilities",
+    "maris_solid_waste_landfills",
+)
+OIL_GAS_SOURCE_IDS = (
     "mississippi_oil_gas_wells",
+)
+REGULATED_FACILITY_SOURCE_IDS = (
+    *HAZARDOUS_REGULATED_SOURCE_IDS,
+    *WATER_DISCHARGE_WASTE_SOURCE_IDS,
+    *OIL_GAS_SOURCE_IDS,
 )
 RENDERABLE_BASEMAP_SUFFIXES = {".tif", ".tiff", ".png"}
 PANEL_ASPECT_THRESHOLD = 2.75
@@ -108,7 +117,13 @@ TARGET_SPECS: dict[str, TargetFigureSpec] = {
         ("electric", "transmission", "substation", "pipeline", "power", "energy", "utility"),
     ),
     "figure-hazardous-waste-sites": TargetFigureSpec(
-        REGULATED_FACILITY_SOURCE_IDS,
+        HAZARDOUS_REGULATED_SOURCE_IDS,
+    ),
+    "figure-water-discharge-waste-facilities": TargetFigureSpec(
+        WATER_DISCHARGE_WASTE_SOURCE_IDS,
+    ),
+    "figure-oil-gas-wells": TargetFigureSpec(
+        OIL_GAS_SOURCE_IDS,
     ),
     "figure-census-tracts": TargetFigureSpec(
         ("census_tiger_acs",),

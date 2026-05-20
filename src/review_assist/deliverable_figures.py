@@ -66,6 +66,7 @@ FIGURE_EXTENT_PLAN_VERSION = "figure-extent-plan-v1"
 SMALL_DIRECT_EXTENT_CLASS = "small_direct"
 MEDIUM_CONTEXT_EXTENT_CLASS = "medium_context"
 LARGE_WATERSHED_EXTENT_CLASS = "large_watershed"
+COUNTY_REGIONAL_EXTENT_CLASS = "county_regional"
 PLANNED_FIGURE_STATUSES = {"planned", "planned_current_project_area_context"}
 
 
@@ -545,19 +546,25 @@ def _figure_extent_plan_record(
     elif not layer_records:
         status = "source_unavailable_stub"
         status_reason = "Usable public source layers are not available, so no NAIP sidecar is needed for this figure target."
-    elif extent_class == MEDIUM_CONTEXT_EXTENT_CLASS:
+    elif extent_class in {MEDIUM_CONTEXT_EXTENT_CLASS, COUNTY_REGIONAL_EXTENT_CLASS}:
         status = "planned_current_project_area_context"
-        status_reason = (
-            "Medium/context figure uses a broader presentation extent for visual context only; "
-            "automated evidence remains bounded by the current project-area source contracts."
-        )
+        if extent_class == COUNTY_REGIONAL_EXTENT_CLASS:
+            status_reason = (
+                "County/regional figure semantics are preserved in metadata; current rendering uses "
+                "the medium/context presentation extent behavior until county/regional query extents are implemented."
+            )
+        else:
+            status_reason = (
+                "Medium/context figure uses a broader presentation extent for visual context only; "
+                "automated evidence remains bounded by the current project-area source contracts."
+            )
 
     layout = plan_render_layout_for_map(
         unit_gdf=unit_gdf,
         source_layers=layer_records,
         focus_bounds=core_bounds,
     )
-    group = extent_class if status in PLANNED_FIGURE_STATUSES and spec.prefer_basemap and layer_records else ""
+    group = _basemap_group_for_extent_class(extent_class) if status in PLANNED_FIGURE_STATUSES and spec.prefer_basemap and layer_records else ""
     record = {
         "figure_id": target.target_id,
         "section_target_id": target.section_target_id,
@@ -589,7 +596,9 @@ def _extent_class_for_figure(extent: dict[str, Any]) -> str:
     scope = str(extent.get("figure_extent_type") or extent.get("analysis_extent_type") or "")
     if scope == WATERSHED_CONTEXT_EXTENT:
         return LARGE_WATERSHED_EXTENT_CLASS
-    if scope in {NEARBY_CONTEXT_EXTENT, COMMUNITY_CONTEXT_EXTENT, COUNTY_OR_REGIONAL_CONTEXT_EXTENT}:
+    if scope == COUNTY_OR_REGIONAL_CONTEXT_EXTENT:
+        return COUNTY_REGIONAL_EXTENT_CLASS
+    if scope in {NEARBY_CONTEXT_EXTENT, COMMUNITY_CONTEXT_EXTENT}:
         return MEDIUM_CONTEXT_EXTENT_CLASS
     if scope in {DIRECT_INTERSECTION_EXTENT, SCREENING_BUFFER_EXTENT}:
         return SMALL_DIRECT_EXTENT_CLASS
@@ -598,9 +607,15 @@ def _extent_class_for_figure(extent: dict[str, Any]) -> str:
 
 def _core_bounds_for_extent_class(extent_class: str, analysis_bounds: Any) -> tuple[float, float, float, float]:
     bounds = _clean_bounds_tuple(analysis_bounds)
-    if extent_class == MEDIUM_CONTEXT_EXTENT_CLASS:
+    if extent_class in {MEDIUM_CONTEXT_EXTENT_CLASS, COUNTY_REGIONAL_EXTENT_CLASS}:
         return _pad_bounds(bounds, 0.2)
     return bounds
+
+
+def _basemap_group_for_extent_class(extent_class: str) -> str:
+    if extent_class == COUNTY_REGIONAL_EXTENT_CLASS:
+        return MEDIUM_CONTEXT_EXTENT_CLASS
+    return extent_class
 
 
 def _basemap_materialization_groups(records: list[dict[str, Any]], analysis_crs: str) -> list[dict[str, Any]]:
@@ -1340,6 +1355,10 @@ def _source_shown_layer(layer: dict[str, Any], index: int) -> dict[str, Any]:
             "line_alpha": render_style["line_alpha"],
             "polygon_alpha": render_style["polygon_alpha"],
             "marker_size": render_style["marker_size"],
+            "marker_edge_color": render_style["marker_edge_color"],
+            "marker_edge_width": render_style["marker_edge_width"],
+            "marker_halo_color": render_style["marker_halo_color"],
+            "marker_halo_alpha": render_style["marker_halo_alpha"],
             "point_alpha": render_style["point_alpha"],
             "style_source": render_style["style_source"],
         },

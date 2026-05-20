@@ -247,7 +247,7 @@ Provide routes or API endpoints for:
 - Show generated content or stub text.
 - Show editable content for text items.
 - Show table preview for table items.
-- Show figure preview for figure items.
+- Show figure preview for figure items; the local review UI scales generated map images down for review ergonomics only and does not alter exported figure assets.
 - Show attachment placeholder or linked artifact for attachment items.
 - Show source refs, provenance, assumptions, validation warnings, and related comparison units.
 - Allow reviewer notes.

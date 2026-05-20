@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 import textwrap
+from colorsys import rgb_to_hsv
 from functools import lru_cache
 from typing import Any
 
@@ -21,16 +22,25 @@ from .extent_policy import FIGURE_RENDER_EXTENT, PRESENTATION_ONLY_COLLAR_EXTENT
 from .maps import SOURCE_CATEGORY_COLORS
 
 COMPARISON_UNIT_FALLBACK_COLORS = [
-    "#0057B8",
-    "#D55E00",
-    "#008A5B",
-    "#7B2CBF",
-    "#C1121F",
-    "#0072B2",
-    "#B0006D",
-    "#6F5200",
+    "#004CFF",
+    "#FF2A00",
+    "#00E676",
+    "#8A00FF",
+    "#111111",
+    "#FFD400",
+    "#008EAA",
+    "#FF00FF",
 ]
-COMPARISON_UNIT_LINE_WIDTH = 1.25
+COMPARISON_UNIT_LINE_WIDTH = 1.2
+COMPARISON_UNIT_LINE_HALO_WIDTH = 0.0
+COMPARISON_UNIT_LINE_HALO_ALPHA = 0.0
+COMPARISON_UNIT_LINE_HALO_COLOR = "#FFFFFF"
+ROUTE_COLOR_MIN_DISTANCE = 78.0
+IMAGERY_RISK_HUE_MIN = 65.0
+IMAGERY_RISK_HUE_MAX = 170.0
+IMAGERY_RISK_LUMINANCE_MAX = 0.78
+IMAGERY_SAFE_MIN_SATURATION = 0.72
+IMAGERY_SAFE_MIN_VALUE = 0.78
 MAX_LEGEND_LABEL_LENGTH = 26
 LEGEND_COLLAR_PADDING_FRACTION = 0.045
 LEGEND_COLLAR_MAX_FRACTION = 0.52
@@ -70,23 +80,36 @@ SOURCE_LABEL_OVERRIDES = {
 }
 SOURCE_STYLE_OVERRIDES = {
     "epa_envirofacts_echo": {"color": "#E15759", "marker": "o"},
-    "epa_frs_facilities_ms": {"color": "#5E3C99", "marker": "D"},
-    "maris_brownfields": {"color": "#B86B00", "marker": "s"},
-    "maris_npdes_facilities": {"color": "#0072B2", "marker": "^"},
-    "maris_solid_waste_landfills": {"color": "#4D4D4D", "marker": "P"},
-    "maris_superfund_sites": {"color": "#D55E00", "marker": "*"},
-    "maris_tri_facilities": {"color": "#CC79A7", "marker": "h"},
-    "maris_underground_storage_tanks": {"color": "#009E73", "marker": "v"},
+    "epa_frs_facilities_ms": {"color": "#6A00A8", "marker": "D"},
+    "maris_brownfields": {"color": "#E66100", "marker": "s"},
+    "maris_npdes_facilities": {"color": "#0057B8", "marker": "^"},
+    "maris_solid_waste_landfills": {"color": "#111111", "marker": "P"},
+    "maris_superfund_sites": {"color": "#D73027", "marker": "*"},
+    "maris_tri_facilities": {"color": "#C51B7D", "marker": "h"},
+    "maris_underground_storage_tanks": {"color": "#008EAA", "marker": "v"},
     "mdeq_environmental_context": {"color": "#8C564B", "marker": "X"},
-    "mississippi_oil_gas_wells": {"color": "#6F4E37", "marker": "X"},
-    "fema_nfhl_flood_hazard": {"color": "#7B2CBF", "marker": "o"},
-    "usfws_nwi_wetlands": {"color": "#009E73", "marker": "o"},
-    "usgs_nhd_flowlines": {"color": "#2F80ED", "marker": "o"},
-    "usgs_nhd_hydrography": {"color": "#2F80ED", "marker": "o"},
-    "usgs_nhd_waterbodies": {"color": "#56CCF2", "marker": "o"},
-    "usgs_nhd_other_areas": {"color": "#2D9CDB", "marker": "o"},
+    "mississippi_oil_gas_wells": {"color": "#111111", "marker": "X"},
+    "fema_nfhl_flood_hazard": {"color": "#6A00A8", "marker": "o"},
+    "maris_public_cultural_context": {"color": "#FF00FF", "marker": "P", "marker_size": 13, "point_alpha": 0.82},
+    "maris_community_facilities": {"color": "#E66100", "marker": "o"},
+    "usfws_nwi_wetlands": {"color": "#FFE500", "marker": "o", "line_width": 0.86, "line_alpha": 0.9, "polygon_alpha": 0.4, "polygon_line_width": 0.5},
+    "usgs_nhd_flowlines": {"color": "#00E5FF", "marker": "o", "line_width": 0.92, "line_alpha": 0.92},
+    "usgs_nhd_hydrography": {"color": "#00E5FF", "marker": "o", "line_width": 0.92, "line_alpha": 0.92},
+    "usgs_nhd_waterbodies": {"color": "#00FF66", "marker": "o", "line_width": 0.78, "line_alpha": 0.86, "polygon_alpha": 0.36, "polygon_line_width": 0.48},
+    "usgs_nhd_other_areas": {"color": "#FF00FF", "marker": "o", "line_width": 0.78, "line_alpha": 0.86, "polygon_alpha": 0.32, "polygon_line_width": 0.46},
     "local_utility_infrastructure": {"color": "#9467BD", "marker": "s"},
     "mdot_transportation_context": {"color": "#5C677D", "marker": "o"},
+}
+SOURCE_CATEGORY_IMAGERY_SAFE_COLORS = {
+    "wetlands_waterbodies": "#0072B2",
+    "hydrography_crossings": "#0057B8",
+    "flood_hazard": "#6A00A8",
+    "species_habitat": "#7B2CBF",
+    "regulated_facilities": "#D73027",
+    "soils": "#8C564B",
+    "community_socioeconomic": "#E66100",
+    "cultural_historic": "#F72585",
+    "transportation_utilities": "#9467BD",
 }
 
 
@@ -321,16 +344,23 @@ def comparison_unit_style_records(gdf: gpd.GeoDataFrame) -> list[dict[str, Any]]
     records: list[dict[str, Any]] = []
     if gdf.empty:
         return records
+    selected_colors: list[str] = []
     for index, (_, row) in enumerate(gdf.iterrows()):
         unit_id = _row_text(row, "comparison_unit_id") or f"comparison-unit-{index + 1:05d}"
         full_label = _comparison_unit_label(row, index)
         label = _compact_comparison_unit_label(full_label, index)
         original_style_color = _row_text(row, "style_color")
-        color = _kml_color_to_visible_hex(original_style_color)
+        kml_color = _kml_color_to_visible_hex(original_style_color)
         style_source = "kml_style_color"
-        if color is None:
-            color = _fallback_comparison_unit_color(unit_id or label, index)
+        if kml_color is None:
+            color = _fallback_comparison_unit_color(unit_id or label, index, selected_colors)
             style_source = "deterministic_fallback"
+        elif _route_color_is_usable(kml_color, selected_colors):
+            color = kml_color
+        else:
+            color = _fallback_comparison_unit_color(unit_id or label, index, selected_colors)
+            style_source = "deterministic_fallback_replaces_kml_color"
+        selected_colors.append(color)
         records.append(
             {
                 "comparison_unit_id": unit_id,
@@ -338,6 +368,9 @@ def comparison_unit_style_records(gdf: gpd.GeoDataFrame) -> list[dict[str, Any]]
                 "full_label": full_label,
                 "color": color,
                 "line_width": COMPARISON_UNIT_LINE_WIDTH,
+                "line_halo_width": COMPARISON_UNIT_LINE_HALO_WIDTH,
+                "line_halo_alpha": COMPARISON_UNIT_LINE_HALO_ALPHA,
+                "line_halo_color": COMPARISON_UNIT_LINE_HALO_COLOR,
                 "style_source": style_source,
                 "original_style_color": original_style_color,
             }
@@ -368,8 +401,17 @@ def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame) -> list[Any]:
             handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.12, label=label))
         elif "LineString" in geom_type:
             width = float(style["line_width"])
-            one.plot(ax=ax, color="white", linewidth=width + 0.82, alpha=0.88, zorder=6.8)
-            one.plot(ax=ax, color=color, linewidth=width, alpha=0.92, zorder=7)
+            halo_width = float(style.get("line_halo_width", 0.0))
+            halo_alpha = float(style.get("line_halo_alpha", 0.0))
+            if halo_width > 0 and halo_alpha > 0:
+                one.plot(
+                    ax=ax,
+                    color=str(style.get("line_halo_color") or COMPARISON_UNIT_LINE_HALO_COLOR),
+                    linewidth=width + halo_width,
+                    alpha=halo_alpha,
+                    zorder=6.8,
+                )
+            one.plot(ax=ax, color=color, linewidth=width, alpha=0.96, zorder=7)
             handles.append(Line2D([0], [0], color=color, lw=width, label=label))
         elif "Point" in geom_type:
             one.plot(ax=ax, color="white", markersize=26, alpha=0.88, zorder=7.8)
@@ -381,21 +423,32 @@ def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame) -> list[Any]:
 def source_layer_style_record(layer: dict[str, Any], index: int) -> dict[str, Any]:
     source_id = str(layer.get("source_id") or "")
     override = SOURCE_STYLE_OVERRIDES.get(source_id, {})
-    color = str(override.get("color") or SOURCE_CATEGORY_COLORS.get(str(layer.get("source_category", ""))) or _source_color(index))
+    category = str(layer.get("source_category", ""))
+    color = str(
+        override.get("color")
+        or SOURCE_CATEGORY_IMAGERY_SAFE_COLORS.get(category)
+        or SOURCE_CATEGORY_COLORS.get(category)
+        or _source_color(index)
+    )
     marker = str(override.get("marker") or _source_marker(index))
     feature_count = _feature_count(layer.get("gdf"))
-    marker_size = 15 if feature_count <= 50 else 12 if feature_count <= 200 else 9
+    marker_size = float(override.get("marker_size") or (12 if feature_count <= 50 else 10 if feature_count <= 200 else 8))
     return {
         "source_id": source_id,
         "label": legend_label_for_layer(layer),
         "color": color,
         "marker": marker,
-        "line_width": 0.52,
-        "line_alpha": 0.52,
-        "polygon_alpha": 0.18,
-        "polygon_line_width": 0.35,
+        "line_width": float(override.get("line_width") or 0.52),
+        "line_alpha": float(override.get("line_alpha") or 0.52),
+        "polygon_alpha": float(override.get("polygon_alpha") or 0.18),
+        "polygon_line_width": float(override.get("polygon_line_width") or 0.35),
         "marker_size": marker_size,
-        "point_alpha": 0.74,
+        "marker_edge_color": "#111827",
+        "marker_edge_width": 0.45,
+        "marker_halo_color": "#FFFFFF",
+        "marker_halo_alpha": 0.72,
+        "marker_halo_size_delta": 6,
+        "point_alpha": float(override.get("point_alpha") or 0.68),
         "style_source": "source_id_override" if override else "category_or_sequence",
     }
 
@@ -443,9 +496,37 @@ def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, style: dict[str, Any], is_proje
     if not point_gdf.empty:
         size = 26 if is_project else float(style.get("marker_size", 15))
         if not is_project:
-            point_gdf.plot(ax=ax, marker=marker, color="white", markersize=size + 7, alpha=0.76, zorder=4.8)
-        point_gdf.plot(ax=ax, marker=marker, color=color, markersize=size, alpha=0.9 if is_project else float(style.get("point_alpha", 0.74)), zorder=7 if is_project else 5)
-        handles.append(Line2D([0], [0], marker=marker, color="none", markerfacecolor=color, markeredgecolor="#333333", markeredgewidth=0.4, markersize=4.8, label=label))
+            point_gdf.plot(
+                ax=ax,
+                marker=marker,
+                color=str(style.get("marker_halo_color") or "#FFFFFF"),
+                markersize=size + float(style.get("marker_halo_size_delta", 6)),
+                alpha=float(style.get("marker_halo_alpha", 0.72)),
+                zorder=4.8,
+            )
+        point_gdf.plot(
+            ax=ax,
+            marker=marker,
+            color=color,
+            edgecolor=str(style.get("marker_edge_color") or "#111827"),
+            linewidth=float(style.get("marker_edge_width", 0.45)),
+            markersize=size,
+            alpha=0.9 if is_project else float(style.get("point_alpha", 0.74)),
+            zorder=7 if is_project else 5,
+        )
+        handles.append(
+            Line2D(
+                [0],
+                [0],
+                marker=marker,
+                color="none",
+                markerfacecolor=color,
+                markeredgecolor=str(style.get("marker_edge_color") or "#111827"),
+                markeredgewidth=float(style.get("marker_edge_width", 0.45)),
+                markersize=4.8,
+                label=label,
+            )
+        )
     return handles[:1]
 
 
@@ -523,11 +604,87 @@ def _relative_luminance(red: int, green: int, blue: int) -> float:
     return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
 
 
-def _fallback_comparison_unit_color(key: str, index: int) -> str:
+def _fallback_comparison_unit_color(key: str, index: int, selected_colors: list[str] | None = None) -> str:
+    selected = selected_colors or []
+    if index < len(COMPARISON_UNIT_FALLBACK_COLORS):
+        ordered = COMPARISON_UNIT_FALLBACK_COLORS[index:] + COMPARISON_UNIT_FALLBACK_COLORS[:index]
+    else:
+        digest = hashlib.sha1(key.encode("utf-8")).hexdigest()
+        offset = int(digest[:8], 16) % len(COMPARISON_UNIT_FALLBACK_COLORS)
+        ordered = COMPARISON_UNIT_FALLBACK_COLORS[offset:] + COMPARISON_UNIT_FALLBACK_COLORS[:offset]
+    for color in ordered:
+        if _route_color_is_usable(color, selected):
+            return color
     if index < len(COMPARISON_UNIT_FALLBACK_COLORS):
         return COMPARISON_UNIT_FALLBACK_COLORS[index]
     digest = hashlib.sha1(key.encode("utf-8")).hexdigest()
     return COMPARISON_UNIT_FALLBACK_COLORS[int(digest[:8], 16) % len(COMPARISON_UNIT_FALLBACK_COLORS)]
+
+
+def _route_color_is_usable(color: str, selected_colors: list[str]) -> bool:
+    rgb = _hex_to_rgb(color)
+    if rgb is None:
+        return False
+    red, green, blue = rgb
+    hue = _hue_degrees(red, green, blue)
+    saturation = _saturation(red, green, blue)
+    value = _color_value(red, green, blue)
+    if _relative_luminance(red, green, blue) > IMAGERY_RISK_LUMINANCE_MAX and saturation < IMAGERY_SAFE_MIN_SATURATION:
+        return False
+    if IMAGERY_RISK_HUE_MIN <= hue <= IMAGERY_RISK_HUE_MAX and (
+        saturation < IMAGERY_SAFE_MIN_SATURATION or value < IMAGERY_SAFE_MIN_VALUE
+    ):
+        return False
+    return all(_route_colors_are_distinct(color, selected) for selected in selected_colors)
+
+
+def _route_colors_are_distinct(color_a: str, color_b: str) -> bool:
+    rgb_a = _hex_to_rgb(color_a)
+    rgb_b = _hex_to_rgb(color_b)
+    if rgb_a is None or rgb_b is None:
+        return False
+    distance = sum((left - right) ** 2 for left, right in zip(rgb_a, rgb_b)) ** 0.5
+    if distance < ROUTE_COLOR_MIN_DISTANCE:
+        return False
+    if _warm_route_pair_too_close(rgb_a, rgb_b):
+        return False
+    return True
+
+
+def _warm_route_pair_too_close(rgb_a: tuple[int, int, int], rgb_b: tuple[int, int, int]) -> bool:
+    if max(rgb_a) - min(rgb_a) < 24 or max(rgb_b) - min(rgb_b) < 24:
+        return False
+    hue_a = _hue_degrees(*rgb_a)
+    hue_b = _hue_degrees(*rgb_b)
+    warm_a = hue_a <= 55.0 or hue_a >= 335.0
+    warm_b = hue_b <= 55.0 or hue_b >= 335.0
+    if not warm_a or not warm_b:
+        return False
+    hue_gap = abs(hue_a - hue_b)
+    hue_gap = min(hue_gap, 360.0 - hue_gap)
+    return hue_gap < 58.0
+
+
+def _hex_to_rgb(color: str) -> tuple[int, int, int] | None:
+    text = str(color or "").strip().lstrip("#")
+    if len(text) != 6 or not re.fullmatch(r"[0-9a-fA-F]{6}", text):
+        return None
+    return int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)
+
+
+def _hue_degrees(red: int, green: int, blue: int) -> float:
+    hue, _saturation, _value = rgb_to_hsv(red / 255, green / 255, blue / 255)
+    return hue * 360.0
+
+
+def _saturation(red: int, green: int, blue: int) -> float:
+    _hue, saturation, _value = rgb_to_hsv(red / 255, green / 255, blue / 255)
+    return saturation
+
+
+def _color_value(red: int, green: int, blue: int) -> float:
+    _hue, _saturation, value = rgb_to_hsv(red / 255, green / 255, blue / 255)
+    return value
 
 
 def _legend_labels_for_map(unit_gdf: gpd.GeoDataFrame, source_layers: list[dict[str, Any]]) -> list[str]:
@@ -1020,7 +1177,7 @@ def _dedupe_handles(handles: list[Any]) -> list[Any]:
 
 
 def _source_color(index: int) -> str:
-    colors = ["#6BAA75", "#E45E5E", "#7A6FF0", "#D99A2B", "#3A8D8F", "#A35C9F"]
+    colors = ["#C51B7D", "#0057B8", "#D73027", "#6A00A8", "#008EAA", "#111111"]
     return colors[index % len(colors)]
 
 

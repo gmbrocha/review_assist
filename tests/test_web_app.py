@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from review_assist.export_report import export_report
+from review_assist.gpt_interpretive_assist import draft_section_candidates
 from review_assist.populate_for_review import populate_for_review
 from review_assist.projects import load_project_manifest
 from review_assist.review_queue import generate_review_queue, load_review_queue
@@ -14,7 +15,7 @@ from review_assist.web import adapter
 from review_assist.web.app import create_app
 
 from test_deliverable_compactness import _write_large_deliverable_table
-from test_export_report import kml_document, kmz_bytes, set_review_states, write_project, write_tiny_png
+from test_export_report import add_supported_real_source_inputs, kml_document, kmz_bytes, set_review_states, write_project, write_tiny_png
 
 
 @pytest.fixture
@@ -32,6 +33,18 @@ def _populated_project(tmp_path: Path) -> Path:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
     return project_dir
+
+
+def _safe_gpt_ui_response(*, model: str, payload: dict, schema: dict) -> dict:
+    return {
+        "draft_content": "GPT-assisted wetlands text remains a review candidate.",
+        "cited_finding_ids": [],
+        "cited_table_ids": payload["related_ids"]["table_ids"][:1],
+        "cited_figure_ids": payload["related_ids"]["figure_ids"][:1],
+        "cited_source_refs": payload["related_ids"]["source_refs"][:1],
+        "caveats": payload["section_policy"]["required_caveats"],
+        "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+    }
 
 
 def _valid_kmz_upload() -> io.BytesIO:
@@ -439,6 +452,14 @@ def test_figure_review_detail_uses_figure_specific_form(tmp_path: Path) -> None:
     assert "Export eligible when unable to verify" not in text
 
 
+def test_review_figure_preview_css_uses_review_only_thirty_percent_display_scale() -> None:
+    styles = Path("src/review_assist/web/static/styles.css").read_text(encoding="utf-8")
+    preview_block = styles.split(".figure-preview {", 1)[1].split("}", 1)[0]
+
+    assert "width: 30%;" in preview_block
+    assert "max-width: 30%;" in preview_block
+
+
 def test_non_figure_review_detail_keeps_generic_review_form(tmp_path: Path) -> None:
     _populated_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)
@@ -453,6 +474,32 @@ def test_non_figure_review_detail_keeps_generic_review_form(tmp_path: Path) -> N
     assert "Edited content" in text
     assert "Replacement content" in text
     assert "Upload New Figure" not in text
+
+
+def test_review_detail_displays_gpt_assist_provenance(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    add_supported_real_source_inputs(project_dir)
+    populate_for_review(project_dir, prepare_sources=True, gpt_drafting=False)
+    draft_section_candidates(
+        project_dir,
+        model="gpt-test",
+        sections=["wetlands-and-waterbodies"],
+        max_calls=1,
+        response_create=_safe_gpt_ui_response,
+    )
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/wetlands-and-waterbodies")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "GPT Assist Provenance" in text
+    assert "GPT-assisted content remains a review candidate" in text
+    assert "gpt-test" in text
+    assert "15 total" in text
+    assert "Evidence Hash" in text
 
 
 def test_section_review_detail_displays_related_table_figure_and_evidence_refs(tmp_path: Path) -> None:
@@ -837,3 +884,139 @@ def test_overview_dev_review_queue_reset_calls_adapter(monkeypatch: pytest.Monke
     assert called["path"] == project_dir.resolve()
     assert called["include_exports"] is False
     assert b"Review artifacts refreshed and queue rebuilt with 42 review items" in response.data
+
+
+def test_gpt_interpretive_assist_controls_default_off(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/overview")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "GPT Interpretive Assist" in text
+    assert "Controls are hidden while GPT Interpretive Assist is off." in text
+    assert "Generate GPT Drafts" not in text
+
+
+def test_gpt_interpretive_assist_generate_requires_toggle(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    called = False
+
+    def fake_run(path: Path, **kwargs: object) -> dict[str, object]:
+        nonlocal called
+        called = True
+        return {"accepted_gpt_draft_count": 1, "rejected_gpt_draft_count": 0, "output_path": ""}
+
+    monkeypatch.setattr(adapter, "run_gpt_interpretive_assist", fake_run)
+    response = client.post("/overview/gpt-interpretive-assist/generate", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert called is False
+    assert b"Turn on GPT Interpretive Assist" in response.data
+
+
+def test_gpt_interpretive_assist_generate_button_disabled_until_ready(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path)
+    monkeypatch.setenv("GPT_DRAFTING", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    client.post(
+        "/overview/gpt-interpretive-assist/toggle",
+        data={"gpt_interpretive_assist_enabled": "yes"},
+        follow_redirects=True,
+    )
+
+    response = client.get("/overview")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "GPT Validated / Rejected" in text
+    assert "Deterministic Fallbacks" in text
+    assert '<button type="submit" disabled>Generate GPT Drafts</button>' in text
+
+
+def test_gpt_interpretive_assist_non_dry_run_requires_ready_status(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    monkeypatch.setenv("GPT_DRAFTING", "0")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    called = False
+
+    def fake_run(path: Path, **kwargs: object) -> dict[str, object]:
+        nonlocal called
+        called = True
+        return {"accepted_gpt_draft_count": 1, "rejected_gpt_draft_count": 0, "output_path": ""}
+
+    monkeypatch.setattr(adapter, "run_gpt_interpretive_assist", fake_run)
+    client.post(
+        "/overview/gpt-interpretive-assist/toggle",
+        data={"gpt_interpretive_assist_enabled": "yes"},
+        follow_redirects=True,
+    )
+    response = client.post("/overview/gpt-interpretive-assist/generate", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert called is False
+    assert b"GPT Interpretive Assist is not ready" in response.data
+
+
+def test_gpt_interpretive_assist_explicit_submit_calls_adapter(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    called: dict[str, object] = {}
+
+    def fake_run(path: Path, **kwargs: object) -> dict[str, object]:
+        called["path"] = path
+        called.update(kwargs)
+        return {
+            "dry_run": True,
+            "planned_call_count": 1,
+            "accepted_gpt_draft_count": 0,
+            "rejected_gpt_draft_count": 0,
+            "output_path": str(project_dir / "drafts" / "gpt_interpretive_assist_run.json"),
+        }
+
+    monkeypatch.setattr(adapter, "run_gpt_interpretive_assist", fake_run)
+    client.post(
+        "/overview/gpt-interpretive-assist/toggle",
+        data={"gpt_interpretive_assist_enabled": "yes"},
+        follow_redirects=True,
+    )
+    response = client.post(
+        "/overview/gpt-interpretive-assist/generate",
+        data={
+            "sections": ["wetlands-and-waterbodies"],
+            "max_calls": "1",
+            "dry_run": "yes",
+            "skip_existing": "yes",
+            "source_backed_only": "yes",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert called["path"] == project_dir.resolve()
+    assert called["sections"] == ["wetlands-and-waterbodies"]
+    assert called["max_calls"] == 1
+    assert called["dry_run"] is True
+    assert called["skip_existing"] is True
+    assert called["source_backed_only"] is True
+    assert b"GPT dry run planned 1 section draft call" in response.data

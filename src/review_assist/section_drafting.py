@@ -70,6 +70,33 @@ DIRECT_IMPACT_PATTERNS = {
     "direct impact": r"\bdirect (?:project )?impact\b|\bdirectly impact(?:s|ed)?\b",
     "project impact": r"\bwill impact\b|\bwould impact\b|\bimpacts the project\b",
 }
+POLICY_PROHIBITED_CLAIM_PATTERNS = {
+    "agency approval": r"\bagency approval\b|\bapproved by (?:the )?(?:agency|agencies)\b",
+    "agency clearance": r"\bagency clearance\b|\bcleared by (?:the )?(?:agency|agencies)\b|\bclearance\b",
+    "airspace determination": r"\bairspace determination\b|\bairspace (?:conflict|clearance)\b",
+    "alternative rejection": PROHIBITED_PATTERNS["reject"],
+    "alternative selection": PROHIBITED_PATTERNS["select"],
+    "approval conclusion": PROHIBITED_PATTERNS["approval conclusion"],
+    "cleanup obligation": r"\bcleanup obligation\b|\bobligation to clean(?:up)?\b|\brequires cleanup\b",
+    "direct impact": r"\bdirect (?:project )?impact\b|\bdirectly impact(?:s|ed)?\b|\bno (?:direct )?impact\b",
+    "direct impact from nearby context": r"\bdirect (?:project )?impact\b|\bdirectly impact(?:s|ed)?\b|\bnearby .* direct impact\b",
+    "economic impact conclusion": r"\beconomic impact conclusion\b|\beconomic impacts? (?:will|would|are)\b",
+    "effect determination": r"\beffect determination\b|\bno adverse effect\b|\badverse effect\b",
+    "equity determination": r"\bequity determination\b|\benvironmental justice determination\b",
+    "field verification claims": PROHIBITED_PATTERNS["field verified"],
+    "final determination": PROHIBITED_PATTERNS["final determination"],
+    "jurisdictional determinations": PROHIBITED_PATTERNS["jurisdictional certainty"],
+    "liability determination": r"\bliability determination\b|\bliability\b",
+    "no concern": r"\bno concerns?\b",
+    "no effect": r"\bno effect\b",
+    "no impact": r"\bno (?:direct |indirect |project )?impacts?\b",
+    "preferred alternative": PROHIBITED_PATTERNS["preferred alternative"],
+    "ranking": PROHIBITED_PATTERNS["ranking"],
+    "relocation requirement": r"\brelocation requirement\b|\brequires relocation\b|\brelocation (?:is|will be|would be) required\b",
+    "scoring": PROHIBITED_PATTERNS["score"],
+    "service impact": r"\bservice impacts?\b|\bservice disruption\b",
+    "utility conflict determination": r"\butility conflict determination\b|\butility conflicts?\b|\bconflicts? with (?:the )?utilit",
+}
 
 
 class SectionDraftingError(RuntimeError):
@@ -101,6 +128,8 @@ class SectionDraftRequest:
     global_prompt: dict[str, Any] = field(default_factory=dict)
     allowed_inputs: list[str] = field(default_factory=list)
     citation_policy: dict[str, Any] = field(default_factory=dict)
+    section_policy: dict[str, Any] = field(default_factory=dict)
+    style_context: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -156,6 +185,7 @@ class OpenAISectionDraftProvider:
         payload = _request_payload(request)
         raw_output = self._create_response(payload)
         parsed = _parse_response_payload(raw_output)
+        token_usage = _response_token_usage(raw_output)
         content = str(parsed.get("draft_content") or "").strip()
         if not content:
             return _rejected_result(
@@ -164,6 +194,7 @@ class OpenAISectionDraftProvider:
                 model=self.model,
                 input_payload=payload,
                 output_payload=parsed,
+                token_usage=token_usage,
                 issue_code="gpt_empty_output",
                 message="GPT returned no draft_content; deterministic content was retained.",
             )
@@ -176,6 +207,7 @@ class OpenAISectionDraftProvider:
                 model=self.model,
                 input_payload=payload,
                 output_payload=parsed,
+                token_usage=token_usage,
                 issue_code="gpt_output_rejected",
                 message="GPT output was rejected by citation or language guardrails; deterministic content was retained.",
                 extra_issues=validation_issues,
@@ -190,6 +222,7 @@ class OpenAISectionDraftProvider:
                 output_payload=parsed,
                 output_content=content,
                 accepted=True,
+                token_usage=token_usage,
                 source_refs_used=_string_list(parsed.get("cited_source_refs", [])),
                 table_refs_used=_string_list(parsed.get("cited_table_ids", [])),
                 figure_refs_used=_string_list(parsed.get("cited_figure_ids", [])),
@@ -257,6 +290,8 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
             "allowed_inputs": request.allowed_inputs,
             "citation_policy": request.citation_policy,
         },
+        "section_policy": request.section_policy,
+        "style_context": request.style_context,
         "project": {
             "project_id": request.project_context.get("project_id"),
             "project_name": request.project_context.get("project_name"),
@@ -288,6 +323,8 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
             "Do not state field verification, jurisdictional determinations, approvals, no-impact conclusions, or final conclusions.",
             "Preserve missing, gated, failed, and manual-source caveats.",
             "Use extent_metadata to choose within/near/watershed/county wording and do not upgrade context-only evidence into direct project impact language.",
+            "Use style_context only for tone and structure. Do not cite it, treat it as evidence, or copy example-report facts or assumptions.",
+            "Return required caveat IDs in the caveats array when section_policy supplies required_caveats.",
         ],
     }
     return _bounded_payload(payload)
@@ -499,6 +536,45 @@ def _parse_response_payload(raw_output: Any) -> dict[str, Any]:
     raise SectionDraftingError("GPT response did not contain parseable structured output.")
 
 
+def _response_token_usage(raw_output: Any) -> dict[str, int]:
+    usage = raw_output.get("usage") if isinstance(raw_output, dict) else getattr(raw_output, "usage", None)
+    if usage is None:
+        return {}
+    if hasattr(usage, "model_dump"):
+        try:
+            usage = usage.model_dump()
+        except Exception:
+            usage = None
+    if usage is None and hasattr(usage, "dict"):
+        try:
+            usage = usage.dict()
+        except Exception:
+            usage = None
+    if not isinstance(usage, dict):
+        usage = {
+            "input_tokens": getattr(usage, "input_tokens", None),
+            "output_tokens": getattr(usage, "output_tokens", None),
+            "total_tokens": getattr(usage, "total_tokens", None),
+            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+            "completion_tokens": getattr(usage, "completion_tokens", None),
+        }
+    aliases = {
+        "input_tokens": ("input_tokens", "prompt_tokens"),
+        "output_tokens": ("output_tokens", "completion_tokens"),
+        "total_tokens": ("total_tokens",),
+    }
+    result: dict[str, int] = {}
+    for key, candidates in aliases.items():
+        for candidate in candidates:
+            value = usage.get(candidate)
+            if isinstance(value, int) and value >= 0:
+                result[key] = value
+                break
+    if "total_tokens" not in result and {"input_tokens", "output_tokens"} <= set(result):
+        result["total_tokens"] = result["input_tokens"] + result["output_tokens"]
+    return result
+
+
 def _json_object(text: str) -> dict[str, Any]:
     try:
         data = json.loads(text)
@@ -556,6 +632,22 @@ def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], c
     for label, pattern in PROCESS_LANGUAGE_PATTERNS.items():
         if re.search(pattern, lowered):
             issues.append(_issue("error", "process_language_in_gpt_output", f"GPT output included process/status language: {label}."))
+    if _references_style_context_as_evidence(parsed, lowered):
+        issues.append(_issue("error", "style_context_cited_as_evidence", "GPT output cited or treated the style context as project evidence."))
+    if _imports_style_or_example_facts(request, lowered):
+        issues.append(_issue("error", "style_context_fact_import", "GPT output appears to import example/style-context facts or assumptions."))
+    if _contains_raw_or_unbounded_output(lowered):
+        issues.append(_issue("error", "raw_or_unbounded_gpt_output", "GPT output included raw rows, coordinates, GeoJSON, or local/source paths."))
+    issues.extend(_missing_required_caveat_issues(request, parsed, lowered))
+    issues.extend(_policy_prohibited_claim_issues(request, lowered))
+    if _misstates_public_cultural_context(request, lowered):
+        issues.append(
+            _issue(
+                "error",
+                "public_cultural_context_overclaimed",
+                "GPT output treated public/coarse cultural context as authorized restricted cultural-resource records.",
+            )
+        )
     if _context_only_extent(request.extent_metadata):
         for label, pattern in DIRECT_IMPACT_PATTERNS.items():
             if re.search(pattern, lowered):
@@ -566,6 +658,133 @@ def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], c
 def _context_only_extent(extent_metadata: dict[str, Any]) -> bool:
     extent_type = str(extent_metadata.get("analysis_extent_type") or extent_metadata.get("list_extent_type") or "")
     return extent_type in {"nearby_context_extent", "community_context_extent", "watershed_context_extent", "county_or_regional_context_extent"}
+
+
+def _references_style_context_as_evidence(parsed: dict[str, Any], lowered_content: str) -> bool:
+    cited_refs = [
+        *_string_list(parsed.get("cited_source_refs", [])),
+        *_string_list(parsed.get("cited_table_ids", [])),
+        *_string_list(parsed.get("cited_figure_ids", [])),
+    ]
+    if any("style" in ref.lower() or "example report" in ref.lower() for ref in cited_refs):
+        return True
+    evidence_patterns = (
+        r"\bstyle context (?:source|evidence|shows|states|indicates|documents|cites)\b",
+        r"\bexample report (?:source|evidence|shows|states|indicates|documents|cites)\b",
+        r"\baccording to (?:the )?(?:style context|example report)\b",
+    )
+    return any(re.search(pattern, lowered_content) for pattern in evidence_patterns)
+
+
+def _imports_style_or_example_facts(request: SectionDraftRequest, lowered_content: str) -> bool:
+    if not request.style_context:
+        return False
+    return bool(
+        re.search(r"\bplanning and environmental linkage\b|\bpel study\b", lowered_content)
+        and request.section_id != "relationship-with-pel-study"
+    )
+
+
+def _contains_raw_or_unbounded_output(lowered_content: str) -> bool:
+    raw_patterns = (
+        r"\bgeojson\b",
+        r"\braw rows?\b",
+        r"\bcoordinates?\b",
+        r"\bsource paths?\b",
+        r"[a-z]:\\",
+        r"\bsources[/\\]",
+        r"[/\\]sources[/\\]",
+        r"\.geojson\b|\.(?:shp|dbf|tif|tiff|gdb)\b",
+    )
+    return any(re.search(pattern, lowered_content) for pattern in raw_patterns)
+
+
+def _policy_prohibited_claim_issues(
+    request: SectionDraftRequest,
+    lowered_content: str,
+) -> list[dict[str, str]]:
+    policy = request.section_policy if isinstance(request.section_policy, dict) else {}
+    issues: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for claim in _string_list(policy.get("prohibited_claims", [])):
+        normalized = claim.strip().lower().replace("_", " ")
+        if not normalized or normalized.startswith("inherit"):
+            continue
+        pattern = POLICY_PROHIBITED_CLAIM_PATTERNS.get(normalized) or _literal_claim_pattern(normalized)
+        if pattern and re.search(pattern, lowered_content) and normalized not in seen:
+            seen.add(normalized)
+            issues.append(
+                _issue(
+                    "error",
+                    "policy_prohibited_claim",
+                    f"GPT output included section-policy prohibited claim '{claim}'.",
+                )
+            )
+    return issues
+
+
+def _literal_claim_pattern(claim: str) -> str:
+    words = [word for word in re.split(r"\s+", claim) if word]
+    if not words:
+        return ""
+    return r"\b" + r"\s+".join(re.escape(word) for word in words) + r"\b"
+
+
+def _missing_required_caveat_issues(
+    request: SectionDraftRequest,
+    parsed: dict[str, Any],
+    lowered_content: str,
+) -> list[dict[str, str]]:
+    policy = request.section_policy if isinstance(request.section_policy, dict) else {}
+    required = _string_list(policy.get("required_caveats", []))
+    if not required:
+        return []
+    caveat_text = " ".join(_string_list(parsed.get("caveats", []))).lower()
+    missing = [
+        caveat
+        for caveat in required
+        if caveat.lower() not in caveat_text and not _caveat_present_in_content(caveat, lowered_content)
+    ]
+    return [
+        _issue("error", "required_caveat_omitted", f"GPT output omitted required caveat '{caveat}'.")
+        for caveat in missing[:5]
+    ]
+
+
+def _caveat_present_in_content(caveat: str, lowered_content: str) -> bool:
+    patterns = {
+        "desktop_screening_only": r"\b(screening|desktop)\b",
+        "screening_level": r"\bscreening\b",
+        "not_jurisdictional_delineation": r"\b(jurisdictional|delineation|delineated)\b",
+        "agency_coordination_may_be_needed": r"\bagency\b|\bcoordination\b",
+        "nearby_context_not_direct_impact": r"\b(nearby|near the project|vicinity|context area|context)\b",
+        "community_context_not_direct_impact": r"\b(community|nearby|vicinity|context)\b",
+        "county_regional_context_not_direct_project_impact": r"\b(county|regional|tract|census)\b",
+        "public_context_only": r"\b(public|coarse|screening context)\b",
+        "restricted_records_not_mapped": r"\b(restricted|not mapped|not exposed)\b",
+        "consultation_required": r"\b(consultation|coordination)\b",
+        "owner_coordination_required": r"\b(owner|coordination)\b",
+        "field_locating_required": r"\b(field|locat)\b",
+        "screening_context_only": r"\b(screening|context)\b",
+        "not_contamination_extent_or_liability": r"\b(contamination extent|liability|cleanup)\b",
+        "direct_check_and_context_figure_are_distinct": r"\b(direct check|context figure|nearby context)\b",
+    }
+    pattern = patterns.get(caveat)
+    return bool(pattern and re.search(pattern, lowered_content))
+
+
+def _misstates_public_cultural_context(request: SectionDraftRequest, lowered_content: str) -> bool:
+    policy_category = str(request.section_policy.get("source_category", "")) if isinstance(request.section_policy, dict) else ""
+    category = str(request.resource_category or policy_category)
+    if "cultural" not in category and "cultural" not in request.section_id:
+        return False
+    overclaim_patterns = (
+        r"\bpublic (?:sources|context|records) (?:are|serve as|provide) authorized restricted\b",
+        r"\bpublic (?:sources|context|records) replace\b",
+        r"\breplaces? (?:mdah|shpo|tribal|agency) review\b",
+        r"\bauthorized restricted records\b",
+    )
+    return any(re.search(pattern, lowered_content) for pattern in overclaim_patterns)
 
 
 def _request_limitation_notes(request: SectionDraftRequest) -> list[str]:
@@ -627,6 +846,7 @@ def _rejected_result(
     model: str,
     input_payload: dict[str, Any],
     output_payload: dict[str, Any],
+    token_usage: dict[str, int] | None,
     issue_code: str,
     message: str,
     extra_issues: list[dict[str, Any]] | None = None,
@@ -642,6 +862,7 @@ def _rejected_result(
             output_payload=output_payload,
             output_content=request.deterministic_content,
             accepted=False,
+            token_usage=token_usage or {},
             source_refs_used=list(request.source_refs),
             table_refs_used=list(request.related_table_ids),
             figure_refs_used=list(request.related_figure_ids),
@@ -660,6 +881,7 @@ def _gpt_provenance(
     output_payload: dict[str, Any],
     output_content: str,
     accepted: bool,
+    token_usage: dict[str, int] | None = None,
     source_refs_used: list[str] | None = None,
     table_refs_used: list[str] | None = None,
     figure_refs_used: list[str] | None = None,
@@ -680,6 +902,7 @@ def _gpt_provenance(
         "figure_refs_used": figure_refs_used or [],
         "limitation_notes": limitation_notes or [],
         "warnings": warnings or [],
+        "token_usage": token_usage or {},
     }
 
 

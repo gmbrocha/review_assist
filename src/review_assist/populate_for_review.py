@@ -44,7 +44,7 @@ def populate_for_review(
     include_optional_sources: bool = False,
     materialize_local_sources: bool = False,
     materialize_naip_basemap: bool = False,
-    gpt_drafting: bool | None = None,
+    gpt_drafting: bool | None = False,
     gpt_model: str | None = None,
 ) -> dict[str, Any]:
     project_dir = project_dir.resolve()
@@ -73,6 +73,7 @@ def populate_for_review(
     evidence_package: dict[str, Any] | None = None
     report_sections: dict[str, Any] | None = None
     review_queue: dict[str, Any] | None = None
+    use_gpt_drafting = bool(gpt_drafting)
 
     try:
         input_package = classify_input_package(project_dir)
@@ -180,11 +181,11 @@ def populate_for_review(
             )
         )
 
-        report_sections = generate_report_sections(project_dir, gpt_drafting=gpt_drafting, gpt_model=gpt_model)
+        report_sections = generate_report_sections(project_dir, gpt_drafting=use_gpt_drafting, gpt_model=gpt_model)
         steps.append(_step("report_sections", "completed", artifact_path=report_sections.get("output_path")))
         warnings.extend(_issue_warnings("report_sections", report_sections.get("validation_issues", [])))
 
-        deliverable_items = generate_deliverable_items(project_dir, gpt_drafting=gpt_drafting, gpt_model=gpt_model)
+        deliverable_items = generate_deliverable_items(project_dir, gpt_drafting=use_gpt_drafting, gpt_model=gpt_model)
         steps.append(_step("deliverable_items", "completed", artifact_path=deliverable_items.get("output_path")))
         warnings.extend(_issue_warnings("deliverable_items", deliverable_items.get("validation_issues", [])))
 

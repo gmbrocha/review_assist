@@ -261,11 +261,11 @@ Current baseline:
 - Generates a project overview figure from normalized project geometry.
 - Generates source-context figures for analyzed local source clipped layers when available.
 - Generates a combined `environmental-constraints-overview` figure when analyzed source layers contain mapped features.
-- Generates 13 main matrix-backed deliverable figure records in matrix order, with explicit stubs when source data or rendering is unavailable.
+- Generates 15 main matrix-backed deliverable figure records in matrix order, with explicit stubs when source data or rendering is unavailable and split regulated-facility figures for hazardous/regulated sites, water-discharge/waste facilities, and oil/gas wells.
 - Uses selected MARIS/NAIP `.png`, `.tif`, or `.tiff` sidecars in deliverable figures when project-area metadata selects renderable imagery. `.sid` remains provenance only.
-- Adds Attachment A supporting panel records outside the 13 main figure count when the mapped extent is too elongated.
+- Adds Attachment A supporting panel records outside the 15 main figure count when the mapped extent is too elongated.
 - Legacy maps use GeoPandas and Matplotlib only and remain vector-only source-context/audit maps.
-- Draft figures include legend, north arrow, scale bar where CRS units allow it, source note, CRS/method note, and visible draft/pre-review labeling.
+- Report-ready figure PNGs include map panel elements such as legend, north arrow, and scale bar where CRS units allow it; captions, source notes, method notes, and review status remain metadata/export text outside the PNG.
 - Map figure records include captions, source notes, method notes, figure grouping, and related resource categories.
 - `populate-for-review` runs deliverable figure generation after deliverable tables and before evidence package generation; legacy map generation remains in the run.
 - Standard review queue generation consumes matrix-backed deliverable figure items. Legacy map figures remain available only in explicit audit/legacy queue mode.

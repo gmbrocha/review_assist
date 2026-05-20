@@ -27,6 +27,11 @@ from review_assist.export_report import (
     ExportReportError,
     export_report,
 )
+from review_assist.gpt_interpretive_assist import (
+    GptInterpretiveAssistError,
+    draft_section_candidates,
+    gpt_interpretive_assist_status,
+)
 from review_assist.input_package import (
     DOCUMENT_EXTENSIONS,
     IMAGERY_EXTENSIONS,
@@ -302,6 +307,7 @@ def project_summary(project_dir: Path) -> dict[str, Any]:
         "setup": setup_status(project_dir),
         "workflow_readiness": workflow_readiness(project_dir),
         "latest_run": latest_run_status(project_dir),
+        "gpt_interpretive_assist": gpt_interpretive_assist_status(project_dir),
         "validation_issues": validation_issues,
     }
 
@@ -364,6 +370,51 @@ def reset_generated_review_queue(
         status="completed",
         message=f"Review artifacts refreshed and queue rebuilt with {after.get('review_queue_item_count', 0)} review items.",
         artifact_path=str(project_dir / REVIEW_QUEUE_PATH),
+    )
+    return result
+
+
+def run_gpt_interpretive_assist(
+    project_dir: Path,
+    *,
+    sections: list[str] | None = None,
+    max_calls: int = 5,
+    dry_run: bool = False,
+    skip_existing: bool = True,
+    source_backed_only: bool = True,
+    force_refresh: bool = False,
+) -> dict[str, Any]:
+    """Run the explicit GPT Interpretive Assist service from the Overview UI."""
+
+    _write_run_status(project_dir, action="gpt_interpretive_assist", status="started", message="GPT Interpretive Assist started.")
+    try:
+        result = draft_section_candidates(
+            project_dir,
+            sections=sections,
+            max_calls=max_calls,
+            dry_run=dry_run,
+            skip_existing=skip_existing,
+            source_backed_only=source_backed_only,
+            force_refresh=force_refresh,
+        )
+    except GptInterpretiveAssistError as exc:
+        _write_run_status(
+            project_dir,
+            action="gpt_interpretive_assist",
+            status="failed",
+            message="GPT Interpretive Assist failed.",
+            error=str(exc),
+        )
+        raise WebAdapterError(str(exc)) from exc
+    _write_run_status(
+        project_dir,
+        action="gpt_interpretive_assist",
+        status="completed",
+        message=(
+            f"GPT Interpretive Assist completed with {result.get('accepted_gpt_draft_count', 0)} "
+            f"accepted draft candidate(s) and {result.get('rejected_gpt_draft_count', 0)} rejected output(s)."
+        ),
+        artifact_path=str(result.get("output_path") or ""),
     )
     return result
 
@@ -1420,12 +1471,40 @@ def _compact_assumptions(assumptions: dict[str, Any]) -> dict[str, Any]:
 def _provenance_summary(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {}
+    gpt = value.get("gpt_interpretive_assist", {}) if isinstance(value.get("gpt_interpretive_assist"), dict) else {}
+    fingerprint = gpt.get("fingerprint", {}) if isinstance(gpt.get("fingerprint"), dict) else {}
     return {
         "artifact": value.get("artifact"),
         "artifact_path": value.get("artifact_path"),
         "deliverable_item_id": value.get("deliverable_item_id"),
         "target_id": value.get("target_id"),
         "review_before_export": value.get("review_before_export"),
+        "gpt_interpretive_assist": {
+            "enabled": bool(gpt),
+            "draft_provider": gpt.get("draft_provider", ""),
+            "model": gpt.get("model", ""),
+            "prompt_version": gpt.get("prompt_version", ""),
+            "cached": bool(gpt.get("cached", False)),
+            "generated_at": gpt.get("generated_at", ""),
+            "review_before_export": bool(gpt.get("review_before_export", False)),
+            "source_refs_used": _string_list(gpt.get("source_refs_used", [])),
+            "table_refs_used": _string_list(gpt.get("table_refs_used", [])),
+            "figure_refs_used": _string_list(gpt.get("figure_refs_used", [])),
+            "token_usage": _token_usage_summary(gpt.get("token_usage", {})),
+            "evidence_payload_hash": str(fingerprint.get("evidence_payload_hash", ""))[:12],
+            "section_policy_hash": str(fingerprint.get("section_policy_hash", ""))[:12],
+            "prompt_contract_hash": str(fingerprint.get("prompt_contract_hash", ""))[:12],
+            "style_context_hash": str(fingerprint.get("style_context_hash", ""))[:12],
+        },
+    }
+
+
+def _token_usage_summary(value: Any) -> dict[str, int]:
+    usage = value if isinstance(value, dict) else {}
+    return {
+        key: int(usage.get(key, 0))
+        for key in ("input_tokens", "output_tokens", "total_tokens")
+        if isinstance(usage.get(key), int) and int(usage.get(key, 0)) > 0
     }
 
 

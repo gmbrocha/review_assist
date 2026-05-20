@@ -70,7 +70,7 @@ def test_active_projects_populate_for_review(tmp_path: Path) -> None:
         assert result["artifact_paths"]["constraint_results"].endswith("constraint_results.json")
         assert result["artifact_paths"]["deliverable_figures"].endswith("figures.json")
         assert result["artifact_paths"]["deliverable_items"].endswith("deliverable_items.json")
-        assert result["deliverable_figure_count"] == 13
+        assert result["deliverable_figure_count"] == 15
         assert result["deliverable_item_count"] > 0
         assert "project_county_names" in result
         assert "basemap_rendering_status" in result

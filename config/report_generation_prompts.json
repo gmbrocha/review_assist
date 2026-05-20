@@ -444,7 +444,7 @@
       "prompt_key": "demographic-characteristics",
       "target_ids": ["demographic-characteristics"],
       "system_prompt": "Follow the global environmental constraints report drafting rules.",
-      "section_instruction": "Use Census/ACS evidence, Figure 13, Table 3, and Table 4 descriptively without overinterpreting demographic data.",
+      "section_instruction": "Use Census/ACS evidence, the related demographic figure, Table 3, and Table 4 descriptively without overinterpreting demographic data.",
       "allowed_inputs": ["generated_tables", "generated_figures", "source_status", "source_provenance"],
       "required_stub_text": "Empty stub for future implements whenever source data is accessible.",
       "prohibited_claims": ["inherit_global"],

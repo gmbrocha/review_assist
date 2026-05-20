@@ -13,6 +13,7 @@ from .deliverable_constraints import ComparisonUnitConstraintError, analyze_comp
 from .deliverable_matrix import (
     DeliverableMatrixError,
     ReportPromptConfigError,
+    ReportSectionPolicyConfigError,
     load_report_prompt_config,
     validate_deliverable_contract,
 )
@@ -23,6 +24,7 @@ from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_d
 from .evidence_package import EvidencePackageError, build_evidence_package
 from .export_report import ExportGateError, ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
+from .gpt_interpretive_assist import GptInterpretiveAssistError, draft_section_candidates
 from .input_package import InputPackageError, classify_input_package
 from .inspection import ProjectInspectionError, inspect_project
 from .maps import MapGenerationError, generate_maps
@@ -244,9 +246,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate matrix-backed deliverable item targets for bounded review.",
     )
     deliverable_items_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
-    deliverable_items_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    deliverable_items_parser.add_argument("--gpt-drafting", action="store_true", help="Explicitly enable legacy GPT section drafting for this run.")
+    deliverable_items_parser.add_argument("--no-gpt-drafting", action="store_true", help="Keep deterministic drafting for this run.")
     deliverable_items_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     deliverable_items_parser.add_argument("--json", action="store_true", help="Print full JSON deliverable items artifact to stdout.")
+
+    gpt_drafts_parser = subparsers.add_parser(
+        "draft-section-candidates",
+        help="Explicitly generate cached GPT-assisted section review candidates.",
+    )
+    gpt_drafts_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    gpt_drafts_parser.add_argument("--provider", default="gpt", choices=("gpt",), help="Drafting provider to use.")
+    gpt_drafts_parser.add_argument("--model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
+    gpt_drafts_parser.add_argument("--sections", help="Comma-separated section/target IDs to draft.")
+    gpt_drafts_parser.add_argument("--max-calls", type=int, default=5, help="Maximum GPT API calls for this run.")
+    gpt_drafts_parser.add_argument("--dry-run", action="store_true", help="Report planned GPT calls without calling the API.")
+    gpt_drafts_parser.add_argument("--skip-existing", action=argparse.BooleanOptionalAction, default=True, help="Skip sections with current cached GPT draft provenance.")
+    gpt_drafts_parser.add_argument("--source-backed-only", action=argparse.BooleanOptionalAction, default=True, help="Draft only source-backed eligible section_text items.")
+    gpt_drafts_parser.add_argument("--force-refresh", action="store_true", help="Ignore cached drafts and call GPT again.")
+    gpt_drafts_parser.add_argument("--style-context", type=Path, help="Optional curated style context markdown path.")
+    gpt_drafts_parser.add_argument("--json", action="store_true", help="Print full JSON GPT drafting run manifest to stdout.")
 
     maps_parser = subparsers.add_parser("generate-maps", help="Generate draft static map/figure artifacts.")
     maps_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
@@ -254,7 +273,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sections_parser = subparsers.add_parser("generate-report-sections", help="Generate draft report section artifacts.")
     sections_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
-    sections_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    sections_parser.add_argument("--gpt-drafting", action="store_true", help="Explicitly enable legacy GPT section drafting for this run.")
+    sections_parser.add_argument("--no-gpt-drafting", action="store_true", help="Keep deterministic drafting for this run.")
     sections_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     sections_parser.add_argument("--json", action="store_true", help="Print full JSON report sections artifact to stdout.")
 
@@ -305,7 +325,8 @@ def build_parser() -> argparse.ArgumentParser:
         default="both",
         help="Editable export format to generate for the demo package.",
     )
-    demo_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    demo_parser.add_argument("--gpt-drafting", action="store_true", help="Explicitly enable legacy GPT section drafting during this package run.")
+    demo_parser.add_argument("--no-gpt-drafting", action="store_true", help="Keep deterministic drafting for this run.")
     demo_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     demo_parser.add_argument("--json", action="store_true", help="Print full JSON demo deliverable manifest to stdout.")
 
@@ -337,7 +358,8 @@ def build_parser() -> argparse.ArgumentParser:
         default="both",
         help="Editable export format to generate for the MVP package.",
     )
-    mvp_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    mvp_parser.add_argument("--gpt-drafting", action="store_true", help="Explicitly enable legacy GPT section drafting during this package run.")
+    mvp_parser.add_argument("--no-gpt-drafting", action="store_true", help="Keep deterministic drafting for this run.")
     mvp_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     mvp_parser.add_argument("--json", action="store_true", help="Print full JSON MVP deliverable manifest to stdout.")
 
@@ -426,7 +448,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="When used with --prepare-sources, also download supported optional sources.",
     )
-    populate_parser.add_argument("--no-gpt-drafting", action="store_true", help="Disable GPT drafting for this run even when GPT_DRAFTING=1.")
+    populate_parser.add_argument("--gpt-drafting", action="store_true", help="Explicitly enable legacy GPT section drafting during populate.")
+    populate_parser.add_argument("--no-gpt-drafting", action="store_true", help="Keep deterministic drafting for this run.")
     populate_parser.add_argument("--gpt-model", help="Override OPENAI_INTERPRETER_MODEL for this run.")
     populate_parser.add_argument("--json", action="store_true", help="Print full JSON populate run manifest to stdout.")
     return parser
@@ -1015,11 +1038,15 @@ def generate_deliverable_figures_command(project_dir: Path, print_json: bool) ->
 def generate_deliverable_items_command(
     project_dir: Path,
     print_json: bool,
+    gpt_drafting: bool = False,
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
 ) -> int:
+    if gpt_drafting and no_gpt_drafting:
+        print("error: choose either --gpt-drafting or --no-gpt-drafting, not both.", file=sys.stderr)
+        return 1
     try:
-        result = generate_deliverable_items(project_dir, gpt_drafting=False if no_gpt_drafting else None, gpt_model=gpt_model)
+        result = generate_deliverable_items(project_dir, gpt_drafting=bool(gpt_drafting and not no_gpt_drafting), gpt_model=gpt_model)
     except DeliverableItemsError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1034,6 +1061,61 @@ def generate_deliverable_items_command(
     print(f"GPT drafting: {result.get('gpt_drafting', {}).get('enabled', False)}")
     print(f"Validation issues: {len(result['validation_issues'])}")
     print(f"Output: {result['output_path']}")
+    return 0
+
+
+def draft_section_candidates_command(
+    project_dir: Path,
+    *,
+    provider: str,
+    model: str | None,
+    sections: str | None,
+    max_calls: int,
+    dry_run: bool,
+    skip_existing: bool,
+    source_backed_only: bool,
+    force_refresh: bool,
+    style_context: Path | None,
+    print_json: bool,
+) -> int:
+    try:
+        result = draft_section_candidates(
+            project_dir,
+            provider=provider,
+            model=model,
+            sections=_comma_list(sections),
+            max_calls=max_calls,
+            dry_run=dry_run,
+            skip_existing=skip_existing,
+            source_backed_only=source_backed_only,
+            force_refresh=force_refresh,
+            style_context_path=style_context,
+        )
+    except GptInterpretiveAssistError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    mode = "dry run" if dry_run else "GPT draft run"
+    print(f"Completed {mode}: {result.get('project_id')} ({result.get('project_name')})")
+    print(f"Model: {result.get('model', '')}")
+    print(f"Eligible sections: {len(result.get('eligible_sections', []))}")
+    print(f"Planned calls: {result.get('planned_call_count', 0)}")
+    print(f"Completed calls: {result.get('completed_call_count', 0)}")
+    print(f"Accepted GPT drafts: {result.get('accepted_gpt_draft_count', 0)}")
+    print(f"Rejected GPT drafts: {result.get('rejected_gpt_draft_count', 0)}")
+    print(f"Deterministic fallbacks: {result.get('deterministic_fallback_count', 0)}")
+    print(f"Cache hits: {result.get('cache_hit_count', 0)}")
+    token_usage = result.get("token_usage", {}) if isinstance(result.get("token_usage"), dict) else {}
+    if token_usage:
+        print(f"Token usage: {token_usage.get('total_tokens', 0)} total ({token_usage.get('input_tokens', 0)} input, {token_usage.get('output_tokens', 0)} output)")
+    print(f"Output: {result.get('output_path', '')}")
+    for row in result.get("planned_sections", []):
+        if isinstance(row, dict):
+            print(f"  - {row.get('target_id')}: {row.get('title')}")
     return 0
 
 
@@ -1077,11 +1159,15 @@ def build_evidence_package_command(project_dir: Path, print_json: bool) -> int:
 def generate_report_sections_command(
     project_dir: Path,
     print_json: bool,
+    gpt_drafting: bool = False,
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
 ) -> int:
+    if gpt_drafting and no_gpt_drafting:
+        print("error: choose either --gpt-drafting or --no-gpt-drafting, not both.", file=sys.stderr)
+        return 1
     try:
-        result = generate_report_sections(project_dir, gpt_drafting=False if no_gpt_drafting else None, gpt_model=gpt_model)
+        result = generate_report_sections(project_dir, gpt_drafting=bool(gpt_drafting and not no_gpt_drafting), gpt_model=gpt_model)
     except ReportSectionGenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1142,9 +1228,13 @@ def build_demo_deliverable_command(
     include_optional_sources: bool = False,
     materialize_local_sources_flag: bool = False,
     output_format: str = "both",
+    gpt_drafting: bool = False,
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
 ) -> int:
+    if gpt_drafting and no_gpt_drafting:
+        print("error: choose either --gpt-drafting or --no-gpt-drafting, not both.", file=sys.stderr)
+        return 1
     try:
         result = build_demo_deliverable(
             project_dir,
@@ -1152,7 +1242,7 @@ def build_demo_deliverable_command(
             include_optional_sources=include_optional_sources,
             materialize_local_sources=materialize_local_sources_flag,
             output_format=output_format,
-            gpt_drafting=False if no_gpt_drafting else None,
+            gpt_drafting=bool(gpt_drafting and not no_gpt_drafting),
             gpt_model=gpt_model,
         )
     except DemoDeliverableError as exc:
@@ -1182,9 +1272,13 @@ def build_mvp_deliverable_command(
     fail_on_no_downloaded_sources: bool = True,
     materialize_local_sources_flag: bool = False,
     output_format: str = "both",
+    gpt_drafting: bool = False,
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
 ) -> int:
+    if gpt_drafting and no_gpt_drafting:
+        print("error: choose either --gpt-drafting or --no-gpt-drafting, not both.", file=sys.stderr)
+        return 1
     try:
         result = build_mvp_deliverable(
             project_dir,
@@ -1192,7 +1286,7 @@ def build_mvp_deliverable_command(
             fail_on_no_downloaded_sources=fail_on_no_downloaded_sources,
             materialize_local_sources=materialize_local_sources_flag,
             output_format=output_format,
-            gpt_drafting=False if no_gpt_drafting else None,
+            gpt_drafting=bool(gpt_drafting and not no_gpt_drafting),
             gpt_model=gpt_model,
         )
     except MvpDeliverableError as exc:
@@ -1274,7 +1368,7 @@ def validate_deliverable_matrix_command(print_json: bool) -> int:
     try:
         matrix = validate_deliverable_contract()
         prompts = load_report_prompt_config()
-    except (DeliverableMatrixError, ReportPromptConfigError) as exc:
+    except (DeliverableMatrixError, ReportPromptConfigError, ReportSectionPolicyConfigError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -1296,7 +1390,7 @@ def validate_report_prompts_command(print_json: bool) -> int:
     try:
         matrix = validate_deliverable_contract()
         prompts = load_report_prompt_config()
-    except (DeliverableMatrixError, ReportPromptConfigError) as exc:
+    except (DeliverableMatrixError, ReportPromptConfigError, ReportSectionPolicyConfigError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -1333,9 +1427,13 @@ def populate_for_review_command(
     include_optional_sources: bool = False,
     materialize_local_sources_flag: bool = False,
     materialize_naip_basemap_flag: bool = False,
+    gpt_drafting: bool = False,
     no_gpt_drafting: bool = False,
     gpt_model: str | None = None,
 ) -> int:
+    if gpt_drafting and no_gpt_drafting:
+        print("error: choose either --gpt-drafting or --no-gpt-drafting, not both.", file=sys.stderr)
+        return 1
     try:
         result = populate_for_review(
             project_dir,
@@ -1343,7 +1441,7 @@ def populate_for_review_command(
             include_optional_sources=include_optional_sources,
             materialize_local_sources=materialize_local_sources_flag,
             materialize_naip_basemap=materialize_naip_basemap_flag,
-            gpt_drafting=False if no_gpt_drafting else None,
+            gpt_drafting=bool(gpt_drafting and not no_gpt_drafting),
             gpt_model=gpt_model,
         )
     except PopulateForReviewError as exc:
@@ -1428,13 +1526,27 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "generate-deliverable-figures":
         return generate_deliverable_figures_command(args.project_dir, args.json)
     if args.command == "generate-deliverable-items":
-        return generate_deliverable_items_command(args.project_dir, args.json, args.no_gpt_drafting, args.gpt_model)
+        return generate_deliverable_items_command(args.project_dir, args.json, args.gpt_drafting, args.no_gpt_drafting, args.gpt_model)
+    if args.command == "draft-section-candidates":
+        return draft_section_candidates_command(
+            args.project_dir,
+            provider=args.provider,
+            model=args.model,
+            sections=args.sections,
+            max_calls=args.max_calls,
+            dry_run=args.dry_run,
+            skip_existing=args.skip_existing,
+            source_backed_only=args.source_backed_only,
+            force_refresh=args.force_refresh,
+            style_context=args.style_context,
+            print_json=args.json,
+        )
     if args.command == "generate-maps":
         return generate_maps_command(args.project_dir, args.json)
     if args.command == "build-evidence-package":
         return build_evidence_package_command(args.project_dir, args.json)
     if args.command == "generate-report-sections":
-        return generate_report_sections_command(args.project_dir, args.json, args.no_gpt_drafting, args.gpt_model)
+        return generate_report_sections_command(args.project_dir, args.json, args.gpt_drafting, args.no_gpt_drafting, args.gpt_model)
     if args.command == "export-report":
         return export_report_command(args.project_dir, args.include_draft, args.output_format, args.json)
     if args.command == "build-demo-deliverable":
@@ -1447,6 +1559,7 @@ def main(argv: list[str] | None = None) -> int:
             args.include_optional_sources,
             args.materialize_local_sources,
             args.output_format,
+            args.gpt_drafting,
             args.no_gpt_drafting,
             args.gpt_model,
         )
@@ -1458,6 +1571,7 @@ def main(argv: list[str] | None = None) -> int:
             args.fail_on_no_downloaded_sources,
             args.materialize_local_sources,
             args.output_format,
+            args.gpt_drafting,
             args.no_gpt_drafting,
             args.gpt_model,
         )
@@ -1500,6 +1614,7 @@ def main(argv: list[str] | None = None) -> int:
             args.include_optional_sources,
             args.materialize_local_sources,
             args.materialize_naip_basemap,
+            args.gpt_drafting,
             args.no_gpt_drafting,
             args.gpt_model,
         )
@@ -1511,6 +1626,12 @@ def _optional_bool(value: str | None) -> bool | None:
     if value is None:
         return None
     return value == "true"
+
+
+def _comma_list(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    return [part.strip() for part in value.split(",") if part.strip()]
 
 
 if __name__ == "__main__":

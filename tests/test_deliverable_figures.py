@@ -21,6 +21,11 @@ from review_assist.deliverable_figure_rendering import (
     render_map,
     source_layer_style_record,
 )
+from review_assist.deliverable_constraints import (
+    analyze_comparison_unit_constraints,
+    load_comparison_unit_constraints,
+)
+from review_assist.deliverable_figure_specs import TARGET_SPECS
 from review_assist.deliverable_figures import (
     DeliverableFigureError,
     generate_deliverable_figures,
@@ -232,7 +237,58 @@ def issue_codes(record: dict[str, object]) -> set[str]:
     return {str(issue["code"]) for issue in record.get("validation_issues", [])}  # type: ignore[union-attr]
 
 
-def test_deliverable_figures_write_13_matrix_records_and_missing_source_stubs(
+def color_distance(color_a: str, color_b: str) -> float:
+    a = color_a.lstrip("#")
+    b = color_b.lstrip("#")
+    return sum((int(a[index : index + 2], 16) - int(b[index : index + 2], 16)) ** 2 for index in (0, 2, 4)) ** 0.5
+
+
+def test_hazardous_regulated_figure_split_is_declared_in_matrix_and_specs() -> None:
+    matrix = load_deliverable_matrix()
+    target_ids = [target.target_id for target in matrix.figure_targets]
+    section_by_id = {target.target_id: target for target in matrix.section_targets}
+
+    assert target_ids == [
+        "figure-wetlands-waterbodies",
+        "figure-fema-flood-zones",
+        "figure-streams-impaired-waters",
+        "figure-cultural-resources",
+        "figure-fire-ems-stations",
+        "figure-government-offices",
+        "figure-schools-childcare",
+        "figure-health-care-facilities",
+        "figure-places-of-worship",
+        "figure-public-water-supply-wells",
+        "figure-energy-infrastructure",
+        "figure-hazardous-waste-sites",
+        "figure-water-discharge-waste-facilities",
+        "figure-oil-gas-wells",
+        "figure-census-tracts",
+    ]
+    assert section_by_id["contamination-risks"].figure_refs == [
+        "figure-hazardous-waste-sites",
+        "figure-water-discharge-waste-facilities",
+    ]
+    assert section_by_id["hazardous-materials-sites"].figure_refs == [
+        "figure-hazardous-waste-sites",
+        "figure-water-discharge-waste-facilities",
+    ]
+    assert section_by_id["oil-wells"].figure_refs == ["figure-oil-gas-wells"]
+    assert set(TARGET_SPECS["figure-hazardous-waste-sites"].source_ids) == {
+        "epa_frs_facilities_ms",
+        "maris_brownfields",
+        "maris_superfund_sites",
+        "maris_tri_facilities",
+        "maris_underground_storage_tanks",
+    }
+    assert set(TARGET_SPECS["figure-water-discharge-waste-facilities"].source_ids) == {
+        "maris_npdes_facilities",
+        "maris_solid_waste_landfills",
+    }
+    assert TARGET_SPECS["figure-oil-gas-wells"].source_ids == ("mississippi_oil_gas_wells",)
+
+
+def test_deliverable_figures_write_15_matrix_records_and_missing_source_stubs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -245,9 +301,9 @@ def test_deliverable_figures_write_13_matrix_records_and_missing_source_stubs(
     matrix_ids = [target.target_id for target in load_deliverable_matrix().figure_targets]
 
     assert (project_dir / "deliverable" / "figures.json").exists()
-    assert result["figure_count"] == 13
+    assert result["figure_count"] == 15
     assert [figure["figure_id"] for figure in result["figures"]] == matrix_ids
-    assert [figure["figure_number"] for figure in result["figures"]] == list(range(1, 14))
+    assert [figure["figure_number"] for figure in result["figures"]] == list(range(1, 16))
     assert all(figure["section_target_id"] for figure in result["figures"])
     assert all(figure["comparison_unit_ids"] for figure in result["figures"])
     assert all(figure["is_stub"] is True for figure in result["figures"])
@@ -387,7 +443,7 @@ def test_project_local_naip_geotiff_sidecar_is_rendered_in_deliverable_figures(
     result = generate_deliverable_figures(project_dir)
     wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
 
-    assert result["figure_count"] == 13
+    assert result["figure_count"] == 15
     assert wetlands["is_stub"] is False
     shown_basemaps = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap"]  # type: ignore[index]
     assert shown_basemaps
@@ -452,7 +508,7 @@ def test_project_local_naip_sidecar_is_rendered_in_regulated_facilities_figure(
     result = generate_deliverable_figures(project_dir)
     hazardous = figure_by_id(result, "figure-hazardous-waste-sites")
 
-    assert result["figure_count"] == 13
+    assert result["figure_count"] == 15
     assert hazardous["is_stub"] is False
     shown_basemaps = [layer for layer in hazardous["shown_layers"] if layer["layer_type"] == "basemap"]  # type: ignore[index]
     assert shown_basemaps
@@ -462,7 +518,36 @@ def test_project_local_naip_sidecar_is_rendered_in_regulated_facilities_figure(
     assert "USDA NAIP Project Basemap rendered from sidecar" in hazardous["source_note"]  # type: ignore[operator]
 
 
-def test_specific_regulated_sources_satisfy_hazardous_figure_without_legacy_broad_ids(
+def test_figure_generation_preserves_constraint_counts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson")])
+
+    before = analyze_comparison_unit_constraints(project_dir, tolerate_source_errors=True)
+    before_counts = (
+        before["constraint_count"],
+        len(before["constraints"]),
+        len(before["sources"]),
+    )
+
+    result = generate_deliverable_figures(project_dir)
+    after = load_comparison_unit_constraints(project_dir)
+
+    assert result["figure_count"] == 15
+    assert (after["constraint_count"], len(after["constraints"]), len(after["sources"])) == before_counts
+
+
+def test_specific_regulated_sources_are_split_without_legacy_broad_ids(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -490,17 +575,45 @@ def test_specific_regulated_sources_satisfy_hazardous_figure_without_legacy_broa
 
     result = generate_deliverable_figures(project_dir)
     hazardous = figure_by_id(result, "figure-hazardous-waste-sites")
-    serialized_issues = json.dumps(hazardous["validation_issues"])
+    water_discharge = figure_by_id(result, "figure-water-discharge-waste-facilities")
+    oil_gas = figure_by_id(result, "figure-oil-gas-wells")
+    serialized_issues = json.dumps(
+        [
+            *hazardous["validation_issues"],
+            *water_discharge["validation_issues"],
+            *oil_gas["validation_issues"],
+        ]
+    )
+    hazardous_source_ids = {
+        "epa_frs_facilities_ms",
+        "maris_brownfields",
+        "maris_superfund_sites",
+        "maris_tri_facilities",
+        "maris_underground_storage_tanks",
+    }
+    water_source_ids = {"maris_npdes_facilities", "maris_solid_waste_landfills"}
+    oil_source_ids = {"mississippi_oil_gas_wells"}
 
     assert hazardous["is_stub"] is False
-    assert "epa_envirofacts_echo" not in hazardous["source_refs"]  # type: ignore[operator]
-    assert "mdeq_environmental_context" not in hazardous["source_refs"]  # type: ignore[operator]
+    assert water_discharge["is_stub"] is False
+    assert oil_gas["is_stub"] is False
+    for figure in (hazardous, water_discharge, oil_gas):
+        assert "epa_envirofacts_echo" not in figure["source_refs"]  # type: ignore[operator]
+        assert "mdeq_environmental_context" not in figure["source_refs"]  # type: ignore[operator]
     assert "epa_envirofacts_echo" not in serialized_issues
     assert "mdeq_environmental_context" not in serialized_issues
-    assert set(source_ids).issubset(set(hazardous["source_refs"]))  # type: ignore[arg-type]
+    assert hazardous_source_ids == set(hazardous["source_refs"])  # type: ignore[arg-type]
+    assert water_source_ids == set(water_discharge["source_refs"])  # type: ignore[arg-type]
+    assert oil_source_ids == set(oil_gas["source_refs"])  # type: ignore[arg-type]
     shown_source_ids = {layer.get("source_id") for layer in hazardous["shown_layers"] if layer.get("layer_type") == "source_layer"}  # type: ignore[union-attr]
-    assert set(source_ids).issubset(shown_source_ids)
+    shown_water_source_ids = {layer.get("source_id") for layer in water_discharge["shown_layers"] if layer.get("layer_type") == "source_layer"}  # type: ignore[union-attr]
+    shown_oil_source_ids = {layer.get("source_id") for layer in oil_gas["shown_layers"] if layer.get("layer_type") == "source_layer"}  # type: ignore[union-attr]
+    assert hazardous_source_ids == shown_source_ids
+    assert water_source_ids == shown_water_source_ids
+    assert oil_source_ids == shown_oil_source_ids
     assert "EPA Facility Registry Service" in hazardous["source_note"]  # type: ignore[operator]
+    assert "NPDES" in water_discharge["source_note"]  # type: ignore[operator]
+    assert "Oil" in oil_gas["source_note"] or "oil" in oil_gas["source_note"]  # type: ignore[operator]
     assert "EPA FRS hazardous" not in hazardous["source_note"]  # type: ignore[operator]
 
 
@@ -562,7 +675,7 @@ def test_attachment_panel_records_project_local_naip_basemap_metadata(
 
     result = generate_deliverable_figures(project_dir)
 
-    assert result["figure_count"] == 13
+    assert result["figure_count"] == 15
     assert result["attachment_supporting_figure_count"] > 0
     panel = result["attachment_supporting_figures"][0]
     shown_basemaps = [layer for layer in panel["shown_layers"] if layer["layer_type"] == "basemap"]
@@ -588,8 +701,8 @@ def test_comparison_unit_styles_use_usable_kml_colors_and_visible_fallbacks() ->
             },
             {
                 "comparison_unit_id": "comparison-unit-00003",
-                "comparison_unit_name": "Blank route",
-                "style_color": "",
+                "comparison_unit_name": "Orange route",
+                "style_color": "ff009fe6",
             },
         ],
         geometry=[
@@ -608,9 +721,83 @@ def test_comparison_unit_styles_use_usable_kml_colors_and_visible_fallbacks() ->
     assert styles[0]["style_source"] == "kml_style_color"
     assert styles[1]["color"] != "#ffffff"
     assert styles[1]["style_source"] == "deterministic_fallback"
-    assert styles[2]["color"] != styles[1]["color"]
-    assert styles[2]["style_source"] == "deterministic_fallback"
-    assert all(1.0 < style["line_width"] < 2.0 for style in styles)
+    assert styles[2]["color"] not in {"#e69f00", "#ff9900"}
+    assert color_distance(styles[0]["color"], styles[2]["color"]) > 120
+    assert styles[2]["style_source"] == "deterministic_fallback_replaces_kml_color"
+    assert all(1.15 <= style["line_width"] <= 1.25 for style in styles)
+    assert all(style["line_halo_width"] == 0.0 for style in styles)
+    assert all(style["line_halo_alpha"] == 0.0 for style in styles)
+    assert color_distance(styles[0]["color"], styles[1]["color"]) > 120
+
+
+def test_comparison_unit_fallback_colors_are_distinct_and_deterministic() -> None:
+    rows = [
+        {
+            "comparison_unit_id": f"comparison-unit-{index + 1:05d}",
+            "comparison_unit_name": f"Alternative {index + 1}",
+            "style_color": "",
+        }
+        for index in range(5)
+    ]
+    gdf = gpd.GeoDataFrame(
+        rows,
+        geometry=[
+            LineString([(-90.0, 32.0 + index * 0.001), (-89.99, 32.0 + index * 0.001)])
+            for index in range(5)
+        ],
+        crs="EPSG:4326",
+    )
+
+    styles = comparison_unit_style_records(gdf)
+    repeated = comparison_unit_style_records(gdf)
+    colors = [style["color"] for style in styles]
+
+    assert styles == repeated
+    assert colors == ["#004CFF", "#FF2A00", "#00E676", "#8A00FF", "#111111"]
+    assert "#D55E00" not in colors
+    assert "#C1121F" not in colors
+    assert "#009E73" not in colors
+    assert min(color_distance(a, b) for index, a in enumerate(colors) for b in colors[index + 1 :]) > 78
+    assert all(style["line_width"] == pytest.approx(1.2) for style in styles)
+    assert all(style["line_halo_width"] == 0.0 for style in styles)
+
+
+def test_comparison_unit_muted_green_kml_color_is_replaced_for_imagery_readability() -> None:
+    gdf = gpd.GeoDataFrame(
+        [
+            {
+                "comparison_unit_id": "comparison-unit-00001",
+                "comparison_unit_name": "Muted green route",
+                "style_color": "ff739e00",
+            }
+        ],
+        geometry=[LineString([(-90.0, 32.0), (-89.99, 32.0)])],
+        crs="EPSG:4326",
+    )
+
+    styles = comparison_unit_style_records(gdf)
+
+    assert styles[0]["color"] == "#004CFF"
+    assert styles[0]["style_source"] == "deterministic_fallback_replaces_kml_color"
+
+
+def test_comparison_unit_bright_green_kml_color_is_allowed() -> None:
+    gdf = gpd.GeoDataFrame(
+        [
+            {
+                "comparison_unit_id": "comparison-unit-00001",
+                "comparison_unit_name": "Bright green route",
+                "style_color": "ff76e600",
+            }
+        ],
+        geometry=[LineString([(-90.0, 32.0), (-89.99, 32.0)])],
+        crs="EPSG:4326",
+    )
+
+    styles = comparison_unit_style_records(gdf)
+
+    assert styles[0]["color"] == "#00e676"
+    assert styles[0]["style_source"] == "kml_style_color"
 
 
 def test_comparison_unit_labels_are_compact_for_legend() -> None:
@@ -656,6 +843,44 @@ def test_regulated_facility_source_styles_are_distinct_and_compact() -> None:
     assert len({style["marker"] for style in styles}) == len(styles)
     assert all(style["line_width"] < 0.7 for style in styles)
     assert all(style["marker_size"] <= 15 for style in styles)
+    assert all(style["marker_edge_color"] == "#111827" for style in styles)
+    assert all(style["marker_halo_alpha"] > 0.6 for style in styles)
+
+
+def test_source_marker_styles_avoid_green_on_imagery() -> None:
+    layers = [
+        {"source_id": "maris_public_cultural_context", "source_name": "Public Cultural Context", "source_category": "cultural_historic"},
+        {"source_id": "maris_underground_storage_tanks", "source_name": "Underground Storage Tanks", "source_category": "regulated_facilities"},
+        {"source_id": "usfws_nwi_wetlands", "source_name": "National Wetlands Inventory", "source_category": "wetlands_waterbodies"},
+        {"source_id": "unknown_context", "source_name": "Unknown Context", "source_category": "cultural_historic"},
+    ]
+
+    styles = [source_layer_style_record(layer, index) for index, layer in enumerate(layers)]
+    colors = [style["color"] for style in styles]
+
+    assert "#6BAA75" not in colors
+    assert "#009E73" not in colors
+    assert styles[0]["color"] == "#FF00FF"
+    assert styles[1]["color"] == "#008EAA"
+    assert styles[2]["color"] == "#FFE500"
+    assert styles[3]["color"] == "#F72585"
+    assert all(style["marker_edge_width"] >= 0.4 for style in styles)
+
+
+def test_wetlands_and_hydrography_source_styles_use_saturated_high_contrast_overlays() -> None:
+    layers = [
+        {"source_id": "usfws_nwi_wetlands", "source_name": "National Wetlands Inventory", "source_category": "wetlands_waterbodies"},
+        {"source_id": "usgs_nhd_flowlines", "source_name": "USGS NHD Flowlines Mississippi", "source_category": "hydrography_crossings"},
+        {"source_id": "usgs_nhd_waterbodies", "source_name": "USGS NHD Waterbodies Mississippi", "source_category": "hydrography_crossings"},
+        {"source_id": "usgs_nhd_other_areas", "source_name": "USGS NHD Other Areas Mississippi", "source_category": "hydrography_crossings"},
+    ]
+
+    styles = [source_layer_style_record(layer, index) for index, layer in enumerate(layers)]
+
+    assert [style["color"] for style in styles] == ["#FFE500", "#00E5FF", "#00FF66", "#FF00FF"]
+    assert styles[0]["polygon_alpha"] >= 0.38
+    assert styles[1]["line_width"] >= 0.9
+    assert all(style["line_alpha"] >= 0.86 for style in styles[1:])
 
 
 def test_legend_label_abbreviations_keep_source_labels_compact() -> None:
@@ -909,6 +1134,7 @@ def test_figure_extent_plan_records_small_medium_and_deferred_watershed_classes(
     wetlands = plan_figure_by_id(plan, "figure-wetlands-waterbodies")
     fire = plan_figure_by_id(plan, "figure-fire-ems-stations")
     streams = plan_figure_by_id(plan, "figure-streams-impaired-waters")
+    census = plan_figure_by_id(plan, "figure-census-tracts")
     groups = {str(group["group_id"]): group for group in plan["basemap_materialization_groups"]}  # type: ignore[index]
 
     assert wetlands["extent_class"] == "small_direct"
@@ -928,6 +1154,10 @@ def test_figure_extent_plan_records_small_medium_and_deferred_watershed_classes(
     assert streams["status"] == "deferred_watershed_context"
     assert streams["basemap_materialization_group"] == ""
     assert any(issue["code"] == "figure_extent_context_deferred" for issue in plan["validation_issues"])  # type: ignore[index]
+
+    assert census["extent_class"] == "county_regional"
+    assert census["core_extent_type"] == "county_or_regional_context_extent"
+    assert census["basemap_materialization_group"] == ""
     assert set(groups) == {"medium_context", "small_direct"}
 
 
@@ -944,7 +1174,7 @@ def test_cli_plan_figure_extents_json_writes_artifact(
     assert main(["plan-figure-extents", str(project_dir), "--json"]) == 0
 
     result = json.loads(capsys.readouterr().out)
-    assert result["figure_count"] == 13
+    assert result["figure_count"] == 15
     assert result["output_path"].endswith("maps\\figure_extent_plan.json") or result["output_path"].endswith("maps/figure_extent_plan.json")
     assert (project_dir / "maps" / "figure_extent_plan.json").exists()
 
@@ -968,7 +1198,7 @@ def test_generated_figures_record_distinct_comparison_unit_visual_styles(
     wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
     comparison_layer = next(layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "comparison_units")  # type: ignore[index]
 
-    assert result["figure_count"] == 13
+    assert result["figure_count"] == 15
     assert wetlands["is_stub"] is False
     assert result["extent_policy"]["core_rule"].startswith("Rendered map extent")
     assert wetlands["query_extent_type"] == "project_area_analysis_bounds"
@@ -1038,7 +1268,7 @@ def test_panel_records_are_attachment_supporting_not_main_figures(
 
     result = generate_deliverable_figures(project_dir)
 
-    assert result["figure_count"] == 13
+    assert result["figure_count"] == 15
     assert result["attachment_supporting_figure_count"] > 0
     main_ids = {figure["figure_id"] for figure in result["figures"]}
     assert all(panel["figure_id"] not in main_ids for panel in result["attachment_supporting_figures"])
@@ -1133,7 +1363,7 @@ def test_deliverable_figures_top_level_contract_shape(tmp_path: Path, monkeypatc
         "upstream_artifacts",
         "output_path",
     } <= set(result)
-    assert result["figure_count"] == 13
+    assert result["figure_count"] == 15
     assert result["attachment_supporting_figure_count"] == len(result["attachment_supporting_figures"])
     assert result["output_path"].endswith("deliverable\\figures.json") or result["output_path"].endswith("deliverable/figures.json")
     assert result["upstream_artifacts"]["deliverable_matrix_path"] == "config/deliverable_section_matrix.json"
@@ -1195,9 +1425,9 @@ def test_cli_and_populate_manifest_include_deliverable_figures(
     assert main(["generate-deliverable-figures", str(project_dir)]) == 0
     captured = capsys.readouterr()
     assert "Generated deliverable figures" in captured.out
-    assert load_deliverable_figures(project_dir)["figure_count"] == 13
+    assert load_deliverable_figures(project_dir)["figure_count"] == 15
 
     result = populate_for_review(project_dir)
 
     assert result["artifact_paths"]["deliverable_figures"].endswith("figures.json")
-    assert result["deliverable_figure_count"] == 13
+    assert result["deliverable_figure_count"] == 15
