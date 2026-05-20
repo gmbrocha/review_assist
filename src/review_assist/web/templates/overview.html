@@ -74,23 +74,20 @@
 
 <section class="panel">
   <h2>Developer Testing Reset</h2>
-  <p class="muted">Local/dev action: clears generated deliverable candidates and rebuilds the standard review queue from current artifacts. Source data, project setup, tables, figures, and evidence are preserved by default.</p>
+  <p class="muted">Local/dev action: refreshes deterministic review artifacts, then rebuilds the standard queue. It reruns local artifact generation from current inputs and registered source layers, without source acquisition, NAIP acquisition, source materialization, or GPT drafting.</p>
   <form method="post" action="{{ url_for('reset_review_queue') }}">
     <label>
       <input type="checkbox" name="confirm_reset" value="yes" required>
-      I understand this clears generated review candidates for this workspace.
+      I understand this overwrites generated review artifacts and rebuilds the queue from current local inputs and registered source layers.
     </label>
     <div class="form-row">
       <label>
-        <input type="checkbox" name="include_evidence" value="yes">
-        Rebuild evidence package first
-      </label>
-      <label>
         <input type="checkbox" name="include_exports" value="yes">
-        Clear stale export outputs
+        Delete existing export outputs
       </label>
     </div>
-    <button type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Reset generated review queue</button>
+    <p class="muted">Refreshed artifacts include constraints, tables, figures, maps, evidence, deterministic draft sections, deliverable items, and review queue. Source data, project setup, project-local layers, basemaps, and source-acquisition records are preserved.</p>
+    <button type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Refresh artifacts and rebuild queue</button>
   </form>
 </section>
 

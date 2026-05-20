@@ -806,8 +806,9 @@ def test_overview_exposes_dev_review_queue_reset_with_confirmation(tmp_path: Pat
     blocked = client.post("/overview/reset-review-queue", follow_redirects=True)
 
     assert overview.status_code == 200
-    assert b"Reset generated review queue" in overview.data
-    assert b"clears generated deliverable candidates" in overview.data
+    assert b"Refresh artifacts and rebuild queue" in overview.data
+    assert b"refreshes deterministic review artifacts" in overview.data
+    assert b"without source acquisition, NAIP acquisition, source materialization, or GPT drafting" in overview.data
     assert blocked.status_code == 200
     assert b"Confirm the developer reset" in blocked.data
 
@@ -828,12 +829,11 @@ def test_overview_dev_review_queue_reset_calls_adapter(monkeypatch: pytest.Monke
 
     response = client.post(
         "/overview/reset-review-queue",
-        data={"confirm_reset": "yes", "include_evidence": "yes"},
+        data={"confirm_reset": "yes"},
         follow_redirects=True,
     )
 
     assert response.status_code == 200
     assert called["path"] == project_dir.resolve()
-    assert called["include_evidence"] is True
     assert called["include_exports"] is False
-    assert b"Reset generated review queue completed with 42 review items" in response.data
+    assert b"Review artifacts refreshed and queue rebuilt with 42 review items" in response.data

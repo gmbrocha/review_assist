@@ -8,20 +8,26 @@ from pathlib import Path
 from typing import Any
 
 from .deliverable import DEMO_DELIVERABLE_MANIFEST_PATH
-from .deliverable_items import DELIVERABLE_ITEMS_PATH, DeliverableItemsError, generate_deliverable_items
-from .evidence_package import EVIDENCE_PACKAGE_PATH, EvidencePackageError, build_evidence_package
+from .deliverable_figures import DELIVERABLE_FIGURES_PATH
+from .deliverable_items import DELIVERABLE_ITEMS_PATH
+from .deliverable_tables import DELIVERABLE_TABLES_PATH
+from .evidence_package import EVIDENCE_PACKAGE_PATH
 from .export_report import (
     EXPORT_DOCX_PATH,
     EXPORT_FIGURE_ASSETS_DIR,
     EXPORT_MANIFEST_PATH,
     EXPORT_MARKDOWN_PATH,
 )
-from .review_queue import REVIEW_QUEUE_PATH, ReviewQueueError, generate_review_queue
+from .maps import MAP_MANIFEST_PATH
+from .populate_for_review import PopulateForReviewError, populate_for_review
+from .report_sections import REPORT_SECTIONS_PATH
+from .review_queue import REVIEW_QUEUE_PATH
 
 
 RESET_WARNING = (
     "This developer/test reset removes generated deliverable review candidates "
-    "and rebuilds the standard review queue from current artifacts."
+    "and refreshes deterministic upstream review artifacts before rebuilding the standard review queue. "
+    "It does not acquire sources, materialize NAIP imagery, run GPT drafting, or delete source data."
 )
 PROCESS_LANGUAGE_PATTERNS = (
     "draft review candidate",
@@ -53,11 +59,12 @@ def reset_review_queue(
     include_evidence: bool = False,
     include_exports: bool = False,
 ) -> dict[str, Any]:
-    """Remove generated review candidates and optionally rebuild them.
+    """Remove generated review candidates and optionally rebuild review artifacts.
 
-    This is intentionally a developer/testing helper. It does not delete source
-    data, project setup artifacts, deliverable tables, deliverable figures, or
-    evidence/export artifacts unless explicitly requested through flags.
+    This is intentionally a developer/testing helper. Regeneration runs the
+    deterministic populate pipeline without source acquisition, local source
+    materialization, NAIP materialization, or GPT drafting so review candidates
+    are rebuilt from current local project inputs and registered source layers.
     """
 
     project_dir = project_dir.resolve()
@@ -75,9 +82,11 @@ def reset_review_queue(
         "dry_run": dry_run,
         "include_evidence": include_evidence,
         "include_exports": include_exports,
+        "refresh_upstream_artifacts": bool(regenerate),
         "regenerate": regenerate,
         "before": before,
         "would_delete": existing_targets,
+        "would_refresh": _refreshed_artifacts() if regenerate else [],
         "deleted": [],
         "regenerated": [],
         "after": before if dry_run else {},
@@ -103,14 +112,16 @@ def reset_review_queue(
     regenerated: list[dict[str, Any]] = []
     if regenerate:
         try:
-            if include_evidence:
-                evidence = build_evidence_package(project_dir)
-                regenerated.append(_regenerated_record("evidence_package", evidence))
-            deliverable_items = generate_deliverable_items(project_dir, gpt_drafting=False)
-            regenerated.append(_regenerated_record("deliverable_items", deliverable_items))
-            review_queue = generate_review_queue(project_dir)
-            regenerated.append(_regenerated_record("review_queue", review_queue))
-        except (EvidencePackageError, DeliverableItemsError, ReviewQueueError) as exc:
+            populate = populate_for_review(
+                project_dir,
+                prepare_sources=False,
+                include_optional_sources=False,
+                materialize_local_sources=False,
+                materialize_naip_basemap=False,
+                gpt_drafting=False,
+            )
+            regenerated.extend(_populate_regenerated_records(populate))
+        except PopulateForReviewError as exc:
             raise ReviewQueueResetError(str(exc)) from exc
     result["regenerated"] = regenerated
     result["after"] = _artifact_counts(project_dir)
@@ -137,17 +148,68 @@ def _regenerated_record(kind: str, artifact: dict[str, Any]) -> dict[str, Any]:
     return {"artifact": kind, "output_path": path, "item_count": count}
 
 
+def _populate_regenerated_records(populate: dict[str, Any]) -> list[dict[str, Any]]:
+    paths = populate.get("artifact_paths", {}) if isinstance(populate.get("artifact_paths"), dict) else {}
+    counts = {
+        "comparison_unit_constraints": populate.get("comparison_unit_constraint_count"),
+        "deliverable_tables": populate.get("deliverable_table_count"),
+        "deliverable_figures": populate.get("deliverable_figure_count"),
+        "deliverable_items": populate.get("deliverable_item_count"),
+        "review_queue": populate.get("review_queue_item_count"),
+    }
+    artifacts = [
+        "input_package",
+        "project_geometry",
+        "project_area",
+        "comparison_units",
+        "project_context",
+        "source_status",
+        "source_inventory",
+        "constraint_results",
+        "comparison_unit_constraints",
+        "draft_findings",
+        "comparison_tables",
+        "deliverable_tables",
+        "deliverable_figures",
+        "map_manifest",
+        "evidence_package",
+        "report_sections",
+        "deliverable_items",
+        "review_queue",
+    ]
+    return [
+        {
+            "artifact": artifact,
+            "output_path": str(paths.get(artifact) or ""),
+            "item_count": counts.get(artifact),
+        }
+        for artifact in artifacts
+    ]
+
+
 def _artifact_counts(project_dir: Path) -> dict[str, Any]:
     deliverable_items = _read_json(project_dir / DELIVERABLE_ITEMS_PATH)
     review_queue = _read_json(project_dir / REVIEW_QUEUE_PATH)
     evidence = _read_json(project_dir / EVIDENCE_PACKAGE_PATH)
+    deliverable_tables = _read_json(project_dir / DELIVERABLE_TABLES_PATH)
+    deliverable_figures = _read_json(project_dir / DELIVERABLE_FIGURES_PATH)
+    map_manifest = _read_json(project_dir / MAP_MANIFEST_PATH)
+    report_sections = _read_json(project_dir / REPORT_SECTIONS_PATH)
     return {
         "deliverable_items_exists": bool(deliverable_items),
         "deliverable_item_count": _count_value(deliverable_items),
         "review_queue_exists": bool(review_queue),
         "review_queue_item_count": _count_value(review_queue),
+        "deliverable_tables_exists": bool(deliverable_tables),
+        "deliverable_table_count": _count_value(deliverable_tables),
+        "deliverable_figures_exists": bool(deliverable_figures),
+        "deliverable_figure_count": _count_value(deliverable_figures),
+        "map_manifest_exists": bool(map_manifest),
+        "map_figure_count": _count_value(map_manifest),
         "evidence_package_exists": bool(evidence),
         "evidence_item_count": _count_value(evidence),
+        "report_sections_exists": bool(report_sections),
+        "report_section_count": _count_value(report_sections),
         "export_manifest_exists": (project_dir / EXPORT_MANIFEST_PATH).exists(),
         "deliverable_package_manifest_exists": (project_dir / DEMO_DELIVERABLE_MANIFEST_PATH).exists(),
     }
@@ -202,10 +264,31 @@ def _preserved_artifacts() -> list[str]:
     return [
         "config/sources.json",
         "layers/",
+        "source_acquisition/",
+        "source_materialization/",
+        "basemaps/",
+        "exports/ unless --include-exports is used",
+    ]
+
+
+def _refreshed_artifacts() -> list[str]:
+    return [
+        "context/input_package.json",
+        "context/project_context.json",
         "context/project_area.json",
+        "intermediate/project_geometry.json",
         "intermediate/comparison_units.json",
+        "source_status/source_status_set.json",
+        "source_inventory/source_inventory.json",
+        "constraints/constraint_results.json",
+        "constraints/comparison_unit_constraints.json",
+        "findings/draft_findings.json",
+        "tables/comparison_tables.json",
         "deliverable/tables.json",
         "deliverable/figures.json",
-        "evidence/evidence_package.json unless --include-evidence is used",
-        "exports/ unless --include-exports is used",
+        "maps/map_manifest.json",
+        "evidence/evidence_package.json",
+        "drafts/report_sections.json",
+        "deliverable/deliverable_items.json",
+        "review_queue/review_queue.json",
     ]

@@ -337,6 +337,9 @@ def test_reset_review_queue_deletes_generated_candidates_and_regenerates(tmp_pat
     export_manifest_path.parent.mkdir(parents=True)
     export_manifest_path.write_text('{"status":"stale"}\n', encoding="utf-8")
     export_markdown_path.write_text("stale export\n", encoding="utf-8")
+    tables_path.write_text('{"table_count": 0, "stale": true}\n', encoding="utf-8")
+    figures_path.write_text('{"figure_count": 0, "stale": true}\n', encoding="utf-8")
+    evidence_path.write_text('{"item_count": 0, "stale": true}\n', encoding="utf-8")
     deliverable_items_path = project_dir / "deliverable" / "deliverable_items.json"
     queue_path = project_dir / "review_queue" / "review_queue.json"
     deliverable_items_path.write_text(
@@ -370,7 +373,18 @@ def test_reset_review_queue_deletes_generated_candidates_and_regenerates(tmp_pat
     assert result["before"]["review_queue_item_count"] == result["after"]["review_queue_item_count"]
     assert result["process_language"]["before"]["has_process_language"] is True
     assert result["process_language"]["after"]["has_process_language"] is False
+    assert result["refresh_upstream_artifacts"] is True
+    regenerated = [record["artifact"] for record in result["regenerated"]]
+    assert "comparison_unit_constraints" in regenerated
+    assert "deliverable_tables" in regenerated
+    assert "deliverable_figures" in regenerated
+    assert "map_manifest" in regenerated
+    assert "evidence_package" in regenerated
+    assert "report_sections" in regenerated
     assert wetlands_queue["generated_content"] == wetlands_item["generated_content"]
+    assert "stale" not in json.loads(tables_path.read_text(encoding="utf-8"))
+    assert "stale" not in json.loads(figures_path.read_text(encoding="utf-8"))
+    assert "stale" not in json.loads(evidence_path.read_text(encoding="utf-8"))
     assert source_registry.exists()
     assert layer_artifact.exists()
     assert tables_path.exists()
@@ -396,21 +410,25 @@ def test_reset_review_queue_dry_run_does_not_delete_artifacts(tmp_path: Path) ->
         "review_queue/review_queue.json",
     }
     assert result["deleted"] == []
+    assert "deliverable/tables.json" in result["would_refresh"]
+    assert "deliverable/figures.json" in result["would_refresh"]
+    assert "evidence/evidence_package.json" in result["would_refresh"]
     assert deliverable_items_path.read_text(encoding="utf-8") == before_items
     assert queue_path.read_text(encoding="utf-8") == before_queue
 
 
-def test_reset_review_queue_include_evidence_rebuilds_evidence_first(tmp_path: Path) -> None:
+def test_reset_review_queue_refreshes_evidence_even_without_legacy_flag(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     generate_review_queue(project_dir)
     evidence_path = project_dir / "evidence" / "evidence_package.json"
     evidence_path.write_text('{"item_count": 0, "stale": true}\n', encoding="utf-8")
 
-    result = reset_review_queue(project_dir, include_evidence=True)
+    result = reset_review_queue(project_dir)
     regenerated = [record["artifact"] for record in result["regenerated"]]
     evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
 
-    assert regenerated[:3] == ["evidence_package", "deliverable_items", "review_queue"]
+    assert "evidence_package" in regenerated
+    assert regenerated[-2:] == ["deliverable_items", "review_queue"]
     assert "stale" not in evidence
     assert evidence.get("project_id") == "test_project"
 

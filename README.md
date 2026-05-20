@@ -188,14 +188,14 @@ Generate and update review queue items:
 .\.venv\Scripts\review-assist.exe update-review-item projects/trails report-section-wetlands-and-waterbodies --status accepted --note "Reviewed."
 ```
 
-For local POC testing only, clear generated review candidates before regenerating from current upstream artifacts:
+For local POC testing only, refresh deterministic review artifacts and rebuild the standard queue from current local inputs and registered source layers:
 
 ```powershell
 .\.venv\Scripts\review-assist.exe reset-review-queue projects/trails --dry-run
 .\.venv\Scripts\review-assist.exe reset-review-queue projects/trails --yes
 ```
 
-The reset removes generated `deliverable/deliverable_items.json` and `review_queue/review_queue.json` by default. It preserves source data, project source registry/config, project area, comparison units, deliverable tables, deliverable figures, evidence, and exports unless explicit flags are used. It is a developer/testing cleanup command, not production review-state management.
+The reset refreshes source status, constraints, tables, figures, maps, evidence, deterministic draft sections, deliverable items, and review queue. It does not acquire sources, materialize local warehouse sources, materialize NAIP basemaps, run GPT drafting, delete source data, or change project setup. Use `--include-exports` when stale Markdown/DOCX/package outputs should also be removed.
 
 Export accepted/edited review queue content into editable Markdown and DOCX packages:
 

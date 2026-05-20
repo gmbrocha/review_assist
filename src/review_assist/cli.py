@@ -344,20 +344,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     reset_queue_parser = subparsers.add_parser(
         "reset-review-queue",
-        help="Developer/test helper: clear generated review candidates and rebuild the standard queue.",
+        help="Developer/test helper: refresh generated review artifacts and rebuild the standard queue.",
     )
     reset_queue_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     reset_queue_parser.add_argument(
         "--regenerate",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Regenerate deliverable items and the standard review queue after deletion.",
+        help="Refresh deterministic review artifacts and rebuild the standard review queue after deletion.",
     )
     reset_queue_parser.add_argument("--dry-run", action="store_true", help="Show what would be removed and regenerated.")
     reset_queue_parser.add_argument(
         "--include-evidence",
         action="store_true",
-        help="Also rebuild evidence/evidence_package.json before deliverable items.",
+        help="Deprecated compatibility flag; evidence is refreshed whenever reset regeneration is enabled.",
     )
     reset_queue_parser.add_argument(
         "--include-exports",
@@ -840,7 +840,7 @@ def reset_review_queue_command(
 ) -> int:
     if not dry_run and not yes:
         print(f"WARNING: {RESET_WARNING}", file=sys.stderr)
-        print("This will overwrite generated deliverable candidates and standard review queue state.", file=sys.stderr)
+        print("This will overwrite generated deterministic review artifacts and standard review queue state.", file=sys.stderr)
         response = input("Type RESET to continue: ")
         if response.strip() != "RESET":
             print("Reset cancelled.", file=sys.stderr)
@@ -862,7 +862,7 @@ def reset_review_queue_command(
         return 0
 
     action = "Would reset" if dry_run else "Reset"
-    print(f"{action} generated review queue artifacts.")
+    print(f"{action} generated review artifacts.")
     print(f"Warning: {result['warning']}")
     print(f"Before: {result['before'].get('deliverable_item_count', 0)} deliverable items, {result['before'].get('review_queue_item_count', 0)} review items")
     if dry_run:

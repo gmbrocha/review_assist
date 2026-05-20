@@ -99,7 +99,7 @@ Each deferred item should include:
 - `Why postponed`: The current developer reset clears generated candidates for POC testing but does not implement production review-state migration.
 - `Affected sections/workflows`: Deliverable item generation, review queue generation, web review UI, export gating, package manifests.
 - `Risk if forgotten`: Stale deliverable items, review queue entries, or preview exports could survive upstream source/table/figure/evidence changes.
-- `Temporary simplification`: A developer/test reset can clear generated deliverable items and review queue artifacts; reviewers must regenerate upstream artifacts intentionally.
+- `Temporary simplification`: A developer/test reset now refreshes deterministic upstream review artifacts and rebuilds the queue from current local inputs and registered source layers, but production-grade review-state migration/fingerprinting remains deferred.
 - `Target sprint/subunit`: Future review-state/versioning pass.
 - `Status`: open.
 

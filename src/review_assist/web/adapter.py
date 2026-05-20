@@ -337,9 +337,9 @@ def reset_generated_review_queue(
     include_evidence: bool = False,
     include_exports: bool = False,
 ) -> dict[str, Any]:
-    """Run the developer/test reset for generated review queue artifacts."""
+    """Run the developer/test refresh for generated review artifacts."""
 
-    _write_run_status(project_dir, action="reset_review_queue", status="started", message="Reset generated review queue started.")
+    _write_run_status(project_dir, action="reset_review_queue", status="started", message="Review artifact refresh started.")
     try:
         result = reset_review_queue(
             project_dir,
@@ -353,7 +353,7 @@ def reset_generated_review_queue(
             project_dir,
             action="reset_review_queue",
             status="failed",
-            message="Reset generated review queue failed.",
+            message="Review artifact refresh failed.",
             error=str(exc),
         )
         raise WebAdapterError(str(exc)) from exc
@@ -362,7 +362,7 @@ def reset_generated_review_queue(
         project_dir,
         action="reset_review_queue",
         status="completed",
-        message=f"Reset generated review queue completed with {after.get('review_queue_item_count', 0)} review items.",
+        message=f"Review artifacts refreshed and queue rebuilt with {after.get('review_queue_item_count', 0)} review items.",
         artifact_path=str(project_dir / REVIEW_QUEUE_PATH),
     )
     return result
