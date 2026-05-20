@@ -16,11 +16,21 @@ from review_assist.deliverable_items import (
     _figure_item,
     _section_evidence,
     _section_content,
+    _stub_section_content,
     _table_item,
     generate_deliverable_items,
     load_deliverable_items,
 )
 from review_assist.deliverable_matrix import REQUIRED_STUB_TEXT, load_deliverable_matrix
+
+
+PROCESS_LANGUAGE = [
+    "draft review candidate",
+    "pre-review",
+    "reviewer verification",
+    "reviewer focus",
+    "related table status",
+]
 
 
 def kml_document(body: str) -> bytes:
@@ -165,8 +175,8 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
     assert section["related_table_ids"] == ["table-wetlands-waterbodies"]
     assert section["related_figure_ids"] == ["figure-wetlands-waterbodies"]
     assert section["stub_text"] == REQUIRED_STUB_TEXT
-    assert "explicit review stub" in section["generated_content"]
-    assert "Related table status" in section["generated_content"]
+    assert "explicit source/data gap" in section["generated_content"]
+    assert "Related table limitation" in section["generated_content"]
 
 
 def test_load_deliverable_items_round_trip_and_validates_contract(
@@ -228,17 +238,21 @@ def test_section_evidence_prefers_available_category_for_broad_targets() -> None
     assert selected["section_id"] == "wetlands-and-waterbodies"
 
 
-def test_source_backed_section_candidate_is_bounded_and_reviewer_facing() -> None:
+def test_source_backed_wetlands_section_candidate_is_report_style_prose() -> None:
     matrix = load_deliverable_matrix()
     target = next(item for item in matrix.section_targets if item.target_id == "wetlands-and-waterbodies")
     table = {
         "table_id": "table-wetlands-waterbodies",
+        "table_number": 1,
+        "title": "Descriptions of Wetlands and Waterbodies Present within the Project Area",
         "is_stub": False,
         "row_count": 2,
         "source_refs": ["usfws_nwi_wetlands"],
     }
     figure = {
         "figure_id": "figure-wetlands-waterbodies",
+        "figure_number": 1,
+        "title": "Wetlands and Waterbodies in and near the Project Area",
         "is_stub": False,
         "image_path": "maps/figures/figure-wetlands-waterbodies.png",
         "source_refs": ["usfws_nwi_wetlands"],
@@ -259,17 +273,21 @@ def test_source_backed_section_candidate_is_bounded_and_reviewer_facing() -> Non
         comparison_unit=None,
     )
 
-    assert "Draft review candidate" in content
-    assert "source-backed artifacts" in content
-    assert "table-wetlands-waterbodies=generated (2 row(s))" in content
-    assert "figure-wetlands-waterbodies=generated image" in content
-    assert "usfws_nwi_wetlands" in content
-    assert "Reviewer focus" in content
-    assert "bounded draft section identifies" not in content
+    lowered = content.lower()
+    assert "Mapped wetland and waterbody features" in content
+    assert "U.S. Fish and Wildlife Service National Wetlands Inventory" in content
+    assert "Table 1" in content
+    assert "Figure 1" in content
+    assert "Table 1" in content and "2 bounded row(s)" in content
+    assert "NWI and hydrography data are suitable for early screening" in content
+    assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
     assert "Empty stub" not in content
+    assert "coordinates" not in lowered
+    assert "FeatureCollection" not in content
+    assert "sources/" not in content
 
 
-def test_dynamic_comparison_unit_candidate_mentions_unit_and_refs() -> None:
+def test_dynamic_wetlands_comparison_unit_candidate_mentions_unit_and_remains_compact() -> None:
     matrix = load_deliverable_matrix()
     target = next(item for item in matrix.section_targets if item.target_id == "wetlands-and-waterbodies")
 
@@ -285,10 +303,111 @@ def test_dynamic_comparison_unit_candidate_mentions_unit_and_refs() -> None:
         comparison_unit={"comparison_unit_id": "comparison-unit-00002", "comparison_unit_name": "Alternative B"},
     )
 
-    assert "Draft comparison-unit review candidate for Alternative B" in content
-    assert "comparison-unit-00002" in content
-    assert "usfws_nwi_wetlands" in content
-    assert "draft subsection summarizes" not in content
+    lowered = content.lower()
+    assert "Alternative B" in content
+    assert "comparison unit Alternative B" in content
+    assert "U.S. Fish and Wildlife Service National Wetlands Inventory" in content
+    assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
+    assert len(content) < 1400
+
+
+def test_broad_source_backed_section_prefers_available_evidence_and_limitations() -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.section_targets if item.target_id == "contamination-risks")
+    evidence = {
+        "source_refs": ["epa_frs_facilities_ms", "maris_brownfields", "mississippi_oil_gas_wells"],
+        "source_gap_status": [
+            {"category": "regulated_facilities", "status": "provided_locally", "source_ids": ["epa_frs_facilities_ms"]},
+            {"category": "hazardous_materials_report", "status": "manual", "source_ids": ["attachment-hazardous-materials-report"]},
+        ],
+        "constraint_summaries": [
+            {
+                "constraint_id": "constraint-1",
+                "relationship_type": "nearest_within_buffer",
+                "source_id": "epa_frs_facilities_ms",
+                "source_category": "regulated_facilities",
+            }
+        ],
+    }
+
+    content = _section_content(
+        target=target,
+        context={"project_name": "Test Project"},
+        evidence=evidence,
+        related_tables=[],
+        related_figures=[],
+        comparison_unit=None,
+    )
+
+    lowered = content.lower()
+    assert "Mapped regulated facility and contamination-risk context" in content
+    assert "EPA Facility Registry Service facilities" in content
+    assert "MARIS brownfields" in content
+    assert "Mississippi Oil and Gas Board wells" in content
+    assert "1 compact source-backed mapped relationship" in content
+    assert "Unavailable or deferred source categories remain limitations" in content
+    assert "hazardous_materials_report=manual" in content
+    assert "do not establish contamination extent" in content
+    assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
+
+
+def test_p2_missing_source_section_keeps_honest_source_gap_content() -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.section_targets if item.target_id == "cultural-and-historic-resources")
+
+    content = _stub_section_content(
+        target,
+        [{"category": "cultural_historic", "status": "restricted", "source_ids": ["maris_public_cultural_context"]}],
+        related_tables=[],
+        related_figures=[],
+        validation_issues=[],
+    )
+
+    lowered = content.lower()
+    assert "explicit source/data gap" in content
+    assert "cultural_historic=restricted" in content
+    assert "MARIS public cultural context" not in content
+    assert "does not rank alternatives or make determinations" in content
+    assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
+
+
+def test_section_content_excludes_raw_rows_coordinates_geojson_and_source_paths() -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.section_targets if item.target_id == "wetlands-and-waterbodies")
+    content = _section_content(
+        target=target,
+        context={"project_name": "Test Project"},
+        evidence={
+            "source_refs": ["usfws_nwi_wetlands"],
+            "row_summaries": [
+                {
+                    "table_id": "table-wetlands-waterbodies",
+                    "values": {
+                        "geometry": {"coordinates": [[-90.0, 32.0]]},
+                        "raw_path": r"F:\\Desktop\\review_assist\\sources\\wetlands\\raw.shp",
+                    },
+                }
+            ],
+            "constraint_summaries": [{"constraint_id": "constraint-1", "relationship_type": "intersects"}],
+        },
+        related_tables=[
+            {
+                "table_id": "table-wetlands-waterbodies",
+                "is_stub": False,
+                "row_count": 1,
+                "source_refs": ["usfws_nwi_wetlands"],
+            }
+        ],
+        related_figures=[],
+        comparison_unit=None,
+    )
+
+    serialized = content.lower()
+    assert "coordinates" not in serialized
+    assert "geojson" not in serialized
+    assert "featurecollection" not in serialized
+    assert "raw.shp" not in serialized
+    assert "sources" not in serialized
 
 
 def test_generated_table_candidate_summarizes_rows_without_dumping_raw_rows(tmp_path: Path) -> None:

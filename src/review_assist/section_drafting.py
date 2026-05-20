@@ -59,6 +59,13 @@ PROHIBITED_PATTERNS = {
     "cleared conclusion": r"\bcleared\b",
     "approval conclusion": r"\bapproved\b",
 }
+PROCESS_LANGUAGE_PATTERNS = {
+    "draft review candidate": r"\bdraft review candidate\b",
+    "pre-review": r"\bpre[-/ ]review\b",
+    "reviewer verification": r"\breviewer verification\b|\bfor reviewer verification\b",
+    "reviewer focus": r"\breviewer focus\b",
+    "related table status": r"\brelated table status\b",
+}
 
 
 class SectionDraftingError(RuntimeError):
@@ -116,6 +123,11 @@ class DeterministicSectionDraftProvider:
                 "prompt_version": "",
                 "model": "",
                 "response_schema_version": "",
+                "source_refs_used": list(request.source_refs),
+                "table_refs_used": list(request.related_table_ids),
+                "figure_refs_used": list(request.related_figure_ids),
+                "limitation_notes": _request_limitation_notes(request),
+                "warnings": _request_warning_codes(request),
             },
         )
 
@@ -172,6 +184,11 @@ class OpenAISectionDraftProvider:
                 output_payload=parsed,
                 output_content=content,
                 accepted=True,
+                source_refs_used=_string_list(parsed.get("cited_source_refs", [])),
+                table_refs_used=_string_list(parsed.get("cited_table_ids", [])),
+                figure_refs_used=_string_list(parsed.get("cited_figure_ids", [])),
+                limitation_notes=_string_list(parsed.get("caveats", [])),
+                warnings=_request_warning_codes(request),
             ),
             validation_issues=validation_issues,
         )
@@ -255,7 +272,7 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
         "evidence": request.evidence_bundle,
         "validation_issues": request.validation_issues,
         "constraints": [
-            "Draft pre-review report copy only.",
+            "Produce review-candidate report prose only; do not include process labels such as draft review candidate, pre-review, reviewer verification, reviewer focus, or related table status in output content.",
             "Use only the structured evidence provided in this request.",
             "Mirror the environmental constraints report shape with concise paragraphs, not standalone duplicate headings.",
             "Cite IDs that appear in related_ids or the evidence bundle.",
@@ -270,9 +287,10 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
 
 def _system_prompt() -> str:
     return (
-        "You draft pre-review environmental constraints report sections from structured evidence. "
+        "You draft environmental constraints report-section review candidates from structured evidence. "
         "Do not invent facts. Do not recommend, rank, select, reject, or identify a preferred alternative. "
-        "Do not include duplicate section headings. Keep language objective, screening-level, and reviewer-editable. "
+        "Do not include duplicate section headings or process/status labels in the report content. "
+        "Keep language objective, screening-level, and reviewer-editable. "
         "Return only valid JSON."
     )
 
@@ -527,7 +545,30 @@ def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], c
     for label, pattern in PROHIBITED_PATTERNS.items():
         if re.search(pattern, lowered):
             issues.append(_issue("error", "prohibited_gpt_language", f"GPT output included prohibited {label} language."))
+    for label, pattern in PROCESS_LANGUAGE_PATTERNS.items():
+        if re.search(pattern, lowered):
+            issues.append(_issue("error", "process_language_in_gpt_output", f"GPT output included process/status language: {label}."))
     return issues
+
+
+def _request_limitation_notes(request: SectionDraftRequest) -> list[str]:
+    notes: list[str] = []
+    if isinstance(request.evidence_bundle, dict):
+        for status in request.evidence_bundle.get("source_gap_status", []):
+            if isinstance(status, dict):
+                category = str(status.get("category", "source"))
+                state = str(status.get("status", "unknown"))
+                if state not in {"provided_locally", "local_materialized", "downloaded", "available"}:
+                    notes.append(f"{category}={state}")
+    return notes[:8]
+
+
+def _request_warning_codes(request: SectionDraftRequest) -> list[str]:
+    return [
+        str(issue.get("code"))
+        for issue in request.validation_issues
+        if isinstance(issue, dict) and issue.get("code")
+    ][:12]
 
 
 def _evidence_ids(evidence: dict[str, Any], keys: tuple[str, ...], id_field: str) -> set[str]:
@@ -581,6 +622,11 @@ def _rejected_result(
             output_payload=output_payload,
             output_content=request.deterministic_content,
             accepted=False,
+            source_refs_used=list(request.source_refs),
+            table_refs_used=list(request.related_table_ids),
+            figure_refs_used=list(request.related_figure_ids),
+            limitation_notes=_request_limitation_notes(request),
+            warnings=_request_warning_codes(request),
         ),
         validation_issues=issues,
     )
@@ -594,6 +640,11 @@ def _gpt_provenance(
     output_payload: dict[str, Any],
     output_content: str,
     accepted: bool,
+    source_refs_used: list[str] | None = None,
+    table_refs_used: list[str] | None = None,
+    figure_refs_used: list[str] | None = None,
+    limitation_notes: list[str] | None = None,
+    warnings: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "draft_provider": provider_id,
@@ -604,6 +655,11 @@ def _gpt_provenance(
         "input_digest": _digest(input_payload),
         "output_digest": _digest({"content": output_content, "structured": output_payload}),
         "gpt_output_accepted": accepted,
+        "source_refs_used": source_refs_used or [],
+        "table_refs_used": table_refs_used or [],
+        "figure_refs_used": figure_refs_used or [],
+        "limitation_notes": limitation_notes or [],
+        "warnings": warnings or [],
     }
 
 

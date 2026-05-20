@@ -50,6 +50,17 @@ def rejected_gpt_response(self: section_drafting.OpenAISectionDraftProvider, pay
     }
 
 
+def process_language_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": "Draft review candidate for reviewer verification before export. Related table status is available for reviewer focus.",
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": [],
+        "caveats": [],
+    }
+
+
 def test_gpt_env_parsing_and_missing_key(monkeypatch: pytest.MonkeyPatch) -> None:
     for value in ("1", "true", "yes", "on", "TRUE"):
         monkeypatch.setenv("GPT_DRAFTING", value)
@@ -288,6 +299,32 @@ def test_report_sections_reject_invalid_gpt_citations_and_language(
     assert "preferred alternative" not in front_matter["generated_content"].lower()
     assert front_matter["provenance"]["gpt_output_accepted"] is False
     assert "gpt_draft_rejected" in front_matter["uncertainty_flags"]
+
+
+def test_section_drafting_rejects_process_language_in_gpt_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", process_language_gpt_response)
+    provider = section_drafting.OpenAISectionDraftProvider(model="gpt-test", api_key="test-key")
+
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="wetlands-and-waterbodies",
+            section_type="subsection",
+            title="Wetlands and Waterbodies",
+            purpose="Summarize source-backed wetlands evidence.",
+            resource_category="wetlands_waterbodies",
+            deterministic_content="Report-style deterministic wetlands content.",
+            related_table_ids=["table-wetlands-waterbodies"],
+            related_figure_ids=["figure-wetlands-waterbodies"],
+            source_refs=["usfws_nwi_wetlands"],
+        )
+    )
+
+    assert result.content == "Report-style deterministic wetlands content."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert result.provenance["source_refs_used"] == ["usfws_nwi_wetlands"]
+    assert result.provenance["table_refs_used"] == ["table-wetlands-waterbodies"]
+    assert result.provenance["figure_refs_used"] == ["figure-wetlands-waterbodies"]
+    assert any(issue["code"] == "process_language_in_gpt_output" for issue in result.validation_issues)
 
 
 def test_gpt_enabled_without_key_fails_clearly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

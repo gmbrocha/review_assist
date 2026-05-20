@@ -141,9 +141,9 @@ The current CLI can generate the standard reviewable deliverable item layer from
 
 This artifact contains static section/front-matter/attachment-section targets, one dynamic wetlands/waterbodies child section per comparison unit, the four deliverable table targets, the 13 deliverable figure targets, and the three required attachment targets. Stable `deliverable_item_id` / `target_id` values are used as the standard review queue item IDs.
 
-Deliverable items carry matrix target metadata, prompt key and prompt-contract constraints, source refs, table/figure/attachment refs, comparison-unit IDs, compact source-gap and upstream validation summaries, provenance, uncertainty flags, stub state, review status, and export eligibility. Required missing or unimplemented content uses the canonical stub text rather than unsupported narrative.
+Deliverable items carry matrix target metadata, prompt key and prompt-contract constraints, source refs, table/figure/attachment refs, comparison-unit IDs, compact source-gap and upstream validation summaries, provenance, uncertainty flags, stub state, review status, and export eligibility. Source-backed section_text items use deterministic report-style candidate prose for the standard review queue, including table/figure/source references and screening-level limitations where available. Required missing or unimplemented content uses the canonical stub text and explicit source/data-gap wording rather than unsupported narrative.
 
-GPT-enabled deliverable item drafting receives only structured evidence, prompt metadata, and matrix target context. Raw geometries, full feature dumps, and root `sources/` paths remain excluded from GPT-bound payloads.
+GPT-enabled deliverable item drafting receives only structured evidence, prompt metadata, and matrix target context. Raw geometries, full feature dumps, and root `sources/` paths remain excluded from GPT-bound payloads. GPT output is rejected if it cites unknown refs, uses prohibited recommendation/determination language, or copies review/process labels such as "draft review candidate", "pre-review", "reviewer verification", "reviewer focus", or "related table status" into export-facing content.
 
 ## Current Export Baseline
 

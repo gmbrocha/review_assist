@@ -50,6 +50,41 @@ SUPPORTED_REVIEW_STATUSES = {
 }
 VERIFICATION_SOURCE_STATES = {"gated", "restricted", "manual", "stubbed"}
 REVIEW_SOURCE_STATES = {"missing", "downloadable", "failed", "needs_review", "source_missing", "unimplemented"}
+AVAILABLE_SOURCE_STATES = {"provided_locally", "local_materialized", "downloaded", "available"}
+FIRST_PASS_REPORT_STYLE_SECTION_IDS = {
+    "wetlands-and-waterbodies",
+    "cultural-and-historic-resources",
+    "community-resources",
+    "utility-and-infrastructure-considerations",
+    "utility-infrastructure",
+    "energy-infrastructure",
+    "contamination-risks",
+    "hazardous-materials-sites",
+    "oil-wells",
+}
+SOURCE_DISPLAY_NAMES = {
+    "usfws_nwi_wetlands": "U.S. Fish and Wildlife Service National Wetlands Inventory",
+    "usgs_nhd_hydrography": "U.S. Geological Survey National Hydrography Dataset",
+    "usgs_nhd_flowlines": "U.S. Geological Survey NHD flowlines",
+    "usgs_nhd_waterbodies": "U.S. Geological Survey NHD waterbodies",
+    "usgs_nhd_other_areas": "U.S. Geological Survey NHD other areas",
+    "fema_nfhl_flood_hazard": "FEMA National Flood Hazard Layer",
+    "usfws_critical_habitat": "U.S. Fish and Wildlife Service critical habitat",
+    "maris_public_cultural_context": "MARIS public cultural context",
+    "mdot_transportation_context": "Mississippi transportation context",
+    "epa_envirofacts_echo": "EPA ECHO regulated facilities",
+    "epa_frs_facilities_ms": "EPA Facility Registry Service facilities",
+    "maris_brownfields": "MARIS brownfields",
+    "maris_npdes_facilities": "MARIS NPDES facilities",
+    "maris_solid_waste_landfills": "MARIS solid waste landfills",
+    "maris_superfund_sites": "MARIS Superfund sites",
+    "maris_tri_facilities": "MARIS TRI facilities",
+    "maris_underground_storage_tanks": "MARIS underground storage tanks",
+    "mississippi_oil_gas_wells": "Mississippi Oil and Gas Board wells",
+    "usfws_national_wildlife_refuges": "U.S. Fish and Wildlife Service national wildlife refuges",
+    "usda_nrcs_easements": "USDA NRCS easements",
+}
+CONTEXT_ONLY_SOURCE_REF_FRAGMENTS = ("naip", "imagery_basemap", "aerial_basemap")
 REQUIRED_TOP_LEVEL_FIELDS = {
     "project_id",
     "project_name",
@@ -897,18 +932,20 @@ def _stub_section_content(
     validation_issues: list[dict[str, Any]],
 ) -> str:
     lines = [_title_line(target)]
-    lines.append("This item is an explicit review stub because required source data, table output, or figure output is not available for automated draft content.")
+    lines.append(
+        "This section is an explicit source/data gap because required source data, table output, or figure output is not available for source-backed report text."
+    )
     if source_gap_status:
-        lines.append("Source status requiring review: " + _source_gap_summary(source_gap_status) + ".")
+        lines.append("Unavailable or deferred source status: " + _source_gap_summary(source_gap_status) + ".")
     if related_tables:
-        lines.append("Related table status: " + _artifact_stub_summary(related_tables, "table_id") + ".")
+        lines.append("Related table limitation: " + _artifact_stub_summary(related_tables, "table_id") + ".")
     if related_figures:
-        lines.append("Related figure status: " + _artifact_stub_summary(related_figures, "figure_id") + ".")
+        lines.append("Related figure limitation: " + _artifact_stub_summary(related_figures, "figure_id") + ".")
     reason = _issue_summary(validation_issues)
     if reason:
         lines.append("Blocking issue summary: " + reason + ".")
     lines.append(_stub_reviewer_action(target.source_categories, _source_refs_from_status(source_gap_status)))
-    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+    lines.append("This source-gap text does not rank alternatives or make determinations.")
     return "\n".join(line for line in lines if line)
 
 
@@ -1122,6 +1159,222 @@ def _limited_join(values: list[str], *, limit: int = 5) -> str:
     return ", ".join(clean[:limit]) + f", and {len(clean) - limit} more"
 
 
+def _source_backed_report_style(target: SectionTarget, evidence: dict[str, Any], related_tables: list[dict[str, Any]], related_figures: list[dict[str, Any]]) -> bool:
+    if not target.source_categories:
+        return False
+    targeted = target.target_id in FIRST_PASS_REPORT_STYLE_SECTION_IDS or target.resource_category == "wetlands_waterbodies"
+    if _dict_list(evidence.get("constraint_summaries", [])):
+        return True
+    if any(not table.get("is_stub") for table in related_tables):
+        return True
+    if any(not figure.get("is_stub") for figure in related_figures):
+        return True
+    if targeted and _string_list(evidence.get("source_refs", [])):
+        return True
+    source_states = {str(status.get("status", "")) for status in _dict_list(evidence.get("source_gap_status", []))}
+    return targeted and bool(source_states.intersection(AVAILABLE_SOURCE_STATES))
+
+
+def _section_lead_sentence(target: SectionTarget, comparison_unit: dict[str, Any] | None) -> str:
+    unit_name = str((comparison_unit or {}).get("comparison_unit_name") or "").strip()
+    if target.resource_category == "wetlands_waterbodies":
+        subject = "Mapped wetland and waterbody features"
+    elif target.resource_category == "cultural_historic":
+        subject = "Public cultural and historic resource context"
+    elif target.resource_category == "community_socioeconomic":
+        subject = "Mapped community resource and socioeconomic context"
+    elif target.resource_category == "transportation_utilities":
+        subject = "Mapped utility, transportation, and energy infrastructure context"
+    elif target.resource_category == "regulated_facilities":
+        subject = "Mapped regulated facility and contamination-risk context"
+    else:
+        subject = f"{target.title} evidence"
+    verb = "are" if target.resource_category == "wetlands_waterbodies" else "is"
+    if unit_name:
+        return f"{subject} for {unit_name} {verb} summarized from the available source-backed screening evidence."
+    return f"{subject} {verb} summarized from the available source-backed screening evidence for the project area."
+
+
+def _source_display_name(source_ref: str) -> str:
+    if source_ref in SOURCE_DISPLAY_NAMES:
+        return SOURCE_DISPLAY_NAMES[source_ref]
+    return source_ref.replace("_", " ").replace("-", " ").title()
+
+
+def _source_reference_sentence(source_refs: list[str]) -> str:
+    narrative_refs = [ref for ref in _dedupe(source_refs) if not _context_only_source_ref(ref)]
+    if not narrative_refs:
+        return ""
+    return "Mapped-source evidence for this section comes from " + _limited_join([_source_display_name(ref) for ref in narrative_refs], limit=6) + "."
+
+
+def _context_only_source_ref(source_ref: str) -> bool:
+    lowered = source_ref.lower()
+    return any(fragment in lowered for fragment in CONTEXT_ONLY_SOURCE_REF_FRAGMENTS)
+
+
+def _artifact_label(record: dict[str, Any], id_field: str, kind: str) -> str:
+    number_field = "table_number" if id_field == "table_id" else "figure_number"
+    number = record.get(number_field)
+    artifact_id = str(record.get(id_field, "")).strip()
+    title = str(record.get("title", "")).strip()
+    if number:
+        label = f"{kind} {number}"
+    elif artifact_id:
+        label = f"{kind} {artifact_id}"
+    else:
+        label = kind
+    if title and title != label:
+        label += f" ({title})"
+    return label
+
+
+def _artifact_reference_sentence(related_tables: list[dict[str, Any]], related_figures: list[dict[str, Any]]) -> str:
+    table_labels = [_artifact_label(table, "table_id", "Table") for table in related_tables if table.get("table_id")]
+    figure_labels = [_artifact_label(figure, "figure_id", "Figure") for figure in related_figures if figure.get("figure_id")]
+    generated_tables = [label for label, table in zip(table_labels, related_tables) if not table.get("is_stub")]
+    generated_figures = [label for label, figure in zip(figure_labels, related_figures) if not figure.get("is_stub")]
+    parts = []
+    if generated_tables:
+        parts.append("summarized in " + _limited_join(generated_tables, limit=3))
+    if generated_figures:
+        parts.append("shown on " + _limited_join(generated_figures, limit=3))
+    if not parts:
+        return ""
+    return "Supporting evidence is " + " and ".join(parts) + "."
+
+
+def _constraint_summary_sentence(evidence: dict[str, Any], comparison_unit: dict[str, Any] | None) -> str:
+    constraints = _dict_list(evidence.get("constraint_summaries", []))
+    if not constraints:
+        return "The current evidence package does not include a compact mapped-overlap summary for this section."
+    unit_name = str((comparison_unit or {}).get("comparison_unit_name") or "").strip()
+    if not unit_name:
+        names = [str(item.get("comparison_unit_name", "")).strip() for item in constraints if item.get("comparison_unit_name")]
+        unit_phrase = " across the comparison units" if len(set(names)) > 1 else " for the project area"
+    else:
+        unit_phrase = f" for {unit_name}"
+    relationships = _relationship_counts(constraints)
+    relationship_word = "relationship" if len(constraints) == 1 else "relationships"
+    if relationships:
+        return f"The evidence package includes {len(constraints)} compact source-backed mapped {relationship_word}{unit_phrase}: {relationships}."
+    return f"The evidence package includes {len(constraints)} compact source-backed mapped {relationship_word}{unit_phrase}."
+
+
+def _relationship_counts(constraints: list[dict[str, Any]]) -> str:
+    counts: dict[str, int] = {}
+    for constraint in constraints:
+        relationship = str(constraint.get("relationship_type") or "mapped relationship").replace("_", " ")
+        counts[relationship] = counts.get(relationship, 0) + 1
+    parts = [f"{count} {label}" for label, count in sorted(counts.items())[:4]]
+    return ", ".join(parts)
+
+
+def _table_row_sentence(related_tables: list[dict[str, Any]]) -> str:
+    generated = [table for table in related_tables if not table.get("is_stub")]
+    if not generated:
+        return ""
+    parts = []
+    for table in generated[:3]:
+        label = _artifact_label(table, "table_id", "Table")
+        row_count = int(table.get("row_count") or 0)
+        parts.append(f"{label} contains {row_count} bounded row(s)")
+    return "; ".join(parts) + "."
+
+
+def _comparison_unit_sentence(evidence: dict[str, Any], comparison_unit: dict[str, Any] | None) -> str:
+    if comparison_unit:
+        unit_id = str(comparison_unit.get("comparison_unit_id", "")).strip()
+        unit_name = str(comparison_unit.get("comparison_unit_name", "")).strip() or unit_id
+        return f"This subsection addresses comparison unit {unit_name}."
+    summaries = _dict_list(evidence.get("comparison_unit_summaries", []))
+    unit_names = _dedupe([str(item.get("comparison_unit_name", "")).strip() for item in summaries if item.get("comparison_unit_name")])
+    if unit_names:
+        return "The summarized evidence is organized for " + _limited_join(unit_names, limit=6) + "."
+    unit_ids = _dedupe([*_string_list(evidence.get("comparison_unit_ids", [])), *[str(item.get("comparison_unit_id")) for item in summaries if item.get("comparison_unit_id")]])
+    if not unit_ids:
+        return ""
+    unit_word = "comparison unit" if len(unit_ids) == 1 else "comparison units"
+    return f"The summarized evidence is organized by {len(unit_ids)} {unit_word}."
+
+
+def _source_limitation_sentence(target: SectionTarget, evidence: dict[str, Any], related_tables: list[dict[str, Any]], related_figures: list[dict[str, Any]]) -> str:
+    limitations: list[str] = []
+    if target.resource_category == "wetlands_waterbodies":
+        limitations.append(
+            "NWI and hydrography data are suitable for early screening but do not define jurisdictional wetland boundaries; site-specific delineation and agency coordination may be needed before design or permitting decisions."
+        )
+    elif target.resource_category == "cultural_historic":
+        limitations.append(
+            "Public cultural resource data are screening context only; sensitive records, eligibility, effects, and consultation requirements require qualified review and appropriate agency coordination."
+        )
+    elif target.resource_category == "community_socioeconomic":
+        limitations.append(
+            "Community-resource datasets may omit recent facility changes and should be checked against local knowledge before use in outreach or design decisions."
+        )
+    elif target.resource_category == "transportation_utilities":
+        limitations.append(
+            "Utility and infrastructure datasets are screening context only and do not replace owner coordination, field locating, or engineering verification."
+        )
+    elif target.resource_category == "regulated_facilities":
+        limitations.append(
+            "Regulated facility datasets are screening context only and do not establish contamination extent, liability, or cleanup obligations."
+        )
+    limiting_status = _limiting_source_gap_status(_dict_list(evidence.get("source_gap_status", [])))
+    if limiting_status:
+        limitations.append("Unavailable or deferred source categories remain limitations: " + _source_gap_summary(limiting_status) + ".")
+    artifact_issues = _issue_summary(
+        [
+            *[issue for table in related_tables for issue in _dict_list(table.get("validation_issues", []))],
+            *[issue for figure in related_figures for issue in _dict_list(figure.get("validation_issues", []))],
+        ]
+    )
+    if artifact_issues:
+        limitations.append("Artifact limitations include: " + artifact_issues + ".")
+    return " ".join(_dedupe(limitations))
+
+
+def _limiting_source_gap_status(source_gap_status: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [status for status in source_gap_status if str(status.get("status", "")) not in AVAILABLE_SOURCE_STATES]
+
+
+def _general_section_content(
+    target: SectionTarget,
+    context: dict[str, Any],
+    evidence: dict[str, Any],
+    related_tables: list[dict[str, Any]],
+    related_figures: list[dict[str, Any]],
+    comparison_unit: dict[str, Any] | None,
+) -> str:
+    lines = [_title_line(target)]
+    project_name = str(context.get("project_name") or "the project").strip()
+    if comparison_unit:
+        lines.append(_section_lead_sentence(target, comparison_unit))
+    elif target.resource_category in {"executive_summary", "constraints_inventory", "natural_ecological"}:
+        lines.append(f"This section summarizes the available screening evidence for {project_name} and points to the resource sections, tables, figures, and limitations that support the report.")
+    elif target.resource_category in {"introduction", "study_area"}:
+        lines.append(f"This section describes {project_name}, the project area, and the submitted project features used for screening.")
+    elif target.resource_category in {"methodology", "assumptions_caveats"}:
+        lines.append("This section describes the desktop screening workflow, source status, assumptions, and limitations used to prepare the reviewable report materials.")
+    elif target.resource_category == "conclusion":
+        lines.append("This section summarizes screening themes and remaining review needs without ranking alternatives or making final determinations.")
+    elif target.source_categories:
+        lines.append(
+            f"This section identifies {target.title.lower()} considerations for the project area based on currently available source status and limitations."
+        )
+    else:
+        lines.append(_section_lead_sentence(target, comparison_unit))
+    for sentence in (
+        _source_reference_sentence(_string_list(evidence.get("source_refs", []))),
+        _artifact_reference_sentence(related_tables, related_figures),
+        _constraint_summary_sentence(evidence, comparison_unit) if _dict_list(evidence.get("constraint_summaries", [])) else "",
+        _source_limitation_sentence(target, evidence, related_tables, related_figures),
+    ):
+        if sentence:
+            lines.append(sentence)
+    return "\n".join(line for line in lines if line)
+
+
 def _section_content(
     *,
     target: SectionTarget,
@@ -1131,57 +1384,27 @@ def _section_content(
     related_figures: list[dict[str, Any]],
     comparison_unit: dict[str, Any] | None,
 ) -> str:
-    lines = [_title_line(target)]
-    if comparison_unit:
-        unit_name = str(comparison_unit.get("comparison_unit_name", "comparison unit"))
-        lines.append(
-            f"Draft comparison-unit review candidate for {unit_name}: matrix-backed evidence is available for reviewer verification."
-        )
-    elif target.target_type == "front_matter":
-        lines.append(_front_matter_content(target, context, related_tables, related_figures))
-    elif target.target_type == "attachment":
+    if target.target_type == "front_matter":
+        return "\n".join([_title_line(target), _front_matter_content(target, context, related_tables, related_figures)])
+    if target.target_type == "attachment":
         if target.attachment_refs:
-            lines.append(_attachment_wrapper_content(target))
-        else:
-            lines.append("This attachment section is a draft placeholder for reviewer-verified supporting materials.")
-    else:
-        lines.append(
-            f"Draft review candidate for {target.title}: source-backed artifacts and validation notes are available for reviewer verification."
-        )
-    if related_tables:
-        lines.append("Related table status: " + _artifact_stub_summary(related_tables, "table_id") + ".")
-    if related_figures:
-        lines.append("Related figure status: " + _artifact_stub_summary(related_figures, "figure_id") + ".")
-    source_refs = _string_list(evidence.get("source_refs", []))
-    if source_refs:
-        lines.append("Source refs: " + ", ".join(source_refs) + ".")
-    comparison_unit_ids = _dedupe(
-        [
-            *_string_list(evidence.get("comparison_unit_ids", [])),
-            *[str(item.get("comparison_unit_id")) for item in _dict_list(evidence.get("comparison_unit_summaries", [])) if item.get("comparison_unit_id")],
-        ]
-    )
-    if comparison_unit:
-        comparison_unit_ids = _dedupe([str(comparison_unit.get("comparison_unit_id", "")), *comparison_unit_ids])
-    if comparison_unit_ids:
-        lines.append("Comparison units represented: " + _limited_join(comparison_unit_ids, limit=6) + ".")
-    evidence_bits = _evidence_reference_summary(evidence)
-    if evidence_bits:
-        lines.append(evidence_bits)
-    if _dict_list(evidence.get("source_gap_status", [])):
-        gaps = _source_gap_summary(_dict_list(evidence.get("source_gap_status", [])))
-        lines.append(f"Source status / limitations: {gaps}.")
-    artifact_issues = _issue_summary(
-        [
-            *[issue for table in related_tables for issue in _dict_list(table.get("validation_issues", []))],
-            *[issue for figure in related_figures for issue in _dict_list(figure.get("validation_issues", []))],
-        ]
-    )
-    if artifact_issues:
-        lines.append("Reviewer note: " + artifact_issues + ".")
-    if target.target_type != "front_matter":
-        lines.append("Reviewer focus: verify that the cited source refs, table/figure artifacts, and limitations are suitable for report text.")
-    lines.append("This content is draft/pre-review and does not rank alternatives or make determinations.")
+            return "\n".join([_title_line(target), _attachment_wrapper_content(target)])
+        return "\n".join([_title_line(target), "This attachment section identifies supporting materials expected for the report package."])
+    if not _source_backed_report_style(target, evidence, related_tables, related_figures):
+        return _general_section_content(target, context, evidence, related_tables, related_figures, comparison_unit)
+
+    lines = [_title_line(target)]
+    for sentence in (
+        _section_lead_sentence(target, comparison_unit),
+        _source_reference_sentence(_dedupe([*_string_list(evidence.get("source_refs", [])), *[ref for table in related_tables for ref in _string_list(table.get("source_refs", []))], *[ref for figure in related_figures for ref in _string_list(figure.get("source_refs", []))]])),
+        _artifact_reference_sentence(related_tables, related_figures),
+        _table_row_sentence(related_tables),
+        _comparison_unit_sentence(evidence, comparison_unit),
+        _constraint_summary_sentence(evidence, comparison_unit),
+        _source_limitation_sentence(target, evidence, related_tables, related_figures),
+    ):
+        if sentence:
+            lines.append(sentence)
     return "\n".join(line for line in lines if line)
 
 
