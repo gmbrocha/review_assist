@@ -1,3 +1,0 @@
-F:\Desktop\review_assist\.venv\Lib\site-packages\geopandas\io\file.py:576: UserWarning: Could not parse column 'COUNTY' as JSON; leaving as string
-  return pyogrio.read_dataframe(path_or_bytes, bbox=bbox, **kwargs)
-

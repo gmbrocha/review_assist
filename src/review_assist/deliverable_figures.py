@@ -139,7 +139,8 @@ def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
         figures.append(figure)
         validation_issues.extend(_dict_list(figure.get("validation_issues", [])))
         if not figure.get("is_stub"):
-            for layer in _target_source_layers(target, source_layers):
+            spec = _target_spec(target, source_context)
+            for layer in _target_source_layers(target, source_layers, spec):
                 if layer["source_id"] != RESTRICTED_CULTURAL_SOURCE_ID:
                     all_public_source_layers.append(layer)
 
@@ -575,21 +576,25 @@ def _figure_extent_plan_record(
     status = "planned"
     status_reason = "Figure render extent is planned from current project geometry and available source layers."
 
-    spec = TARGET_SPECS.get(target.target_id, TargetFigureSpec(_target_source_refs(source_context, target.source_categories)))
+    spec = _target_spec(target, source_context)
     target_source_ids = list(spec.source_ids) or _target_source_refs(source_context, target.source_categories)
+    required_source_ids = list(spec.required_source_ids) or list(target_source_ids)
     public_source_ids = [source_id for source_id in target_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
-    layer_records = _target_source_layers(target, source_layers)
+    required_public_source_ids = [source_id for source_id in required_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
+    layer_records = _target_source_layers(target, source_layers, spec)
     layer_records = [_filtered_layer(layer, spec.filter_tokens) for layer in layer_records]
     layer_records = [layer for layer in layer_records if layer["source_id"] != RESTRICTED_CULTURAL_SOURCE_ID]
     if target.target_id == "figure-cultural-resources":
         layer_records = [layer for layer in layer_records if layer["source_id"] in PUBLIC_CULTURAL_SOURCE_IDS]
+    available_source_ids = {str(layer.get("source_id")) for layer in layer_records if layer.get("source_id")}
+    required_available_source_ids = available_source_ids.intersection(required_public_source_ids)
 
     if extent_class == LARGE_WATERSHED_EXTENT_CLASS:
-        status = "planned_current_project_area_context" if layer_records else "deferred_watershed_context"
+        status = "planned_current_project_area_context" if required_available_source_ids else "deferred_watershed_context"
         status_reason = (
             "Watershed/subwatershed render context is not implemented; available source layers are rendered "
             "with the current project-area presentation extent and are not treated as watershed context."
-            if layer_records
+            if required_available_source_ids
             else "Watershed/subwatershed render context is not implemented; this plan does not use "
             "project-area bounds as a substitute for watershed context."
         )
@@ -602,7 +607,7 @@ def _figure_extent_plan_record(
                 target_id=target.target_id,
             )
         )
-    elif not layer_records:
+    elif not required_available_source_ids:
         status = "source_unavailable_stub"
         status_reason = "Usable public source layers are not available, so no NAIP sidecar is needed for this figure target."
     elif extent_class in {MEDIUM_CONTEXT_EXTENT_CLASS, COUNTY_REGIONAL_EXTENT_CLASS}:
@@ -625,7 +630,7 @@ def _figure_extent_plan_record(
     )
     group = (
         _basemap_group_for_extent_class(extent_class)
-        if extent_class != LARGE_WATERSHED_EXTENT_CLASS and status in PLANNED_FIGURE_STATUSES and spec.prefer_basemap and layer_records
+        if extent_class != LARGE_WATERSHED_EXTENT_CLASS and status in PLANNED_FIGURE_STATUSES and spec.prefer_basemap and required_available_source_ids
         else ""
     )
     record = {
@@ -637,6 +642,7 @@ def _figure_extent_plan_record(
         "status_reason": status_reason,
         "source_refs": sorted(set(public_source_ids)),
         "available_source_refs": sorted({str(layer.get("source_id")) for layer in layer_records if layer.get("source_id")}),
+        "source_scope": _source_scope_record(spec, available_source_ids),
         "core_extent_type": extent.get("figure_extent_type") or extent.get("analysis_extent_type"),
         "core_bounds": [float(value) for value in core_bounds],
         "core_bounds_crs": str(analysis_bounds.crs or ""),
@@ -788,17 +794,20 @@ def _figure_for_target(
     source_status: dict[str, Any],
     figure_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    spec = TARGET_SPECS.get(target.target_id, TargetFigureSpec(_target_source_refs(source_context, target.source_categories)))
+    spec = _target_spec(target, source_context)
     target_source_ids = list(spec.source_ids) or _target_source_refs(source_context, target.source_categories)
+    required_source_ids = list(spec.required_source_ids) or list(target_source_ids)
     public_source_ids = [source_id for source_id in target_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
+    required_public_source_ids = [source_id for source_id in required_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
     validation_issues: list[dict[str, Any]] = []
     uncertainty_flags: set[str] = {"draft_pre_review", "desktop_screening_only"}
 
-    layer_records = _target_source_layers(target, source_layers)
+    layer_records = _target_source_layers(target, source_layers, spec)
     layer_records = [_filtered_layer(layer, spec.filter_tokens) for layer in layer_records]
     layer_records = [layer for layer in layer_records if layer["source_id"] != RESTRICTED_CULTURAL_SOURCE_ID]
     available_source_ids = {str(layer["source_id"]) for layer in layer_records}
-    validation_issues.extend(_source_availability_issues(target, public_source_ids, source_context, available_source_ids))
+    required_available_source_ids = available_source_ids.intersection(required_public_source_ids)
+    validation_issues.extend(_source_availability_issues(target, required_public_source_ids, source_context, available_source_ids))
     if target.target_id == "figure-cultural-resources" and _restricted_cultural_present(source_context):
         validation_issues.append(
             _issue(
@@ -840,31 +849,33 @@ def _figure_for_target(
                 target_id=target.target_id,
             )
         )
-        if str(figure_plan.get("status") or "") == "deferred_watershed_context" and not layer_records:
+        if str(figure_plan.get("status") or "") == "deferred_watershed_context" and not required_available_source_ids:
             return _stub_figure(
                 target=target,
                 matrix_version=matrix_version,
-                public_source_ids=public_source_ids,
+                public_source_ids=required_public_source_ids,
                 comparison_unit_ids=_comparison_unit_ids(unit_gdf),
                 comparison_unit_constraints=comparison_unit_constraints,
                 source_status=source_status,
                 uncertainty_flags=sorted(uncertainty_flags | {"figure_extent_context_deferred"}),
                 validation_issues=validation_issues,
                 figure_plan=figure_plan,
+                source_scope=_source_scope_record(spec, available_source_ids),
             )
         uncertainty_flags.add("figure_extent_context_deferred")
 
-    if not available_source_ids:
+    if not required_available_source_ids:
         return _stub_figure(
             target=target,
             matrix_version=matrix_version,
-            public_source_ids=public_source_ids,
+            public_source_ids=required_public_source_ids,
             comparison_unit_ids=_comparison_unit_ids(unit_gdf),
             comparison_unit_constraints=comparison_unit_constraints,
             source_status=source_status,
             uncertainty_flags=sorted(uncertainty_flags | {"source_unavailable"}),
             validation_issues=validation_issues,
             figure_plan=figure_plan,
+            source_scope=_source_scope_record(spec, available_source_ids),
         )
 
     if target.target_id == "figure-cultural-resources":
@@ -881,6 +892,7 @@ def _figure_for_target(
                 uncertainty_flags=sorted(uncertainty_flags | {"source_unavailable"}),
                 validation_issues=validation_issues,
                 figure_plan=figure_plan,
+                source_scope=_source_scope_record(spec, available_source_ids),
             )
 
     planned_layout = figure_plan.get("render_layout") if isinstance(figure_plan, dict) and isinstance(figure_plan.get("render_layout"), dict) else None
@@ -936,9 +948,10 @@ def _figure_for_target(
             uncertainty_flags=sorted(uncertainty_flags | {"basemap_render_failed"}),
             validation_issues=validation_issues,
             figure_plan=figure_plan,
+            source_scope=_source_scope_record(spec, available_source_ids),
         )
 
-    related_constraints = _related_constraint_ids(constraints, public_source_ids, spec.filter_tokens)
+    related_constraints = _related_constraint_ids(constraints, required_public_source_ids, spec.filter_tokens)
     source_refs = sorted(available_source_ids)
     source_refs.extend(_basemap_source_refs(basemap))
     shown_layers = [
@@ -970,17 +983,45 @@ def _figure_for_target(
             basemap=basemap,
             render_layout=render_layout,
             figure_plan=figure_plan,
+            source_scope=_source_scope_record(spec, available_source_ids),
         ),
         validation_issues=_dedupe_issues(validation_issues),
     )
 
 
-def _target_source_layers(target: FigureTarget, source_layers: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    spec = TARGET_SPECS.get(target.target_id, TargetFigureSpec(()))
+def _target_spec(target: FigureTarget, source_context: dict[str, Any]) -> TargetFigureSpec:
+    return TARGET_SPECS.get(target.target_id, TargetFigureSpec(_target_source_refs(source_context, target.source_categories)))
+
+
+def _target_source_layers(
+    target: FigureTarget,
+    source_layers: dict[str, list[dict[str, Any]]],
+    spec: TargetFigureSpec | None = None,
+) -> list[dict[str, Any]]:
+    spec = spec or TARGET_SPECS.get(target.target_id, TargetFigureSpec(()))
     layers: list[dict[str, Any]] = []
+    excluded = set(spec.excluded_source_ids)
     for source_id in spec.source_ids:
+        if source_id in excluded:
+            continue
         layers.extend(dict(layer) for layer in source_layers.get(source_id, []))
     return layers
+
+
+def _source_scope_record(spec: TargetFigureSpec, rendered_source_ids: set[str]) -> dict[str, Any]:
+    required = [source_id for source_id in spec.required_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
+    optional = [source_id for source_id in spec.optional_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
+    excluded = [source_id for source_id in spec.excluded_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
+    rendered = sorted(source_id for source_id in rendered_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID)
+    missing_required = sorted(source_id for source_id in required if source_id not in rendered_source_ids)
+    return {
+        "required_source_ids": required,
+        "optional_source_ids": optional,
+        "excluded_source_ids": excluded,
+        "allowed_source_ids": list(spec.source_ids),
+        "rendered_source_ids": rendered,
+        "missing_required_source_ids": missing_required,
+    }
 
 
 def _filtered_layer(layer: dict[str, Any], tokens: tuple[str, ...]) -> dict[str, Any]:
@@ -1065,6 +1106,7 @@ def _stub_figure(
     uncertainty_flags: list[str],
     validation_issues: list[dict[str, Any]],
     figure_plan: dict[str, Any] | None = None,
+    source_scope: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     issues = list(validation_issues)
     issues.append(
@@ -1087,6 +1129,7 @@ def _stub_figure(
         project_area=None,
         basemap=None,
         figure_plan=figure_plan,
+        source_scope=source_scope,
     )
     extent = _figure_extent(target, provenance)
     return {
@@ -1305,6 +1348,7 @@ def _provenance(
     basemap: dict[str, Any] | None,
     render_layout: dict[str, Any] | None = None,
     figure_plan: dict[str, Any] | None = None,
+    source_scope: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     extent = target_extent_metadata(
         target_id=target.target_id,
@@ -1354,6 +1398,8 @@ def _provenance(
             "collar_side": figure_plan.get("collar_side"),
             "render_extent_is_presentation_only": True,
         }
+    if isinstance(source_scope, dict):
+        provenance["source_scope"] = source_scope
     if render_layout:
         provenance["render_layout"] = render_layout
     return provenance

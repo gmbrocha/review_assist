@@ -30,6 +30,16 @@ from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source
 DELIVERABLE_TABLES_PATH = Path("deliverable/tables.json")
 SUPPORTED_REVIEW_STATUSES = {"draft", "needs_review", "accepted", "edited", "rejected", "needs_verification", "unable_to_verify"}
 USABLE_SOURCE_STATUSES = {"analyzed", "analyzed_empty", "downloaded", "local_materialized", "provided_in_input", "registered_local"}
+WETLAND_WATERBODY_NWI_SOURCE_ID = "usfws_nwi_wetlands"
+STREAM_CROSSING_SOURCE_ID = "usgs_nhd_flowlines"
+STREAM_CROSSING_EXCLUDED_SOURCE_IDS = {
+    "usgs_nhd_hydrography",
+    "usgs_nhd_waterbodies",
+    "usgs_nhd_other_areas",
+    WETLAND_WATERBODY_NWI_SOURCE_ID,
+}
+STREAM_CROSSING_EVENT_TOLERANCE_FEET = 50.0
+FEET_PER_METER = 3.280839895
 UNAVAILABLE_SOURCE_STATUSES = {
     "source_missing",
     "source_unreadable",
@@ -263,8 +273,8 @@ def _wetlands_waterbodies_table(
     comparison_unit_constraints: dict[str, Any],
     source_status: dict[str, Any],
 ) -> dict[str, Any]:
-    nwi_available = _category_available(source_context, "wetlands_waterbodies")
-    hydro_available = _category_available(source_context, "hydrography_crossings")
+    nwi_available = _source_available(source_context, WETLAND_WATERBODY_NWI_SOURCE_ID)
+    hydro_available = _source_available(source_context, STREAM_CROSSING_SOURCE_ID)
     if not nwi_available and not hydro_available:
         return _stub_table(
             target=target,
@@ -282,7 +292,8 @@ def _wetlands_waterbodies_table(
     for constraint in constraints:
         category = str(constraint.get("source_category", ""))
         unit_id = str(constraint.get("comparison_unit_id", ""))
-        if category == "wetlands_waterbodies":
+        source_id = str(constraint.get("source_id", ""))
+        if category == "wetlands_waterbodies" and source_id == WETLAND_WATERBODY_NWI_SOURCE_ID:
             source_refs.add(str(constraint.get("source_id", "")))
             wetland_class = normalize_nwi_class(constraint)
             if wetland_class in {
@@ -292,9 +303,9 @@ def _wetlands_waterbodies_table(
             }:
                 counts[unit_id][wetland_class].add(_dedupe_key(constraint))
                 related_constraints.add(str(constraint.get("constraint_id", "")))
-        elif category == "hydrography_crossings" and is_hydrography_crossing(constraint):
+        elif category == "hydrography_crossings" and is_stream_crossing_metric_source(constraint):
             source_refs.add(str(constraint.get("source_id", "")))
-            crossing_counts[unit_id].add(_dedupe_key(constraint))
+            crossing_counts[unit_id].add(_stream_crossing_event_key(constraint))
             related_constraints.add(str(constraint.get("constraint_id", "")))
 
     rows = [
@@ -322,7 +333,25 @@ def _wetlands_waterbodies_table(
         related_constraint_ids=sorted(item for item in related_constraints if item),
         comparison_unit_ids=[unit["comparison_unit_id"] for unit in unit_records],
         uncertainty_flags=sorted(set(uncertainty_flags)),
-        provenance=_provenance(target, matrix_version, comparison_unit_constraints, source_status, method="deduplicated_wetland_and_hydrography_counts"),
+        provenance={
+            **_provenance(
+                target,
+                matrix_version,
+                comparison_unit_constraints,
+                source_status,
+                method="nwi_classes_and_canonical_nhd_flowline_crossing_events",
+            ),
+            "metric_contract": {
+                "Stream Crossings": {
+                    "required_source_ids": [STREAM_CROSSING_SOURCE_ID],
+                    "excluded_source_ids": sorted(STREAM_CROSSING_EXCLUDED_SOURCE_IDS),
+                    "event_location_tolerance_feet": STREAM_CROSSING_EVENT_TOLERANCE_FEET,
+                },
+                "Freshwater Emergent Wetland": {"required_source_ids": [WETLAND_WATERBODY_NWI_SOURCE_ID]},
+                "Freshwater Forested/Shrub Wetland": {"required_source_ids": [WETLAND_WATERBODY_NWI_SOURCE_ID]},
+                "Freshwater Pond": {"required_source_ids": [WETLAND_WATERBODY_NWI_SOURCE_ID]},
+            },
+        },
     )
 
 
@@ -554,6 +583,12 @@ def is_hydrography_crossing(constraint: dict[str, Any]) -> bool:
     return relationship == "intersects" and "line" in source_geometry_type
 
 
+def is_stream_crossing_metric_source(constraint: dict[str, Any]) -> bool:
+    if str(constraint.get("source_id", "")) != STREAM_CROSSING_SOURCE_ID:
+        return False
+    return is_hydrography_crossing(constraint)
+
+
 def normalize_flood_zone_classification(constraint: dict[str, Any]) -> str:
     values = _values(constraint)
     zone = _first_present(values, "flood_zone") or str(constraint.get("source_feature_type", "")).strip()
@@ -675,6 +710,19 @@ def _category_available(source_context: dict[str, Any], category: str) -> bool:
     return str(status_record.get("status", "")) in {"downloaded", "provided_locally", "local_materialized"}
 
 
+def _source_available(source_context: dict[str, Any], source_id: str) -> bool:
+    detail_status = source_context.get("source_detail_status", {})
+    if isinstance(detail_status, dict) and str(detail_status.get(source_id, "")) in USABLE_SOURCE_STATUSES | {"logical_rollup_satisfied"}:
+        return True
+    analyzed_status = source_context.get("analyzed_source_status", {})
+    if isinstance(analyzed_status, dict) and str(analyzed_status.get(source_id, "")) in USABLE_SOURCE_STATUSES:
+        return True
+    usable_by_category = source_context.get("usable_source_ids_by_category", {})
+    if isinstance(usable_by_category, dict):
+        return any(source_id in _string_list(value) for value in usable_by_category.values())
+    return False
+
+
 def _category_flags(source_context: dict[str, Any], categories: list[str]) -> list[str]:
     flags: set[str] = set()
     by_category = source_context.get("by_category", {})
@@ -761,6 +809,25 @@ def _dedupe_key(constraint: dict[str, Any]) -> str:
     return f"{constraint.get('source_id')}:{label}:{geometry_hash}"
 
 
+def _stream_crossing_event_key(constraint: dict[str, Any]) -> str:
+    location_key = _stream_crossing_location_key(constraint)
+    if location_key:
+        return f"{STREAM_CROSSING_SOURCE_ID}:event:{location_key}"
+    return _dedupe_key(constraint)
+
+
+def _stream_crossing_location_key(constraint: dict[str, Any]) -> str:
+    if str(constraint.get("relationship_event_basis", "")) != "raw_comparison_unit_intersection":
+        return ""
+    x = _float_or_none(constraint.get("relationship_event_x"))
+    y = _float_or_none(constraint.get("relationship_event_y"))
+    crs = str(constraint.get("relationship_event_crs", "")).strip()
+    if x is None or y is None or not crs:
+        return ""
+    tolerance_meters = STREAM_CROSSING_EVENT_TOLERANCE_FEET / FEET_PER_METER
+    return f"{crs}:{round(x / tolerance_meters)}:{round(y / tolerance_meters)}"
+
+
 def _row_string(row: Any, column: str, default: str) -> str:
     if column not in row.index:
         return default
@@ -782,6 +849,13 @@ def _float_value(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _float_or_none(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _validate_deliverable_tables(data: dict[str, Any], location: str) -> None:

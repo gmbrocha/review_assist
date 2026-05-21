@@ -53,6 +53,16 @@ Each deferred item should include:
 - `Target sprint/subunit`: Future source warehouse/data-quality hardening.
 - `Status`: open.
 
+### Stream Crossing Metric Calibration
+
+- `Deferred item`: Decide whether the wetlands/waterbodies Stream Crossings column should remain a raw canonical NHD flowline crossing-event count or use a more review/engineering-oriented crossing-source contract.
+- `Why postponed`: The current stabilization pass scoped the table metric to `usgs_nhd_flowlines`, excluded logical rollups and polygon hydrography context, and added duplicate event-location dedupe. The trails sample still shows many distinct NHD flowline crossing events above the example report counts, so matching the example would require a methodology decision or a supplemental authoritative crossing source rather than a safe source-scoping fix.
+- `Affected sections/workflows`: `table-wetlands-waterbodies`, wetlands/waterbodies evidence package summaries, review queue table item, report/export table rendering.
+- `Risk if forgotten`: Reviewers may interpret NHD source-feature crossing counts as engineered culvert/bridge crossing counts, or may expect parity with manually prepared example-report counts that appear to use a different counting methodology.
+- `Temporary simplification`: The table now counts deterministic, auditable canonical NHD flowline crossing events once per deduped event location and preserves NWI wetland-class counts separately.
+- `Target sprint/subunit`: Future wetlands/waterbodies methodology hardening.
+- `Status`: open.
+
 ### Public And Restricted Cultural Resource Source Split
 
 - `Deferred item`: Add any approved public/coarse cultural context source such as OpenContext/DINAA separately from authorized or reviewer-supplied MDAH archaeological/HSMT records.

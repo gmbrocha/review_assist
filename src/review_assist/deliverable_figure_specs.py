@@ -70,16 +70,45 @@ MAX_PANEL_COUNT = 6
 
 @dataclass(frozen=True)
 class TargetFigureSpec:
-    source_ids: tuple[str, ...]
+    required_source_ids: tuple[str, ...]
     filter_tokens: tuple[str, ...] = ()
     source_unimplemented_note: str = ""
     prefer_basemap: bool = True
+    optional_source_ids: tuple[str, ...] = ()
+    excluded_source_ids: tuple[str, ...] = ()
+
+    @property
+    def source_ids(self) -> tuple[str, ...]:
+        """All source IDs this figure is allowed to render, excluding prohibited carryover IDs."""
+
+        excluded = set(self.excluded_source_ids)
+        return _dedupe_source_ids(self.required_source_ids, self.optional_source_ids, exclude=excluded)
+
+
+def _dedupe_source_ids(*groups: tuple[str, ...], exclude: set[str] | None = None) -> tuple[str, ...]:
+    excluded = exclude or set()
+    result: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        for source_id in group:
+            if not source_id or source_id in excluded or source_id in seen:
+                continue
+            result.append(source_id)
+            seen.add(source_id)
+    return tuple(result)
 
 
 TARGET_SPECS: dict[str, TargetFigureSpec] = {
     "figure-wetlands-waterbodies": TargetFigureSpec(
-        ("usfws_nwi_wetlands", *NHD_SOURCE_IDS),
+        ("usfws_nwi_wetlands",),
         prefer_basemap=True,
+        optional_source_ids=("usgs_nhd_waterbodies",),
+        excluded_source_ids=(
+            NHD_ROLLUP_SOURCE_ID,
+            "usgs_nhd_flowlines",
+            "usgs_nhd_other_areas",
+            *IMPAIRED_WATERS_SOURCE_IDS,
+        ),
     ),
     "figure-fema-flood-zones": TargetFigureSpec(
         ("fema_nfhl_flood_hazard",),
@@ -87,9 +116,11 @@ TARGET_SPECS: dict[str, TargetFigureSpec] = {
     ),
     "figure-streams-impaired-waters": TargetFigureSpec(
         (*NHD_PHYSICAL_SOURCE_IDS, *IMPAIRED_WATERS_SOURCE_IDS),
+        excluded_source_ids=(NHD_ROLLUP_SOURCE_ID, "usfws_nwi_wetlands"),
     ),
     "figure-cultural-resources": TargetFigureSpec(
         ("maris_public_cultural_context", "mdah_public_historic_resources"),
+        excluded_source_ids=(RESTRICTED_CULTURAL_SOURCE_ID,),
     ),
     "figure-fire-ems-stations": TargetFigureSpec(
         ("maris_community_facilities", "hifld_community_infrastructure"),
@@ -120,12 +151,15 @@ TARGET_SPECS: dict[str, TargetFigureSpec] = {
     ),
     "figure-hazardous-waste-sites": TargetFigureSpec(
         HAZARDOUS_REGULATED_SOURCE_IDS,
+        excluded_source_ids=(*WATER_DISCHARGE_WASTE_SOURCE_IDS, *OIL_GAS_SOURCE_IDS, "epa_envirofacts_echo"),
     ),
     "figure-water-discharge-waste-facilities": TargetFigureSpec(
         WATER_DISCHARGE_WASTE_SOURCE_IDS,
+        excluded_source_ids=(*HAZARDOUS_REGULATED_SOURCE_IDS, *OIL_GAS_SOURCE_IDS, "epa_envirofacts_echo"),
     ),
     "figure-oil-gas-wells": TargetFigureSpec(
         OIL_GAS_SOURCE_IDS,
+        excluded_source_ids=(*HAZARDOUS_REGULATED_SOURCE_IDS, *WATER_DISCHARGE_WASTE_SOURCE_IDS, "epa_envirofacts_echo"),
     ),
     "figure-census-tracts": TargetFigureSpec(
         ("census_tiger_acs",),

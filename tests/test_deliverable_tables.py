@@ -186,7 +186,7 @@ def test_deliverable_wetlands_table_uses_exact_columns_and_deduplicated_counts(t
         project_dir,
         [
             ("usfws_nwi_wetlands", "wetlands.geojson"),
-            ("usgs_nhd_hydrography", "streams.geojson"),
+            ("usgs_nhd_flowlines", "streams.geojson"),
         ],
     )
 
@@ -207,6 +207,8 @@ def test_deliverable_wetlands_table_uses_exact_columns_and_deduplicated_counts(t
     assert row_a["Stream Crossings"] == 1
     assert row_a["Freshwater Emergent Wetland"] == 1
     assert row_b["Freshwater Pond"] == 1
+    assert wetlands["source_refs"] == ["usfws_nwi_wetlands", "usgs_nhd_flowlines"]
+    assert wetlands["provenance"]["metric_contract"]["Stream Crossings"]["required_source_ids"] == ["usgs_nhd_flowlines"]  # type: ignore[index]
     assert wetlands["query_extent_type"] == "project_area_analysis_bounds"
     assert wetlands["table_extent_type"] == "direct_intersection_extent"
     assert wetlands["analysis_extent_type"] == "direct_intersection_extent"
@@ -256,6 +258,89 @@ def test_wetlands_table_uses_effective_source_status_not_logical_rollup_noise(tm
     assert wetlands["is_stub"] is False
     assert "source_not_downloaded" not in wetlands["uncertainty_flags"]
     assert "hydrography_source_unavailable" not in wetlands["uncertainty_flags"]
+    row_a = next(row for row in wetlands["rows"] if row["Alternative"] == "Alternative A")  # type: ignore[index]
+    row_b = next(row for row in wetlands["rows"] if row["Alternative"] == "Alternative B")  # type: ignore[index]
+    assert row_a["Stream Crossings"] == 1
+    assert row_b["Freshwater Pond"] == 0
+    assert "usgs_nhd_waterbodies" not in wetlands["source_refs"]
+    assert "usgs_nhd_other_areas" not in wetlands["source_refs"]
+
+
+def test_wetlands_table_does_not_count_logical_hydrography_rollup_as_stream_source(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_layer(
+        project_dir / "rollup.geojson",
+        [LineString([(-89.996, 31.999), (-89.996, 32.001)])],
+        [{"gnis_name": "Rollup Stream", "Permanent_Identifier": "rollup-stream-1", "FTYPE": "StreamRiver"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson"), ("usgs_nhd_hydrography", "rollup.geojson")])
+
+    tables = generate_deliverable_tables(project_dir)
+    wetlands = table_by_id(tables, "table-wetlands-waterbodies")
+    row_a = next(row for row in wetlands["rows"] if row["Alternative"] == "Alternative A")  # type: ignore[index]
+
+    assert row_a["Stream Crossings"] == 0
+    assert "usgs_nhd_hydrography" not in wetlands["source_refs"]
+    assert "hydrography_source_unavailable" in wetlands["uncertainty_flags"]
+
+
+def test_wetlands_table_uses_canonical_flowlines_when_rollup_overlaps(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    stream = LineString([(-89.996, 31.999), (-89.996, 32.001)])
+    write_layer(project_dir / "flowlines.geojson", [stream], [{"gnis_name": "Stream A", "Permanent_Identifier": "stream-1"}])
+    write_layer(project_dir / "rollup.geojson", [stream], [{"gnis_name": "Stream A", "Permanent_Identifier": "stream-1"}])
+    write_registry(
+        project_dir,
+        [
+            ("usfws_nwi_wetlands", "wetlands.geojson"),
+            ("usgs_nhd_flowlines", "flowlines.geojson"),
+            ("usgs_nhd_hydrography", "rollup.geojson"),
+        ],
+    )
+
+    tables = generate_deliverable_tables(project_dir)
+    wetlands = table_by_id(tables, "table-wetlands-waterbodies")
+    row_a = next(row for row in wetlands["rows"] if row["Alternative"] == "Alternative A")  # type: ignore[index]
+
+    assert row_a["Stream Crossings"] == 1
+    assert "usgs_nhd_flowlines" in wetlands["source_refs"]
+    assert "usgs_nhd_hydrography" not in wetlands["source_refs"]
+
+
+def test_wetlands_table_dedupes_overlapping_flowline_crossing_events(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    duplicate_crossing = LineString([(-89.996, 31.999), (-89.996, 32.001)])
+    write_layer(
+        project_dir / "flowlines.geojson",
+        [duplicate_crossing, duplicate_crossing],
+        [
+            {"gnis_name": "Stream A", "Permanent_Identifier": "stream-1"},
+            {"gnis_name": "Stream A duplicate", "Permanent_Identifier": "stream-2"},
+        ],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson"), ("usgs_nhd_flowlines", "flowlines.geojson")])
+
+    tables = generate_deliverable_tables(project_dir)
+    wetlands = table_by_id(tables, "table-wetlands-waterbodies")
+    row_a = next(row for row in wetlands["rows"] if row["Alternative"] == "Alternative A")  # type: ignore[index]
+
+    assert row_a["Stream Crossings"] == 1
+    assert wetlands["row_count"] == 2
 
 
 def test_deliverable_flood_table_uses_buffered_corridor_acreage(tmp_path: Path) -> None:

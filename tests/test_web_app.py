@@ -482,12 +482,14 @@ def test_figure_review_detail_uses_figure_specific_form(tmp_path: Path) -> None:
     assert "Export eligible when unable to verify" not in text
 
 
-def test_review_figure_preview_css_uses_review_only_thirty_percent_display_scale() -> None:
+def test_review_figure_preview_css_uses_larger_review_only_display_scale() -> None:
     styles = Path("src/review_assist/web/static/styles.css").read_text(encoding="utf-8")
     preview_block = styles.split(".figure-preview {", 1)[1].split("}", 1)[0]
 
-    assert "width: 30%;" in preview_block
-    assert "max-width: 30%;" in preview_block
+    assert "width: 100%;" in preview_block
+    assert "max-width: 1120px;" in preview_block
+    assert "max-height: 78vh;" in preview_block
+    assert "height: auto;" in preview_block
 
 
 def test_non_figure_review_detail_keeps_generic_review_form(tmp_path: Path) -> None:

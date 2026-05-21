@@ -373,10 +373,10 @@ input:not([type]) {
   border-radius: 6px;
   display: block;
   height: auto;
-  max-height: 420px;
-  max-width: 30%;
+  max-height: 78vh;
+  max-width: 1120px;
   object-fit: contain;
-  width: 30%;
+  width: 100%;
 }
 
 @media (max-width: 800px) {

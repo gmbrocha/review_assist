@@ -18,6 +18,7 @@ from review_assist.evidence_package import build_evidence_package
 from review_assist.review_queue import generate_review_queue
 from review_assist.deliverable_figure_rendering import (
     LEGEND_MEASUREMENT_SAFETY_FACTOR,
+    _thematic_color_is_allowed,
     choose_legend_collar_side,
     comparison_unit_style_records,
     compute_visual_extent_with_legend_collar,
@@ -240,6 +241,14 @@ def issue_codes(record: dict[str, object]) -> set[str]:
     return {str(issue["code"]) for issue in record.get("validation_issues", [])}  # type: ignore[union-attr]
 
 
+def shown_source_ids(figure: dict[str, object]) -> set[str]:
+    return {
+        str(layer.get("source_id"))
+        for layer in figure.get("shown_layers", [])  # type: ignore[union-attr]
+        if isinstance(layer, dict) and layer.get("layer_type") == "source_layer"
+    }
+
+
 def color_distance(color_a: str, color_b: str) -> float:
     a = color_a.lstrip("#")
     b = color_b.lstrip("#")
@@ -289,6 +298,29 @@ def test_hazardous_regulated_figure_split_is_declared_in_matrix_and_specs() -> N
         "maris_solid_waste_landfills",
     }
     assert TARGET_SPECS["figure-oil-gas-wells"].source_ids == ("mississippi_oil_gas_wells",)
+
+
+def test_target_specs_declare_figure_specific_source_scope() -> None:
+    wetlands = TARGET_SPECS["figure-wetlands-waterbodies"]
+    streams = TARGET_SPECS["figure-streams-impaired-waters"]
+    hazardous = TARGET_SPECS["figure-hazardous-waste-sites"]
+    oil = TARGET_SPECS["figure-oil-gas-wells"]
+
+    assert wetlands.required_source_ids == ("usfws_nwi_wetlands",)
+    assert wetlands.optional_source_ids == ("usgs_nhd_waterbodies",)
+    assert "usgs_nhd_flowlines" in wetlands.excluded_source_ids
+    assert "usgs_nhd_other_areas" in wetlands.excluded_source_ids
+    assert "usgs_nhd_flowlines" not in wetlands.source_ids
+    assert "usgs_nhd_waterbodies" in wetlands.source_ids
+    assert set(streams.required_source_ids) == {
+        "usgs_nhd_flowlines",
+        "usgs_nhd_waterbodies",
+        "usgs_nhd_other_areas",
+        "mdeq_303d_impaired_waters",
+    }
+    assert "usfws_nwi_wetlands" in streams.excluded_source_ids
+    assert "mississippi_oil_gas_wells" in hazardous.excluded_source_ids
+    assert "maris_npdes_facilities" in oil.excluded_source_ids
 
 
 def test_deliverable_figures_write_15_matrix_records_and_missing_source_stubs(
@@ -620,6 +652,108 @@ def test_specific_regulated_sources_are_split_without_legacy_broad_ids(
     assert "EPA FRS hazardous" not in hazardous["source_note"]  # type: ignore[operator]
 
 
+def test_wetlands_and_streams_figures_honor_required_optional_and_excluded_source_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    layers = [
+        (
+            "usfws_nwi_wetlands",
+            "wetlands.geojson",
+            [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+            [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+        ),
+        (
+            "usgs_nhd_flowlines",
+            "nhd_flowlines.geojson",
+            [LineString([(-90.002, 31.998), (-89.997, 32.002)])],
+            [{"GNIS_NAME": "Synthetic Creek"}],
+        ),
+        (
+            "usgs_nhd_waterbodies",
+            "nhd_waterbodies.geojson",
+            [Polygon([(-90.0005, 31.9995), (-89.9995, 31.9995), (-89.9995, 32.0005), (-90.0005, 32.0005), (-90.0005, 31.9995)])],
+            [{"GNIS_NAME": "Synthetic Pond"}],
+        ),
+        (
+            "usgs_nhd_other_areas",
+            "nhd_other_areas.geojson",
+            [Polygon([(-90.002, 31.998), (-89.997, 31.998), (-89.997, 32.003), (-90.002, 32.003), (-90.002, 31.998)])],
+            [{"FType": "SwampMarsh"}],
+        ),
+        (
+            "mdeq_303d_impaired_waters",
+            "impaired.geojson",
+            [LineString([(-90.001, 32.001), (-89.997, 32.001)])],
+            [{"ASSESSMENT_UNIT": "Synthetic impaired segment"}],
+        ),
+    ]
+    for _source_id, rel_path, geometries, rows in layers:
+        write_layer(project_dir / rel_path, geometries, rows)
+    write_registry(project_dir, [(source_id, rel_path) for source_id, rel_path, _geometries, _rows in layers])
+
+    result = generate_deliverable_figures(project_dir)
+    wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
+    streams = figure_by_id(result, "figure-streams-impaired-waters")
+
+    assert wetlands["is_stub"] is False
+    assert shown_source_ids(wetlands) == {"usfws_nwi_wetlands", "usgs_nhd_waterbodies"}
+    assert "usgs_nhd_flowlines" not in wetlands["source_refs"]  # type: ignore[operator]
+    assert "mdeq_303d_impaired_waters" not in wetlands["source_refs"]  # type: ignore[operator]
+    assert wetlands["provenance"]["source_scope"]["required_source_ids"] == ["usfws_nwi_wetlands"]  # type: ignore[index]
+    assert wetlands["provenance"]["source_scope"]["optional_source_ids"] == ["usgs_nhd_waterbodies"]  # type: ignore[index]
+    assert "usgs_nhd_flowlines" in wetlands["provenance"]["source_scope"]["excluded_source_ids"]  # type: ignore[index]
+
+    assert streams["is_stub"] is False
+    assert shown_source_ids(streams) == {
+        "usgs_nhd_flowlines",
+        "usgs_nhd_waterbodies",
+        "usgs_nhd_other_areas",
+        "mdeq_303d_impaired_waters",
+    }
+    assert "usfws_nwi_wetlands" not in streams["source_refs"]  # type: ignore[operator]
+    assert streams["provenance"]["source_scope"]["required_source_ids"] == [  # type: ignore[index]
+        "usgs_nhd_flowlines",
+        "usgs_nhd_waterbodies",
+        "usgs_nhd_other_areas",
+        "mdeq_303d_impaired_waters",
+    ]
+
+
+def test_cultural_and_community_figures_do_not_bleed_related_context_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(project_dir / "cultural.geojson", [Point(-90.0, 32.0)], [{"NAME": "Public cultural marker"}])
+    write_layer(project_dir / "community.geojson", [Point(-89.999, 32.0)], [{"TYPE": "Fire Station"}])
+    write_registry(
+        project_dir,
+        [
+            ("maris_public_cultural_context", "cultural.geojson"),
+            ("maris_community_facilities", "community.geojson"),
+        ],
+    )
+
+    result = generate_deliverable_figures(project_dir)
+    cultural = figure_by_id(result, "figure-cultural-resources")
+    fire = figure_by_id(result, "figure-fire-ems-stations")
+
+    assert cultural["is_stub"] is False
+    assert shown_source_ids(cultural) == {"maris_public_cultural_context"}
+    assert "maris_community_facilities" not in cultural["source_refs"]  # type: ignore[operator]
+    assert fire["is_stub"] is False
+    assert shown_source_ids(fire) == {"maris_community_facilities"}
+    assert "maris_public_cultural_context" not in fire["source_refs"]  # type: ignore[operator]
+
+
 def test_naip_materialization_failure_is_reported_in_vector_only_figure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -756,10 +890,12 @@ def test_comparison_unit_fallback_colors_are_distinct_and_deterministic() -> Non
     colors = [style["color"] for style in styles]
 
     assert styles == repeated
-    assert colors == ["#004CFF", "#FF2A00", "#00E676", "#8A00FF", "#111111"]
+    assert colors == ["#004CFF", "#FF2A00", "#8A00FF", "#00D5FF", "#FF00FF"]
     assert "#D55E00" not in colors
     assert "#C1121F" not in colors
     assert "#009E73" not in colors
+    assert "#111111" not in colors
+    assert "#000000" not in colors
     assert min(color_distance(a, b) for index, a in enumerate(colors) for b in colors[index + 1 :]) > 78
     assert all(style["line_width"] == pytest.approx(1.2) for style in styles)
     assert all(style["line_halo_width"] == 0.0 for style in styles)
@@ -864,7 +1000,7 @@ def test_source_marker_styles_avoid_green_on_imagery() -> None:
     assert "#6BAA75" not in colors
     assert "#009E73" not in colors
     assert styles[0]["color"] == "#FF00FF"
-    assert styles[1]["color"] == "#008EAA"
+    assert styles[1]["color"] == "#00D5FF"
     assert styles[2]["color"] == "#FFE500"
     assert styles[3]["color"] == "#F72585"
     assert all(style["marker_edge_width"] >= 0.4 for style in styles)
@@ -880,10 +1016,32 @@ def test_wetlands_and_hydrography_source_styles_use_saturated_high_contrast_over
 
     styles = [source_layer_style_record(layer, index) for index, layer in enumerate(layers)]
 
-    assert [style["color"] for style in styles] == ["#FFE500", "#00E5FF", "#00FF66", "#FF00FF"]
+    assert [style["color"] for style in styles] == ["#FFE500", "#00D5FF", "#0057FF", "#FF00FF"]
     assert styles[0]["polygon_alpha"] >= 0.38
-    assert styles[1]["line_width"] >= 0.9
-    assert all(style["line_alpha"] >= 0.86 for style in styles[1:])
+    assert styles[1]["line_width"] >= 0.8
+    assert styles[1]["line_alpha"] >= 0.8
+    assert styles[2]["polygon_alpha"] <= 0.26
+    assert styles[3]["line_alpha"] >= 0.86
+
+
+def test_thematic_palette_rejects_black_washed_out_green_and_earth_tone_colors() -> None:
+    for color in ("#000000", "#111111", "#B8C0C0", "#8C7A3A", "#739E00", "#6BAA75", "#00FF66"):
+        assert _thematic_color_is_allowed(color) is False
+
+    fallback_layers = [
+        {"source_id": "maris_solid_waste_landfills", "source_name": "Landfills", "source_category": "regulated_facilities"},
+        {"source_id": "mississippi_oil_gas_wells", "source_name": "Oil Wells", "source_category": "regulated_facilities"},
+        {"source_id": "unknown_context", "source_name": "Unknown", "source_category": "unknown_category"},
+        {"source_id": "unknown_soils", "source_name": "Soils", "source_category": "soils"},
+    ]
+    styles = [source_layer_style_record(layer, index) for index, layer in enumerate(fallback_layers)]
+    colors = [style["color"] for style in styles]
+
+    assert all(_thematic_color_is_allowed(color) for color in colors)
+    assert "#111111" not in colors
+    assert "#6BAA75" not in colors
+    assert "#8C564B" not in colors
+    assert len({style["color"] for style in styles}) >= 3
 
 
 def test_legend_label_abbreviations_keep_source_labels_compact() -> None:

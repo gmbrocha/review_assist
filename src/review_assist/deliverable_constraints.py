@@ -420,6 +420,12 @@ def _comparison_unit_constraint_record(
         raw_intersects=raw_intersects,
         buffer_feet=buffer_feet,
     )
+    relationship_spatial_metadata = _relationship_spatial_metadata(
+        unit_geometry=unit_geometry,
+        analysis_geometry=analysis_geometry,
+        source_geometry=source_geometry,
+        analysis_crs=analysis_crs,
+    )
     return apply_extent_metadata(
         {
         "constraint_id": f"comparison-unit-constraint-{constraint_id:05d}",
@@ -449,6 +455,7 @@ def _comparison_unit_constraint_record(
         "analysis_geometry_kind": analysis_geometry_kind,
         "measurement_crs": analysis_crs,
         "measurements": _measure_comparison_unit_relationship(unit_geometry, analysis_geometry, source_geometry),
+        **relationship_spatial_metadata,
         "comparison_unit_geometry_type": unit_geometry.geom_type,
         "source_geometry_type": source_geometry.geom_type,
         "provenance": {
@@ -494,6 +501,30 @@ def _measure_comparison_unit_relationship(
     if analysis_geometry.area > 0:
         measurements["analysis_geometry_area_acres"] = round(analysis_geometry.area / SQUARE_METERS_PER_ACRE, 4)
     return measurements
+
+
+def _relationship_spatial_metadata(
+    *,
+    unit_geometry: BaseGeometry,
+    analysis_geometry: BaseGeometry,
+    source_geometry: BaseGeometry,
+    analysis_crs: str,
+) -> dict[str, Any]:
+    intersection = unit_geometry.intersection(source_geometry)
+    basis = "raw_comparison_unit_intersection"
+    if intersection.is_empty:
+        intersection = analysis_geometry.intersection(source_geometry)
+        basis = "analysis_geometry_intersection"
+    if intersection.is_empty:
+        return {}
+    point = intersection.representative_point()
+    return {
+        "relationship_event_x": round(float(point.x), 3),
+        "relationship_event_y": round(float(point.y), 3),
+        "relationship_event_crs": analysis_crs,
+        "relationship_event_basis": basis,
+        "relationship_event_geometry_type": intersection.geom_type,
+    }
 
 
 def _no_overlap_summaries(
@@ -577,6 +608,12 @@ def _report_table_source_values(row: Any) -> dict[str, str]:
             "asian_moe": _feature_value(row, ("asian_moe", "B02001_005M")),
             "white": _feature_value(row, ("white", "B02001_002E", "B02001_002")),
             "white_moe": _feature_value(row, ("white_moe", "B02001_002M")),
+            "nhd_permanent_identifier": _feature_value(row, ("permanent_", "permanent_identifier", "Permanent_Identifier")),
+            "nhd_reachcode": _feature_value(row, ("reachcode", "ReachCode", "REACHCODE")),
+            "nhd_gnis_name": _feature_value(row, ("gnis_name", "GNIS_NAME")),
+            "nhd_ftype": _feature_value(row, ("ftype", "FTYPE", "review_assist_feature_type")),
+            "nhd_fcode": _feature_value(row, ("fcode", "FCODE", "review_assist_feature_subtype")),
+            "nhd_visibility": _feature_value(row, ("visibility", "visibilityfilter", "VisibilityFilter", "review_assist_quality_flag")),
         }.items()
         if value
     }

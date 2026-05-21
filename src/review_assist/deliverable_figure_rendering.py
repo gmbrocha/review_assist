@@ -24,12 +24,14 @@ from .maps import SOURCE_CATEGORY_COLORS
 COMPARISON_UNIT_FALLBACK_COLORS = [
     "#004CFF",
     "#FF2A00",
-    "#00E676",
-    "#8A00FF",
-    "#111111",
     "#FFD400",
-    "#008EAA",
+    "#8A00FF",
+    "#00D5FF",
     "#FF00FF",
+    "#FF007A",
+    "#7B2CBF",
+    "#FF7A00",
+    "#0033AA",
 ]
 COMPARISON_UNIT_LINE_WIDTH = 1.2
 COMPARISON_UNIT_LINE_HALO_WIDTH = 0.0
@@ -41,6 +43,24 @@ IMAGERY_RISK_HUE_MAX = 170.0
 IMAGERY_RISK_LUMINANCE_MAX = 0.78
 IMAGERY_SAFE_MIN_SATURATION = 0.72
 IMAGERY_SAFE_MIN_VALUE = 0.78
+THEMATIC_MIN_SATURATION = 0.66
+THEMATIC_MIN_VALUE = 0.68
+THEMATIC_MAX_LOW_SATURATION_LUMINANCE = 0.84
+THEMATIC_PROHIBITED_GREEN_HUE_MIN = 85.0
+THEMATIC_PROHIBITED_GREEN_HUE_MAX = 165.0
+THEMATIC_EARTH_TONE_HUE_MIN = 25.0
+THEMATIC_EARTH_TONE_HUE_MAX = 80.0
+THEMATIC_FALLBACK_COLORS = [
+    "#FF00FF",
+    "#0057FF",
+    "#FF2A00",
+    "#8A00FF",
+    "#00D5FF",
+    "#FFD400",
+    "#FF007A",
+    "#7B2CBF",
+    "#FF7A00",
+]
 MAX_LEGEND_LABEL_LENGTH = 26
 LEGEND_COLLAR_PADDING_FRACTION = 0.045
 LEGEND_COLLAR_MAX_FRACTION = 0.52
@@ -81,47 +101,47 @@ SOURCE_LABEL_OVERRIDES = {
     "usgs_nhd_waterbodies": "NHD Waterbodies",
 }
 SOURCE_STYLE_OVERRIDES = {
-    "epa_envirofacts_echo": {"color": "#E15759", "marker": "o"},
-    "epa_frs_facilities_ms": {"color": "#6A00A8", "marker": "D"},
-    "maris_brownfields": {"color": "#E66100", "marker": "s"},
+    "epa_envirofacts_echo": {"color": "#FF2A00", "marker": "o"},
+    "epa_frs_facilities_ms": {"color": "#8A00FF", "marker": "D"},
+    "maris_brownfields": {"color": "#FF7A00", "marker": "s"},
     "maris_npdes_facilities": {"color": "#0057B8", "marker": "^"},
-    "maris_solid_waste_landfills": {"color": "#111111", "marker": "P"},
+    "maris_solid_waste_landfills": {"color": "#FF007A", "marker": "P"},
     "maris_superfund_sites": {"color": "#D73027", "marker": "*"},
     "maris_tri_facilities": {"color": "#C51B7D", "marker": "h"},
-    "maris_underground_storage_tanks": {"color": "#008EAA", "marker": "v"},
-    "mdeq_environmental_context": {"color": "#8C564B", "marker": "X"},
-    "mississippi_oil_gas_wells": {"color": "#111111", "marker": "X"},
-    "fema_nfhl_flood_hazard": {"color": "#6A00A8", "marker": "o"},
+    "maris_underground_storage_tanks": {"color": "#00D5FF", "marker": "v"},
+    "mdeq_environmental_context": {"color": "#7B2CBF", "marker": "X"},
+    "mississippi_oil_gas_wells": {"color": "#FFB000", "marker": "X"},
+    "fema_nfhl_flood_hazard": {"color": "#8A00FF", "marker": "o"},
     "maris_public_cultural_context": {"color": "#FF00FF", "marker": "P", "marker_size": 13, "point_alpha": 0.82},
-    "maris_community_facilities": {"color": "#E66100", "marker": "o"},
+    "maris_community_facilities": {"color": "#FF7A00", "marker": "o"},
     "mdeq_303d_impaired_waters": {
-        "color": "#D55E00",
+        "color": "#FF2A00",
         "marker": "s",
-        "line_width": 1.08,
-        "line_alpha": 0.94,
-        "polygon_alpha": 0.28,
-        "polygon_line_width": 0.58,
+        "line_width": 1.24,
+        "line_alpha": 0.98,
+        "polygon_alpha": 0.34,
+        "polygon_line_width": 0.72,
     },
-    "mdeq_public_water_supply_wells": {"color": "#0072B2", "marker": "P", "marker_size": 13, "point_alpha": 0.88},
-    "usfws_nwi_wetlands": {"color": "#FFE500", "marker": "o", "line_width": 0.86, "line_alpha": 0.9, "polygon_alpha": 0.4, "polygon_line_width": 0.5},
-    "usgs_nhd_flowlines": {"color": "#00E5FF", "marker": "o", "line_width": 0.92, "line_alpha": 0.92},
-    "usgs_nhd_hydrography": {"color": "#00E5FF", "marker": "o", "line_width": 0.92, "line_alpha": 0.92},
-    "usgs_nhd_waterbodies": {"color": "#00FF66", "marker": "o", "line_width": 0.78, "line_alpha": 0.86, "polygon_alpha": 0.36, "polygon_line_width": 0.48},
+    "mdeq_public_water_supply_wells": {"color": "#0057FF", "marker": "P", "marker_size": 13, "point_alpha": 0.88},
+    "usfws_nwi_wetlands": {"color": "#FFE500", "marker": "o", "line_width": 0.9, "line_alpha": 0.94, "polygon_alpha": 0.42, "polygon_line_width": 0.56},
+    "usgs_nhd_flowlines": {"color": "#00D5FF", "marker": "o", "line_width": 0.86, "line_alpha": 0.82},
+    "usgs_nhd_hydrography": {"color": "#00D5FF", "marker": "o", "line_width": 0.86, "line_alpha": 0.82},
+    "usgs_nhd_waterbodies": {"color": "#0057FF", "marker": "o", "line_width": 0.7, "line_alpha": 0.72, "polygon_alpha": 0.24, "polygon_line_width": 0.42},
     "usgs_nhd_other_areas": {"color": "#FF00FF", "marker": "o", "line_width": 0.78, "line_alpha": 0.86, "polygon_alpha": 0.32, "polygon_line_width": 0.46},
-    "local_utility_infrastructure": {"color": "#9467BD", "marker": "s"},
-    "mdot_transportation_context": {"color": "#5C677D", "marker": "o"},
+    "local_utility_infrastructure": {"color": "#7B2CBF", "marker": "s"},
+    "mdot_transportation_context": {"color": "#0057FF", "marker": "o"},
 }
 SOURCE_CATEGORY_IMAGERY_SAFE_COLORS = {
-    "wetlands_waterbodies": "#0072B2",
-    "hydrography_crossings": "#0057B8",
-    "flood_hazard": "#6A00A8",
-    "water_quality": "#D55E00",
+    "wetlands_waterbodies": "#FFE500",
+    "hydrography_crossings": "#00D5FF",
+    "flood_hazard": "#8A00FF",
+    "water_quality": "#FF2A00",
     "species_habitat": "#7B2CBF",
     "regulated_facilities": "#D73027",
-    "soils": "#8C564B",
-    "community_socioeconomic": "#E66100",
+    "soils": "#7B2CBF",
+    "community_socioeconomic": "#FF7A00",
     "cultural_historic": "#F72585",
-    "transportation_utilities": "#9467BD",
+    "transportation_utilities": "#0057FF",
 }
 
 
@@ -436,12 +456,17 @@ def source_layer_style_record(layer: dict[str, Any], index: int) -> dict[str, An
     source_id = str(layer.get("source_id") or "")
     override = SOURCE_STYLE_OVERRIDES.get(source_id, {})
     category = str(layer.get("source_category", ""))
-    color = str(
+    raw_color = str(
         override.get("color")
         or SOURCE_CATEGORY_IMAGERY_SAFE_COLORS.get(category)
         or SOURCE_CATEGORY_COLORS.get(category)
         or _source_color(index)
     )
+    color = _source_thematic_color(raw_color, source_id=source_id, category=category, index=index)
+    raw_normalized = _normalize_hex_color(raw_color)
+    style_source = "source_id_override" if override else "category_or_sequence"
+    if raw_normalized != color:
+        style_source = f"{style_source}_palette_fallback"
     marker = str(override.get("marker") or _source_marker(index))
     feature_count = _feature_count(layer.get("gdf"))
     marker_size = float(override.get("marker_size") or (12 if feature_count <= 50 else 10 if feature_count <= 200 else 8))
@@ -461,7 +486,7 @@ def source_layer_style_record(layer: dict[str, Any], index: int) -> dict[str, An
         "marker_halo_alpha": 0.72,
         "marker_halo_size_delta": 6,
         "point_alpha": float(override.get("point_alpha") or 0.68),
-        "style_source": "source_id_override" if override else "category_or_sequence",
+        "style_source": style_source,
     }
 
 
@@ -480,7 +505,7 @@ def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, style: dict[str, Any], is_proje
     if gdf.empty:
         return []
     handles: list[Any] = []
-    color = str(style.get("color") or "#6BAA75")
+    color = str(style.get("color") or THEMATIC_FALLBACK_COLORS[0])
     label = str(style.get("label") or "Source layer")
     marker = str(style.get("marker") or "o")
     polygon_gdf = gdf[gdf.geometry.geom_type.str.contains("Polygon", na=False)]
@@ -682,6 +707,56 @@ def _hex_to_rgb(color: str) -> tuple[int, int, int] | None:
     if len(text) != 6 or not re.fullmatch(r"[0-9a-fA-F]{6}", text):
         return None
     return int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)
+
+
+def _normalize_hex_color(color: str) -> str | None:
+    rgb = _hex_to_rgb(color)
+    if rgb is None:
+        return None
+    return f"#{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
+
+
+def _source_thematic_color(color: str, *, source_id: str, category: str, index: int) -> str:
+    normalized = _normalize_hex_color(color)
+    if normalized and _thematic_color_is_allowed(normalized):
+        return normalized
+    return _thematic_fallback_color(f"{source_id}:{category}", index)
+
+
+def _thematic_fallback_color(key: str, index: int) -> str:
+    if index < len(THEMATIC_FALLBACK_COLORS):
+        ordered = THEMATIC_FALLBACK_COLORS[index:] + THEMATIC_FALLBACK_COLORS[:index]
+    else:
+        digest = hashlib.sha1(key.encode("utf-8")).hexdigest()
+        offset = int(digest[:8], 16) % len(THEMATIC_FALLBACK_COLORS)
+        ordered = THEMATIC_FALLBACK_COLORS[offset:] + THEMATIC_FALLBACK_COLORS[:offset]
+    for color in ordered:
+        normalized = _normalize_hex_color(color)
+        if normalized and _thematic_color_is_allowed(normalized):
+            return normalized
+    return "#FF00FF"
+
+
+def _thematic_color_is_allowed(color: str) -> bool:
+    rgb = _hex_to_rgb(color)
+    if rgb is None:
+        return False
+    red, green, blue = rgb
+    hue = _hue_degrees(red, green, blue)
+    saturation = _saturation(red, green, blue)
+    value = _color_value(red, green, blue)
+    luminance = _relative_luminance(red, green, blue)
+    if max(red, green, blue) <= 35:
+        return False
+    if saturation < THEMATIC_MIN_SATURATION or value < THEMATIC_MIN_VALUE:
+        return False
+    if luminance > THEMATIC_MAX_LOW_SATURATION_LUMINANCE and saturation < 0.9:
+        return False
+    if THEMATIC_PROHIBITED_GREEN_HUE_MIN <= hue <= THEMATIC_PROHIBITED_GREEN_HUE_MAX:
+        return False
+    if THEMATIC_EARTH_TONE_HUE_MIN <= hue <= THEMATIC_EARTH_TONE_HUE_MAX and (saturation < 0.88 or value < 0.86):
+        return False
+    return True
 
 
 def _hue_degrees(red: int, green: int, blue: int) -> float:
@@ -1189,8 +1264,7 @@ def _dedupe_handles(handles: list[Any]) -> list[Any]:
 
 
 def _source_color(index: int) -> str:
-    colors = ["#C51B7D", "#0057B8", "#D73027", "#6A00A8", "#008EAA", "#111111"]
-    return colors[index % len(colors)]
+    return THEMATIC_FALLBACK_COLORS[index % len(THEMATIC_FALLBACK_COLORS)]
 
 
 def _source_marker(index: int) -> str:
