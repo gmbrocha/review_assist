@@ -40,12 +40,18 @@ EVIDENCE_CLASSES = {
     "failed_or_missing",
     "test_fixture_blocked",
 }
+SOURCE_ACQUISITION_CAVEAT_CODES = {
+    "source_download_failed",
+    "source_not_downloaded",
+    "source_unavailable",
+}
 SOURCE_ID_CATEGORY_HINTS = {
     "usfws_nwi_wetlands": "wetlands_waterbodies",
     "usgs_nhd_hydrography": "hydrography_crossings",
     "usgs_nhd_flowlines": "hydrography_crossings",
     "usgs_nhd_waterbodies": "hydrography_crossings",
     "usgs_nhd_other_areas": "hydrography_crossings",
+    "mdeq_303d_impaired_waters": "water_quality",
     "fema_nfhl_flood_hazard": "flood_hazard",
     "maris_public_cultural_context": "cultural_historic",
     "mdah_public_historic_resources": "cultural_historic",
@@ -792,7 +798,7 @@ def _source_gap_status(source_status: dict[str, Any], category: str) -> list[dic
                 "status": item.get("status"),
                 "source_ids": _source_ids_for_status(item),
                 "notes": item.get("notes", ""),
-                "uncertainty_flags": _string_list(item.get("uncertainty_flags", [])),
+                "uncertainty_flags": _string_list(item.get("report_caveat_flags", item.get("uncertainty_flags", []))),
             }
         )
     return records[:12]
@@ -910,7 +916,7 @@ def _validation_issues(
     deliverable_figures: dict[str, Any],
 ) -> list[dict[str, Any]]:
     issues = list(_dict_list(data_lineage.get("validation_issues", [])))
-    issues.extend(_dict_list(source_acquisition.get("validation_issues", [])))
+    issues.extend(_report_facing_source_acquisition_issues(source_acquisition, source_status))
     issues.extend(_dict_list(constraints.get("validation_issues", [])))
     for source in _dict_list(constraints.get("sources", [])):
         source_id = str(source.get("source_id", ""))
@@ -932,6 +938,48 @@ def _validation_issues(
                 }
             )
     return issues
+
+
+def _report_facing_source_acquisition_issues(source_acquisition: dict[str, Any], source_status: dict[str, Any]) -> list[dict[str, Any]]:
+    effective_by_source = _effective_source_status_by_id(source_status)
+    return [
+        issue
+        for issue in _dict_list(source_acquisition.get("validation_issues", []))
+        if not _source_acquisition_issue_superseded(issue, effective_by_source)
+    ]
+
+
+def _effective_source_status_by_id(source_status: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    effective: dict[str, dict[str, Any]] = {}
+    for category_status in _dict_list(source_status.get("statuses", [])):
+        for detail in _dict_list(category_status.get("source_details", [])):
+            source_id = str(detail.get("source_id") or "")
+            if not source_id:
+                continue
+            effective[source_id] = {
+                "status": detail.get("status"),
+                "category_status": category_status.get("status"),
+                "report_caveat_flags": _string_list(detail.get("report_caveat_flags", [])),
+                "category_report_caveat_flags": _string_list(category_status.get("report_caveat_flags", [])),
+            }
+    return effective
+
+
+def _source_acquisition_issue_superseded(issue: dict[str, Any], effective_by_source: dict[str, dict[str, Any]]) -> bool:
+    code = str(issue.get("code") or "")
+    if code not in SOURCE_ACQUISITION_CAVEAT_CODES:
+        return False
+    source_id = str(issue.get("source_id") or "")
+    if not source_id:
+        return False
+    effective = effective_by_source.get(source_id)
+    if effective is None:
+        return False
+    report_flags = {
+        *_string_list(effective.get("report_caveat_flags", [])),
+        *_string_list(effective.get("category_report_caveat_flags", [])),
+    }
+    return code not in report_flags
 
 
 def _load_optional_json(path: Path) -> dict[str, Any]:

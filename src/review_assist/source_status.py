@@ -27,6 +27,40 @@ from .source_warehouse import SourceWarehouseError, maybe_load_seed_source_manif
 
 SOURCE_STATUS_PATH = Path("source_status/source_status_set.json")
 SOURCE_ACQUISITION_PATH = Path("source_acquisition/source_acquisition_manifest.json")
+CURRENT_SOURCE_STATUSES = {"downloaded", "local_materialized", "provided_in_input", "registered_local"}
+LOGICAL_ROLLUP_SATISFIERS = {
+    "usgs_nhd_hydrography": {
+        "usgs_nhd_flowlines",
+        "usgs_nhd_other_areas",
+        "usgs_nhd_waterbodies",
+    },
+    "epa_envirofacts_echo": {
+        "epa_frs_facilities_ms",
+        "maris_brownfields",
+        "maris_npdes_facilities",
+        "maris_solid_waste_landfills",
+        "maris_superfund_sites",
+        "maris_tri_facilities",
+        "maris_underground_storage_tanks",
+        "mississippi_oil_gas_wells",
+    },
+    "mdeq_environmental_context": {
+        "epa_frs_facilities_ms",
+        "maris_brownfields",
+        "maris_npdes_facilities",
+        "maris_solid_waste_landfills",
+        "maris_superfund_sites",
+        "maris_tri_facilities",
+        "maris_underground_storage_tanks",
+        "mississippi_oil_gas_wells",
+    },
+}
+VISUAL_CONTEXT_SATISFIERS = {
+    "google_earth_visual_context": {
+        MARIS_NAIP_SOURCE_ID,
+        USDA_NAIP_SOURCE_ID,
+    }
+}
 
 
 class SourceStatusError(RuntimeError):
@@ -47,11 +81,9 @@ def resolve_source_status_set(project_dir: Path) -> dict[str, Any]:
     output_path = project_dir / SOURCE_STATUS_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    categories = list(report_profile.required_categories) + [
-        category for category in report_profile.optional_categories if category not in report_profile.required_categories
-    ]
     catalog_by_category = _catalog_by_category(catalog)
     project_sources = registry.by_source_id()
+    categories = _status_categories_for_project(report_profile, catalog, project_sources)
     latest_download_status = _latest_download_status(_load_download_records(project_dir))
     basemap_selection = select_project_basemaps(project_dir)
     validation_issues = _unknown_project_sources(project_sources, catalog)
@@ -114,6 +146,7 @@ def _category_status(
         )
         for source in catalog_sources
     ]
+    source_details = _reconcile_effective_source_details(source_details)
 
     if downloaded:
         status = "downloaded"
@@ -198,8 +231,46 @@ def _category_status(
         "local_paths": _local_paths(project_dir, local_ready),
         "source_details": source_details,
         "uncertainty_flags": flags,
+        "report_caveat_flags": _effective_category_report_caveat_flags(status, flags),
         "notes": notes,
     }
+
+
+def effective_source_status(project_dir: Path, source_id: str) -> dict[str, Any]:
+    """Return the current effective source detail for one source ID.
+
+    Acquisition history remains available in source acquisition manifests; this
+    helper reports the effective current status used for report/GPT-facing
+    caveats after local materialization and logical rollup reconciliation.
+    """
+
+    project_dir = project_dir.resolve()
+    path = project_dir / SOURCE_STATUS_PATH
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise SourceStatusError(f"Invalid source status JSON: {path}: {exc}") from exc
+        if not isinstance(data, dict):
+            raise SourceStatusError(f"Source status artifact must be a JSON object: {path}")
+    else:
+        data = resolve_source_status_set(project_dir)
+    for record in data.get("statuses", []):
+        if not isinstance(record, dict):
+            continue
+        for detail in record.get("source_details", []):
+            if isinstance(detail, dict) and detail.get("source_id") == source_id:
+                return {
+                    "source_id": source_id,
+                    "category": record.get("category"),
+                    "status": detail.get("status"),
+                    "category_status": record.get("status"),
+                    "uncertainty_flags": _string_list(detail.get("uncertainty_flags", [])),
+                    "report_caveat_flags": _string_list(detail.get("report_caveat_flags", [])),
+                    "notes": detail.get("notes", ""),
+                    "satisfied_by_source_ids": _string_list(detail.get("satisfied_by_source_ids", [])),
+                }
+    raise SourceStatusError(f"Source ID is not present in the resolved source status set: {source_id}")
 
 
 def _catalog_by_category(catalog: SourceCatalog) -> dict[str, list[SourceDefinition]]:
@@ -207,6 +278,27 @@ def _catalog_by_category(catalog: SourceCatalog) -> dict[str, list[SourceDefinit
     for source in catalog.sources.values():
         grouped[source.category].append(source)
     return {category: sorted(items, key=lambda source: source.source_id) for category, items in grouped.items()}
+
+
+def _status_categories_for_project(
+    report_profile: Any,
+    catalog: SourceCatalog,
+    project_sources: dict[str, ProjectSource],
+) -> list[str]:
+    categories = list(report_profile.required_categories) + [
+        category for category in report_profile.optional_categories if category not in report_profile.required_categories
+    ]
+    seen = set(categories)
+    project_registered_categories = {
+        str(getattr(catalog.sources.get(source_id), "category", "") or getattr(project_source, "source_category", "") or "")
+        for source_id, project_source in project_sources.items()
+        if project_source.enabled and source_id in catalog.sources
+    }
+    for category in sorted(project_registered_categories):
+        if category and category not in seen:
+            categories.append(category)
+            seen.add(category)
+    return categories
 
 
 def _unknown_project_sources(project_sources: dict[str, ProjectSource], catalog: SourceCatalog) -> list[dict[str, str]]:
@@ -323,16 +415,16 @@ def _source_detail_status(
         return _basemap_detail_status(basemap_selection)
     if source.source_id == USDA_NAIP_SOURCE_ID:
         return _project_naip_detail_status(project_dir)
-    if latest_download_status.get(source.source_id) == "failed":
-        return "failed", "The latest supported public download attempt failed; the workflow can continue with a caveat.", [
-            "source_download_failed",
-            "source_unavailable",
-        ]
     if requirement == "optional":
         return "optional", "Optional source is not required for this profile.", []
     warehouse_status = _warehouse_detail_status(source)
     if warehouse_status is not None:
         return warehouse_status
+    if latest_download_status.get(source.source_id) == "failed":
+        return "failed", "The latest supported public download attempt failed; the workflow can continue with a caveat.", [
+            "source_download_failed",
+            "source_unavailable",
+        ]
     if source.source_id == "census_tiger_acs" and not os.environ.get("CENSUS_API_KEY"):
         return "stubbed", "Census TIGER/ACS setup is configured, but CENSUS_API_KEY is not set for future ACS API calls.", [
             "missing_census_api_key",
@@ -395,6 +487,55 @@ def _warehouse_detail_status(source: SourceDefinition) -> tuple[str, str, list[s
         "Local source warehouse data is present, but the manifest marks it as not analysis-ready for deterministic materialization.",
         ["source_present_not_materialized"],
     )
+
+
+def _reconcile_effective_source_details(source_details: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    status_by_source = {
+        str(detail.get("source_id")): str(detail.get("status"))
+        for detail in source_details
+        if isinstance(detail, dict) and detail.get("source_id")
+    }
+    current_source_ids = {
+        source_id
+        for source_id, status in status_by_source.items()
+        if status in CURRENT_SOURCE_STATUSES
+    }
+    reconciled: list[dict[str, Any]] = []
+    for detail in source_details:
+        source_id = str(detail.get("source_id") or "")
+        item = dict(detail)
+        rollup_satisfied_by = sorted(LOGICAL_ROLLUP_SATISFIERS.get(source_id, set()).intersection(current_source_ids))
+        visual_satisfied_by = sorted(VISUAL_CONTEXT_SATISFIERS.get(source_id, set()).intersection(current_source_ids))
+        if rollup_satisfied_by:
+            item["status"] = "logical_rollup_satisfied"
+            item["uncertainty_flags"] = []
+            item["report_caveat_flags"] = []
+            item["satisfied_by_source_ids"] = rollup_satisfied_by
+            item["notes"] = (
+                "Logical/download rollup is satisfied for report-facing caveats by current project-local "
+                f"source layer(s): {', '.join(rollup_satisfied_by)}."
+            )
+        elif visual_satisfied_by:
+            item["status"] = "visual_context_satisfied"
+            item["uncertainty_flags"] = []
+            item["report_caveat_flags"] = []
+            item["satisfied_by_source_ids"] = visual_satisfied_by
+            item["notes"] = (
+                "Optional visual-review context is not treated as required authoritative evidence because "
+                f"current basemap/imagery context is available from: {', '.join(visual_satisfied_by)}."
+            )
+        else:
+            item["report_caveat_flags"] = _string_list(item.get("uncertainty_flags", []))
+        reconciled.append(item)
+    return reconciled
+
+
+def _effective_category_report_caveat_flags(status: str, flags: list[str]) -> list[str]:
+    if status in {"downloaded", "provided_locally", "local_materialized"}:
+        return []
+    if status == "optional":
+        return []
+    return sorted(set(flags))
 
 
 def _basemap_detail_status(basemap_selection: dict[str, Any] | None) -> tuple[str, str, list[str]]:
@@ -464,3 +605,9 @@ def _gated_source(source: SourceDefinition) -> bool:
 def _manual_source(source: SourceDefinition) -> bool:
     manual_methods = {"manual_document", "manual_lookup", "manual_download", "reviewer_supplied"}
     return bool(manual_methods.intersection(source.access_methods))
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]

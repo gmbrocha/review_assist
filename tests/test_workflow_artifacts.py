@@ -9,10 +9,14 @@ import pytest
 from shapely.geometry import Point
 
 from review_assist.cli import main
+from review_assist.deliverable_items import generate_deliverable_items
+from review_assist.evidence_package import build_evidence_package
 from review_assist.project_context import ProjectContextError, generate_project_context
 from review_assist.projects import load_project_manifest
 from review_assist.report_profiles import ReportProfileError, load_report_profile_config, resolve_report_profile
-from review_assist.source_status import _category_status, resolve_source_status_set
+from review_assist.data_lineage import build_data_lineage
+from review_assist.review_queue import generate_review_queue
+from review_assist.source_status import _category_status, effective_source_status, resolve_source_status_set
 
 
 def kml_document(body: str) -> bytes:
@@ -69,6 +73,10 @@ def write_project(tmp_path: Path, *, project_type: str = "alternatives_review", 
 
 
 def write_registry(project_dir: Path, source_id: str, source_path: str | None, *, enabled: bool = True) -> None:
+    write_registry_sources(project_dir, [(source_id, source_path, enabled, "test")])
+
+
+def write_registry_sources(project_dir: Path, sources: list[tuple[str, str | None, bool, str]]) -> None:
     (project_dir / "config" / "sources.json").write_text(
         json.dumps(
             {
@@ -82,8 +90,9 @@ def write_registry(project_dir: Path, source_id: str, source_path: str | None, *
                         "role": "context",
                         "buffer_feet": None,
                         "notes": "",
-                        "status": "test",
+                        "status": status,
                     }
+                    for source_id, source_path, enabled, status in sources
                 ],
             },
             indent=2,
@@ -96,6 +105,39 @@ def write_registry(project_dir: Path, source_id: str, source_path: str | None, *
 def write_layer(path: Path) -> Path:
     gdf = gpd.GeoDataFrame([{"name": "Source Feature"}], geometry=[Point(-89.995, 32.0)], crs="EPSG:4326")
     path.write_text(gdf.to_json(drop_id=True), encoding="utf-8")
+    return path
+
+
+def write_failed_acquisition_manifest(project_dir: Path, source_id: str = "usfws_nwi_wetlands") -> Path:
+    path = project_dir / "source_acquisition" / "source_acquisition_manifest.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "output_path": str(path),
+                "download_count": 1,
+                "downloads": [
+                    {
+                        "source_id": source_id,
+                        "source_name": "National Wetlands Inventory",
+                        "source_category": "wetlands_waterbodies",
+                        "status": "failed",
+                        "output_path": str(project_dir / "source_acquisition" / "downloads" / f"{source_id}.geojson"),
+                    }
+                ],
+                "validation_issues": [
+                    {
+                        "severity": "warning",
+                        "code": "source_download_failed",
+                        "message": "Unable to download National Wetlands Inventory source.",
+                        "source_id": source_id,
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return path
 
 
@@ -177,6 +219,130 @@ def test_source_status_marks_local_registered_source_provided(tmp_path: Path) ->
     wetlands = status_by_category(status_set, "wetlands_waterbodies")
     assert wetlands["status"] == "provided_locally"
     assert str(layer_path) in wetlands["local_paths"]
+
+
+def test_effective_source_status_suppresses_stale_failed_acquisition_when_local_materialized(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    layer_path = write_layer(project_dir / "wetlands.geojson")
+    write_registry_sources(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson", True, "local_materialized")])
+    acquisition_dir = project_dir / "source_acquisition"
+    acquisition_dir.mkdir()
+    (acquisition_dir / "source_acquisition_manifest.json").write_text(
+        json.dumps(
+            {
+                "downloads": [
+                    {
+                        "source_id": "usfws_nwi_wetlands",
+                        "source_name": "National Wetlands Inventory",
+                        "source_category": "wetlands_waterbodies",
+                        "status": "failed",
+                        "output_path": str(project_dir / "source_acquisition" / "downloads" / "usfws_nwi_wetlands.geojson"),
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status_set = resolve_source_status_set(project_dir)
+    lineage = build_data_lineage(project_dir)
+    effective = effective_source_status(project_dir, "usfws_nwi_wetlands")
+
+    wetlands = status_by_category(status_set, "wetlands_waterbodies")
+    assert wetlands["status"] == "provided_locally"
+    assert wetlands["report_caveat_flags"] == []
+    assert effective["status"] == "local_materialized"
+    assert effective["report_caveat_flags"] == []
+    assert str(layer_path) in wetlands["local_paths"]
+    assert not any(
+        record.get("source_id") == "usfws_nwi_wetlands" and record.get("lineage_type") == "missing_stub"
+        for record in lineage["records"]
+    )
+    assert any(issue["code"] == "stale_acquisition_record_ignored" for issue in lineage["validation_issues"])
+
+
+def test_stale_source_acquisition_failure_is_not_report_facing_when_source_is_local_materialized(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(project_dir / "wetlands.geojson")
+    write_registry_sources(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson", True, "local_materialized")])
+    acquisition_path = write_failed_acquisition_manifest(project_dir)
+
+    status_set = resolve_source_status_set(project_dir)
+    evidence = build_evidence_package(project_dir)
+    deliverable_items = generate_deliverable_items(project_dir, gpt_drafting=False)
+    review_queue = generate_review_queue(project_dir)
+
+    acquisition_history = json.loads(acquisition_path.read_text(encoding="utf-8"))
+    assert status_by_category(status_set, "wetlands_waterbodies")["report_caveat_flags"] == []
+    assert any(issue["code"] == "source_download_failed" for issue in acquisition_history["validation_issues"])
+    assert "source_download_failed" not in json.dumps(evidence)
+    assert "source_download_failed" not in json.dumps(deliverable_items)
+    assert "source_download_failed" not in json.dumps(review_queue)
+    assert any(issue["code"] == "stale_acquisition_record_ignored" for issue in evidence["validation_issues"])
+
+
+def test_true_failed_required_source_acquisition_remains_report_facing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("review_assist.source_status.maybe_load_seed_source_manifest", lambda source_id: None)
+    project_dir = write_project(tmp_path)
+    write_failed_acquisition_manifest(project_dir)
+
+    status_set = resolve_source_status_set(project_dir)
+    evidence = build_evidence_package(project_dir)
+
+    wetlands = status_by_category(status_set, "wetlands_waterbodies")
+    assert wetlands["status"] == "failed"
+    assert "source_download_failed" in wetlands["report_caveat_flags"]
+    assert any(issue["code"] == "source_download_failed" for issue in evidence["validation_issues"])
+
+
+def test_logical_rollup_source_status_is_satisfied_by_specific_project_layers(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(project_dir / "flowlines.geojson")
+    write_layer(project_dir / "waterbodies.geojson")
+    write_layer(project_dir / "other_areas.geojson")
+    write_registry_sources(
+        project_dir,
+        [
+            ("usgs_nhd_flowlines", "flowlines.geojson", True, "local_materialized"),
+            ("usgs_nhd_waterbodies", "waterbodies.geojson", True, "local_materialized"),
+            ("usgs_nhd_other_areas", "other_areas.geojson", True, "local_materialized"),
+        ],
+    )
+
+    resolve_source_status_set(project_dir)
+    effective = effective_source_status(project_dir, "usgs_nhd_hydrography")
+
+    assert effective["status"] == "logical_rollup_satisfied"
+    assert effective["report_caveat_flags"] == []
+    assert effective["satisfied_by_source_ids"] == [
+        "usgs_nhd_flowlines",
+        "usgs_nhd_other_areas",
+        "usgs_nhd_waterbodies",
+    ]
+
+
+def test_regulated_facility_rollups_are_satisfied_by_specific_project_layers(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(project_dir / "frs.geojson")
+    write_layer(project_dir / "ust.geojson")
+    write_registry_sources(
+        project_dir,
+        [
+            ("epa_frs_facilities_ms", "frs.geojson", True, "local_materialized"),
+            ("maris_underground_storage_tanks", "ust.geojson", True, "local_materialized"),
+        ],
+    )
+
+    resolve_source_status_set(project_dir)
+    echo = effective_source_status(project_dir, "epa_envirofacts_echo")
+    mdeq = effective_source_status(project_dir, "mdeq_environmental_context")
+
+    assert echo["status"] == "logical_rollup_satisfied"
+    assert echo["report_caveat_flags"] == []
+    assert "epa_frs_facilities_ms" in echo["satisfied_by_source_ids"]
+    assert mdeq["status"] == "logical_rollup_satisfied"
+    assert mdeq["report_caveat_flags"] == []
+    assert "maris_underground_storage_tanks" in mdeq["satisfied_by_source_ids"]
 
 
 def test_source_status_marks_public_candidate_downloadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

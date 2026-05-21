@@ -189,7 +189,7 @@ def _source_context(source_status: dict[str, Any], comparison_unit_constraints: 
             continue
         by_category[category] = record
         source_ids_by_category[category].update(_string_list(record.get("source_ids", [])))
-        flags_by_category[category].update(_string_list(record.get("uncertainty_flags", [])))
+        flags_by_category[category].update(_string_list(record.get("report_caveat_flags", record.get("uncertainty_flags", []))))
         for detail in record.get("source_details", []):
             if not isinstance(detail, dict):
                 continue
@@ -198,7 +198,7 @@ def _source_context(source_status: dict[str, Any], comparison_unit_constraints: 
             if source_id:
                 source_detail_status[source_id] = status
             source_ids_by_category[category].add(source_id)
-            flags_by_category[category].update(_string_list(detail.get("uncertainty_flags", [])))
+            flags_by_category[category].update(_string_list(detail.get("report_caveat_flags", detail.get("uncertainty_flags", []))))
             if status in USABLE_SOURCE_STATUSES:
                 usable_source_ids_by_category[category].add(source_id)
 

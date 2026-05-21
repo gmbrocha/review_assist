@@ -218,6 +218,46 @@ def test_deliverable_wetlands_table_uses_exact_columns_and_deduplicated_counts(t
     assert "county or regional context" in census["interpretation_scope_label"]
 
 
+def test_wetlands_table_uses_effective_source_status_not_logical_rollup_noise(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_layer(
+        project_dir / "flowlines.geojson",
+        [LineString([(-89.996, 31.999), (-89.996, 32.001)])],
+        [{"gnis_name": "Stream A", "Permanent_Identifier": "stream-1", "FTYPE": "StreamRiver"}],
+    )
+    write_layer(
+        project_dir / "waterbodies.geojson",
+        [Polygon([(-89.997, 32.0015), (-89.994, 32.0015), (-89.994, 32.0025), (-89.997, 32.0025), (-89.997, 32.0015)])],
+        [{"gnis_name": "Pond A", "Permanent_Identifier": "waterbody-1", "FTYPE": "LakePond"}],
+    )
+    write_layer(
+        project_dir / "other_areas.geojson",
+        [Polygon([(-89.999, 32.003), (-89.998, 32.003), (-89.998, 32.004), (-89.999, 32.004), (-89.999, 32.003)])],
+        [{"gnis_name": "Area A", "Permanent_Identifier": "other-area-1", "FTYPE": "Area"}],
+    )
+    write_registry(
+        project_dir,
+        [
+            ("usfws_nwi_wetlands", "wetlands.geojson"),
+            ("usgs_nhd_flowlines", "flowlines.geojson"),
+            ("usgs_nhd_waterbodies", "waterbodies.geojson"),
+            ("usgs_nhd_other_areas", "other_areas.geojson"),
+        ],
+    )
+
+    tables = generate_deliverable_tables(project_dir)
+    wetlands = table_by_id(tables, "table-wetlands-waterbodies")
+
+    assert wetlands["is_stub"] is False
+    assert "source_not_downloaded" not in wetlands["uncertainty_flags"]
+    assert "hydrography_source_unavailable" not in wetlands["uncertainty_flags"]
+
+
 def test_deliverable_flood_table_uses_buffered_corridor_acreage(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     write_layer(

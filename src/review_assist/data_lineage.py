@@ -174,6 +174,18 @@ def _download_records(
             # The registry/local source record is the real lineage record. The
             # download attempt only explains why no public download replaced it.
             continue
+        elif _download_superseded_by_active_local_source(project_dir, download, registry_sources):
+            validation_issues.append(
+                _issue(
+                    "warning",
+                    "stale_acquisition_record_ignored",
+                    (
+                        f"Ignored stale {status or 'non-downloaded'} acquisition lineage for {source_id}; "
+                        "the current project registry enables a valid local source for that source ID."
+                    ),
+                )
+            )
+            continue
         elif authenticity == "test_fixture":
             lineage_type = "test_or_mock"
         else:
@@ -260,6 +272,19 @@ def _download_is_active(
         return False
     output_path = _resolved_output_path(project_dir, download.get("output_path"))
     return output_path is None or registry_path.resolve() == output_path.resolve()
+
+
+def _download_superseded_by_active_local_source(
+    project_dir: Path,
+    download: dict[str, Any],
+    registry_sources: dict[str, ProjectSource],
+) -> bool:
+    source_id = str(download.get("source_id", ""))
+    source = registry_sources.get(source_id)
+    if source is None or source.access_method != "local_file":
+        return False
+    registry_path = resolve_project_source_path(project_dir, source)
+    return bool(registry_path and registry_path.exists())
 
 
 def _resolved_output_path(project_dir: Path, value: Any) -> Path | None:

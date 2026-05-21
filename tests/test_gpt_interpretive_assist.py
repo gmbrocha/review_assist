@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from review_assist.cli import main
+from review_assist.deliverable_items import generate_deliverable_items
+from review_assist.evidence_package import build_evidence_package
 from review_assist.export_report import ExportGateError, export_report
 from review_assist.gpt_interpretive_assist import (
     GPT_INTERPRETIVE_CACHE_PATH,
@@ -16,6 +18,7 @@ from review_assist.gpt_interpretive_assist import (
 )
 from review_assist.populate_for_review import populate_for_review
 from review_assist.report_section_policy import load_report_section_policy
+from review_assist.review_queue import generate_review_queue
 from review_assist.review_queue import load_review_queue
 from review_assist.review_queue import update_review_item
 from review_assist.section_drafting import SectionDraftRequest
@@ -28,6 +31,40 @@ def _source_backed_project(tmp_path: Path) -> Path:
     add_supported_real_source_inputs(project_dir)
     populate_for_review(project_dir, prepare_sources=True, gpt_drafting=False)
     return project_dir
+
+
+def _add_stale_nwi_acquisition_failure(project_dir: Path) -> None:
+    path = project_dir / "source_acquisition" / "source_acquisition_manifest.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    downloads = [item for item in data.get("downloads", []) if isinstance(item, dict)]
+    validation_issues = [item for item in data.get("validation_issues", []) if isinstance(item, dict)]
+    downloads.append(
+        {
+            "source_id": "usfws_nwi_wetlands",
+            "source_name": "National Wetlands Inventory",
+            "source_category": "wetlands_waterbodies",
+            "status": "failed",
+            "output_path": str(project_dir / "source_acquisition" / "downloads" / "usfws_nwi_wetlands.geojson"),
+        }
+    )
+    validation_issues.append(
+        {
+            "severity": "warning",
+            "code": "source_download_failed",
+            "message": "Unable to download National Wetlands Inventory source.",
+            "source_id": "usfws_nwi_wetlands",
+        }
+    )
+    data.update(
+        {
+            "output_path": str(path),
+            "downloads": downloads,
+            "download_count": len(downloads),
+            "validation_issues": validation_issues,
+        }
+    )
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def _safe_gpt_response(*, model: str, payload: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
@@ -96,6 +133,10 @@ def test_cli_draft_section_candidates_dry_run_reports_planned_sections(
 
 def test_gpt_draft_updates_review_queue_as_unaccepted_candidate_and_caches(tmp_path: Path) -> None:
     project_dir = _source_backed_project(tmp_path)
+    _add_stale_nwi_acquisition_failure(project_dir)
+    build_evidence_package(project_dir)
+    generate_deliverable_items(project_dir, gpt_drafting=False)
+    generate_review_queue(project_dir)
     captured: dict[str, Any] = {}
 
     def capture_response(*, model: str, payload: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
@@ -125,6 +166,8 @@ def test_gpt_draft_updates_review_queue_as_unaccepted_candidate_and_caches(tmp_p
     assert captured["payload"]["section_policy"]["section_id"] == "wetlands-and-waterbodies"
     assert captured["payload"]["style_context"]["not_project_evidence"] is True
     assert captured["payload"]["style_context"]["must_not_be_cited"] is True
+    assert "source_not_downloaded" not in json.dumps(captured["payload"])
+    assert "source_download_failed" not in json.dumps(captured["payload"])
 
 
 def test_gpt_items_remain_export_gated_until_human_review(tmp_path: Path) -> None:
