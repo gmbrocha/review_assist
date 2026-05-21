@@ -137,6 +137,31 @@ def test_deliverable_items_write_matrix_contract_and_dynamic_children(
     assert dynamic_b["title"] == "Alternative B"
     assert dynamic_a["comparison_unit_ids"] == ["comparison-unit-00001"]
     assert dynamic_b["comparison_unit_ids"] == ["comparison-unit-00002"]
+    assert dynamic_a["policy_comparison_unit_expansion"] == "narrative_children"
+    assert dynamic_a["render_decision"] == "include_body"
+    assert dynamic_a["report_body_eligible"] is True
+    assert dynamic_b["policy_comparison_unit_expansion"] == "narrative_children"
+    assert dynamic_b["render_decision"] == "include_body"
+    assert dynamic_b["report_body_eligible"] is True
+
+    pel = item_by_id(result, "relationship-with-pel-study")
+    assert pel["policy_inclusion_status"] == "conditional"
+    assert pel["policy_activation_condition"] == "reviewer_supplied_parent_study"
+    assert pel["policy_review_requirement"] == "manual_review"
+    assert pel["render_decision"] == "needs_reviewer_decision"
+    assert pel["render_destination"] == "review_status"
+    assert pel["report_body_eligible"] is False
+    assert pel["review_status"] == "needs_verification"
+    assert pel["is_stub"] is True
+    assert "Render decision: needs_reviewer_decision." in pel["generated_content"]
+
+    floodplains = item_by_id(result, "floodplains-and-floodways")
+    assert floodplains["policy_comparison_unit_expansion"] == "table_only"
+    assert floodplains["render_decision"] == "table_figure_only"
+    assert floodplains["render_destination"] == "tables_figures"
+    assert floodplains["report_body_eligible"] is False
+    assert floodplains["related_table_ids"] == ["table-fema-flood-zones"]
+    assert "Render decision: table_figure_only." in floodplains["generated_content"]
 
 
 def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(

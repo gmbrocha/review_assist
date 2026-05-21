@@ -24,6 +24,7 @@
           <th>Order</th>
           <th>Item</th>
           <th>Type</th>
+          <th>Render</th>
           <th>Status</th>
           <th>Refs</th>
           <th></th>
@@ -38,6 +39,10 @@
             <div class="muted">{{ item.id }}</div>
           </td>
           <td>{{ item.type }}</td>
+          <td>
+            <span class="tag">{{ item.render_decision }}</span>
+            {% if not item.report_body_eligible %}<div class="muted">{{ item.render_destination }}</div>{% endif %}
+          </td>
           <td><span class="status">{{ item.status }}</span></td>
           <td>
             {% if item.table_id %}<span class="tag">{{ item.table_id }}</span>{% endif %}

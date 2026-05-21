@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .data_lineage import build_data_lineage
-from .deliverable_items import DeliverableItemsError, load_deliverable_items
+from .deliverable_items import DeliverableItemsError, RENDER_POLICY_FIELDS, load_deliverable_items
 from .deliverable_matrix import REQUIRED_STUB_TEXT
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_area import ProjectAreaError, load_project_area
@@ -562,6 +562,12 @@ def _include_item(item: dict[str, Any], *, include_draft: bool) -> bool:
     status = _normalized_status(item.get("status"))
     if include_draft:
         return status != "declined"
+    if _report_body_ineligible(item):
+        return (
+            status in {"edited", "replaced", "unable_to_verify"}
+            and bool(item.get("export_eligible", False))
+            and bool(_reviewer_supplied_export_content(item))
+        )
     if status in {"accepted", "edited"}:
         return bool(item.get("export_eligible", False))
     if status == "replaced":
@@ -626,6 +632,7 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         caption_source = "generated_caption"
         image_path = item.get("image_path") or assumptions.get("image_path")
         image_source = "generated_figure"
+    render_policy = _render_policy_fields(item)
     return {
         "id": str(item.get("id", "")),
         "target_id": str(item.get("target_id") or item.get("id", "")),
@@ -665,6 +672,8 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "attachment_refs": _string_list(item.get("attachment_refs", [])) or _string_list(matrix_target.get("attachment_refs", [])),
         "artifact_path": provenance.get("artifact_path"),
         "provenance": provenance,
+        **render_policy,
+        "render_policy": render_policy,
     }
 
 
@@ -700,6 +709,7 @@ def _is_figure_image_path(value: Any) -> bool:
 
 
 def _skipped_item(item: dict[str, Any], *, include_draft: bool) -> dict[str, Any]:
+    render_policy = _render_policy_fields(item)
     return {
         "id": str(item.get("id", "")),
         "type": str(item.get("type", "")),
@@ -707,6 +717,8 @@ def _skipped_item(item: dict[str, Any], *, include_draft: bool) -> dict[str, Any
         "status": _normalized_status(item.get("status")),
         "export_group": str(item.get("export_group") or _default_export_group(item)),
         "reason": _skip_reason(item, include_draft=include_draft),
+        **render_policy,
+        "render_policy": render_policy,
     }
 
 
@@ -718,9 +730,49 @@ def _skip_reason(item: dict[str, Any], *, include_draft: bool) -> str:
         return "replacement_content_missing"
     if status == "unable_to_verify" and not _best_export_content(item):
         return "unable_to_verify_missing_content"
+    if not include_draft and _report_body_ineligible(item):
+        if _reviewer_supplied_export_content(item) and not item.get("export_eligible", False):
+            return "not_export_eligible"
+        return f"policy_render_{str(item.get('render_decision') or 'body_ineligible')}"
     if status in {"accepted", "edited", "replaced", "unable_to_verify"} and not item.get("export_eligible", False):
         return "not_export_eligible"
     return f"status_{status or 'unknown'}"
+
+
+def _report_body_ineligible(item: dict[str, Any]) -> bool:
+    return str(item.get("type") or "") in {"front_matter", "report_section", "section_text"} and _coerce_bool(
+        item.get("report_body_eligible", True)
+    ) is False
+
+
+def _reviewer_supplied_export_content(item: dict[str, Any]) -> str:
+    return _replacement_content(item) or _edited_content(item)
+
+
+def _render_policy_fields(item: dict[str, Any]) -> dict[str, Any]:
+    defaults = {
+        "policy_inclusion_status": "default",
+        "policy_activation_condition": "always",
+        "policy_review_requirement": "standard_review",
+        "policy_comparison_unit_expansion": "none",
+        "render_decision": "include_body",
+        "render_destination": "report_body",
+        "render_decision_reason": "No render gating applies.",
+        "report_body_eligible": True,
+    }
+    result: dict[str, Any] = {}
+    for key in RENDER_POLICY_FIELDS:
+        value = item.get(key, defaults[key])
+        result[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
+    return result
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes"}
+    return bool(value)
 
 
 def _normalized_status(value: Any) -> str:

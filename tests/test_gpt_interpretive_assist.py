@@ -117,6 +117,15 @@ def test_dry_run_reports_planned_sections_without_api_calls(tmp_path: Path) -> N
     assert result["eligible_sections"]
 
 
+def test_gpt_planning_skips_body_ineligible_render_items(tmp_path: Path) -> None:
+    project_dir = _source_backed_project(tmp_path)
+
+    plan = plan_gpt_section_drafts(project_dir)
+    skipped = {row["target_id"]: row["reason"] for row in plan["skipped_sections"]}
+
+    assert skipped["floodplains-and-floodways"] == "render_table_figure_only_not_body_eligible"
+
+
 def test_cli_draft_section_candidates_dry_run_reports_planned_sections(
     tmp_path: Path,
     capsys,

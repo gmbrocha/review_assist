@@ -4,10 +4,10 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 5.4 Report Inclusion And Discernment Pass is the active next target and currently lives in root-level planning docs:
+- Sprint 5.5 Caveat Bundles, Prohibited Claims, And GPT Eligibility is the active next target and currently lives in root-level planning docs:
   - `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
   - `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
-  - `SPRINT_5_4_REPORT_INCLUSION_AND_DISCERNMENT_PASS.md`
+  - `SPRINT_5_5_CAVEAT_BUNDLES_PROHIBITED_CLAIMS_AND_GPT_ELIGIBILITY.md`
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -50,6 +50,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Adopted reusable extent vocabulary, preserved presentation/collar extent metadata through merges, tightened deterministic context wording, and rejected unsafe GPT direct-project, APE, and map-as-evidence language.
 - Sprint 5.3 Source Needs Manifest And Warehouse Alignment: `docs/archive/sprints/SPRINT_5_3_SOURCE_NEEDS_MANIFEST_AND_WAREHOUSE_ALIGNMENT.md`
   - Added policy-derived section source-needs records, per-source need classes, typed logical rollup/effective-truth handling, manual residual MDEQ context protection, source inventory metadata, docs, and focused tests.
+- Sprint 5.4 Report Inclusion And Discernment Pass: `docs/archive/sprints/SPRINT_5_4_REPORT_INCLUSION_AND_DISCERNMENT_PASS.md`
+  - Added render-policy metadata to deliverable items, review queue items, web review views, and export manifests; preserved wetlands/waterbodies narrative children; kept PEL/manual/restricted/deferred sections review-visible; and skipped body-ineligible generated placeholders from reviewed exports unless reviewer-supplied content is explicitly exportable.
 
 ## Deferred Work Linked To Sprints
 

@@ -314,7 +314,6 @@ def test_docx_export_title_front_matter_and_outline_follow_matrix(tmp_path: Path
         "Methodology",
         "Environmental Constraints Inventory",
         "Natural and Ecological Resources",
-        "Cultural and Historic Resources",
         "Community Resources",
         "Utility and Infrastructure Considerations",
         "Contamination Risks",
@@ -326,6 +325,8 @@ def test_docx_export_title_front_matter_and_outline_follow_matrix(tmp_path: Path
     headings = [paragraph.text for paragraph in document.paragraphs if paragraph.style and paragraph.style.name.startswith("Heading")]
     positions = [headings.index(title) for title in expected_outline]
     assert positions == sorted(positions)
+    skipped_cultural = next(item for item in manifest["skipped_items"] if item["id"] == "cultural-and-historic-resources")
+    assert skipped_cultural["reason"] == "policy_render_blocked_manual_or_restricted_source"
 
 
 def test_docx_preview_label_appears_only_in_preview_mode(tmp_path: Path) -> None:
@@ -645,6 +646,38 @@ def test_export_includes_unable_to_verify_only_when_export_eligible(tmp_path: Pa
     second = export_report(project_dir)
     assert "limitations-and-data-gaps" in included_ids(second)
     assert second["review_gate_status"] == "passed"
+
+
+def test_export_skips_body_ineligible_generated_placeholders_until_reviewer_supplies_content(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    set_review_states(project_dir)
+    manifest = export_report(project_dir)
+
+    assert "relationship-with-pel-study" not in included_ids(manifest)
+    skipped_pel = next(item for item in manifest["skipped_items"] if item["id"] == "relationship-with-pel-study")
+    assert skipped_pel["render_decision"] == "needs_reviewer_decision"
+    assert skipped_pel["report_body_eligible"] is False
+    assert skipped_pel["reason"] == "policy_render_needs_reviewer_decision"
+
+    set_review_states(
+        project_dir,
+        overrides={
+            "relationship-with-pel-study": {
+                "status": "edited",
+                "edited_content": "Reviewer supplied parent-study relationship content.",
+                "export_eligible": True,
+            }
+        },
+    )
+    reviewed = export_report(project_dir)
+
+    exported_pel = next(item for item in reviewed["included_items"] if item["id"] == "relationship-with-pel-study")
+    assert exported_pel["content"] == "Reviewer supplied parent-study relationship content."
+    assert exported_pel["content_source"] == "edited_content"
+    assert exported_pel["render_decision"] == "needs_reviewer_decision"
+    assert exported_pel["report_body_eligible"] is False
 
 
 def test_default_export_fails_when_review_gate_has_unreviewed_items(tmp_path: Path) -> None:

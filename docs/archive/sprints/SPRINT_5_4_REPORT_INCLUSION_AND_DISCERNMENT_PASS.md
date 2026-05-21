@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked for implementation after Sprint 5.1 through Sprint 5.3 are accepted.
+Completed and archived on Sprint 5 branch.
 
 ## Goal
 

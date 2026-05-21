@@ -10,7 +10,13 @@ from pathlib import Path
 from typing import Any
 
 from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, load_constraint_results
-from .deliverable_items import DELIVERABLE_ITEMS_PATH, DeliverableItemsError, generate_deliverable_items, load_deliverable_items
+from .deliverable_items import (
+    DELIVERABLE_ITEMS_PATH,
+    DeliverableItemsError,
+    RENDER_POLICY_FIELDS,
+    generate_deliverable_items,
+    load_deliverable_items,
+)
 from .extent_policy import EXTENT_FIELD_NAMES, apply_extent_metadata, merge_extent_metadata, target_extent_metadata
 from .findings import FINDINGS_PATH, FindingGenerationError, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
@@ -71,6 +77,7 @@ REQUIRED_ITEM_FIELDS = {
     "updated_at",
     *EXTENT_FIELD_NAMES,
     "extent_policy_version",
+    *RENDER_POLICY_FIELDS,
 }
 
 
@@ -395,6 +402,7 @@ def _deliverable_review_item(
     item_id = str(deliverable_item.get("deliverable_item_id") or deliverable_item.get("target_id") or "deliverable-item")
     status = _normalize_status(str(deliverable_item.get("review_status", "draft")))
     extent_metadata = _review_extent_from_deliverable(deliverable_item)
+    render_policy = _render_policy_from_deliverable(deliverable_item)
     return _review_item(
         item_id=item_id,
         project_id=project_id,
@@ -411,6 +419,7 @@ def _deliverable_review_item(
             "resource_category": deliverable_item.get("resource_category"),
             "target_type": deliverable_item.get("target_type"),
             "extent_policy": extent_metadata,
+            "render_policy": render_policy,
         },
         provenance={
             "artifact": "deliverable_items",
@@ -419,6 +428,7 @@ def _deliverable_review_item(
             "target_id": deliverable_item.get("target_id"),
             "deliverable_item_provenance": deliverable_item.get("provenance", {}),
             "extent_policy": extent_metadata,
+            "render_policy": render_policy,
             "review_before_export": True,
         },
         source_refs=_string_list(deliverable_item.get("source_refs", [])),
@@ -441,6 +451,7 @@ def _deliverable_review_item(
             "evidence_refs": _string_list(deliverable_item.get("evidence_refs", [])),
             "validation_issues": _dict_list(deliverable_item.get("validation_issues", [])),
             **extent_metadata,
+            **render_policy,
         },
     )
 
@@ -915,6 +926,17 @@ def _review_item(
 ) -> dict[str, Any]:
     extra = dict(extra or {})
     status = _normalize_status(status)
+    render_policy = _merge_render_policy(
+        [
+            assumptions.get("render_policy", {}) if isinstance(assumptions.get("render_policy"), dict) else {},
+            provenance.get("render_policy", {}) if isinstance(provenance.get("render_policy"), dict) else {},
+            extra,
+        ]
+    )
+    assumptions = dict(assumptions)
+    assumptions.setdefault("render_policy", render_policy)
+    provenance = dict(provenance)
+    provenance.setdefault("render_policy", render_policy)
     extent_metadata = _review_item_extent_metadata(
         item_id=item_id,
         item_type=item_type,
@@ -955,6 +977,7 @@ def _review_item(
         "validation_issues": _dict_list(extra.get("validation_issues", [])),
         "created_at": now,
         "updated_at": now,
+        **render_policy,
     }
     item = apply_extent_metadata(item, extent_metadata)
     for key, value in extra.items():
@@ -977,6 +1000,62 @@ def _review_extent_from_deliverable(deliverable_item: dict[str, Any]) -> dict[st
         resource_category=str(deliverable_item.get("resource_category") or ""),
     )
     return merge_extent_metadata(records, fallback=fallback)
+
+
+def _default_render_policy() -> dict[str, Any]:
+    return {
+        "policy_inclusion_status": "default",
+        "policy_activation_condition": "always",
+        "policy_review_requirement": "standard_review",
+        "policy_comparison_unit_expansion": "none",
+        "render_decision": "include_body",
+        "render_destination": "report_body",
+        "render_decision_reason": "No render gating applies.",
+        "report_body_eligible": True,
+    }
+
+
+def _render_policy_from_deliverable(deliverable_item: dict[str, Any]) -> dict[str, Any]:
+    assumptions = deliverable_item.get("assumptions", {}) if isinstance(deliverable_item.get("assumptions"), dict) else {}
+    provenance = deliverable_item.get("provenance", {}) if isinstance(deliverable_item.get("provenance"), dict) else {}
+    records = [
+        assumptions.get("render_policy", {}) if isinstance(assumptions.get("render_policy"), dict) else {},
+        provenance.get("render_policy", {}) if isinstance(provenance.get("render_policy"), dict) else {},
+        deliverable_item,
+    ]
+    return _merge_render_policy(records)
+
+
+def _render_policy_from_review_item(item: dict[str, Any]) -> dict[str, Any]:
+    assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+    provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+    records = [
+        assumptions.get("render_policy", {}) if isinstance(assumptions.get("render_policy"), dict) else {},
+        provenance.get("render_policy", {}) if isinstance(provenance.get("render_policy"), dict) else {},
+        item,
+    ]
+    return _merge_render_policy(records)
+
+
+def _merge_render_policy(records: list[dict[str, Any]]) -> dict[str, Any]:
+    result = _default_render_policy()
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        for key in RENDER_POLICY_FIELDS:
+            if key not in record:
+                continue
+            value = record[key]
+            result[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
+    return result
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes"}
+    return bool(value)
 
 
 def _review_item_extent_metadata(
@@ -1153,6 +1232,15 @@ def _normalize_queue_compat(queue: Any) -> None:
         item.setdefault("validation_issues", [])
         item.setdefault("edited_content", "")
         item.setdefault("reviewer_notes", [])
+        render_policy = _render_policy_from_review_item(item)
+        for key, value in render_policy.items():
+            item[key] = value
+        assumptions = item.setdefault("assumptions", {})
+        if isinstance(assumptions, dict):
+            assumptions.setdefault("render_policy", render_policy)
+        provenance = item.setdefault("provenance", {})
+        if isinstance(provenance, dict):
+            provenance.setdefault("render_policy", render_policy)
         extent = _review_item_extent_metadata(
             item_id=str(item.get("id") or ""),
             item_type=str(item.get("type") or ""),

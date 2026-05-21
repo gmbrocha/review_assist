@@ -39,6 +39,7 @@ from .extent_policy import (
 )
 from .project_context import ProjectContextError, generate_project_context, load_project_context
 from .projects import ProjectManifestError, load_project_manifest
+from .report_section_policy import ReportSectionPolicy, ReportSectionPolicyConfig, ReportSectionPolicyError, load_report_section_policy
 from .section_drafting import (
     SectionDraftingError,
     SectionDraftRequest,
@@ -63,6 +64,24 @@ SUPPORTED_REVIEW_STATUSES = {
 VERIFICATION_SOURCE_STATES = {"gated", "restricted", "manual", "stubbed"}
 REVIEW_SOURCE_STATES = {"missing", "downloadable", "failed", "needs_review", "source_missing", "unimplemented"}
 AVAILABLE_SOURCE_STATES = {"provided_locally", "local_materialized", "downloaded", "available"}
+RENDER_POLICY_FIELDS = {
+    "policy_inclusion_status",
+    "policy_activation_condition",
+    "policy_review_requirement",
+    "policy_comparison_unit_expansion",
+    "render_decision",
+    "render_destination",
+    "render_decision_reason",
+    "report_body_eligible",
+}
+BODY_INELIGIBLE_RENDER_DECISIONS = {
+    "table_figure_only",
+    "needs_reviewer_decision",
+    "blocked_missing_source",
+    "blocked_manual_or_restricted_source",
+    "custom_project_required",
+    "audit_only",
+}
 FIRST_PASS_REPORT_STYLE_SECTION_IDS = {
     "wetlands-and-waterbodies",
     "cultural-and-historic-resources",
@@ -143,6 +162,7 @@ REQUIRED_ITEM_FIELDS = {
     "validation_issues",
     *EXTENT_FIELD_NAMES,
     "extent_policy_version",
+    *RENDER_POLICY_FIELDS,
 }
 
 
@@ -166,6 +186,7 @@ def generate_deliverable_items(
         tables = _load_or_generate_tables(project_dir)
         figures = _load_or_generate_figures(project_dir)
         evidence_package = _load_or_generate_evidence_package(project_dir)
+        section_policy = load_report_section_policy()
         unit_records = _comparison_unit_records(comparison_units)
         use_gpt_drafting = gpt_drafting_enabled() if gpt_drafting is None else gpt_drafting
         model = resolve_gpt_model(gpt_model) if use_gpt_drafting else ""
@@ -178,6 +199,7 @@ def generate_deliverable_items(
         DeliverableFigureError,
         EvidencePackageError,
         GptConfigurationError,
+        ReportSectionPolicyError,
     ) as exc:
         raise DeliverableItemsError(str(exc)) from exc
 
@@ -195,6 +217,7 @@ def generate_deliverable_items(
         tables=tables,
         figures=figures,
         evidence_package=evidence_package,
+        section_policy=section_policy,
         draft_provider=draft_provider,
         workers=workers,
         parallel=use_gpt_drafting,
@@ -267,6 +290,7 @@ def _normalize_deliverable_items_compat(data: dict[str, Any]) -> None:
             assumptions=assumptions,
         )
         apply_extent_metadata(item, extent)
+        _apply_render_policy_fields(item, _item_render_policy(item))
 
 
 def validate_deliverable_items(data: dict[str, Any], location: str) -> None:
@@ -394,6 +418,7 @@ def _section_items(
     tables: dict[str, Any],
     figures: dict[str, Any],
     evidence_package: dict[str, Any],
+    section_policy: ReportSectionPolicyConfig,
     draft_provider: Any,
     workers: int,
     parallel: bool,
@@ -408,6 +433,7 @@ def _section_items(
         "tables": tables,
         "figures": figures,
         "evidence_package": evidence_package,
+        "section_policy": section_policy,
         "draft_provider": draft_provider,
     }
     if not parallel or workers <= 1:
@@ -500,6 +526,7 @@ def _section_item(
     tables: dict[str, Any],
     figures: dict[str, Any],
     evidence_package: dict[str, Any],
+    section_policy: ReportSectionPolicyConfig,
     draft_provider: Any,
 ) -> dict[str, Any]:
     target: SectionTarget = target_record["target"]
@@ -526,16 +553,31 @@ def _section_item(
     evidence_refs = _evidence_refs(evidence)
     source_gap_status = _dict_list(evidence.get("source_gap_status", []))
     extent_metadata = _section_extent_metadata(target, evidence, related_tables, related_figures)
-    is_stub = _section_is_stub(target, evidence, related_tables, related_figures, source_gap_status, comparison_unit)
-    generated_content = _stub_section_content(target, source_gap_status, related_tables, related_figures, validation_issues) if is_stub else _section_content(
-        target=target,
-        context=context,
-        evidence=evidence,
-        related_tables=related_tables,
-        related_figures=related_figures,
-        comparison_unit=comparison_unit,
-        extent_metadata=extent_metadata,
-    )
+    policy = _section_policy_for_target(section_policy, target, template_target)
+    render_policy = _section_render_policy(target, policy, source_gap_status=source_gap_status)
+    source_stub = _section_is_stub(target, evidence, related_tables, related_figures, source_gap_status, comparison_unit)
+    is_stub = source_stub or _render_policy_is_stub(render_policy)
+    if render_policy["render_decision"] != "include_body" and not bool(render_policy.get("report_body_eligible", True)):
+        generated_content = _render_policy_status_content(
+            target,
+            render_policy,
+            source_gap_status,
+            related_tables,
+            related_figures,
+            validation_issues,
+        )
+    elif source_stub:
+        generated_content = _stub_section_content(target, source_gap_status, related_tables, related_figures, validation_issues)
+    else:
+        generated_content = _section_content(
+            target=target,
+            context=context,
+            evidence=evidence,
+            related_tables=related_tables,
+            related_figures=related_figures,
+            comparison_unit=comparison_unit,
+            extent_metadata=extent_metadata,
+        )
     uncertainty_flags = _dedupe(
         [
             "draft_pre_review",
@@ -549,6 +591,7 @@ def _section_item(
     if is_stub:
         uncertainty_flags = _dedupe([*uncertainty_flags, "deliverable_item_stub"])
     review_status = _review_status(target, is_stub, source_gap_status, validation_issues, related_tables, related_figures)
+    review_status = _render_policy_review_status(render_policy, review_status)
 
     try:
         draft_result = draft_provider.draft(
@@ -568,7 +611,7 @@ def _section_item(
                 extent_metadata=extent_metadata,
                 validation_issues=validation_issues,
                 project_context=context,
-                matrix_target=_matrix_target_summary(target, template_target=template_target, comparison_unit=comparison_unit),
+                matrix_target=_matrix_target_summary(target, template_target=template_target, comparison_unit=comparison_unit, render_policy=render_policy),
                 prompt_key=target.prompt_key,
                 prompt=_prompt_summary(prompt),
                 global_prompt=_prompt_summary(global_prompt),
@@ -619,19 +662,22 @@ def _section_item(
             "drafting": draft_result.provenance,
             "evidence_package_path": evidence_package.get("output_path"),
             "extent_policy": extent_metadata,
+            "render_policy": render_policy,
             "review_before_export": True,
             "desktop_screening_only": True,
         },
         assumptions={
-            "matrix_target": _matrix_target_summary(target, template_target=template_target, comparison_unit=comparison_unit),
+            "matrix_target": _matrix_target_summary(target, template_target=template_target, comparison_unit=comparison_unit, render_policy=render_policy),
             "prompt_contract": _prompt_summary(prompt),
             "source_gap_status": source_gap_status,
             "extent_policy": extent_metadata,
+            "render_policy": render_policy,
         },
         uncertainty_flags=uncertainty_flags,
         is_stub=is_stub,
         review_status=review_status,
         validation_issues=validation_issues,
+        render_policy=render_policy,
     )
 
 
@@ -685,6 +731,7 @@ def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str
         is_stub=is_stub,
         review_status=_normalized_review_status(table.get("review_status", "needs_review" if is_stub else "draft")),
         validation_issues=_dict_list(table.get("validation_issues", [])) + _missing_upstream_issue(table, target.target_id, output_path, "table"),
+        render_policy=_artifact_render_policy("table_figure_only", "tables", "Deliverable table item is represented in the tables export group."),
     )
 
 
@@ -739,6 +786,7 @@ def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: 
         is_stub=is_stub,
         review_status=_normalized_review_status(figure.get("review_status", "needs_review" if is_stub else "draft")),
         validation_issues=_dict_list(figure.get("validation_issues", [])) + _missing_upstream_issue(figure, target.target_id, output_path, "figure"),
+        render_policy=_artifact_render_policy("table_figure_only", "figures", "Deliverable figure item is represented in the figures export group."),
     )
 
 
@@ -794,6 +842,7 @@ def _attachment_item(target: AttachmentTarget, figures: dict[str, Any], matrix_v
         is_stub=is_stub,
         review_status="needs_review",
         validation_issues=validation_issues,
+        render_policy=_artifact_render_policy("attachment_status", "attachments", "Deliverable attachment item is represented in the attachments export group."),
     )
 
 
@@ -826,6 +875,7 @@ def _base_item(
     is_stub: bool,
     review_status: str,
     validation_issues: list[dict[str, Any]],
+    render_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     status = _normalized_review_status(review_status)
     issues = list(validation_issues)
@@ -881,6 +931,7 @@ def _base_item(
         "export_eligible": status in {"accepted", "edited", "replaced", "unable_to_verify"},
         "validation_issues": _dedupe_issues(issues),
     }
+    _apply_render_policy_fields(item, render_policy or _default_render_policy())
     return apply_extent_metadata(item, extent_metadata)
 
 
@@ -964,6 +1015,192 @@ def _comparison_unit_evidence(evidence: dict[str, Any], comparison_unit: dict[st
         if unit_id in _string_list(summary.get("comparison_unit_ids", [])) or unit_name == str(summary.get("comparison_unit_name", ""))
     ] or [{"comparison_unit_id": unit_id, "comparison_unit_name": unit_name, "source_refs": evidence.get("source_refs", [])}]
     return compact
+
+
+def _section_policy_for_target(
+    config: ReportSectionPolicyConfig,
+    target: SectionTarget,
+    template_target: SectionTarget | None,
+) -> ReportSectionPolicy | None:
+    policies = config.by_section_id()
+    return policies.get(target.target_id) or (policies.get(template_target.target_id) if template_target else None)
+
+
+def _section_render_policy(
+    target: SectionTarget,
+    policy: ReportSectionPolicy | None,
+    *,
+    source_gap_status: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if policy is None:
+        if target.target_type == "attachment" or target.review_item_type == "attachment":
+            return _artifact_render_policy(
+                "attachment_status",
+                "attachments",
+                "Attachment wrapper item is represented in the attachments export group.",
+            )
+        return _default_render_policy(reason="No section policy was found; default body rendering is retained.")
+    source_states = {str(status.get("status", "")) for status in source_gap_status}
+    base = {
+        "policy_inclusion_status": policy.inclusion_status,
+        "policy_activation_condition": policy.activation_condition,
+        "policy_review_requirement": policy.review_requirement,
+        "policy_comparison_unit_expansion": policy.comparison_unit_expansion_policy,
+    }
+    if target.target_type == "attachment" or target.review_item_type == "attachment":
+        return {
+            **base,
+            "render_decision": "attachment_status",
+            "render_destination": "attachments",
+            "render_decision_reason": "Attachment wrapper item is represented in the attachments export group.",
+            "report_body_eligible": True,
+        }
+    if policy.activation_condition in {"manual_reviewer_supplied", "reviewer_supplied_parent_study"} or policy.manual_or_reviewer_supplied:
+        return {
+            **base,
+            "render_decision": "needs_reviewer_decision",
+            "render_destination": "review_status",
+            "render_decision_reason": "Section requires reviewer-supplied/manual context before normal report-body prose is supported.",
+            "report_body_eligible": False,
+        }
+    if policy.review_requirement == "source_gap_review" or policy.activation_condition == "deferred_source" or policy.inclusion_status == "required_stub":
+        return {
+            **base,
+            "render_decision": "blocked_missing_source",
+            "render_destination": "review_status",
+            "render_decision_reason": "Section is policy-marked as a required source/data stub until source work is implemented or reviewer-supplied.",
+            "report_body_eligible": False,
+        }
+    if target.source_categories and source_states.intersection({"manual", "restricted", "gated", "stubbed"}):
+        return {
+            **base,
+            "render_decision": "blocked_manual_or_restricted_source",
+            "render_destination": "review_status",
+            "render_decision_reason": "Current source status requires manual, restricted, or gated review before normal report-body prose is supported.",
+            "report_body_eligible": False,
+        }
+    if policy.comparison_unit_expansion_policy == "table_only":
+        return {
+            **base,
+            "render_decision": "table_figure_only",
+            "render_destination": "tables_figures",
+            "render_decision_reason": "Policy keeps this topic in table/figure artifacts unless reviewer-supplied prose is added.",
+            "report_body_eligible": False,
+        }
+    if policy.inclusion_status == "deferred":
+        return {
+            **base,
+            "render_decision": "audit_only",
+            "render_destination": "audit_evidence",
+            "render_decision_reason": "Policy defers this section from report-body rendering.",
+            "report_body_eligible": False,
+        }
+    return {
+        **base,
+        "render_decision": "include_body",
+        "render_destination": "report_body",
+        "render_decision_reason": "Policy allows standard report-body review candidate generation.",
+        "report_body_eligible": True,
+    }
+
+
+def _default_render_policy(reason: str = "No render gating applies.") -> dict[str, Any]:
+    return {
+        "policy_inclusion_status": "default",
+        "policy_activation_condition": "always",
+        "policy_review_requirement": "standard_review",
+        "policy_comparison_unit_expansion": "none",
+        "render_decision": "include_body",
+        "render_destination": "report_body",
+        "render_decision_reason": reason,
+        "report_body_eligible": True,
+    }
+
+
+def _artifact_render_policy(render_decision: str, render_destination: str, reason: str) -> dict[str, Any]:
+    return {
+        "policy_inclusion_status": "default",
+        "policy_activation_condition": "always",
+        "policy_review_requirement": "standard_review",
+        "policy_comparison_unit_expansion": "none",
+        "render_decision": render_decision,
+        "render_destination": render_destination,
+        "render_decision_reason": reason,
+        "report_body_eligible": True,
+    }
+
+
+def _apply_render_policy_fields(item: dict[str, Any], render_policy: dict[str, Any]) -> None:
+    defaults = _default_render_policy()
+    for key in RENDER_POLICY_FIELDS:
+        value = render_policy.get(key, defaults[key])
+        item[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
+
+
+def _item_render_policy(item: dict[str, Any]) -> dict[str, Any]:
+    assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+    provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+    records = [
+        assumptions.get("render_policy", {}) if isinstance(assumptions.get("render_policy"), dict) else {},
+        provenance.get("render_policy", {}) if isinstance(provenance.get("render_policy"), dict) else {},
+        item,
+    ]
+    result = _default_render_policy()
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        for key in RENDER_POLICY_FIELDS:
+            if key not in record:
+                continue
+            value = record[key]
+            result[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
+    return result
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes"}
+    return bool(value)
+
+
+def _render_policy_is_stub(render_policy: dict[str, Any]) -> bool:
+    return str(render_policy.get("render_decision")) in BODY_INELIGIBLE_RENDER_DECISIONS - {"table_figure_only"}
+
+
+def _render_policy_review_status(render_policy: dict[str, Any], fallback_status: str) -> str:
+    decision = str(render_policy.get("render_decision") or "")
+    if decision in {"needs_reviewer_decision", "blocked_manual_or_restricted_source", "custom_project_required"}:
+        return "needs_verification"
+    if decision in {"blocked_missing_source", "table_figure_only", "audit_only"} and fallback_status == "draft":
+        return "needs_review"
+    return fallback_status
+
+
+def _render_policy_status_content(
+    target: SectionTarget,
+    render_policy: dict[str, Any],
+    source_gap_status: list[dict[str, Any]],
+    related_tables: list[dict[str, Any]],
+    related_figures: list[dict[str, Any]],
+    validation_issues: list[dict[str, Any]],
+) -> str:
+    lines = [_title_line(target)]
+    lines.append(f"Render decision: {render_policy['render_decision']}.")
+    lines.append(str(render_policy.get("render_decision_reason") or "Policy requires reviewer attention before report-body rendering."))
+    if source_gap_status:
+        lines.append("Current source status: " + _source_gap_summary(source_gap_status) + ".")
+    if related_tables:
+        lines.append("Related table artifact(s): " + _artifact_stub_summary(related_tables, "table_id") + ".")
+    if related_figures:
+        lines.append("Related figure artifact(s): " + _artifact_stub_summary(related_figures, "figure_id") + ".")
+    reason = _issue_summary(validation_issues)
+    if reason:
+        lines.append("Review issue summary: " + reason + ".")
+    lines.append("A reviewer may provide edited or replacement content when this section should appear in the reviewed report body.")
+    lines.append("This policy status text does not rank alternatives or make determinations.")
+    return "\n".join(line for line in lines if line)
 
 
 def _section_is_stub(
@@ -1701,6 +1938,7 @@ def _matrix_target_summary(
     *,
     template_target: SectionTarget | None = None,
     comparison_unit: dict[str, Any] | None = None,
+    render_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     summary = {
         "target_id": target.target_id,
@@ -1727,6 +1965,11 @@ def _matrix_target_summary(
             "comparison_unit_id": comparison_unit.get("comparison_unit_id"),
             "comparison_unit_name": comparison_unit.get("comparison_unit_name"),
         }
+    if render_policy:
+        summary["render_policy"] = dict(render_policy)
+        for key in RENDER_POLICY_FIELDS:
+            if key in render_policy:
+                summary[key] = render_policy[key]
     return summary
 
 

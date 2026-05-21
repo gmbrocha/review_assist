@@ -10,10 +10,24 @@
 
 <section class="summary-grid">
   <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if item.export_eligible else 'no' }}</strong></div>
+  <div class="metric"><span>Render</span><strong>{{ item.render_decision }}</strong></div>
   <div class="metric"><span>Table</span><strong>{{ item.display_table_refs|join(', ') if item.display_table_refs else 'none' }}</strong></div>
   <div class="metric"><span>Figure</span><strong>{{ item.display_figure_refs|join(', ') if item.display_figure_refs else 'none' }}</strong></div>
-  <div class="metric"><span>Attachment</span><strong>{{ item.display_attachment_refs|join(', ') if item.display_attachment_refs else 'none' }}</strong></div>
 </section>
+
+{% if item.render_decision != 'include_body' %}
+<section class="panel">
+  <h2>Render Policy</h2>
+  <dl class="details">
+    <dt>Destination</dt><dd>{{ item.render_destination }}</dd>
+    <dt>Report Body Eligible</dt><dd>{{ 'yes' if item.report_body_eligible else 'no' }}</dd>
+    <dt>Reason</dt><dd>{{ item.render_decision_reason }}</dd>
+    <dt>Inclusion</dt><dd>{{ item.policy_inclusion_status }}</dd>
+    <dt>Activation</dt><dd>{{ item.policy_activation_condition }}</dd>
+    <dt>Review</dt><dd>{{ item.policy_review_requirement }}</dd>
+  </dl>
+</section>
+{% endif %}
 
 {% if not item.is_figure %}
 <section class="panel">

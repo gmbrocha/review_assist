@@ -450,6 +450,8 @@ def _eligibility_skip_reason(
         return "missing_section_policy"
     if policy.manual_or_reviewer_supplied:
         return "manual_or_reviewer_supplied"
+    if _coerce_bool(item.get("report_body_eligible", True)) is False:
+        return f"render_{str(item.get('render_decision') or 'body_ineligible')}_not_body_eligible"
     if policy.drafting_mode not in GPT_ELIGIBLE_DRAFTING_MODES or policy.gpt_readiness not in GPT_READY_VALUES:
         return "policy_not_gpt_ready"
     if "deliverable_item_stub" in _string_list(item.get("uncertainty_flags", [])) or bool(item.get("is_stub", False)):
@@ -865,6 +867,14 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes"}
+    return bool(value)
 
 
 def _dedupe(values: list[str]) -> list[str]:

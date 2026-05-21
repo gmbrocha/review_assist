@@ -141,6 +141,17 @@ def test_generate_review_queue_writes_bounded_deliverable_item_queue(tmp_path: P
     assert wetlands["status"] == "needs_review"
     assert wetlands["query_extent_type"] == "project_area_analysis_bounds"
     assert wetlands["analysis_extent_type"] in {"direct_intersection_extent", "mixed_extent_types"}
+    assert wetlands["policy_comparison_unit_expansion"] == "narrative_children"
+    assert wetlands["render_decision"] == "include_body"
+    assert wetlands["report_body_eligible"] is True
+    pel = item_by_id(queue, "relationship-with-pel-study")
+    assert pel["policy_inclusion_status"] == "conditional"
+    assert pel["policy_activation_condition"] == "reviewer_supplied_parent_study"
+    assert pel["policy_review_requirement"] == "manual_review"
+    assert pel["render_decision"] == "needs_reviewer_decision"
+    assert pel["report_body_eligible"] is False
+    assert pel["status"] == "needs_verification"
+    assert pel["assumptions"]["render_policy"]["render_decision"] == "needs_reviewer_decision"  # type: ignore[index]
     contamination = item_by_id(queue, "contamination-risks")
     oil_wells = item_by_id(queue, "oil-wells")
     demographics = item_by_id(queue, "demographic-characteristics")

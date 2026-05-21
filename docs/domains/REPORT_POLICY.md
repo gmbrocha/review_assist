@@ -63,6 +63,25 @@ The policy distinguishes:
 
 Current required narrative children are limited to wetlands/waterbodies comparison-unit details.
 
+## Render Gating
+
+Deliverable and review queue items carry policy-backed render metadata:
+
+- `policy_inclusion_status`
+- `policy_activation_condition`
+- `policy_review_requirement`
+- `policy_comparison_unit_expansion`
+- `render_decision`
+- `render_destination`
+- `render_decision_reason`
+- `report_body_eligible`
+
+Supported render decisions are `include_body`, `table_figure_only`, `attachment_status`, `needs_reviewer_decision`, `blocked_missing_source`, `blocked_manual_or_restricted_source`, `custom_project_required`, and `audit_only`.
+
+`include_body` sections may produce normal report-body review candidates. `table_figure_only` sections preserve related table/figure refs and stay out of normal body prose unless a reviewer supplies exportable body content. `attachment_status` items belong in the attachment export group. Manual, restricted, deferred, or missing-source sections remain visible in the review queue as status/stub items rather than unsupported generic prose.
+
+Wetlands/waterbodies keep `narrative_children` as the current policy. The package `table_only` recommendation for wetlands/waterbodies was rejected for current behavior in Sprint 5.4 so comparison-unit child review items and deliverable counts remain stable.
+
 ## GPT Readiness
 
 GPT readiness is not execution. GPT calls remain disabled unless the reviewer/operator explicitly uses GPT Interpretive Assist.

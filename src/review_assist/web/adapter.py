@@ -20,7 +20,7 @@ from werkzeug.utils import secure_filename
 
 from review_assist.comparison_units import COMPARISON_UNITS_METADATA_PATH
 from review_assist.deliverable import DEMO_DELIVERABLE_MANIFEST_PATH
-from review_assist.deliverable_items import DELIVERABLE_ITEMS_PATH
+from review_assist.deliverable_items import DELIVERABLE_ITEMS_PATH, RENDER_POLICY_FIELDS
 from review_assist.export_report import (
     EXPORT_MANIFEST_PATH,
     ExportGateError,
@@ -1060,6 +1060,7 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
     related_table_ids = _string_list(item.get("related_table_ids", []))
     related_figure_ids = _string_list(item.get("related_figure_ids", []))
     related_attachment_ids = _string_list(item.get("related_attachment_ids", []))
+    render_policy = _render_policy_fields(item)
     return {
         "id": str(item.get("id") or item.get("deliverable_item_id") or item.get("target_id") or ""),
         "deliverable_item_id": str(item.get("deliverable_item_id") or ""),
@@ -1085,6 +1086,8 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
         "comparison_unit_ids": _string_list(item.get("comparison_unit_ids", [])),
         "validation_issue_count": len(_dict_list(item.get("validation_issues", []))),
         "updated_at": item.get("updated_at"),
+        **render_policy,
+        "render_policy": render_policy,
     }
 
 
@@ -1464,8 +1467,35 @@ def _compact_assumptions(assumptions: dict[str, Any]) -> dict[str, Any]:
         "columns",
         "matrix_target",
         "source_gap_status",
+        "render_policy",
     }
     return {key: value for key, value in assumptions.items() if key in allowed}
+
+
+def _render_policy_fields(item: dict[str, Any]) -> dict[str, Any]:
+    defaults = {
+        "policy_inclusion_status": "default",
+        "policy_activation_condition": "always",
+        "policy_review_requirement": "standard_review",
+        "policy_comparison_unit_expansion": "none",
+        "render_decision": "include_body",
+        "render_destination": "report_body",
+        "render_decision_reason": "No render gating applies.",
+        "report_body_eligible": True,
+    }
+    result: dict[str, Any] = {}
+    for key in RENDER_POLICY_FIELDS:
+        value = item.get(key, defaults[key])
+        result[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
+    return result
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes"}
+    return bool(value)
 
 
 def _provenance_summary(value: Any) -> dict[str, Any]:
