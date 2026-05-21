@@ -2317,8 +2317,8 @@ def _final_verification_summary(
                 )
         elif item_type == "figure" and not _item_figure_id(item):
             issues.append(_issue("error", "included_figure_ref_missing", "Included figure review item is missing figure_id."))
-        elif item_type == "attachment" and not item.get("attachment_id"):
-            issues.append(_issue("error", "included_attachment_ref_missing", "Included attachment review item is missing attachment_id."))
+        elif item_type == "attachment" and not item.get("attachment_id") and not _string_list(item.get("attachment_refs", [])):
+            issues.append(_issue("error", "included_attachment_ref_missing", "Included attachment review item is missing attachment_id or attachment_refs."))
 
         content_length = len(str(item.get("content") or ""))
         if content_length > EXPORT_BODY_CONTENT_WARNING_CHAR_LIMIT:

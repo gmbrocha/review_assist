@@ -432,6 +432,8 @@ def test_sprint_3_3_smoke_gate_then_terminal_docx_export_succeeds(tmp_path: Path
     manifest = export_report(project_dir, output_format="both")
 
     assert manifest["review_gate_status"] == "passed"
+    assert manifest["export_qa_blocking_error_count"] == 0
+    assert manifest["final_verification"]["status"] == "passed"
     assert Path(manifest["markdown_path"]).exists()
     assert Path(manifest["docx_path"]).exists()
     assert manifest["final_verification"]["docx_readable"] is True

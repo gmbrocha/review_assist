@@ -23,16 +23,6 @@ Each deferred item should include:
 
 ## Active Deferred Items
 
-### Sprint 5 Package Proposals Routed Beyond 5.8
-
-- `Deferred item`: Reusable proposals mined from `pro_review_assist_policy_package_sprint_5/` that require Sprint 5.9 verification or future approved work before product behavior changes.
-- `Why postponed`: Sprint 5.1 reconciled the canonical policy schema and ledger, Sprint 5.2 tightened extent/wording semantics, Sprint 5.3 added source-needs/effective-truth mapping, Sprint 5.4 added section render gating while preserving wetlands/waterbodies narrative children, Sprint 5.5 adopted internal caveat/prohibited-claim guardrails without expanding GPT coverage, Sprint 5.6 aligned current table/figure policy records while preserving the 4 table, 15 figure, and 3 attachment inventory, Sprint 5.7 added manual-material review/export metadata without broad document management, and Sprint 5.8 added reviewed-export hard-block QA without override behavior. Package-proposed count changes and fuller manual upload/document workflows remain future approved work.
-- `Affected sections/workflows`: Wetlands/waterbodies comparison-unit detail defaults, source needs/effective truth mapping, source-gap wording, table/figure/attachment alignment, manual/reviewer-supplied material workflows, export QA.
-- `Risk if forgotten`: Package proposals could be partially copied without approval, causing generic Review Assist behavior to inherit example-specific, PEL-specific, trail/corridor-specific, unsupported, or unsafe assumptions.
-- `Temporary simplification`: `config/report_section_policy.json` remains canonical; table and figure policies are aligned to existing matrix targets only; `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` records adopted, rejected, and deferred package proposals.
-- `Target sprint/subunit`: Sprint 5.9 for end-to-end verification and ledger closure, plus future approved source/table/figure/manual-document work where count changes or upload/document-management features are required.
-- `Status`: open.
-
 ### Export QA Reviewer Override With Required Reason
 
 - `Deferred item`: Add a reviewer override path for blocking export QA issues with mandatory reason capture, audit visibility, and stale-output handling.
@@ -174,6 +164,14 @@ Each deferred item should include:
 - `Status`: open.
 
 ## Resolved Deferred Items
+
+### Sprint 5 Package Proposal Routing
+
+- `Deferred item`: Reusable proposals mined from `pro_review_assist_policy_package_sprint_5/` required Sprint 5 routing before product behavior changes.
+- `Resolution`: Sprint 5.1 through Sprint 5.9 created and closed the package reconciliation ledger, adopted safe policy/source/render/manual/export QA changes, rejected example-specific or count-changing proposals, and carried remaining product gaps into durable deferred-work records.
+- `Remaining limitation`: Future work remains open for source acquisition/query expansion, manual document workflows, reviewer override governance, source warehouse cleanup, cartography, and production review-state handling.
+- `Target sprint/subunit`: Sprint 5.9.
+- `Status`: resolved.
 
 ### Sprint 1.2 Project Intake Artifacts
 

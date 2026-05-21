@@ -4,17 +4,14 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 5.9 End-To-End Trial, Docs, And Verification is the active next target and currently lives in root-level planning docs:
-  - `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
-  - `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
-  - `SPRINT_5_9_END_TO_END_TRIAL_DOCS_AND_VERIFICATION.md`
+- None. Sprint 5 is complete; pause for post-Sprint-5 / Sprint 6 planning.
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
 ## Planned Sprint/Subunits
 
 - Roadmap reference: `docs/sprints/ROADMAP.md`
-- Sprint 5 report-policy/source-truth/discernment subunits currently live as root-level planning docs until they are implemented and archived.
+- Sprint 6 planning is not yet active.
 
 ## Completed Sprint/Subunits
 
@@ -60,6 +57,12 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Added manual-material metadata to deliverable items, review queue items, review detail summaries, and export manifest records; kept restricted/manual/optional/reviewer-supplied needs visible as review states; preserved reviewer notes as internal; and reused existing edited/replacement content and figure replacement/caption flows without adding generalized uploads.
 - Sprint 5.8 Export QA And Override Policy: `docs/archive/sprints/SPRINT_5_8_EXPORT_QA_AND_OVERRIDE_POLICY.md`
   - Added policy-aware export QA manifest fields, hard-blocked default reviewed export on blocking QA errors before writing new reviewed outputs, surfaced QA readiness in export UI paths, kept internal preview as a QA-recording bypass, and deferred reviewer override-with-reason.
+- Sprint 5.9 End-To-End Trial, Docs, And Verification: `docs/archive/sprints/SPRINT_5_9_END_TO_END_TRIAL_DOCS_AND_VERIFICATION.md`
+  - Verified the Sprint 5 preview and reviewed-export paths, kept GPT verification dry-run only, closed the package reconciliation ledger, updated deferred work, and archived Sprint 5 planning docs.
+- Sprint 5 Report Policy, Source Truth, And Discernment: `docs/archive/sprints/SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
+  - Completed Sprint 5 across policy schema, extent semantics, source truth, render gating, GPT guardrails, table/figure policy, manual material status, export QA, and final verification.
+- Sprint 5 Policy Package Reconciliation Ledger: `docs/archive/sprints/SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
+  - Historical package-to-policy disposition record for adopted, rejected, already-covered, and deferred Sprint 5 package proposals.
 
 ## Deferred Work Linked To Sprints
 

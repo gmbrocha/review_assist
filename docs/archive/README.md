@@ -29,3 +29,6 @@ Current archived planning records include:
 - `docs/archive/sprints/SPRINT_5_6_TABLE_FIGURE_POLICY_MATRIX_ALIGNMENT.md`
 - `docs/archive/sprints/SPRINT_5_7_MANUAL_REVIEWER_SUPPLIED_POLICY_MVP.md`
 - `docs/archive/sprints/SPRINT_5_8_EXPORT_QA_AND_OVERRIDE_POLICY.md`
+- `docs/archive/sprints/SPRINT_5_9_END_TO_END_TRIAL_DOCS_AND_VERIFICATION.md`
+- `docs/archive/sprints/SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
+- `docs/archive/sprints/SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`

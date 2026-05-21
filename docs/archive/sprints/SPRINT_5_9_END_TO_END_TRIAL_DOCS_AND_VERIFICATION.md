@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked for implementation after Sprint 5.1 through Sprint 5.8 are accepted enough to trial together.
+Completed on branch `sprint-5`.
 
 ## Goal
 
@@ -11,6 +11,15 @@ Run the full policy-aware report workflow on sample fixtures and inspect the act
 This is a verification and cleanup subunit, not a feature-expansion subunit.
 
 This subunit must verify that `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` has no unresolved adopted/routed rows. Any remaining package differences must be rejected, documented as already covered, or deferred into permanent deferred-work records before Sprint 5 is closed.
+
+## Trial Results
+
+- `projects/trails` was regenerated with `populate-for-review --no-gpt-drafting`.
+- GPT verification was dry-run only; no live GPT drafting was invoked.
+- Internal preview export completed with expected preview-bypass QA metadata.
+- A disposable temp copy of `projects/trails` was populated, review items were marked accepted/export-eligible in that temp workspace only, and default reviewed export produced Markdown/DOCX with `review_gate_status: passed`, `final_verification.status: passed`, and `export_qa_blocking_error_count: 0`.
+- The trial found and fixed one narrow final-verification false positive for attachment section items that use matrix `attachment_refs` instead of direct `attachment_id`.
+- Generated sample artifacts remain ignored and uncommitted.
 
 ## Trial Workflow
 
@@ -53,7 +62,7 @@ This subunit must verify that `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
 - Generated artifacts affected by behavior changes are regenerated only as needed and left uncommitted unless explicitly approved.
 - Sprint 5 completion state and next-step risks are clear.
 
-## Commands To Consider
+## Commands Run
 
 ```powershell
 .\.venv\Scripts\review-assist.exe validate-deliverable-matrix
@@ -63,20 +72,20 @@ This subunit must verify that `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
 .\.venv\Scripts\review-assist.exe draft-section-candidates projects/trails --dry-run --json
 .\.venv\Scripts\review-assist.exe export-report projects/trails --include-draft --format both
 .\.venv\Scripts\python.exe -m pytest
-.\scripts\verify.ps1 -SkipInstall
+git diff --check
 ```
 
-## Closeout Requirements
+All commands passed. Full pytest passed with 491 tests and known GeoPandas/pyogrio sample-data warnings. `scripts/verify.ps1 -SkipInstall` was not run because Sprint 5.9 used the user-approved targeted validator, regeneration, export, and full-pytest verification path instead.
 
-Report:
+## Closeout
 
-- generated artifacts affected: yes/no
-- minimum affected chain
-- server restart needed: yes/no
-- regeneration commands run
-- canonical artifacts verified
-- UI verified from current server: yes/no/not applicable
-- generated artifacts intentionally uncommitted
-- focused tests run
-- full suite run
-- remaining stale-artifact risk
+- Generated artifacts affected: yes.
+- Minimum affected chain: source status -> tables/figures -> evidence package -> deliverable items -> review queue -> export manifests and Markdown/DOCX outputs.
+- Server restart needed: no.
+- Regeneration commands run: `populate-for-review projects/trails --no-gpt-drafting`, `draft-section-candidates projects/trails --dry-run --json`, and `export-report projects/trails --include-draft --format both`.
+- Canonical artifacts verified: source status, deliverable tables, deliverable figures, evidence package, deliverable items, review queue, and export manifest under `projects/trails`.
+- UI verified from current server: not applicable.
+- Generated artifacts intentionally uncommitted: ignored `projects/trails` generated artifact directories and disposable temp reviewed-export workspace outputs.
+- Focused tests run: export-report regression tests plus matrix/prompt validators and Sprint 5.9 workflow commands.
+- Full suite run: yes, 491 passed.
+- Remaining stale-artifact risk: none expected; the reviewed-export simulation used a disposable temp copy and the sample project artifacts remain ignored.

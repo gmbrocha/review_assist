@@ -27,7 +27,8 @@ The system is not a recommendation engine, final environmental review, regulator
 - Completed: Sprint 5.6 Table/Figure Policy Matrix Alignment.
 - Completed: Sprint 5.7 Manual / Reviewer-Supplied Policy MVP.
 - Completed: Sprint 5.8 Export QA And Override Policy.
-- Active next implementation target: Sprint 5.9 End-To-End Trial, Docs, And Verification.
+- Completed: Sprint 5.9 End-To-End Trial, Docs, And Verification.
+- Active next implementation target: none. Pause for post-Sprint-5 / Sprint 6 planning.
 
 ## Active Architectural State
 
@@ -116,7 +117,7 @@ Important current artifacts:
 - Census source setup and table stubbing/local-source table generation are implemented; live ACS API calls, TIGER download/acquisition, and full margin-of-error handling remain future work.
 - Sprint 3 is complete as the non-UI backend foundation for Sprint 4. Exact/pixel Word template fidelity, page-number fields, PDF export, and any web/UI behavior remain outside the completed Sprint 3 backend scope unless explicitly re-scoped.
 - Missing/gated/manual/stale/failed sources must remain visible and reviewable.
-- Sprint 5 is the active report-policy/source-truth/discernment sprint. Sprint 5.1 created `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`, kept `config/report_section_policy.json` canonical, added explicit section activation/review fields, made `relationship-with-pel-study` conditional/manual reviewer-supplied policy, and strengthened policy validation against source/table/figure contracts. Sprint 5.2 tightened extent wording semantics and presentation-only map/collar guardrails. Sprint 5.3 added source-needs/effective-truth mapping without source acquisition expansion. Sprint 5.4 added render gating/export selection metadata while preserving wetlands/waterbodies narrative children and stable deliverable/review item counts. Sprint 5.5 tightened GPT caveat/prohibited-claim guardrails without expanding GPT coverage. Sprint 5.6 added explicit table policies and table/figure policy metadata while preserving the current 4 table, 15 figure, and 3 attachment counts. Sprint 5.7 added manual/reviewer-supplied material metadata and review/export propagation without adding generalized uploads or source acquisition. Sprint 5.8 added policy-aware export QA and hard-blocked reviewed export on blocking QA errors while leaving reviewer override deferred. Sprint 5 must not implement source acquisition expansion, GPT coverage expansion, or deliverable count changes without explicit approval.
+- Sprint 5 is complete. Sprint 5.1 created the package reconciliation ledger, kept `config/report_section_policy.json` canonical, added explicit section activation/review fields, made `relationship-with-pel-study` conditional/manual reviewer-supplied policy, and strengthened policy validation against source/table/figure contracts. Sprint 5.2 tightened extent wording semantics and presentation-only map/collar guardrails. Sprint 5.3 added source-needs/effective-truth mapping without source acquisition expansion. Sprint 5.4 added render gating/export selection metadata while preserving wetlands/waterbodies narrative children and stable deliverable/review item counts. Sprint 5.5 tightened GPT caveat/prohibited-claim guardrails without expanding GPT coverage. Sprint 5.6 added explicit table policies and table/figure policy metadata while preserving the current 4 table, 15 figure, and 3 attachment counts. Sprint 5.7 added manual/reviewer-supplied material metadata and review/export propagation without adding generalized uploads or source acquisition. Sprint 5.8 added policy-aware export QA and hard-blocked reviewed export on blocking QA errors while leaving reviewer override deferred. Sprint 5.9 verified the end-to-end preview and reviewed-export paths, closed the package ledger, and archived Sprint 5 planning docs. Future work must not implement source acquisition expansion, GPT coverage expansion, deliverable count changes, or Sprint 6 figure-editing behavior without explicit approval.
 - Future Sprint 6 figure-editing work remains outside Sprint 5.
 
 ## Context Routing
@@ -127,8 +128,8 @@ Important current artifacts:
 - Governance workflows: `docs/governance/`
 - Domain doc index: `docs/domains/README.md`
 - Sprint index: `docs/sprints/README.md`
-- Active Sprint 5 root plan: `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
-- Active Sprint 5 routing ledger: `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
+- Completed Sprint 5 root plan: `docs/archive/sprints/SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
+- Completed Sprint 5 routing ledger: `docs/archive/sprints/SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
 - Deferred work registry: `docs/governance/DEFERRED_WORK.md`
 - High-level canonical plan: `CANONICAL_PLAN.md` when deliverable shape or workflow direction is ambiguous
 - Historical/cold docs: `docs/archive/README.md`
