@@ -40,7 +40,10 @@ MISSING_SOURCE_STATUSES = {
 }
 RESTRICTED_CULTURAL_SOURCE_ID = "mdah_restricted_archaeology"
 PUBLIC_CULTURAL_SOURCE_IDS = {"maris_public_cultural_context", "mdah_public_historic_resources"}
-NHD_SOURCE_IDS = ("usgs_nhd_hydrography", "usgs_nhd_flowlines", "usgs_nhd_waterbodies", "usgs_nhd_other_areas")
+NHD_ROLLUP_SOURCE_ID = "usgs_nhd_hydrography"
+NHD_PHYSICAL_SOURCE_IDS = ("usgs_nhd_flowlines", "usgs_nhd_waterbodies", "usgs_nhd_other_areas")
+NHD_SOURCE_IDS = (NHD_ROLLUP_SOURCE_ID, *NHD_PHYSICAL_SOURCE_IDS)
+IMPAIRED_WATERS_SOURCE_IDS = ("mdeq_303d_impaired_waters",)
 HAZARDOUS_REGULATED_SOURCE_IDS = (
     "epa_frs_facilities_ms",
     "maris_brownfields",
@@ -83,8 +86,7 @@ TARGET_SPECS: dict[str, TargetFigureSpec] = {
         prefer_basemap=True,
     ),
     "figure-streams-impaired-waters": TargetFigureSpec(
-        NHD_SOURCE_IDS,
-        source_unimplemented_note="303(d) impaired-water layer rendering is not implemented for Sprint 2.3; hydrography is shown when available.",
+        (*NHD_PHYSICAL_SOURCE_IDS, *IMPAIRED_WATERS_SOURCE_IDS),
     ),
     "figure-cultural-resources": TargetFigureSpec(
         ("maris_public_cultural_context", "mdah_public_historic_resources"),

@@ -13,6 +13,9 @@ from shapely.geometry import LineString, Point, Polygon
 
 import review_assist.project_area as project_area_module
 from review_assist.cli import main
+from review_assist.deliverable_items import generate_deliverable_items
+from review_assist.evidence_package import build_evidence_package
+from review_assist.review_queue import generate_review_queue
 from review_assist.deliverable_figure_rendering import (
     LEGEND_MEASUREMENT_SAFETY_FACTOR,
     choose_legend_collar_side,
@@ -99,7 +102,7 @@ def write_project(tmp_path: Path, *, coordinates: str = "-90.0000,32.0000,0 -89.
     return project_dir
 
 
-def write_registry(project_dir: Path, sources: list[tuple[str, str]]) -> None:
+def write_registry(project_dir: Path, sources: list[tuple[str, str]], *, status: str = "local_materialized") -> None:
     (project_dir / "config" / "sources.json").write_text(
         json.dumps(
             {
@@ -113,7 +116,7 @@ def write_registry(project_dir: Path, sources: list[tuple[str, str]]) -> None:
                         "role": "constraint_screening",
                         "buffer_feet": None,
                         "notes": "",
-                        "status": "test",
+                        "status": status,
                     }
                     for source_id, path in sources
                 ],
@@ -1097,6 +1100,220 @@ def test_render_map_keeps_report_text_out_of_image_canvas(tmp_path: Path, monkey
     assert title_calls == []
 
 
+def test_public_water_supply_wells_figure_renders_project_local_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(
+        project_dir / "pws.geojson",
+        [Point(-89.995, 32.0002)],
+        [{"Owner_Name": "Test Water System", "PermitNumb": "PWS-1", "Beneficial": "PS"}],
+    )
+    write_registry(project_dir, [("mdeq_public_water_supply_wells", "pws.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    wells = figure_by_id(result, "figure-public-water-supply-wells")
+    source_layer = next(layer for layer in wells["shown_layers"] if layer.get("source_id") == "mdeq_public_water_supply_wells")  # type: ignore[index]
+
+    assert result["figure_count"] == 15
+    assert wells["is_stub"] is False
+    assert Path(str(wells["image_path"])).exists()
+    assert wells["source_refs"] == ["mdeq_public_water_supply_wells"]
+    assert source_layer["feature_count"] == 1
+    assert source_layer["legend_label"] == "PWS wells"
+    assert "figure_source_unimplemented" not in issue_codes(wells)
+    assert "figure_source_missing" not in issue_codes(wells)
+    assert "Public water supply wells are mapped context only" in wells["source_note"]  # type: ignore[operator]
+
+
+def test_streams_impaired_waters_spec_uses_physical_nhd_and_303d_sources() -> None:
+    spec = TARGET_SPECS["figure-streams-impaired-waters"]
+
+    assert "mdeq_303d_impaired_waters" in spec.source_ids
+    assert "usgs_nhd_flowlines" in spec.source_ids
+    assert "usgs_nhd_waterbodies" in spec.source_ids
+    assert "usgs_nhd_other_areas" in spec.source_ids
+    assert "usgs_nhd_hydrography" not in spec.source_ids
+
+
+def test_streams_impaired_waters_figure_renders_nhd_and_303d_with_watershed_limitation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(
+        project_dir / "nhd.geojson",
+        [LineString([(-90.0005, 31.9995), (-89.998, 32.001)])],
+        [{"GNIS_NAME": "Test Creek", "FTYPE": "StreamRiver"}],
+    )
+    write_layer(
+        project_dir / "nhd_waterbody.geojson",
+        [Polygon([(-89.999, 32.0005), (-89.9987, 32.0005), (-89.9987, 32.0008), (-89.999, 32.0008), (-89.999, 32.0005)])],
+        [{"GNIS_NAME": "Test Pond", "FTYPE": "LakePond"}],
+    )
+    write_layer(
+        project_dir / "nhd_other_area.geojson",
+        [Polygon([(-89.9994, 31.9997), (-89.9991, 31.9997), (-89.9991, 32.0), (-89.9994, 32.0), (-89.9994, 31.9997)])],
+        [{"GNIS_NAME": "Test Area", "FTYPE": "Area"}],
+    )
+    write_layer(
+        project_dir / "impaired.geojson",
+        [LineString([(-90.0002, 31.9996), (-89.9982, 32.0009)])],
+        [{"WATER_BODY_NAME": "Test Creek", "review_assist_mdeq_303d_status": "TMDL complete", "review_assist_list_year": "2024"}],
+    )
+    write_registry(
+        project_dir,
+        [
+            ("usgs_nhd_flowlines", "nhd.geojson"),
+            ("usgs_nhd_waterbodies", "nhd_waterbody.geojson"),
+            ("usgs_nhd_other_areas", "nhd_other_area.geojson"),
+            ("mdeq_303d_impaired_waters", "impaired.geojson"),
+        ],
+    )
+
+    result = generate_deliverable_figures(project_dir)
+    streams = figure_by_id(result, "figure-streams-impaired-waters")
+    source_ids = {layer.get("source_id") for layer in streams["shown_layers"]}  # type: ignore[index]
+
+    assert result["figure_count"] == 15
+    assert streams["is_stub"] is False
+    assert Path(str(streams["image_path"])).exists()
+    assert {"usgs_nhd_flowlines", "mdeq_303d_impaired_waters"} <= source_ids
+    assert "mdeq_303d_impaired_waters" in streams["source_refs"]  # type: ignore[operator]
+    assert "usgs_nhd_flowlines" in streams["source_refs"]  # type: ignore[operator]
+    assert "usgs_nhd_waterbodies" in streams["source_refs"]  # type: ignore[operator]
+    assert "usgs_nhd_other_areas" in streams["source_refs"]  # type: ignore[operator]
+    assert "usgs_nhd_hydrography" not in streams["source_refs"]  # type: ignore[operator]
+    assert "figure_created_as_stub" not in issue_codes(streams)
+    assert "figure_source_missing" not in issue_codes(streams)
+    assert "figure_extent_context_deferred" in issue_codes(streams)
+    assert "NHD hydrography is shown" in streams["source_note"]  # type: ignore[operator]
+    assert "MDEQ 303(d) impaired waters and TMDL-complete waters are shown" in streams["source_note"]  # type: ignore[operator]
+    assert "Watershed/subwatershed context remains deferred" in streams["source_note"]  # type: ignore[operator]
+    assert streams["provenance"]["figure_extent_plan"]["status"] == "planned_current_project_area_context"  # type: ignore[index]
+    assert streams["provenance"]["figure_extent_plan"]["basemap_materialization_group"] == ""  # type: ignore[index]
+
+
+def test_streams_figure_does_not_claim_303d_when_only_nhd_available(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(
+        project_dir / "nhd.geojson",
+        [LineString([(-90.0005, 31.9995), (-89.998, 32.001)])],
+        [{"GNIS_NAME": "Test Creek", "FTYPE": "StreamRiver"}],
+    )
+    write_layer(
+        project_dir / "nhd_waterbody.geojson",
+        [Polygon([(-89.999, 32.0005), (-89.9987, 32.0005), (-89.9987, 32.0008), (-89.999, 32.0008), (-89.999, 32.0005)])],
+        [{"GNIS_NAME": "Test Pond", "FTYPE": "LakePond"}],
+    )
+    write_layer(
+        project_dir / "nhd_other_area.geojson",
+        [Polygon([(-89.9994, 31.9997), (-89.9991, 31.9997), (-89.9991, 32.0), (-89.9994, 32.0), (-89.9994, 31.9997)])],
+        [{"GNIS_NAME": "Test Area", "FTYPE": "Area"}],
+    )
+    write_registry(project_dir, [("usgs_nhd_flowlines", "nhd.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    streams = figure_by_id(result, "figure-streams-impaired-waters")
+
+    assert streams["is_stub"] is False
+    assert "usgs_nhd_flowlines" in streams["source_refs"]  # type: ignore[operator]
+    assert "mdeq_303d_impaired_waters" not in streams["source_refs"]  # type: ignore[operator]
+    assert "MDEQ 303(d) impaired waters and TMDL-complete waters are shown" not in streams["source_note"]  # type: ignore[operator]
+    assert any(
+        issue.get("code") == "figure_source_missing" and issue.get("source_id") == "mdeq_303d_impaired_waters"
+        for issue in streams["validation_issues"]  # type: ignore[union-attr]
+    )
+
+
+def test_new_source_figure_refs_flow_into_deliverable_items_and_review_queue(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "empty_naip"
+    basemap_root.mkdir()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(
+        project_dir / "pws.geojson",
+        [Point(-89.995, 32.0002)],
+        [{"Owner_Name": "Test Water System", "PermitNumb": "PWS-1", "Beneficial": "PS"}],
+    )
+    write_layer(
+        project_dir / "nhd.geojson",
+        [LineString([(-90.0005, 31.9995), (-89.998, 32.001)])],
+        [{"GNIS_NAME": "Test Creek", "FTYPE": "StreamRiver"}],
+    )
+    write_layer(
+        project_dir / "nhd_waterbody.geojson",
+        [Polygon([(-89.999, 32.0005), (-89.9987, 32.0005), (-89.9987, 32.0008), (-89.999, 32.0008), (-89.999, 32.0005)])],
+        [{"GNIS_NAME": "Test Pond", "FTYPE": "LakePond"}],
+    )
+    write_layer(
+        project_dir / "nhd_other_area.geojson",
+        [Polygon([(-89.9994, 31.9997), (-89.9991, 31.9997), (-89.9991, 32.0), (-89.9994, 32.0), (-89.9994, 31.9997)])],
+        [{"GNIS_NAME": "Test Area", "FTYPE": "Area"}],
+    )
+    write_layer(
+        project_dir / "impaired.geojson",
+        [LineString([(-90.0002, 31.9996), (-89.9982, 32.0009)])],
+        [{"WATER_BODY_NAME": "Test Creek", "review_assist_mdeq_303d_status": "TMDL complete", "review_assist_list_year": "2024"}],
+    )
+    write_registry(
+        project_dir,
+        [
+            ("mdeq_public_water_supply_wells", "pws.geojson"),
+            ("usgs_nhd_flowlines", "nhd.geojson"),
+            ("usgs_nhd_waterbodies", "nhd_waterbody.geojson"),
+            ("usgs_nhd_other_areas", "nhd_other_area.geojson"),
+            ("mdeq_303d_impaired_waters", "impaired.geojson"),
+        ],
+    )
+
+    generate_deliverable_figures(project_dir)
+    build_evidence_package(project_dir)
+    items = generate_deliverable_items(project_dir, gpt_drafting=False)
+    queue = generate_review_queue(project_dir)
+
+    pws_item = next(item for item in items["items"] if item["deliverable_item_id"] == "public-water-supply")
+    water_quality_item = next(item for item in items["items"] if item["deliverable_item_id"] == "water-quality")
+    pws_queue = next(item for item in queue["items"] if item["id"] == "public-water-supply")
+    water_quality_queue = next(item for item in queue["items"] if item["id"] == "water-quality")
+    serialized = json.dumps({"items": items, "queue": queue})
+
+    assert "figure-public-water-supply-wells" in pws_item["related_figure_ids"]
+    assert "figure-streams-impaired-waters" in water_quality_item["related_figure_ids"]
+    assert "figure-public-water-supply-wells" in pws_queue["related_figure_ids"]
+    assert "figure-streams-impaired-waters" in water_quality_queue["related_figure_ids"]
+    assert "mdeq_303d_impaired_waters" in water_quality_item["source_refs"]
+    assert "mdeq_303d_impaired_waters" in water_quality_queue["source_refs"]
+    assert "usgs_nhd_flowlines" in water_quality_item["source_refs"]
+    assert "usgs_nhd_flowlines" in water_quality_queue["source_refs"]
+    assert "usgs_nhd_waterbodies" in water_quality_item["source_refs"]
+    assert "usgs_nhd_waterbodies" in water_quality_queue["source_refs"]
+    assert "usgs_nhd_other_areas" in water_quality_item["source_refs"]
+    assert "usgs_nhd_other_areas" in water_quality_queue["source_refs"]
+    assert "usgs_nhd_hydrography" not in water_quality_item["source_refs"]
+    assert "usgs_nhd_hydrography" not in water_quality_queue["source_refs"]
+    assert not any(issue["code"] == "figure_created_as_stub" for issue in pws_item["validation_issues"])
+    assert not any(issue["code"] == "figure_created_as_stub" for issue in water_quality_item["validation_issues"])
+    assert "source_download_failed" not in serialized
+    assert "source_not_downloaded" not in serialized
+
+
 def test_figure_extent_plan_records_small_medium_and_deferred_watershed_classes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1151,7 +1368,7 @@ def test_figure_extent_plan_records_small_medium_and_deferred_watershed_classes(
     assert fire["core_bounds"][0] < wetlands["core_bounds"][0]  # type: ignore[index]
 
     assert streams["extent_class"] == "large_watershed"
-    assert streams["status"] == "deferred_watershed_context"
+    assert streams["status"] == "planned_current_project_area_context"
     assert streams["basemap_materialization_group"] == ""
     assert any(issue["code"] == "figure_extent_context_deferred" for issue in plan["validation_issues"])  # type: ignore[index]
 

@@ -55,8 +55,8 @@ from .extent_policy import (
 from .maps import FIGURES_DIR
 from .project_area import PROJECT_AREA_PATH, ProjectAreaError, build_project_area, load_project_area
 from .projects import ProjectManifestError, load_project_manifest
-from .source_catalog import SourceCatalogError, load_source_catalog
-from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
+from .source_catalog import SourceCatalogError, load_project_source_registry, load_source_catalog, resolve_project_source_path
+from .source_status import LOGICAL_ROLLUP_SATISFIERS, SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 
 
 DELIVERABLE_FIGURES_PATH = Path("deliverable/figures.json")
@@ -462,11 +462,13 @@ def _load_source_layers(
 ) -> dict[str, list[dict[str, Any]]]:
     layers: dict[str, list[dict[str, Any]]] = {}
     bounds_union = analysis_bounds.geometry.union_all()
-    for source in _dict_list(comparison_unit_constraints.get("sources", [])):
+    for source in _renderable_source_records(
+        project_dir=project_dir,
+        comparison_unit_constraints=comparison_unit_constraints,
+        source_catalog=source_catalog,
+    ):
         source_id = str(source.get("source_id", ""))
         if not source_id or source_id == RESTRICTED_CULTURAL_SOURCE_ID:
-            continue
-        if str(source.get("status", "")) not in USABLE_SOURCE_STATUSES:
             continue
         source_path = _resolve_source_path(project_dir, source.get("path"))
         if source_path is None or not source_path.exists():
@@ -481,7 +483,8 @@ def _load_source_layers(
         gdf = gdf[~gdf.geometry.is_empty]
         if not gdf.empty:
             gdf = gdf.to_crs(analysis_crs)
-            gdf = gdf[gdf.geometry.intersects(bounds_union)].copy()
+            if bool(source.get("clip_to_analysis_bounds", True)):
+                gdf = gdf[gdf.geometry.intersects(bounds_union)].copy()
         definition = source_catalog.get(source_id)
         layers.setdefault(source_id, []).append(
             {
@@ -494,6 +497,59 @@ def _load_source_layers(
             }
         )
     return layers
+
+
+def _renderable_source_records(
+    *,
+    project_dir: Path,
+    comparison_unit_constraints: dict[str, Any],
+    source_catalog: dict[str, Any],
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    try:
+        registry = load_project_source_registry(project_dir)
+    except SourceCatalogError:
+        registry = None
+
+    if registry is not None:
+        for project_source in registry.sources:
+            source_id = str(project_source.source_id or "")
+            if not source_id or source_id == RESTRICTED_CULTURAL_SOURCE_ID or not project_source.enabled:
+                continue
+            source_path = resolve_project_source_path(project_dir, project_source)
+            if source_path is None or not source_path.exists():
+                continue
+            key = (source_id, str(source_path))
+            if key in seen:
+                continue
+            definition = source_catalog.get(source_id)
+            records.append(
+                {
+                    "source_id": source_id,
+                    "source_name": getattr(definition, "name", "") or source_id,
+                    "source_category": getattr(project_source, "source_category", "") or getattr(definition, "category", ""),
+                    "path": str(source_path),
+                    "status": project_source.status or "registered_local",
+                    "clip_to_analysis_bounds": str(project_source.status or "") != "local_materialized",
+                }
+            )
+            seen.add(key)
+
+    for source in _dict_list(comparison_unit_constraints.get("sources", [])):
+        source_id = str(source.get("source_id", ""))
+        if not source_id or str(source.get("status", "")) not in USABLE_SOURCE_STATUSES:
+            continue
+        source_path = _resolve_source_path(project_dir, source.get("path"))
+        key = (source_id, str(source_path or source.get("path") or ""))
+        if key in seen:
+            continue
+        record = dict(source)
+        record["clip_to_analysis_bounds"] = True
+        records.append(record)
+        seen.add(key)
+    return records
 
 
 def _figure_extent_plan_record(
@@ -529,9 +585,12 @@ def _figure_extent_plan_record(
         layer_records = [layer for layer in layer_records if layer["source_id"] in PUBLIC_CULTURAL_SOURCE_IDS]
 
     if extent_class == LARGE_WATERSHED_EXTENT_CLASS:
-        status = "deferred_watershed_context"
+        status = "planned_current_project_area_context" if layer_records else "deferred_watershed_context"
         status_reason = (
-            "Watershed/subwatershed render context is not implemented; this plan does not use "
+            "Watershed/subwatershed render context is not implemented; available source layers are rendered "
+            "with the current project-area presentation extent and are not treated as watershed context."
+            if layer_records
+            else "Watershed/subwatershed render context is not implemented; this plan does not use "
             "project-area bounds as a substitute for watershed context."
         )
         issues.append(
@@ -564,7 +623,11 @@ def _figure_extent_plan_record(
         source_layers=layer_records,
         focus_bounds=core_bounds,
     )
-    group = _basemap_group_for_extent_class(extent_class) if status in PLANNED_FIGURE_STATUSES and spec.prefer_basemap and layer_records else ""
+    group = (
+        _basemap_group_for_extent_class(extent_class)
+        if extent_class != LARGE_WATERSHED_EXTENT_CLASS and status in PLANNED_FIGURE_STATUSES and spec.prefer_basemap and layer_records
+        else ""
+    )
     record = {
         "figure_id": target.target_id,
         "section_target_id": target.section_target_id,
@@ -728,12 +791,14 @@ def _figure_for_target(
     spec = TARGET_SPECS.get(target.target_id, TargetFigureSpec(_target_source_refs(source_context, target.source_categories)))
     target_source_ids = list(spec.source_ids) or _target_source_refs(source_context, target.source_categories)
     public_source_ids = [source_id for source_id in target_source_ids if source_id != RESTRICTED_CULTURAL_SOURCE_ID]
-    validation_issues = _source_availability_issues(target, public_source_ids, source_context)
+    validation_issues: list[dict[str, Any]] = []
     uncertainty_flags: set[str] = {"draft_pre_review", "desktop_screening_only"}
 
     layer_records = _target_source_layers(target, source_layers)
     layer_records = [_filtered_layer(layer, spec.filter_tokens) for layer in layer_records]
     layer_records = [layer for layer in layer_records if layer["source_id"] != RESTRICTED_CULTURAL_SOURCE_ID]
+    available_source_ids = {str(layer["source_id"]) for layer in layer_records}
+    validation_issues.extend(_source_availability_issues(target, public_source_ids, source_context, available_source_ids))
     if target.target_id == "figure-cultural-resources" and _restricted_cultural_present(source_context):
         validation_issues.append(
             _issue(
@@ -759,7 +824,10 @@ def _figure_for_target(
         )
         uncertainty_flags.add("source_unimplemented")
 
-    if isinstance(figure_plan, dict) and str(figure_plan.get("status") or "") == "deferred_watershed_context":
+    if isinstance(figure_plan, dict) and (
+        str(figure_plan.get("status") or "") == "deferred_watershed_context"
+        or str(figure_plan.get("extent_class") or "") == LARGE_WATERSHED_EXTENT_CLASS
+    ):
         validation_issues.append(
             _issue(
                 "warning",
@@ -772,19 +840,20 @@ def _figure_for_target(
                 target_id=target.target_id,
             )
         )
-        return _stub_figure(
-            target=target,
-            matrix_version=matrix_version,
-            public_source_ids=public_source_ids,
-            comparison_unit_ids=_comparison_unit_ids(unit_gdf),
-            comparison_unit_constraints=comparison_unit_constraints,
-            source_status=source_status,
-            uncertainty_flags=sorted(uncertainty_flags | {"figure_extent_context_deferred"}),
-            validation_issues=validation_issues,
-            figure_plan=figure_plan,
-        )
+        if str(figure_plan.get("status") or "") == "deferred_watershed_context" and not layer_records:
+            return _stub_figure(
+                target=target,
+                matrix_version=matrix_version,
+                public_source_ids=public_source_ids,
+                comparison_unit_ids=_comparison_unit_ids(unit_gdf),
+                comparison_unit_constraints=comparison_unit_constraints,
+                source_status=source_status,
+                uncertainty_flags=sorted(uncertainty_flags | {"figure_extent_context_deferred"}),
+                validation_issues=validation_issues,
+                figure_plan=figure_plan,
+            )
+        uncertainty_flags.add("figure_extent_context_deferred")
 
-    available_source_ids = {str(layer["source_id"]) for layer in layer_records}
     if not available_source_ids:
         return _stub_figure(
             target=target,
@@ -832,7 +901,7 @@ def _figure_for_target(
     uncertainty_flags.update(_string_list(basemap.get("flags", [])))
 
     image_path = figures_dir / f"{target.target_id}.png"
-    source_note = _source_note(layer_records, basemap)
+    source_note = _source_note(layer_records, basemap, target_id=target.target_id, figure_plan=figure_plan)
     method_note = _method_note(analysis_crs, include_basemap=bool(basemap.get("layer")))
     try:
         render_layout = render_map(
@@ -945,10 +1014,19 @@ def _source_availability_issues(
     target: FigureTarget,
     source_ids: list[str],
     source_context: dict[str, Any],
+    available_source_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     details = source_context.get("details_by_id", {})
+    available = available_source_ids or set()
+    rollup_satisfied_children: set[str] = set()
+    if isinstance(details, dict):
+        for rollup_id, child_ids in LOGICAL_ROLLUP_SATISFIERS.items():
+            if rollup_id in source_ids and str(details.get(rollup_id, {}).get("status", "")) == "logical_rollup_satisfied":
+                rollup_satisfied_children.update(child_ids)
     for source_id in source_ids:
+        if source_id in available or source_id in rollup_satisfied_children:
+            continue
         detail = details.get(source_id, {}) if isinstance(details, dict) else {}
         status = str(detail.get("status", ""))
         if status in UNIMPLEMENTED_SOURCE_STATUSES:
@@ -1297,8 +1375,15 @@ def _method_note(analysis_crs: str, *, include_basemap: bool) -> str:
     return f"{method} screening map. Analysis CRS: {analysis_crs}."
 
 
-def _source_note(source_layers: list[dict[str, Any]], basemap: dict[str, Any] | None) -> str:
+def _source_note(
+    source_layers: list[dict[str, Any]],
+    basemap: dict[str, Any] | None,
+    *,
+    target_id: str = "",
+    figure_plan: dict[str, Any] | None = None,
+) -> str:
     labels = []
+    source_ids = {str(layer.get("source_id") or "") for layer in source_layers}
     for layer in source_layers:
         count = int(len(layer["gdf"]))
         labels.append(f"{layer.get('source_name') or layer.get('source_id')} ({count} features)")
@@ -1319,7 +1404,20 @@ def _source_note(source_layers: list[dict[str, Any]], basemap: dict[str, Any] | 
                 labels.append(message)
     if not labels:
         return ""
-    return "Sources: " + "; ".join(labels)
+    notes: list[str] = []
+    if target_id == "figure-public-water-supply-wells":
+        notes.append(
+            "Public water supply wells are mapped context only; mapped proximity is not a service impact or direct impact determination."
+        )
+    if target_id == "figure-streams-impaired-waters":
+        if any(source_id.startswith("usgs_nhd_") for source_id in source_ids):
+            notes.append("NHD hydrography is shown where project-local NHD layers are available.")
+        if "mdeq_303d_impaired_waters" in source_ids:
+            notes.append("MDEQ 303(d) impaired waters and TMDL-complete waters are shown where available.")
+        if isinstance(figure_plan, dict) and str(figure_plan.get("extent_class") or "") == LARGE_WATERSHED_EXTENT_CLASS:
+            notes.append("Watershed/subwatershed context remains deferred and is not inferred from project-area bounds.")
+    source_sentence = "Sources: " + "; ".join(labels) + "."
+    return source_sentence + ((" " + " ".join(notes)) if notes else "")
 
 
 def _comparison_unit_ids(unit_gdf: gpd.GeoDataFrame) -> list[str]:
