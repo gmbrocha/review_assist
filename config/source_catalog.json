@@ -12,6 +12,11 @@
       "first_pass_priority": "high"
     },
     {
+      "category": "water_quality",
+      "label": "Water Quality and Impaired Waters",
+      "first_pass_priority": "medium"
+    },
+    {
       "category": "land_cover_disturbance",
       "label": "Land Cover, Disturbance, and Low-Disturbance Context",
       "first_pass_priority": "high"
@@ -531,6 +536,30 @@
       "notes": "Specific seeded NHD waterbody source; live downloader rollup remains usgs_nhd_hydrography.",
       "warehouse_source_ids": [
         "usgs_nhd_waterbodies"
+      ]
+    },
+    {
+      "source_id": "mdeq_303d_impaired_waters",
+      "name": "MDEQ 2024 303(d) Impaired Waters and TMDL Complete Waters",
+      "publisher": "Mississippi Department of Environmental Quality",
+      "category": "water_quality",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "first_pass_medium",
+      "access_methods": [
+        "local_file",
+        "manual_download"
+      ],
+      "public_or_restricted": "public",
+      "geometry_type": "line_polygon",
+      "url": "https://opcgis.deq.state.ms.us/opcgis/rest/services/WQMandTMDL/MS2024ImpairedWaters/MapServer",
+      "spatial_relationships": [
+        "intersects",
+        "within_buffer"
+      ],
+      "known_limitations": "MDEQ 2024 303(d) and TMDL-complete layers are screening-level water-quality context. They do not independently establish watershed context and should be paired with HUC/NHD layers when hydrologic or watershed context is needed.",
+      "notes": "Seeded from the newest usable MDEQ REST service found for this pass. The service contains active 303(d) line/polygon layers and TMDL-complete line/polygon layers from the 2024 Active 303(d) list.",
+      "warehouse_source_ids": [
+        "mdeq_303d_impaired_waters"
       ]
     },
     {
@@ -1249,24 +1278,26 @@
     },
     {
       "source_id": "mdeq_public_water_supply_wells",
-      "name": "MDEQ Public Water Supply Wells",
-      "publisher": "Mississippi Department of Environmental Quality",
+      "name": "MDEQ/MARIS Public Water Supply Wells November 2024",
+      "publisher": "Mississippi Department of Environmental Quality Office of Land and Water Resources / MARIS",
       "category": "transportation_utilities",
       "tier": "tier_2_manual_or_semi_automated",
-      "priority": "manual_placeholder",
+      "priority": "first_pass_medium",
       "access_methods": [
         "local_file",
-        "manual_lookup",
         "manual_download"
       ],
       "public_or_restricted": "public",
       "geometry_type": "point",
-      "url": "https://www.mdeq.ms.gov/about-mdeq/interactive-maps/",
+      "url": "https://gis.mississippi.edu/server/rest/services/Hydrology/MS_WaterWells_Nov2024/MapServer",
       "spatial_relationships": [
         "within_buffer"
       ],
-      "known_limitations": "Public water supply well context requires current MDEQ source review and reviewer confirmation before external reporting.",
-      "notes": "Manual/stubbed source for public water supply wells until repeatable data access is validated."
+      "known_limitations": "Filtered from the November 2024 statewide MDEQ/MARIS water wells layer to Public Water Supply records. The source metadata says the data is a timestamp and should not be considered up-to-date or the most accurate. Public water supply well context requires reviewer/source-agency confirmation before external reporting.",
+      "notes": "Seeded from MARIS Hydrology/MS_WaterWells_Nov2024, which credits MDEQ Office of Land and Water Resources as the data source and MARIS as distributor.",
+      "warehouse_source_ids": [
+        "mdeq_public_water_supply_wells"
+      ]
     },
     {
       "source_id": "mdot_transportation_context",

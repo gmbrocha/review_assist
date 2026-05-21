@@ -2,7 +2,7 @@
   "warehouse_version": "0.1",
   "root": "sources",
   "acquisition_method": "manual_seed",
-  "source_count": 24,
+  "source_count": 26,
   "sources": [
     {
       "source_id": "epa_frs_facilities_ms",
@@ -156,6 +156,28 @@
       "renderable": true,
       "app_targets": [
         "maris_underground_storage_tanks"
+      ]
+    },
+    {
+      "source_id": "mdeq_303d_impaired_waters",
+      "category": "water_quality",
+      "warehouse_group": "water_quality",
+      "manifest_path": "water_quality/mdeq_303d_impaired_waters/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "mdeq_303d_impaired_waters"
+      ]
+    },
+    {
+      "source_id": "mdeq_public_water_supply_wells",
+      "category": "transportation_utilities",
+      "warehouse_group": "hydrology",
+      "manifest_path": "hydrology/mdeq_public_water_supply_wells/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "mdeq_public_water_supply_wells"
       ]
     },
     {

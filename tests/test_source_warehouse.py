@@ -24,6 +24,8 @@ EXPECTED_STABLE_SOURCE_IDS = {
     "maris_superfund_sites",
     "maris_tri_facilities",
     "maris_underground_storage_tanks",
+    "mdeq_303d_impaired_waters",
+    "mdeq_public_water_supply_wells",
     "mississippi_oil_gas_wells",
     "usgs_nhd_flowlines",
     "usgs_nhd_other_areas",

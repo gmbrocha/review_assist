@@ -182,6 +182,55 @@
       ]
     },
     {
+      "source_id": "mdeq_public_water_supply_wells",
+      "output_name": "mdeq_public_water_supply_wells",
+      "warehouse_source_ids": [
+        "mdeq_public_water_supply_wells"
+      ],
+      "normalization": {
+        "label_fields": [
+          "Owner_Name",
+          "PermitNumb",
+          "FIPWell_ID",
+          "DOH_ID"
+        ],
+        "feature_type_fields": [
+          "Descriptio",
+          "review_assist_water_supply_use"
+        ],
+        "feature_subtype_fields": [
+          "County",
+          "Aquifer",
+          "Beneficial"
+        ],
+        "original_id_fields": [
+          "FID",
+          "FIPWell_ID",
+          "PermitNumb",
+          "DOH_ID"
+        ],
+        "date_fields": [
+          "review_assist_source_date",
+          "review_assist_source_year"
+        ],
+        "quality_flag_fields": [
+          "review_assist_source_filter",
+          "Beneficial"
+        ],
+        "source_citation_fields": [
+          "review_assist_source_service"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/hydrology/mdeq_public_water_supply_wells/raw/MS_WaterWells_Nov2024/mdeq_public_water_supply_wells_2024_public_water_supply.geojson",
+          "source_layer_id": "MS_WaterWells_Nov2024_public_water_supply",
+          "source_layer_name": "MDEQ/MARIS Public Water Supply Wells November 2024",
+          "warehouse_source_id": "mdeq_public_water_supply_wells"
+        }
+      ]
+    },
+    {
       "source_id": "maris_boundary_context",
       "output_name": "maris_boundary_context",
       "warehouse_source_ids": [
@@ -981,6 +1030,88 @@
           "source_layer_id": "MS_RailroadJunctions_2016",
           "source_layer_name": "Mississippi Railroad Junctions 2016",
           "warehouse_source_id": "mdot_transportation_context"
+        }
+      ]
+    },
+    {
+      "source_id": "mdeq_303d_impaired_waters",
+      "output_name": "mdeq_303d_impaired_waters",
+      "warehouse_source_ids": [
+        "mdeq_303d_impaired_waters"
+      ],
+      "normalization": {
+        "label_fields": [
+          "WATER_BODY_NAME",
+          "WBNAME",
+          "WBName",
+          "WBname",
+          "NAME"
+        ],
+        "feature_type_fields": [
+          "review_assist_mdeq_303d_status",
+          "POLLUTANT",
+          "TMDL_POLLUTANT",
+          "TMDL_POLLUTANTS"
+        ],
+        "feature_subtype_fields": [
+          "IMPAIRED_USE",
+          "LISTSTATUS",
+          "BASIN",
+          "HUC_TEXT",
+          "HUC8",
+          "HUC",
+          "MWS"
+        ],
+        "original_id_fields": [
+          "WATERBODY_ID",
+          "JOINID",
+          "ALT_ID",
+          "OBJECTID",
+          "OBJECTID_1",
+          "OBJECTID_12"
+        ],
+        "date_fields": [
+          "review_assist_list_year",
+          "ORIGINAL_CYCLE",
+          "TMDL_DUE_DATE",
+          "TMDL_2010"
+        ],
+        "quality_flag_fields": [
+          "MONITORED",
+          "PENDING",
+          "EVALUATED2",
+          "MONITORED2",
+          "LISTSTATUS"
+        ],
+        "source_citation_fields": [
+          "review_assist_source_service",
+          "review_assist_source_layer_name"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/water_quality/mdeq_303d_impaired_waters/raw/MDEQ_2024ImpairedWaters_MapServer/mdeq_303d_impaired_waters_2024_active_lines.geojson",
+          "source_layer_id": "ms303d_2024l",
+          "source_layer_name": "MDEQ 2024 Active 303(d) Impaired Waters Lines",
+          "warehouse_source_id": "mdeq_303d_impaired_waters"
+        },
+        {
+          "path": "sources/water_quality/mdeq_303d_impaired_waters/raw/MDEQ_2024ImpairedWaters_MapServer/mdeq_303d_impaired_waters_2024_active_polygons.geojson",
+          "source_layer_id": "ms303d_2024p",
+          "source_layer_name": "MDEQ 2024 Active 303(d) Impaired Waters Polygons",
+          "warehouse_source_id": "mdeq_303d_impaired_waters"
+        },
+        {
+          "path": "sources/water_quality/mdeq_303d_impaired_waters/raw/MDEQ_2024ImpairedWaters_MapServer/mdeq_303d_impaired_waters_2024_tmdl_complete_lines.geojson",
+          "source_layer_id": "TMDL_Complete_l",
+          "source_layer_name": "MDEQ 2024 TMDL Complete Waters Lines",
+          "warehouse_source_id": "mdeq_303d_impaired_waters"
+        },
+        {
+          "path": "sources/water_quality/mdeq_303d_impaired_waters/raw/MDEQ_2024ImpairedWaters_MapServer/mdeq_303d_impaired_waters_2024_tmdl_complete_polygons.geojson",
+          "source_layer_id": "TMDL_Complete_p",
+          "source_layer_name": "MDEQ 2024 TMDL Complete Waters Polygons",
+          "warehouse_source_id": "mdeq_303d_impaired_waters"
         }
       ]
     },

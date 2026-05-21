@@ -1,0 +1,29 @@
+{
+  "source_id": "mdeq_303d_impaired_waters",
+  "display_name": "MDEQ 2024 303(d) Impaired Waters and TMDL Complete Waters",
+  "category": "water_quality",
+  "authority": "MDEQ",
+  "warehouse_group": "water_quality",
+  "version": "2024 Active 303(d) list",
+  "raw_paths": [
+    "raw/MDEQ_2024ImpairedWaters_MapServer"
+  ],
+  "expected_geometry_type": "line_polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2024",
+  "list_year": "2024",
+  "access_date": "2026-05-20",
+  "source_url": "https://opcgis.deq.state.ms.us/opcgis/rest/services/WQMandTMDL/MS2024ImpairedWaters/MapServer",
+  "acquisition_method": "arcgis_rest_geojson_export",
+  "known_limitations": [
+    "Screening-level water-quality context from MDEQ 2024 impaired waters and TMDL-complete layers.",
+    "Does not independently establish watershed context; pair with HUC/NHD layers when watershed or hydrologic context is needed.",
+    "Older 2022, 2020, 2018, and 2016 MDEQ REST services were reviewed but not used because the 2024 service was the newest usable service found."
+  ],
+  "notes": "Raw GeoJSON exports preserve MDEQ attributes and add review_assist_source_year/list_year/status fields for provenance. Paths are relative to this source manifest directory.",
+  "app_targets": [
+    "mdeq_303d_impaired_waters"
+  ]
+}

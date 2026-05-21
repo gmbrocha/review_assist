@@ -1,0 +1,30 @@
+{
+  "source_id": "mdeq_public_water_supply_wells",
+  "display_name": "MDEQ/MARIS Public Water Supply Wells November 2024",
+  "category": "transportation_utilities",
+  "authority": "MDEQ Office of Land and Water Resources / MARIS",
+  "warehouse_group": "hydrology",
+  "version": "November 2024",
+  "raw_paths": [
+    "raw/MS_WaterWells_Nov2024"
+  ],
+  "expected_geometry_type": "point",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide",
+  "source_date": "2024-11",
+  "published_date": "2024-11-05",
+  "provided_to_maris_date": "2024-11-07",
+  "access_date": "2026-05-20",
+  "source_url": "https://gis.mississippi.edu/server/rest/services/Hydrology/MS_WaterWells_Nov2024/MapServer",
+  "acquisition_method": "arcgis_rest_geojson_export",
+  "known_limitations": [
+    "Filtered from statewide water wells to Public Water Supply records where Beneficial equals PS.",
+    "MDEQ/MARIS metadata states the November 2024 data is a timestamp and should not be considered up-to-date or the most accurate.",
+    "Public water supply well context requires reviewer/source-agency confirmation before external reporting."
+  ],
+  "notes": "Raw GeoJSON preserves MARIS/MDEQ attributes and adds review_assist_source_year/source_date/filter fields for provenance. Paths are relative to this source manifest directory.",
+  "app_targets": [
+    "mdeq_public_water_supply_wells"
+  ]
+}

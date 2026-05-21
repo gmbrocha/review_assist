@@ -301,6 +301,93 @@ def test_specific_seeded_nhd_flowline_materializes_as_hydrography_source(tmp_pat
     assert hydro_constraint["source_feature_label"] == "Test Creek"
 
 
+def test_new_mdeq_water_sources_materialize_and_report_project_local_status(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    pws_path = write_layer(
+        tmp_path / "pws.geojson",
+        [{"Owner_Name": "Test Water System", "PermitNumb": "PWS-1", "Beneficial": "PS"}],
+        [Point(-89.995, 32.0002)],
+    )
+    impaired_line_path = write_layer(
+        tmp_path / "impaired_lines.geojson",
+        [{"WATER_BODY_NAME": "Test Creek", "review_assist_mdeq_303d_status": "active_303d", "review_assist_list_year": "2024"}],
+        [LineString([(-90.0005, 31.9995), (-89.998, 32.001)])],
+    )
+    impaired_polygon_path = write_layer(
+        tmp_path / "impaired_polygons.geojson",
+        [{"WATER_BODY_NAME": "Test Lake", "review_assist_mdeq_303d_status": "TMDL complete", "review_assist_list_year": "2024"}],
+        [wetland_polygon()],
+    )
+    config_path = write_config(
+        tmp_path / "materializers.json",
+        [
+            {
+                "source_id": "mdeq_public_water_supply_wells",
+                "output_name": "mdeq_public_water_supply_wells",
+                "warehouse_source_ids": ["mdeq_public_water_supply_wells"],
+                "normalization": {
+                    "label_fields": ["Owner_Name", "PermitNumb"],
+                    "feature_type_fields": ["Beneficial"],
+                    "original_id_fields": ["PermitNumb"],
+                },
+                "layers": [
+                    {
+                        "path": str(pws_path),
+                        "source_layer_id": "pws",
+                        "source_layer_name": "Public Water Supply Wells",
+                        "warehouse_source_id": "mdeq_public_water_supply_wells",
+                    }
+                ],
+            },
+            {
+                "source_id": "mdeq_303d_impaired_waters",
+                "output_name": "mdeq_303d_impaired_waters",
+                "warehouse_source_ids": ["mdeq_303d_impaired_waters"],
+                "normalization": {
+                    "label_fields": ["WATER_BODY_NAME"],
+                    "feature_type_fields": ["review_assist_mdeq_303d_status"],
+                    "date_fields": ["review_assist_list_year"],
+                },
+                "layers": [
+                    {
+                        "path": str(impaired_line_path),
+                        "source_layer_id": "active_lines",
+                        "source_layer_name": "Active 303(d) Lines",
+                        "warehouse_source_id": "mdeq_303d_impaired_waters",
+                    },
+                    {
+                        "path": str(impaired_polygon_path),
+                        "source_layer_id": "tmdl_polygons",
+                        "source_layer_name": "TMDL Complete Polygons",
+                        "warehouse_source_id": "mdeq_303d_impaired_waters",
+                    },
+                ],
+            },
+        ],
+    )
+
+    result = materialize_local_sources(project_dir, config_path=config_path)
+    registry = load_project_source_registry(project_dir).by_source_id()
+    source_status = resolve_source_status_set(project_dir)
+    pws_output = project_dir / "layers" / "mdeq_public_water_supply_wells" / "mdeq_public_water_supply_wells.geojson"
+    impaired_output = project_dir / "layers" / "mdeq_303d_impaired_waters" / "mdeq_303d_impaired_waters.geojson"
+    transportation = next(status for status in source_status["statuses"] if status["category"] == "transportation_utilities")
+    water_quality = next(status for status in source_status["statuses"] if status["category"] == "water_quality")
+    pws_detail = next(detail for detail in transportation["source_details"] if detail["source_id"] == "mdeq_public_water_supply_wells")
+    impaired_detail = next(detail for detail in water_quality["source_details"] if detail["source_id"] == "mdeq_303d_impaired_waters")
+
+    assert result["materialized_count"] == 2
+    assert pws_output.exists()
+    assert impaired_output.exists()
+    assert set(gpd.read_file(impaired_output).geometry.geom_type) == {"LineString", "Polygon"}
+    assert registry["mdeq_public_water_supply_wells"].status == "local_materialized"
+    assert registry["mdeq_303d_impaired_waters"].status == "local_materialized"
+    assert pws_detail["status"] == "local_materialized"
+    assert impaired_detail["status"] == "local_materialized"
+    assert water_quality["status"] == "provided_locally"
+    assert water_quality["report_caveat_flags"] == []
+
+
 def test_boundary_materialization_adds_county_names_to_context_and_sections(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     county_path = write_layer(
