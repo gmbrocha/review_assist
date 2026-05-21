@@ -413,6 +413,36 @@ def test_review_detail_displays_previews_not_full_table_rows(tmp_path: Path) -> 
     assert "full table detail remains in the deliverable table artifact" in text
 
 
+def test_review_detail_reads_canonical_queue_source_refs(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    queue_path = project_dir / "review_queue" / "review_queue.json"
+    legacy_queue_path = project_dir / "review_queue.json"
+    queue = load_review_queue(project_dir)
+    item = next(item for item in queue["items"] if item["id"] == "water-quality")
+    item["source_refs"] = ["mdeq_303d_impaired_waters", "usgs_nhd_flowlines", "usgs_nhd_waterbodies", "usgs_nhd_other_areas"]
+    item["generated_content"] = "Water quality review candidate."
+    item["validation_issues"] = []
+    item["uncertainty_flags"] = []
+    queue_path.write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
+    stale_queue = dict(queue)
+    stale_queue["items"] = [dict(row) for row in queue["items"]]
+    next(row for row in stale_queue["items"] if row["id"] == "water-quality")["source_refs"] = ["usgs_nhd_hydrography"]
+    legacy_queue_path.write_text(json.dumps(stale_queue, indent=2) + "\n", encoding="utf-8")
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/water-quality")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "mdeq_303d_impaired_waters" in text
+    assert "usgs_nhd_flowlines" in text
+    assert "usgs_nhd_waterbodies" in text
+    assert "usgs_nhd_other_areas" in text
+    assert "usgs_nhd_hydrography" not in text
+
+
 def test_review_action_persists_through_backend_update(tmp_path: Path) -> None:
     project_dir = _populated_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)
@@ -897,8 +927,12 @@ def test_gpt_interpretive_assist_controls_default_off(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert "GPT Interpretive Assist" in text
-    assert "Controls are hidden while GPT Interpretive Assist is off." in text
-    assert "Generate GPT Drafts" not in text
+    assert "GPT Assist" in text
+    assert "GPT controls are off." in text
+    assert "Turn On GPT Controls" in text
+    assert "Preview Planned Calls" in text
+    assert "Generate GPT Drafts" in text
+    assert '<fieldset class="control-group" disabled>' in text
 
 
 def test_gpt_interpretive_assist_generate_requires_toggle(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -943,7 +977,8 @@ def test_gpt_interpretive_assist_generate_button_disabled_until_ready(
     assert response.status_code == 200
     assert "GPT Validated / Rejected" in text
     assert "Deterministic Fallbacks" in text
-    assert '<button type="submit" disabled>Generate GPT Drafts</button>' in text
+    assert "Preview Planned Calls" in text
+    assert '<button class="primary" type="submit" disabled>Generate GPT Drafts</button>' in text
 
 
 def test_gpt_interpretive_assist_non_dry_run_requires_ready_status(

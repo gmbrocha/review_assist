@@ -8,11 +8,13 @@
   <p>Project, source, populate, and validation status from existing backend artifacts.</p>
 </section>
 
+{% set gpt = summary.gpt_interpretive_assist %}
 <section class="summary-grid">
   <div class="metric"><span>Inputs</span><strong>{{ summary.input_package.input_count }}</strong></div>
   <div class="metric"><span>Comparison Units</span><strong>{{ summary.comparison_units.comparison_unit_count }}</strong></div>
   <div class="metric"><span>Populate</span><strong>{{ summary.populate.status }}</strong></div>
   <div class="metric"><span>Review Items</span><strong>{{ summary.populate.review_queue_item_count }}</strong></div>
+  <div class="metric"><span>GPT Assist</span><strong>{{ 'On' if gpt.ui_enabled else 'Off' }}</strong><small>{{ gpt.status }}</small></div>
 </section>
 
 {% with run_status=summary.latest_run %}
@@ -72,7 +74,6 @@
   {% endif %}
 </section>
 
-{% set gpt = summary.gpt_interpretive_assist %}
 <section class="panel">
   <div class="section-title-row">
     <h2>GPT Interpretive Assist</h2>
@@ -82,7 +83,7 @@
         <button type="submit">Turn Off</button>
       {% else %}
         <input type="hidden" name="gpt_interpretive_assist_enabled" value="yes">
-        <button type="submit">Turn On</button>
+        <button class="primary" type="submit">Turn On GPT Controls</button>
       {% endif %}
     </form>
   </div>
@@ -97,26 +98,25 @@
     <dt>Cache Hits</dt><dd>{{ gpt.cache_hit_count }}</dd>
     <dt>Token Usage</dt><dd>{% if gpt.last_run.token_usage %}{{ gpt.last_run.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
   </dl>
-  {% if gpt.ui_enabled %}
-    <form method="post" action="{{ url_for('generate_gpt_interpretive_assist') }}">
+  <form method="post" action="{{ url_for('generate_gpt_interpretive_assist') }}">
+    {% if not gpt.ui_enabled %}
+      <p class="empty">GPT controls are off.</p>
+    {% endif %}
+    <fieldset class="control-group" {% if not gpt.ui_enabled %}disabled{% endif %}>
       <div class="form-row">
         <label>
           Max sections/calls
           <input type="number" name="max_calls" min="0" max="25" value="5">
         </label>
-        <label>
+        <label class="checkbox-inline">
           <input type="checkbox" name="skip_existing" value="yes" checked>
           Skip existing GPT draft if evidence is unchanged
         </label>
-        <label>
+        <label class="checkbox-inline">
           <input type="checkbox" name="source_backed_only" value="yes" checked>
           Source-backed sections only
         </label>
-        <label>
-          <input type="checkbox" name="dry_run" value="yes">
-          Dry run / preview planned calls
-        </label>
-        <label>
+        <label class="checkbox-inline">
           <input type="checkbox" name="force_refresh" value="yes">
           Force refresh cached drafts
         </label>
@@ -131,11 +131,12 @@
           <p class="empty">No source-backed GPT-eligible section review candidates are currently planned.</p>
         {% endfor %}
       </div>
-      <button type="submit" {% if gpt.status != 'ready' %}disabled{% endif %}>Generate GPT Drafts</button>
-    </form>
-  {% else %}
-    <p class="empty">Controls are hidden while GPT Interpretive Assist is off.</p>
-  {% endif %}
+      <div class="form-actions">
+        <button type="submit" name="dry_run" value="yes" {% if not gpt.ui_enabled %}disabled{% endif %}>Preview Planned Calls</button>
+        <button class="primary" type="submit" {% if not gpt.ui_enabled or gpt.status != 'ready' %}disabled{% endif %}>Generate GPT Drafts</button>
+      </div>
+    </fieldset>
+  </form>
 </section>
 
 <section class="panel">
