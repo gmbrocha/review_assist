@@ -14,6 +14,28 @@ Integrate the extracted report-policy package into Review Assist as requirements
 
 The package derived from the example Environmental Constraints Report is a requirements-mining artifact. It must not import project facts, trail/corridor defaults, PEL defaults, unfinished draft content, or restricted/manual findings into generic Review Assist behavior.
 
+## Package Reconciliation Rule
+
+Sprint 5 must begin with an explicit package-to-current-policy reconciliation ledger, not a direct copy of the extracted package.
+
+Sprint 5.1 must create `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` as the active routing ledger for the rest of Sprint 5. The ledger compares `pro_review_assist_policy_package_sprint_5/` against the current app contract, especially `config/report_section_policy.json`, `config/deliverable_section_matrix.json`, `config/report_profiles.json`, `config/source_catalog.json`, the existing extent/GPT validators, and current report-policy docs.
+
+Every reusable package proposal must receive a disposition:
+
+- adopt in Sprint 5.1 policy schema
+- adopt in Sprint 5.2 extent wording
+- route to Sprint 5.3 source truth
+- route to Sprint 5.4 render gating
+- route to Sprint 5.5 caveats/GPT eligibility
+- route to Sprint 5.6 table/figure alignment
+- route to Sprint 5.7 manual/reviewer-supplied policy
+- route to Sprint 5.8 export QA
+- verify in Sprint 5.9
+- reject as example-specific, PEL-specific, trail/corridor-specific, unsupported, unsafe, or already covered
+- defer with a documented reason
+
+The current app policy remains canonical unless Sprint 5.1 explicitly approves and implements a versioned migration. Package content is evidence for upgrading the current policy, not a replacement policy file by default.
+
 ## Change Classification
 
 Default classification: `SAFE LAYER CHANGE`.
@@ -43,7 +65,7 @@ The stabilization gate and Sprint 5.0 planning lock are complete. Before each im
 
 Sprint 5 may:
 
-- reconcile the extracted package with existing `config/report_section_policy.json`
+- reconcile the extracted package with existing `config/report_section_policy.json` through a traceable package diff ledger
 - preserve source truth and source/status distinctions
 - enforce analysis extent versus visual/render extent wording
 - gate section rendering by trigger, source, extent, caveat, and allowed refs
@@ -82,15 +104,15 @@ Sprint 5 must not become:
 ## Dependency Order
 
 1. Lock planning and numbering.
-2. Reconcile the canonical policy schema.
-3. Tighten extent semantics and wording.
-4. Map source needs to effective source truth.
-5. Gate section rendering and comparison-unit expansion.
-6. Align caveats, prohibited claims, and GPT eligibility.
+2. Create the package reconciliation ledger and reconcile the canonical policy schema.
+3. Tighten extent semantics and wording from ledger dispositions.
+4. Map source needs to effective source truth from ledger dispositions.
+5. Gate section rendering and comparison-unit expansion from policy decisions.
+6. Align caveats, prohibited claims, and GPT eligibility from ledger dispositions.
 7. Align existing table/figure targets with policy.
 8. Represent manual/reviewer-supplied materials at policy/review-gate level.
 9. Add export QA after required metadata exists.
-10. Run the end-to-end trial and final verification.
+10. Run the end-to-end trial and final verification, including ledger closure.
 
 ## Approval Gates
 
@@ -107,6 +129,7 @@ Human approval is required for:
 ## Implementation Rules
 
 - Treat package content as requirements-mining evidence only.
+- Do not consume package content in product behavior until a ledger disposition maps it to current app IDs, records the owning subunit, and states whether it is adopted, routed, rejected, or deferred.
 - Preserve feature neutrality; use project features, submitted features, comparison units, project geometry, study area, and project area language.
 - Use trail/corridor/PEL language only when project metadata or reviewer-supplied context explicitly supports it.
 - Keep deterministic GIS/source checks separate from GPT-assisted synthesis.
@@ -118,6 +141,7 @@ Human approval is required for:
 
 Each behavior-changing subunit should add focused tests before broader verification. Protect:
 
+- package-diff ledger coverage and disposition closure
 - policy validation and matrix alignment
 - source truth/status reconciliation
 - extent wording and context-only language

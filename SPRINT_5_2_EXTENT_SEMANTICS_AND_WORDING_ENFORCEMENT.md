@@ -10,6 +10,8 @@ Tighten existing extent metadata and wording enforcement so Review Assist does n
 
 The current app already has `src/review_assist/extent_policy.py` and extent-policy metadata on tables, figures, evidence, deliverable items, review queue items, and GPT payloads. This subunit should refine and test that layer, not create a new spatial-query system.
 
+This subunit must consume the extent, visual extent, and wording rows from `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`. It should adopt the reusable package extent vocabulary where it fits current app semantics, reject unsafe/example-specific wording, and route any true query implementation to deferred work or a later subunit.
+
 ## Scope
 
 This subunit may update:
@@ -32,6 +34,17 @@ This subunit may update:
 - `corridor`: use only when project geometry supports corridor/route language.
 - `shown on map`: presentation support only.
 
+## Ledger Dispositions To Resolve
+
+Resolve or route package differences involving:
+
+- analysis extent versus visual/render extent
+- map frame, figure extent, and collar extent as presentation-only
+- direct, near, adjacent, downstream, watershed/subwatershed, county/regional, APE, corridor, and shown-on-map wording
+- direct evidence versus context evidence in deterministic prose
+- direct evidence versus context evidence in GPT output validation
+- current named context extents that are policy labels but not separate source queries
+
 ## Non-Goals
 
 - No new buffers or query extents.
@@ -42,6 +55,7 @@ This subunit may update:
 
 ## Acceptance Criteria
 
+- All extent/wording ledger rows are adopted, rejected, or routed to a later owner with a documented reason.
 - Analysis/query extent and visual/render extent remain distinguishable in generated artifacts.
 - Render extent and legend/collar extent are always presentation-only.
 - Watershed and county/regional sections do not use direct-project wording.
@@ -60,6 +74,7 @@ This subunit may update:
 
 ## Documentation Updates
 
+- `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` if extent rows are resolved or rerouted
 - `docs/domains/REPORT_POLICY.md`
 - `docs/domains/REPORT_ASSEMBLY.md`
 - `docs/governance/DEFERRED_WORK.md` if query implementation remains deferred

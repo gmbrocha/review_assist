@@ -10,6 +10,8 @@ Make section inclusion and comparison-unit expansion obey policy instead of rely
 
 This is the first implementation subunit that may change which generated review candidates render as normal body sections versus stubs, table-only content, attachment/status content, or reviewer-decision items. Treat those changes as `DOMAIN CORRECTION` unless the behavior is explicitly approved and easy to verify.
 
+This subunit must consume the section inclusion, trigger, default/conditional/manual, PEL/custom context, and comparison-unit expansion rows from `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`.
+
 ## Scope
 
 This subunit may update:
@@ -52,6 +54,7 @@ Every recommendation or render decision must have a reason.
 
 ## Acceptance Criteria
 
+- All render-gating and comparison-unit ledger rows are adopted, rejected, or deferred with explicit rationale.
 - Section candidates carry policy-backed render/inclusion status.
 - Conditional/custom/manual sections do not render as generic source-backed facts by default.
 - Table-only sections do not spawn narrative children unless policy and evidence justify it.

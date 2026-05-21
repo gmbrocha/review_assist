@@ -10,6 +10,8 @@ Align caveats, prohibited claim bundles, and GPT eligibility with policy, source
 
 This is a guardrail subunit. It is not a GPT expansion sprint.
 
+This subunit must consume the caveat bundle, prohibited-claim bundle, GPT eligibility, and GPT style-context rows from `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`. Package wording can strengthen guardrails, but it must not expand GPT coverage by default.
+
 ## Scope
 
 This subunit may update:
@@ -66,6 +68,7 @@ Block or review-gate:
 
 ## Acceptance Criteria
 
+- All caveat/prohibited-claim/GPT ledger rows are adopted, rejected, or deferred with explicit rationale.
 - GPT eligibility is derived from policy plus current evidence, not from section title alone.
 - Manual/restricted/stub/presentation-only sections are ineligible.
 - Required caveats are enforced before and after generation.

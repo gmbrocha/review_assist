@@ -10,6 +10,8 @@ Reconcile report policy with the source catalog, report profiles, source warehou
 
 This subunit should stop broad source names, logical rollups, manual buckets, and physical warehouse source IDs from drifting through the pipeline interchangeably.
 
+This subunit must consume the source-need and source-truth rows from `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`. Package source proposals should be mapped to current catalog/profile IDs, rejected as example-specific/unsupported, or deferred as source acquisition work before any source-facing behavior changes.
+
 ## Scope
 
 This subunit may update:
@@ -53,6 +55,7 @@ Each needed source should resolve to one of:
 
 ## Acceptance Criteria
 
+- All source-need ledger rows are adopted, rejected, or routed to deferred work with a documented reason.
 - Report/GPT-facing source caveats use effective current status, not stale acquisition history.
 - Logical rollups do not appear as missing physical layers in report-facing output when specific child layers satisfy the category.
 - Restricted/manual/public-coarse source distinctions are visible to the reviewer.

@@ -10,6 +10,8 @@ Add policy-aware export QA after the required metadata exists.
 
 The current export path already has review gating, compactness budget checks, DOCX readability checks, and final verification summaries. This subunit should extend that baseline instead of replacing it.
 
+This subunit must consume the review gate, export QA, required caveat, allowed-ref, manual material, and override-related rows from `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`.
+
 ## Scope
 
 This subunit may update:
@@ -50,6 +52,7 @@ Preview exports may remain an internal bypass if clearly marked.
 
 ## Acceptance Criteria
 
+- All export/review-gate ledger rows are adopted, rejected, or deferred with explicit rationale.
 - Export manifest records QA status, issue counts, and issue details.
 - Default reviewed export follows the approved block/override policy.
 - Preview export remains clearly marked as internal/pre-review.

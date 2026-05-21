@@ -10,6 +10,8 @@ Represent manual, restricted, optional, and reviewer-supplied report materials a
 
 This subunit should turn source gaps into clear reviewer actions while preserving provenance and export gates.
 
+This subunit must consume the manual/reviewer-supplied, restricted material, attachment support, and parent-study/PEL context rows from `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`.
+
 ## Scope
 
 The first implementation should be narrow. Prefer policy/status/review-gate support over large UI expansion.
@@ -71,6 +73,7 @@ Manual/restricted sources should not appear as failed downloads.
 
 ## Acceptance Criteria
 
+- All manual/reviewer-supplied ledger rows are adopted, rejected, or deferred with explicit rationale.
 - Manual-required items remain incomplete until a reviewer chooses a terminal status allowed by policy.
 - Reviewer-supplied material carries provenance and review status.
 - Reviewer notes remain internal unless policy explicitly says otherwise.

@@ -10,6 +10,8 @@ Align existing deliverable table and figure targets with report policy, source n
 
 This subunit should not casually add, remove, or renumber deliverable tables or figures.
 
+This subunit must consume the table, figure, attachment, visual extent, allowed-ref, and compactness rows from `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`. The package may propose additional targets or different figure/table concepts; those proposals must be mapped to existing matrix targets, explicitly approved as deliverable-count changes, rejected, or deferred.
+
 ## Current Baseline
 
 The current standard deliverable matrix has:
@@ -48,6 +50,7 @@ This subunit may update:
 
 ## Acceptance Criteria
 
+- All table/figure/attachment ledger rows are adopted, rejected, explicitly approved as matrix changes, or deferred with rationale.
 - Every table/figure target has a matching policy entry and allowed source categories.
 - Table/figure refs in sections are policy-allowed and matrix-known.
 - Missing source tables/figures produce explicit stubs with source/status reasons.

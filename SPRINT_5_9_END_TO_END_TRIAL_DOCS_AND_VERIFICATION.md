@@ -10,6 +10,8 @@ Run the full policy-aware report workflow on sample fixtures and inspect the act
 
 This is a verification and cleanup subunit, not a feature-expansion subunit.
 
+This subunit must verify that `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` has no unresolved adopted/routed rows. Any remaining package differences must be rejected, documented as already covered, or deferred into permanent deferred-work records before Sprint 5 is closed.
+
 ## Trial Workflow
 
 - Confirm clean worktree and accepted checkpoint.
@@ -24,6 +26,7 @@ This is a verification and cleanup subunit, not a feature-expansion subunit.
 
 ## Review Questions
 
+- Is the package reconciliation ledger closed, with durable decisions migrated into policy/docs/deferred work?
 - Is the report compact?
 - Is evidence traceable?
 - Are extent semantics visible and honest?
@@ -43,6 +46,7 @@ This is a verification and cleanup subunit, not a feature-expansion subunit.
 
 ## Acceptance Criteria
 
+- Package ledger dispositions are closed or intentionally deferred, and permanent docs reflect adopted behavior.
 - Focused tests for all Sprint 5 changes pass.
 - Full test suite or `scripts/verify.ps1 -SkipInstall` passes, or any inability is documented with risk.
 - Final docs reflect implemented behavior and deferred issues.
