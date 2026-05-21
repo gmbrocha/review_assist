@@ -13,6 +13,7 @@ from .basemaps import MARIS_NAIP_SOURCE_ID, USDA_NAIP_SOURCE_ID, discover_projec
 from .project_context import ProjectContextError, generate_project_context
 from .projects import ProjectManifestError, load_project_manifest
 from .report_profiles import ReportProfileError, resolve_report_profile
+from .report_section_policy import ReportSectionPolicyError, load_report_section_policy
 from .source_catalog import (
     ProjectSource,
     SourceCatalog,
@@ -28,6 +29,27 @@ from .source_warehouse import SourceWarehouseError, maybe_load_seed_source_manif
 SOURCE_STATUS_PATH = Path("source_status/source_status_set.json")
 SOURCE_ACQUISITION_PATH = Path("source_acquisition/source_acquisition_manifest.json")
 CURRENT_SOURCE_STATUSES = {"downloaded", "local_materialized", "provided_in_input", "registered_local"}
+SOURCE_NEED_CLASSES = {
+    "available_materialized",
+    "warehouse_available_not_materialized",
+    "acquisition_candidate",
+    "optional",
+    "manual_reviewer_supplied",
+    "restricted_authorized_reviewer_supplied",
+    "public_coarse_screening_context",
+    "deferred",
+    "deprecated_legacy",
+}
+PUBLIC_COARSE_SCREENING_SOURCE_IDS = {
+    "google_earth_visual_context",
+    "maris_public_cultural_context",
+    "mdah_public_historic_resources",
+    MARIS_NAIP_SOURCE_ID,
+    USDA_NAIP_SOURCE_ID,
+}
+MANUAL_RESIDUAL_SOURCE_IDS = {
+    "mdeq_environmental_context",
+}
 LOGICAL_ROLLUP_SATISFIERS = {
     "usgs_nhd_hydrography": {
         "usgs_nhd_flowlines",
@@ -35,16 +57,6 @@ LOGICAL_ROLLUP_SATISFIERS = {
         "usgs_nhd_waterbodies",
     },
     "epa_envirofacts_echo": {
-        "epa_frs_facilities_ms",
-        "maris_brownfields",
-        "maris_npdes_facilities",
-        "maris_solid_waste_landfills",
-        "maris_superfund_sites",
-        "maris_tri_facilities",
-        "maris_underground_storage_tanks",
-        "mississippi_oil_gas_wells",
-    },
-    "mdeq_environmental_context": {
         "epa_frs_facilities_ms",
         "maris_brownfields",
         "maris_npdes_facilities",
@@ -100,6 +112,14 @@ def resolve_source_status_set(project_dir: Path) -> dict[str, Any]:
         )
         for category in categories
     ]
+    try:
+        section_source_needs = _section_source_needs(
+            report_profile=report_profile,
+            catalog=catalog,
+            statuses=statuses,
+        )
+    except ReportSectionPolicyError as exc:
+        raise SourceStatusError(str(exc)) from exc
 
     result = {
         "project_id": manifest.project_id,
@@ -112,6 +132,7 @@ def resolve_source_status_set(project_dir: Path) -> dict[str, Any]:
         },
         "project_context_path": project_context["context_path"],
         "statuses": statuses,
+        "section_source_needs": section_source_needs,
         "validation_issues": validation_issues,
         "output_path": str(output_path),
     }
@@ -147,6 +168,11 @@ def _category_status(
         for source in catalog_sources
     ]
     source_details = _reconcile_effective_source_details(source_details)
+    source_details = _annotate_source_need_details(
+        source_details,
+        source_by_id={source.source_id: source for source in catalog_sources},
+        requirement=requirement,
+    )
 
     if downloaded:
         status = "downloaded"
@@ -269,6 +295,8 @@ def effective_source_status(project_dir: Path, source_id: str) -> dict[str, Any]
                     "report_caveat_flags": _string_list(detail.get("report_caveat_flags", [])),
                     "notes": detail.get("notes", ""),
                     "satisfied_by_source_ids": _string_list(detail.get("satisfied_by_source_ids", [])),
+                    "source_need_class": detail.get("source_need_class", ""),
+                    "source_need_reason": detail.get("source_need_reason", ""),
                 }
     raise SourceStatusError(f"Source ID is not present in the resolved source status set: {source_id}")
 
@@ -389,6 +417,7 @@ def _source_detail(
         "local_path_exists": bool(local_path and local_path.exists()),
         "uncertainty_flags": flags,
         "notes": notes,
+        "source_category": source.category,
     }
 
 
@@ -538,6 +567,232 @@ def _effective_category_report_caveat_flags(status: str, flags: list[str]) -> li
     return sorted(set(flags))
 
 
+def _annotate_source_need_details(
+    source_details: list[dict[str, Any]],
+    *,
+    source_by_id: dict[str, SourceDefinition],
+    requirement: str,
+) -> list[dict[str, Any]]:
+    annotated: list[dict[str, Any]] = []
+    for detail in source_details:
+        source_id = str(detail.get("source_id") or "")
+        source = source_by_id.get(source_id)
+        source_need_class, source_need_reason = _source_need_class_and_reason(
+            source=source,
+            source_id=source_id,
+            status=str(detail.get("status") or ""),
+            requirement=requirement,
+        )
+        item = dict(detail)
+        item["source_need_class"] = source_need_class
+        item["source_need_reason"] = source_need_reason
+        annotated.append(item)
+    return annotated
+
+
+def _source_need_class_and_reason(
+    *,
+    source: SourceDefinition | None,
+    source_id: str,
+    status: str,
+    requirement: str,
+) -> tuple[str, str]:
+    if source_id in PUBLIC_COARSE_SCREENING_SOURCE_IDS:
+        return "public_coarse_screening_context", "Source is public/coarse screening or visual context and is not treated as authoritative missing evidence."
+    if source_id in MANUAL_RESIDUAL_SOURCE_IDS:
+        return "manual_reviewer_supplied", "Source is a manual residual context bucket and is not satisfied by unrelated child layers."
+    if status in CURRENT_SOURCE_STATUSES | {"logical_rollup_satisfied"}:
+        return "available_materialized", "Current project-local, materialized, downloaded, or rollup-satisfied source is available for report-facing use."
+    if status in {"warehouse_available", "present_not_materialized"}:
+        return "warehouse_available_not_materialized", "Local warehouse source material is present but has not been registered as an analysis-ready project layer."
+    if status == "optional" or requirement == "optional":
+        return "optional", "Source is optional for the active report profile."
+    if source is not None and _gated_source(source):
+        return "restricted_authorized_reviewer_supplied", "Source requires restricted, sensitive, or authorized reviewer handling."
+    if status == "restricted":
+        return "restricted_authorized_reviewer_supplied", "Source requires restricted, sensitive, or authorized reviewer handling."
+    if source is not None and _manual_source(source):
+        return "manual_reviewer_supplied", "Source requires manual lookup, manual download, or reviewer-supplied material."
+    if status == "manual":
+        return "manual_reviewer_supplied", "Source requires manual lookup, manual download, or reviewer-supplied material."
+    if status == "stubbed":
+        return "deferred", "Source is represented as a review-visible stub until acquisition, credentials, or implementation are available."
+    if status in {"downloadable", "failed"}:
+        return "acquisition_candidate", "Source is a supported public acquisition candidate or has a report-visible failed acquisition attempt."
+    if status == "unimplemented":
+        return "deferred", "Source is identified but deterministic acquisition or materialization is not implemented."
+    if source is not None and _public_future_download(source):
+        return "acquisition_candidate" if _source_download_supported(source) else "deferred", (
+            "Source is a public acquisition candidate." if _source_download_supported(source)
+            else "Source appears public but acquisition is deferred because no supported downloader is implemented."
+        )
+    if status == "missing":
+        return "deferred", "No supported current source path is available."
+    return "deferred", "Source need requires later review or implementation before source-backed use."
+
+
+def _section_source_needs(
+    *,
+    report_profile: Any,
+    catalog: SourceCatalog,
+    statuses: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    policy_config = load_report_section_policy()
+    sources_by_category = _catalog_by_category(catalog)
+    status_by_category = {
+        str(record.get("category") or ""): record
+        for record in statuses
+        if isinstance(record, dict) and record.get("category")
+    }
+    detail_by_source_id: dict[str, dict[str, Any]] = {}
+    for status_record in statuses:
+        for detail in _dict_list(status_record.get("source_details", [])):
+            source_id = str(detail.get("source_id") or "")
+            if source_id:
+                detail_by_source_id[source_id] = detail
+
+    required_categories = set(report_profile.required_categories)
+    optional_categories = set(report_profile.optional_categories)
+    records: list[dict[str, Any]] = []
+    for policy in policy_config.section_policies:
+        source_categories = _dedupe(policy.allowed_source_categories)
+        explicit_source_refs = _dedupe(policy.allowed_source_refs)
+        source_ids = _dedupe(
+            [
+                *[
+                    source.source_id
+                    for category in source_categories
+                    for source in sources_by_category.get(category, [])
+                ],
+                *explicit_source_refs,
+            ]
+        )
+        needs = [
+            _section_source_need(
+                source_id=source_id,
+                source=catalog.sources.get(source_id),
+                detail=detail_by_source_id.get(source_id),
+                required_categories=required_categories,
+                optional_categories=optional_categories,
+            )
+            for source_id in source_ids
+        ]
+        category_records = [
+            _section_category_need(category, status_by_category.get(category), required_categories, optional_categories)
+            for category in source_categories
+        ]
+        records.append(
+            {
+                "section_id": policy.section_id,
+                "title": policy.title,
+                "inclusion_status": policy.inclusion_status,
+                "activation_condition": policy.activation_condition,
+                "review_requirement": policy.review_requirement,
+                "manual_or_reviewer_supplied": policy.manual_or_reviewer_supplied,
+                "source_categories": source_categories,
+                "source_refs": explicit_source_refs,
+                "source_ids": source_ids,
+                "source_need_classes": _dedupe([str(need.get("source_need_class")) for need in needs if need.get("source_need_class")]),
+                "section_need_status": _section_need_status(policy.activation_condition, needs),
+                "section_need_reason": _section_need_reason(policy.activation_condition, needs),
+                "category_needs": category_records,
+                "source_needs": needs,
+            }
+        )
+    return records
+
+
+def _section_source_need(
+    *,
+    source_id: str,
+    source: SourceDefinition | None,
+    detail: dict[str, Any] | None,
+    required_categories: set[str],
+    optional_categories: set[str],
+) -> dict[str, Any]:
+    category = source.category if source else str(detail.get("source_category") if detail else "")
+    if detail is not None:
+        return {
+            "source_id": source_id,
+            "source_name": detail.get("source_name", source.name if source else source_id),
+            "source_category": category,
+            "requirement": detail.get("requirement", _requirement_for_category(category, required_categories, optional_categories)),
+            "status": detail.get("status"),
+            "source_need_class": detail.get("source_need_class"),
+            "source_need_reason": detail.get("source_need_reason"),
+            "satisfied_by_source_ids": _string_list(detail.get("satisfied_by_source_ids", [])),
+        }
+    requirement = _requirement_for_category(category, required_categories, optional_categories)
+    warehouse_status = _warehouse_detail_status(source) if source is not None else None
+    fallback_status = warehouse_status[0] if warehouse_status is not None else "missing"
+    source_need_class, source_need_reason = _source_need_class_and_reason(
+        source=source,
+        source_id=source_id,
+        status=fallback_status,
+        requirement=requirement,
+    )
+    return {
+        "source_id": source_id,
+        "source_name": source.name if source else source_id,
+        "source_category": category,
+        "requirement": requirement,
+        "status": fallback_status,
+        "source_need_class": source_need_class,
+        "source_need_reason": source_need_reason,
+        "satisfied_by_source_ids": [],
+    }
+
+
+def _section_category_need(
+    category: str,
+    status_record: dict[str, Any] | None,
+    required_categories: set[str],
+    optional_categories: set[str],
+) -> dict[str, Any]:
+    return {
+        "category": category,
+        "requirement": str(status_record.get("requirement") or _requirement_for_category(category, required_categories, optional_categories))
+        if status_record
+        else _requirement_for_category(category, required_categories, optional_categories),
+        "status": str(status_record.get("status") or "not_required_for_profile") if status_record else "not_required_for_profile",
+        "report_caveat_flags": _string_list(status_record.get("report_caveat_flags", [])) if status_record else [],
+    }
+
+
+def _requirement_for_category(category: str, required_categories: set[str], optional_categories: set[str]) -> str:
+    if category in required_categories:
+        return "required"
+    if category in optional_categories:
+        return "optional"
+    return "not_required_for_profile"
+
+
+def _section_need_status(activation_condition: str, needs: list[dict[str, Any]]) -> str:
+    classes = {str(need.get("source_need_class") or "") for need in needs}
+    if activation_condition in {"manual_reviewer_supplied", "reviewer_supplied_parent_study"}:
+        return "manual_reviewer_supplied"
+    if not needs:
+        return "not_source_backed"
+    if classes.intersection({"restricted_authorized_reviewer_supplied"}):
+        return "restricted_review_needed"
+    if classes.intersection({"manual_reviewer_supplied"}):
+        return "manual_review_needed"
+    if classes.intersection({"deferred"}):
+        return "deferred_source"
+    if classes.intersection({"warehouse_available_not_materialized", "acquisition_candidate"}):
+        return "source_action_needed"
+    return "source_backed_or_optional"
+
+
+def _section_need_reason(activation_condition: str, needs: list[dict[str, Any]]) -> str:
+    if activation_condition in {"manual_reviewer_supplied", "reviewer_supplied_parent_study"}:
+        return "Section activates only from reviewer-supplied or manual context."
+    if not needs:
+        return "Section does not declare source-backed policy needs."
+    classes = _dedupe([str(need.get("source_need_class") or "") for need in needs if need.get("source_need_class")])
+    return "Resolved source need classes: " + ", ".join(classes) + "."
+
+
 def _basemap_detail_status(basemap_selection: dict[str, Any] | None) -> tuple[str, str, list[str]]:
     if not basemap_selection:
         return "missing", "Basemap selection has not been resolved.", ["source_unavailable"]
@@ -611,3 +866,21 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _dict_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result

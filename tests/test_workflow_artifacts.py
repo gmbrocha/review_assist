@@ -314,6 +314,7 @@ def test_logical_rollup_source_status_is_satisfied_by_specific_project_layers(tm
 
     assert effective["status"] == "logical_rollup_satisfied"
     assert effective["report_caveat_flags"] == []
+    assert effective["source_need_class"] == "available_materialized"
     assert effective["satisfied_by_source_ids"] == [
         "usgs_nhd_flowlines",
         "usgs_nhd_other_areas",
@@ -340,9 +341,10 @@ def test_regulated_facility_rollups_are_satisfied_by_specific_project_layers(tmp
     assert echo["status"] == "logical_rollup_satisfied"
     assert echo["report_caveat_flags"] == []
     assert "epa_frs_facilities_ms" in echo["satisfied_by_source_ids"]
-    assert mdeq["status"] == "logical_rollup_satisfied"
-    assert mdeq["report_caveat_flags"] == []
-    assert "maris_underground_storage_tanks" in mdeq["satisfied_by_source_ids"]
+    assert echo["source_need_class"] == "available_materialized"
+    assert mdeq["status"] == "manual"
+    assert mdeq["source_need_class"] == "manual_reviewer_supplied"
+    assert mdeq["satisfied_by_source_ids"] == []
 
 
 def test_source_status_marks_public_candidate_downloadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -375,6 +377,7 @@ def test_source_status_marks_seeded_warehouse_source_available(tmp_path: Path, m
     assert wetlands["status"] == "needs_review"
     assert "local_warehouse_source_unmaterialized" in wetlands["uncertainty_flags"]
     assert detail["status"] == "warehouse_available"
+    assert detail["source_need_class"] == "warehouse_available_not_materialized"
 
 
 def test_source_status_marks_seeded_source_present_not_materialized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -396,6 +399,7 @@ def test_source_status_marks_seeded_source_present_not_materialized(tmp_path: Pa
     assert wetlands["status"] == "present_not_materialized"
     assert "source_present_not_materialized" in wetlands["uncertainty_flags"]
     assert detail["status"] == "present_not_materialized"
+    assert detail["source_need_class"] == "warehouse_available_not_materialized"
 
 
 def test_source_status_marks_restricted_manual_category_gated(tmp_path: Path) -> None:
@@ -463,9 +467,47 @@ def test_source_status_exposes_manual_unimplemented_and_census_stub_details(
 
     assert census["status"] == "stubbed"
     assert "missing_census_api_key" in census["uncertainty_flags"]
+    assert census["source_need_class"] == "deferred"
     assert businesses["status"] == "manual"
+    assert businesses["source_need_class"] == "manual_reviewer_supplied"
     assert nlcd["status"] == "unimplemented"
+    assert nlcd["source_need_class"] == "deferred"
     assert hazmat["status"] == "manual"
+    assert hazmat["source_need_class"] == "manual_reviewer_supplied"
+    assert "source_download_failed" not in hazmat["uncertainty_flags"]
+
+
+def test_source_status_writes_section_source_needs_from_policy(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    write_layer(project_dir / "flowlines.geojson")
+    write_registry_sources(
+        project_dir,
+        [("usgs_nhd_flowlines", "flowlines.geojson", True, "local_materialized")],
+    )
+
+    status_set = resolve_source_status_set(project_dir)
+
+    needs_by_section = {
+        str(item["section_id"]): item
+        for item in status_set["section_source_needs"]  # type: ignore[index]
+    }
+    wetlands = needs_by_section["wetlands-and-waterbodies"]
+    assert wetlands["inclusion_status"] == "default"  # type: ignore[index]
+    assert wetlands["activation_condition"] == "source_backed_or_stub"  # type: ignore[index]
+    assert "hydrography_crossings" in wetlands["source_categories"]  # type: ignore[operator]
+    assert "usgs_nhd_flowlines" in wetlands["source_ids"]  # type: ignore[operator]
+    flowline = next(need for need in wetlands["source_needs"] if need["source_id"] == "usgs_nhd_flowlines")  # type: ignore[index]
+    assert flowline["source_need_class"] == "available_materialized"
+
+    pel = needs_by_section["relationship-with-pel-study"]
+    assert pel["section_need_status"] == "manual_reviewer_supplied"  # type: ignore[index]
+    assert pel["source_need_classes"] == []  # type: ignore[index]
+
+    cultural = needs_by_section["cultural-and-historic-resources"]
+    public_context = next(need for need in cultural["source_needs"] if need["source_id"] == "maris_public_cultural_context")  # type: ignore[index]
+    restricted_context = next(need for need in cultural["source_needs"] if need["source_id"] == "mdah_restricted_archaeology")  # type: ignore[index]
+    assert public_context["source_need_class"] == "public_coarse_screening_context"
+    assert restricted_context["source_need_class"] == "restricted_authorized_reviewer_supplied"
 
 
 def test_source_status_marks_missing_local_source_needs_review(tmp_path: Path) -> None:

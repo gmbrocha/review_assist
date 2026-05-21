@@ -44,6 +44,8 @@ Effective source status is the report-facing status after reconciliation, not a 
 
 Project-registered source categories that are not part of the base report profile can still appear in the source status set when the workspace has an enabled project source for that category. This keeps project-local materialized context such as `mdeq_303d_impaired_waters` visible to figures, evidence, and review diagnostics without making the broad report profile require that category for every project.
 
+Sprint 5.3 also records a policy-derived `section_source_needs` manifest inside `source_status/source_status_set.json`. Each section record traces `config/report_section_policy.json` source categories and source refs to current catalog IDs, effective source statuses, and one of these source need classes: `available_materialized`, `warehouse_available_not_materialized`, `acquisition_candidate`, `optional`, `manual_reviewer_supplied`, `restricted_authorized_reviewer_supplied`, `public_coarse_screening_context`, `deferred`, or `deprecated_legacy`. These classes explain report-facing source truth; they do not start downloads, add query buffers, or imply final regulatory fitness.
+
 Suggested statuses:
 
 - `provided_locally`: user supplied a local layer, document, report, or map.
@@ -146,7 +148,7 @@ The Sprint 2.1 catalog also exposes review-visible manual or stub entries for IP
 
 The broad downloader IDs in the command examples are acquisition conveniences. They do not imply that a matching root `sources/<group>/<source_id>/` folder must exist, and they should not override more specific seeded warehouse IDs or reviewer-supplied project-local layers.
 
-Report/GPT-facing caveats use effective status. Logical rollups such as `usgs_nhd_hydrography`, `epa_envirofacts_echo`, and `mdeq_environmental_context` are considered satisfied for caveat purposes when the relevant specific project-local layers are available. Optional or visual-only context such as Google Earth visual review context should not appear as an alarming missing authoritative source when NAIP/MARIS/project-local basemap context is available. Manual and restricted sources remain visible as reviewer-supplied or restricted limitations rather than download failures.
+Report/GPT-facing caveats use effective status. Logical rollups such as `usgs_nhd_hydrography` and `epa_envirofacts_echo` are considered satisfied for caveat purposes when the relevant specific project-local layers are available. `mdeq_environmental_context` is not a logical rollup; it remains a manual residual context bucket for MDEQ material not represented by specific seeded source IDs. Optional, public/coarse, or visual-only context such as Google Earth visual review context should not appear as an alarming missing authoritative source when NAIP/MARIS/project-local basemap context is available. Manual and restricted sources remain visible as reviewer-supplied or restricted limitations rather than download failures.
 
 The wetlands/waterbodies deliverable table has source-specific metric scoping. `Stream Crossings` is a crossing-event count from canonical `usgs_nhd_flowlines` only; `usgs_nhd_hydrography` remains a logical/download rollup for acquisition and caveat status, and `usgs_nhd_waterbodies` / `usgs_nhd_other_areas` remain hydrography context rather than stream-crossing count sources. The NWI wetland class columns are counted from `usfws_nwi_wetlands` only. This prevents hydrography category membership or logical rollups from changing the table metric contract.
 

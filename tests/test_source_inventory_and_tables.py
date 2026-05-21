@@ -133,6 +133,9 @@ def test_source_inventory_records_catalog_statuses_for_unavailable_sources(tmp_p
     assert wetlands["source_status"]["category_status"] == "downloadable"  # type: ignore[index]
     assert mdah["source_status"]["category_status"] == "gated"  # type: ignore[index]
     assert utilities["source_status"]["category_status"] == "stubbed"  # type: ignore[index]
+    assert wetlands["source_status"]["source_need_class"] == "acquisition_candidate"  # type: ignore[index]
+    assert mdah["source_status"]["source_need_class"] == "restricted_authorized_reviewer_supplied"  # type: ignore[index]
+    assert utilities["source_status"]["source_need_class"] == "manual_reviewer_supplied"  # type: ignore[index]
     assert "source_not_downloaded" in wetlands["uncertainty_flags"]  # type: ignore[operator]
 
 

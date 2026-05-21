@@ -2,11 +2,11 @@
 
 ## Status
 
-Sprint 5.0 planning resolution, Sprint 5.1 canonical policy schema reconciliation, and Sprint 5.2 extent semantics enforcement are complete. Sprint 5.3 is the active next implementation target.
+Sprint 5.0 planning resolution, Sprint 5.1 canonical policy schema reconciliation, Sprint 5.2 extent semantics enforcement, and Sprint 5.3 source needs/effective truth mapping are complete. Sprint 5.4 is the active next implementation target.
 
 Before starting each Sprint 5 implementation subunit, confirm the current clean checkpoint and load the active subunit doc. This sprint is report-policy integration work, not figure editing.
 
-This file and the linked active subunit files are root-level planning notes for human review. Sprint 5.0, Sprint 5.1, and Sprint 5.2 are archived as completed; move each remaining subunit doc into `docs/archive/sprints/` only when that subunit is completed under the normal sprint protocol.
+This file and the linked active subunit files are root-level planning notes for human review. Sprint 5.0, Sprint 5.1, Sprint 5.2, and Sprint 5.3 are archived as completed; move each remaining subunit doc into `docs/archive/sprints/` only when that subunit is completed under the normal sprint protocol.
 
 ## Purpose
 
@@ -93,7 +93,7 @@ Sprint 5 must not become:
 - Sprint 5.0: [Planning Diff Lock And Numbering Decision](docs/archive/sprints/SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md) - completed and archived
 - Sprint 5.1: [Canonical Policy Schema Reconciliation](docs/archive/sprints/SPRINT_5_1_CANONICAL_POLICY_SCHEMA_RECONCILIATION.md) - completed and archived
 - Sprint 5.2: [Extent Semantics And Wording Enforcement](docs/archive/sprints/SPRINT_5_2_EXTENT_SEMANTICS_AND_WORDING_ENFORCEMENT.md) - completed and archived
-- Sprint 5.3: [Source Needs And Effective Truth Mapping](SPRINT_5_3_SOURCE_NEEDS_MANIFEST_AND_WAREHOUSE_ALIGNMENT.md)
+- Sprint 5.3: [Source Needs And Effective Truth Mapping](docs/archive/sprints/SPRINT_5_3_SOURCE_NEEDS_MANIFEST_AND_WAREHOUSE_ALIGNMENT.md) - completed and archived
 - Sprint 5.4: [Section Render Gating And Comparison-Unit Expansion](SPRINT_5_4_REPORT_INCLUSION_AND_DISCERNMENT_PASS.md)
 - Sprint 5.5: [Caveat Bundles, Prohibited Claims, And GPT Eligibility](SPRINT_5_5_CAVEAT_BUNDLES_PROHIBITED_CLAIMS_AND_GPT_ELIGIBILITY.md)
 - Sprint 5.6: [Table/Figure Policy Matrix Alignment](SPRINT_5_6_TABLE_FIGURE_POLICY_MATRIX_ALIGNMENT.md)

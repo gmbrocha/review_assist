@@ -35,7 +35,9 @@ Not every catalog source ID is a physical warehouse source. `usgs_nhd_hydrograph
 
 `mdeq_environmental_context` is a manual residual context bucket for reviewer/source-agency material, not an automated warehouse layer.
 
-Effective source status reconciliation treats these rollups as satisfied for report-facing caveats when their specific project-local/materialized child layers are available. Acquisition manifests may still record older download attempts for the rollup or for the same source ID; those records remain debugging/history, not report limitations unless no current local, materialized, or warehouse-available replacement exists.
+Effective source status reconciliation treats the logical rollups as satisfied for report-facing caveats when their specific project-local/materialized child layers are available. Acquisition manifests may still record older download attempts for the rollup or for the same source ID; those records remain debugging/history, not report limitations unless no current local, materialized, or warehouse-available replacement exists. The manual residual `mdeq_environmental_context` bucket is intentionally excluded from rollup satisfaction so specific facility layers do not hide a separate manual/source-agency context need.
+
+The source status artifact also records `section_source_needs`, a policy-derived trace from report sections to catalog/profile/warehouse truth. Warehouse-present sources are classified as `warehouse_available_not_materialized` until materialized into a project layer; logical rollups satisfied by current child layers are classified as `available_materialized`; public/coarse cultural or visual context remains distinct from restricted or reviewer-supplied material.
 
 ## Current Seeded Groups
 

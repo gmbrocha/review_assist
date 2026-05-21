@@ -185,7 +185,9 @@ Suggested source statuses:
 - `optional`
 - `needs_review`
 
-Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default. Source status artifacts and source inventory records include per-source detail status and detail notes so a mixed category can remain stable at the category level while still exposing the exact unavailable, restricted, manual, or nonrenderable source.
+Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default. Source status artifacts and source inventory records include per-source detail status, source need class, source need reason, and detail notes so a mixed category can remain stable at the category level while still exposing the exact unavailable, restricted, manual, warehouse-present, public/coarse, or nonrenderable source.
+
+Sprint 5.3 source need classes are report-facing provenance labels, not confidence scores. `available_materialized` means current project-local/downloaded/materialized source truth can support report-facing caveat suppression. `warehouse_available_not_materialized`, `acquisition_candidate`, and `deferred` mean the source need remains visible for reviewer or future workflow action. `manual_reviewer_supplied` and `restricted_authorized_reviewer_supplied` preserve human/restricted-source boundaries. `public_coarse_screening_context` marks public cultural or visual context that can support screening context but must not substitute for restricted records, field verification, or reviewer-supplied authority.
 
 ## Data Authenticity and Lineage
 

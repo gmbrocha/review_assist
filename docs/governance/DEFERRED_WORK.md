@@ -56,10 +56,10 @@ Each deferred item should include:
 ### Source Warehouse Completion And Rollup Semantics
 
 - `Deferred item`: Finish source warehouse/source-status cleanup so broad catalog IDs remain logical downloader/manual rollups and specific seeded source IDs remain the physical warehouse/materialization contract.
-- `Why postponed`: Effective source status now reconciles stale acquisition history and broad-rollup caveats before report/GPT-facing artifacts are generated, but the catalog/profile model still has broad rollups and specific physical sources in the same category list.
+- `Why postponed`: Sprint 5.3 adds source-need classes and section-level source-needs tracing, but the catalog/profile model still has broad rollups and specific physical sources in the same category list.
 - `Affected sections/workflows`: Source catalog, source status, source inventory, local materialization, report profile mappings, reviewer source-gap interpretation.
-- `Risk if forgotten`: `usgs_nhd_hydrography`, `epa_envirofacts_echo`, or `mdeq_environmental_context` could be mistaken for missing required physical source folders even when specific local layers already satisfy the category.
-- `Temporary simplification`: Broad IDs remain visible as downloader/manual details and are marked satisfied for report-facing caveats when specific project-local/materialized layers satisfy the category. A later cleanup can split logical rollup requirements from physical source requirements more explicitly in catalog/profile config.
+- `Risk if forgotten`: `usgs_nhd_hydrography` or `epa_envirofacts_echo` could be mistaken for missing required physical source folders even when specific local layers already satisfy the category, while manual residual buckets such as `mdeq_environmental_context` could be overread as automated source coverage.
+- `Temporary simplification`: Broad downloader IDs remain visible as details and are marked satisfied for report-facing caveats when specific project-local/materialized child layers satisfy the category. `mdeq_environmental_context` is not rollup-satisfied and remains `manual_reviewer_supplied`. A later cleanup can split logical rollup requirements from physical source requirements more explicitly in catalog/profile config.
 - `Target sprint/subunit`: Future source warehouse/data-quality hardening.
 - `Status`: open.
 
