@@ -174,8 +174,9 @@ Drafts are cached under `projects/<project_id>/drafts/gpt_interpretive_assist_ca
 
 For local manual testing, a developer-only reset command is available:
 
-- Command: `review-assist reset-review-queue <project_dir> --regenerate`
+- Command: `review-assist reset-review-queue <project_dir> --yes`
 - Dry run: `review-assist reset-review-queue <project_dir> --dry-run`
+- Optional export cleanup: `review-assist reset-review-queue <project_dir> --yes --include-exports`
 
 The reset removes generated `deliverable/deliverable_items.json` and `review_queue/review_queue.json`, then reruns deterministic local artifact generation before rebuilding the standard queue. It refreshes current input classification, project geometry, project area, comparison units, source status, source inventory, constraints, comparison-unit constraints, draft findings, comparison tables, deliverable tables, deliverable figures, map manifest, evidence package, deterministic report sections, deliverable items, and review queue. This keeps reset-created section/table/figure review items tied to current local inputs and registered source layers rather than stale upstream artifacts.
 

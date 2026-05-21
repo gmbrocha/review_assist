@@ -918,6 +918,31 @@ def test_overview_dev_review_queue_reset_calls_adapter(monkeypatch: pytest.Monke
     assert b"Review artifacts refreshed and queue rebuilt with 42 review items" in response.data
 
 
+def test_overview_dev_review_queue_reset_can_include_exports(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    called: dict[str, object] = {}
+
+    def fake_reset(path: Path, **kwargs: object) -> dict[str, object]:
+        called["path"] = path
+        called.update(kwargs)
+        return {"after": {"review_queue_item_count": 42}}
+
+    monkeypatch.setattr(adapter, "reset_generated_review_queue", fake_reset)
+
+    response = client.post(
+        "/overview/reset-review-queue",
+        data={"confirm_reset": "yes", "include_exports": "yes"},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert called["path"] == project_dir.resolve()
+    assert called["include_exports"] is True
+
+
 def test_gpt_interpretive_assist_controls_default_off(tmp_path: Path) -> None:
     write_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)

@@ -14,13 +14,17 @@ $ReviewAssist = Join-Path $RepoRoot ".venv\Scripts\review-assist.exe"
 
 Write-Host "Checking source-data guardrails..."
 $TrackedSources = & git ls-files sources
-if ($TrackedSources) {
-    throw "Root sources/ files are tracked by Git. Move them out of the index before verification."
+$AllowedSourceManifestPattern = '^sources/(source_warehouse_manifest\.json|.*/source_manifest\.json)$'
+$BlockedTrackedSources = @(
+    $TrackedSources | Where-Object { $_ -notmatch $AllowedSourceManifestPattern }
+)
+if ($BlockedTrackedSources.Count -gt 0) {
+    throw "Root sources/ bulk files are tracked by Git. Move them out of the index before verification: $($BlockedTrackedSources -join ', ')"
 }
 $StagedFiles = & git diff --cached --name-only
 $BlockedStagedFiles = @(
     $StagedFiles | Where-Object {
-        $_ -match '^(sources/|projects/[^/]+/layers/)' -or
+        ($_ -match '^(sources/|projects/[^/]+/layers/)' -and $_ -notmatch $AllowedSourceManifestPattern) -or
         $_ -match '\.(shp|shx|dbf|prj|cpg|qix|sbn|sbx|gdb|tif|tiff|zip)$'
     }
 )

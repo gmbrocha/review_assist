@@ -438,6 +438,38 @@ def test_reset_review_queue_refreshes_evidence_even_without_legacy_flag(tmp_path
     assert evidence.get("project_id") == "test_project"
 
 
+def test_reset_review_queue_include_exports_deletes_generated_export_outputs(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    generate_review_queue(project_dir)
+    exports_dir = project_dir / "exports"
+    figure_assets_dir = exports_dir / "assets" / "figures"
+    figure_assets_dir.mkdir(parents=True)
+    export_manifest_path = exports_dir / "export_manifest.json"
+    package_manifest_path = exports_dir / "deliverable_package_manifest.json"
+    export_markdown_path = exports_dir / "environmental_constraints_report.md"
+    export_docx_path = exports_dir / "environmental_constraints_report.docx"
+    export_manifest_path.write_text('{"status":"stale"}\n', encoding="utf-8")
+    package_manifest_path.write_text('{"status":"stale"}\n', encoding="utf-8")
+    export_markdown_path.write_text("stale export\n", encoding="utf-8")
+    export_docx_path.write_bytes(b"stale docx")
+    (figure_assets_dir / "stale.png").write_bytes(b"stale figure")
+
+    result = reset_review_queue(project_dir, include_exports=True)
+    deleted = {record["relative_path"] for record in result["deleted"]}
+
+    assert "exports/export_manifest.json" in deleted
+    assert "exports/deliverable_package_manifest.json" in deleted
+    assert "exports/environmental_constraints_report.md" in deleted
+    assert "exports/environmental_constraints_report.docx" in deleted
+    assert "exports/assets/figures" in deleted
+    assert not export_manifest_path.exists()
+    assert not package_manifest_path.exists()
+    assert not export_markdown_path.exists()
+    assert not export_docx_path.exists()
+    assert not figure_assets_dir.exists()
+    assert load_review_queue(project_dir)["item_count"] == result["after"]["review_queue_item_count"]
+
+
 def test_cli_reset_review_queue_json_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     project_dir = write_project(tmp_path)
     generate_review_queue(project_dir)
