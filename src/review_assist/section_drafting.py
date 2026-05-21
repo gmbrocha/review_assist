@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
 from .env_config import GptConfigurationError, gpt_draft_max_payload_bytes, openai_api_key_required, resolve_gpt_model
+from .report_section_policy import REQUIRED_CAVEAT_TEXT_PATTERNS
 
 
 PROMPT_VERSION = "report-section-drafting-v2"
@@ -53,7 +54,15 @@ PROHIBITED_PATTERNS = {
     "reject": r"\breject(?:ed|s|ing)?\b",
     "select": r"\bselect(?:ed|s|ing)?\b",
     "final determination": r"\bfinal (determination|finding|conclusion)\b",
+    "final impact conclusion": r"\bfinal (?:impact|effect)s? (?:determination|finding|conclusion)\b",
+    "no effect determination": r"\bno (?:adverse )?effect\b|\bnot likely to adversely affect\b|\blikely to adversely affect\b",
     "jurisdictional certainty": r"\b(jurisdictionally determined|jurisdictional determination|jurisdictional certainty|jurisdictional evidence)\b",
+    "jurisdictional wetland determination": r"\bjurisdictional (?:wetland|water|waters|determination)\b|\bwaters? of the u\.?s\.?",
+    "cultural clearance or eligibility": r"\b(?:cultural|historic|archaeolog)[^.]{0,80}\b(?:clearance|cleared|eligible|eligibility|effect determination|adverse effect)\b",
+    "contamination determination": r"\b(?:contamination|contaminated|cleanup|liability|phase i|recognized environmental condition|rec)\b.{0,80}\b(?:present|absent|required|obligation|determination)\b",
+    "permit determination": r"\b(?:permit|permits) (?:is |are |was |were |not )?(?:required|needed|necessary)\b|\brequires? (?:a )?permit\b|\bno permit\b",
+    "access mitigation construction commitment": r"\b(?:access|mitigation|construction) (?:commitment|will be provided|will occur|is required|shall)\b|\bcommit(?:ted|ment) to\b",
+    "demographic impact conclusion": r"\b(?:demographic|minority|low-income|environmental justice|equity)\b.{0,80}\b(?:impact|adverse effect|disproportionate|no effect|no impact|determination)\b",
     "field verified": r"\b(field[- ]verified|field verification (?:was )?(?:completed|conducted|confirmed))\b",
     "no impact conclusion": r"\bno impacts?\b",
     "cleared conclusion": r"\bcleared\b",
@@ -83,31 +92,48 @@ MAP_PRESENTATION_OVERCLAIM_PATTERNS = {
 }
 APE_PATTERN = r"\bape\b|\barea of potential effects?\b"
 POLICY_PROHIBITED_CLAIM_PATTERNS = {
+    "access commitment": PROHIBITED_PATTERNS["access mitigation construction commitment"],
     "agency approval": r"\bagency approval\b|\bapproved by (?:the )?(?:agency|agencies)\b",
     "agency clearance": r"\bagency clearance\b|\bcleared by (?:the )?(?:agency|agencies)\b|\bclearance\b",
     "airspace determination": r"\bairspace determination\b|\bairspace (?:conflict|clearance)\b",
     "alternative rejection": PROHIBITED_PATTERNS["reject"],
     "alternative selection": PROHIBITED_PATTERNS["select"],
     "approval conclusion": PROHIBITED_PATTERNS["approval conclusion"],
+    "construction commitment": PROHIBITED_PATTERNS["access mitigation construction commitment"],
     "cleanup obligation": r"\bcleanup obligation\b|\bobligation to clean(?:up)?\b|\brequires cleanup\b",
+    "contamination determination": PROHIBITED_PATTERNS["contamination determination"],
+    "cultural determination": PROHIBITED_PATTERNS["cultural clearance or eligibility"],
     "direct impact": r"\bdirect (?:project )?impact\b|\bdirectly impact(?:s|ed)?\b|\bno (?:direct )?impact\b",
     "direct impact from nearby context": r"\bdirect (?:project )?impact\b|\bdirectly impact(?:s|ed)?\b|\bnearby .* direct impact\b",
+    "demographic impact": PROHIBITED_PATTERNS["demographic impact conclusion"],
+    "demographic impact conclusion": PROHIBITED_PATTERNS["demographic impact conclusion"],
     "economic impact conclusion": r"\beconomic impact conclusion\b|\beconomic impacts? (?:will|would|are)\b",
     "effect determination": r"\beffect determination\b|\bno adverse effect\b|\badverse effect\b",
     "equity determination": r"\bequity determination\b|\benvironmental justice determination\b",
+    "eligibility determination": r"\beligib(?:le|ility) determination\b|\b(?:eligible|not eligible) for (?:the )?(?:national register|nrhp)\b",
     "field verification claims": PROHIBITED_PATTERNS["field verified"],
+    "final impact": PROHIBITED_PATTERNS["final impact conclusion"],
     "final determination": PROHIBITED_PATTERNS["final determination"],
     "jurisdictional determinations": PROHIBITED_PATTERNS["jurisdictional certainty"],
     "liability determination": r"\bliability determination\b|\bliability\b",
+    "mitigation commitment": PROHIBITED_PATTERNS["access mitigation construction commitment"],
     "no concern": r"\bno concerns?\b",
     "no effect": r"\bno effect\b",
     "no impact": r"\bno (?:direct |indirect |project )?impacts?\b",
+    "permit determination": PROHIBITED_PATTERNS["permit determination"],
+    "permit not required": PROHIBITED_PATTERNS["permit determination"],
+    "permit required": PROHIBITED_PATTERNS["permit determination"],
     "preferred alternative": PROHIBITED_PATTERNS["preferred alternative"],
     "ranking": PROHIBITED_PATTERNS["ranking"],
     "relocation requirement": r"\brelocation requirement\b|\brequires relocation\b|\brelocation (?:is|will be|would be) required\b",
     "scoring": PROHIBITED_PATTERNS["score"],
     "service impact": r"\bservice impacts?\b|\bservice disruption\b",
+    "site absence": r"\bno (?:site|sites|properties|resources) (?:are|were) present\b|\babsence of (?:sites|resources)\b",
+    "site eligibility determination": r"\beligib(?:le|ility) determination\b|\b(?:eligible|not eligible) for (?:the )?(?:national register|nrhp)\b",
+    "unsupported facts": r"\bunsupported (?:fact|facts|claim|claims|assumption|assumptions)\b",
+    "unsupported parent study facts": r"\bparent study\b.{0,80}\b(?:states|concludes|found|shows|documents)\b",
     "utility conflict determination": r"\butility conflict determination\b|\butility conflicts?\b|\bconflicts? with (?:the )?utilit",
+    "wetland jurisdiction": PROHIBITED_PATTERNS["jurisdictional wetland determination"],
 }
 
 
@@ -787,24 +813,7 @@ def _missing_required_caveat_issues(
 
 
 def _caveat_present_in_content(caveat: str, lowered_content: str) -> bool:
-    patterns = {
-        "desktop_screening_only": r"\b(screening|desktop)\b",
-        "screening_level": r"\bscreening\b",
-        "not_jurisdictional_delineation": r"\b(jurisdictional|delineation|delineated)\b",
-        "agency_coordination_may_be_needed": r"\bagency\b|\bcoordination\b",
-        "nearby_context_not_direct_impact": r"\b(nearby|near the project|vicinity|context area|context)\b",
-        "community_context_not_direct_impact": r"\b(community|nearby|vicinity|context)\b",
-        "county_regional_context_not_direct_project_impact": r"\b(county|regional|tract|census)\b",
-        "public_context_only": r"\b(public|coarse|screening context)\b",
-        "restricted_records_not_mapped": r"\b(restricted|not mapped|not exposed)\b",
-        "consultation_required": r"\b(consultation|coordination)\b",
-        "owner_coordination_required": r"\b(owner|coordination)\b",
-        "field_locating_required": r"\b(field|locat)\b",
-        "screening_context_only": r"\b(screening|context)\b",
-        "not_contamination_extent_or_liability": r"\b(contamination extent|liability|cleanup)\b",
-        "direct_check_and_context_figure_are_distinct": r"\b(direct check|context figure|nearby context)\b",
-    }
-    pattern = patterns.get(caveat)
+    pattern = REQUIRED_CAVEAT_TEXT_PATTERNS.get(caveat)
     return bool(pattern and re.search(pattern, lowered_content))
 
 

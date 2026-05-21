@@ -11,7 +11,7 @@
       "section_instruction": "Apply these rules to every section, table, figure, attachment, and front-matter target in the deliverable matrix.",
       "allowed_inputs": ["current_project_evidence", "comparison_unit_summaries", "generated_tables", "generated_figures", "source_status", "source_provenance", "review_assumptions", "validation_warnings", "reviewer_instructions"],
       "required_stub_text": "Empty stub for future implements whenever source data is accessible.",
-      "prohibited_claims": ["ranking", "scoring", "preferred alternative", "alternative selection", "alternative rejection", "field verification claims", "jurisdictional determinations", "agency approval", "agency clearance", "unsupported facts", "example-project fact reuse", "final determinations"],
+      "prohibited_claims": ["ranking", "scoring", "preferred alternative", "alternative selection", "alternative rejection", "field verification claims", "jurisdictional determinations", "agency approval", "agency clearance", "unsupported facts", "example-project fact reuse", "final determinations", "final impact conclusions", "no effect determinations", "wetland jurisdiction determinations", "cultural eligibility or effect determinations", "contamination, cleanup, or liability conclusions", "permit required or not-required conclusions", "access, mitigation, or construction commitments", "demographic impact conclusions"],
       "citation_policy": {
         "allowed_refs": ["table_ids", "figure_ids", "source_ids", "attachment_ids", "comparison_unit_names"],
         "unknown_refs": "prohibited"

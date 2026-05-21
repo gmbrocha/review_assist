@@ -97,6 +97,14 @@ Readiness values mean:
 
 Every GPT-eligible section must have bounded evidence refs, required caveats, and prohibited claims. Manual/reviewer-supplied sections are not GPT-ready by default. GPT Interpretive Assist still filters to source-backed `section_text` items, skips missing-source/P2 stubs by default, caches by evidence/policy/style/model fingerprint, and writes only unaccepted review candidates.
 
+## Caveat And Claim Guardrails
+
+`required_caveats` values are validated against an internal registry. A new caveat ID must be added to that registry before it can appear in `config/report_section_policy.json`; otherwise policy validation fails. This keeps caveat wording intentional without migrating the policy file into the package bundle schema.
+
+`prohibited_claims` uses tuned family patterns for known unsafe claim families and literal fallback matching for section-specific claims. `inherit_global` / `inherit_global_guardrails` remain inheritance markers, not literal text to match.
+
+Known prohibited families include final impact/no-impact/no-effect language, wetland/water jurisdictional determinations, cultural eligibility/effect/clearance, contamination extent/cleanup/liability conclusions, permit required/not-required conclusions, access/mitigation/construction commitments, alternative ranking/scoring/selection/rejection, and demographic impact conclusions.
+
 ## Current P1 Alignments
 
 - `demographic-characteristics` uses county/regional policy because its table and figure refs are county/regional context.

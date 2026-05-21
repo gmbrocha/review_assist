@@ -25,3 +25,4 @@ Current archived planning records include:
 - `docs/archive/sprints/SPRINT_5_2_EXTENT_SEMANTICS_AND_WORDING_ENFORCEMENT.md`
 - `docs/archive/sprints/SPRINT_5_3_SOURCE_NEEDS_MANIFEST_AND_WAREHOUSE_ALIGNMENT.md`
 - `docs/archive/sprints/SPRINT_5_4_REPORT_INCLUSION_AND_DISCERNMENT_PASS.md`
+- `docs/archive/sprints/SPRINT_5_5_CAVEAT_BUNDLES_PROHIBITED_CLAIMS_AND_GPT_ELIGIBILITY.md`

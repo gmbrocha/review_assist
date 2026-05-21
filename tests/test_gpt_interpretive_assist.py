@@ -124,6 +124,7 @@ def test_gpt_planning_skips_body_ineligible_render_items(tmp_path: Path) -> None
     skipped = {row["target_id"]: row["reason"] for row in plan["skipped_sections"]}
 
     assert skipped["floodplains-and-floodways"] == "render_table_figure_only_not_body_eligible"
+    assert skipped["relationship-with-pel-study"] == "manual_or_reviewer_supplied"
 
 
 def test_cli_draft_section_candidates_dry_run_reports_planned_sections(

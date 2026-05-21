@@ -23,7 +23,8 @@ The system is not a recommendation engine, final environmental review, regulator
 - Completed: Sprint 5.2 Extent Semantics And Wording Enforcement.
 - Completed: Sprint 5.3 Source Needs Manifest And Warehouse Alignment.
 - Completed: Sprint 5.4 Report Inclusion And Discernment Pass.
-- Active next implementation target: Sprint 5.5 Caveat Bundles, Prohibited Claims, And GPT Eligibility.
+- Completed: Sprint 5.5 Caveat Bundles, Prohibited Claims, And GPT Eligibility.
+- Active next implementation target: Sprint 5.6 Table/Figure Policy Matrix Alignment.
 
 ## Active Architectural State
 
@@ -64,6 +65,7 @@ Implemented baseline:
 - Extent term semantics now distinguish direct `within` claims from nearby/community context, watershed/subwatershed context, county/regional context, reviewer-defined APE, corridor language, and shown-on-map presentation support. Context-only deterministic wording avoids direct project-footprint phrasing, presentation/collar extent propagates through metadata merges, and GPT output validation rejects direct-project/intersection language for context-only metadata, APE language without reviewer-defined cultural context, and map extent treated as analysis evidence.
 - `config/report_section_policy.json` is the canonical machine-readable report policy for section extent scope, visual extent class, comparison-unit expansion, evidence pattern, caveats, prohibited claims, and GPT readiness. It keeps demographics in county/regional context, makes the oil-wells direct-check/context-figure distinction explicit, and preserves county/regional figure semantics even when current rendering reuses medium-context behavior.
 - GPT Interpretive Assist is now an explicit opt-in workflow, not part of normal populate/reset. The CLI command `draft-section-candidates` and the Overview UI toggle/action draft only eligible source-backed `section_text` review candidates, use `config/report_style_context/environmental_constraints_report_style.md` as non-evidence style guidance, cache accepted drafts by evidence/policy/style/prompt/model fingerprint, reject unsafe output, fall back to deterministic content, and keep all GPT-assisted items unaccepted until human review.
+- Required caveat IDs in `config/report_section_policy.json` now validate against an internal guardrail registry, and GPT output validation blocks known prohibited claim families including final impact/no-impact/no-effect, wetland/water jurisdiction, cultural eligibility/effect/clearance, contamination cleanup/liability, permit required/not-required, access/mitigation/construction commitments, ranking/scoring/selection, and demographic impact language. GPT coverage was not expanded in Sprint 5.5.
 - The evidence package now includes deliverable table refs, deliverable figure refs, row/figure availability summaries, comparison-unit summaries, compact source-backed constraint summaries, source-gap status, validation issues, and raw artifact paths without exposing full geometries or raw feature dumps to GPT-bound evidence.
 - Census TIGER/ACS table generation supports registered local Census-like tract/community polygon sources with ACS fields for the two demographic deliverable tables, and produces visible stubs when the source/API setup is unavailable. Live Census API/TIGER acquisition remains unimplemented.
 

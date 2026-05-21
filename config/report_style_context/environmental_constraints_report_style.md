@@ -23,6 +23,10 @@ below only to shape cautious, compact, review-candidate prose.
 - Avoid ranking, recommending, selecting, rejecting, approving, clearing, or
   making final jurisdictional, legal, agency, liability, or impact
   determinations.
+- Avoid no-effect/no-impact language, permit required/not-required language,
+  access/mitigation/construction commitments, cultural eligibility/effect
+  determinations, contamination cleanup/liability conclusions, and demographic
+  impact conclusions.
 
 ## Direct Project Evidence
 

@@ -116,6 +116,31 @@ def policy_prohibited_claim_response(self: section_drafting.OpenAISectionDraftPr
     }
 
 
+def required_caveat_omission_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": "Mapped resources are summarized from the provided evidence.",
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": [],
+        "caveats": [],
+    }
+
+
+def prohibited_family_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": (
+            "The project has no effect on listed species, the mapped wetland is jurisdictional, "
+            "a permit is not required, mitigation is required, and Census data show no demographic impact."
+        ),
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": [],
+        "caveats": ["desktop_screening_only"],
+    }
+
+
 def test_gpt_env_parsing_and_missing_key(monkeypatch: pytest.MonkeyPatch) -> None:
     for value in ("1", "true", "yes", "on", "TRUE"):
         monkeypatch.setenv("GPT_DRAFTING", value)
@@ -526,6 +551,58 @@ def test_section_drafting_rejects_section_policy_prohibited_claims(monkeypatch: 
     assert result.content == "Deterministic regulated facility context remains for review."
     assert result.provenance["gpt_output_accepted"] is False
     assert any(issue["code"] == "policy_prohibited_claim" for issue in result.validation_issues)
+
+
+def test_section_drafting_rejects_required_caveat_omission(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", required_caveat_omission_response)
+    provider = section_drafting.OpenAISectionDraftProvider(model="gpt-test", api_key="test-key")
+
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="wetlands-and-waterbodies",
+            section_type="section_text",
+            title="Wetlands and Waterbodies",
+            purpose="Draft bounded wetlands context.",
+            resource_category="wetlands_waterbodies",
+            deterministic_content="Deterministic wetlands context remains for review.",
+            section_policy={"required_caveats": ["desktop_screening_only"]},
+        )
+    )
+
+    assert result.content == "Deterministic wetlands context remains for review."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert any(issue["code"] == "required_caveat_omitted" for issue in result.validation_issues)
+
+
+def test_section_drafting_rejects_prohibited_claim_families(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", prohibited_family_response)
+    provider = section_drafting.OpenAISectionDraftProvider(model="gpt-test", api_key="test-key")
+
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="wetlands-and-waterbodies",
+            section_type="section_text",
+            title="Wetlands and Waterbodies",
+            purpose="Draft bounded wetlands context.",
+            resource_category="wetlands_waterbodies",
+            deterministic_content="Deterministic wetlands context remains for review.",
+            section_policy={
+                "required_caveats": ["desktop_screening_only"],
+                "prohibited_claims": [
+                    "no effect",
+                    "wetland jurisdiction",
+                    "permit determination",
+                    "mitigation commitment",
+                    "demographic impact",
+                ],
+            },
+        )
+    )
+
+    codes = {issue["code"] for issue in result.validation_issues}
+    assert result.content == "Deterministic wetlands context remains for review."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert "prohibited_gpt_language" in codes
 
 
 def test_gpt_enabled_without_key_fails_clearly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -74,6 +74,10 @@ The implementation validates GPT output for:
 - Raw rows, coordinates, GeoJSON, or local/source paths.
 - Required caveat omissions.
 - Public/coarse cultural context overclaims.
+- Unknown required caveat IDs in the canonical policy.
+- Final impact/no-impact/no-effect language.
+- Jurisdictional wetland/water, cultural eligibility/effect/clearance, contamination/liability/cleanup, permit required/not-required, access/mitigation/construction commitment, ranking/scoring/selection, and demographic impact claim families.
+- Body-ineligible render-policy items, manual/reviewer-supplied items, restricted/manual source placeholders, and missing-source stubs before any GPT call is planned.
 
 Rejected GPT output keeps the deterministic baseline content and records validation issues plus GPT provenance.
 

@@ -85,6 +85,90 @@ MANUAL_GPT_READINESS_VALUES = {
     "blocked_by_missing_source_acquisition",
     "blocked_by_policy_ambiguity",
 }
+REQUIRED_CAVEAT_GUARDRAILS = {
+    "acs_source_year_and_geography_required": "ACS/Census year, geography, and source limitations must stay visible.",
+    "agency_coordination_may_be_needed": "Agency coordination may be needed; no agency outcome may be inferred.",
+    "comparison_unit_specific": "The statement is specific to a comparison unit or alternative.",
+    "consultation_required": "Consultation or reviewer coordination is required before conclusions.",
+    "county_regional_context_not_direct_project_impact": "County/regional context cannot be stated as project-level impact.",
+    "desktop_screening_only": "The output is desktop screening only.",
+    "direct_check_and_context_figure_are_distinct": "Direct checks and nearby/context figures are distinct evidence scopes.",
+    "do_not_imply_direct_project_impact": "Context evidence must not imply direct project impact.",
+    "do_not_invent_formal_study_context": "Formal parent-study facts must be reviewer supplied.",
+    "eligibility_requires_review": "Eligibility requires qualified/manual review.",
+    "field_locating_required": "Field locating or verification is required before final use.",
+    "hazmat_report_controls_final_detail": "Hazmat report detail controls final contamination/supporting material statements.",
+    "human_review_required": "Human review is required before export use.",
+    "ipac_or_agency_material_required": "IPaC or agency material is required before species effect language.",
+    "local_knowledge_review_needed": "Local knowledge/reviewer review is needed.",
+    "missing_sources_visible": "Missing source status must remain visible.",
+    "nearby_context_not_direct_impact": "Nearby context cannot be stated as direct project impact.",
+    "not_contamination_extent_or_liability": "No contamination extent, cleanup, or liability conclusion.",
+    "not_final_floodplain_determination": "No final floodplain/floodway determination.",
+    "not_jurisdictional_delineation": "No jurisdictional delineation or field boundary conclusion.",
+    "not_species_clearance": "No protected-species clearance or effect determination.",
+    "owner_coordination_required": "Owner coordination is required before utility/access conclusions.",
+    "public_context_only": "Public/coarse context only; not authoritative restricted-source evidence.",
+    "qualified_review_required": "Qualified reviewer review is required.",
+    "render_extent_is_presentation_only": "Render/collar extent is presentation support only.",
+    "restricted_archaeology_not_mapped": "Restricted archaeology locations are not mapped or exposed.",
+    "restricted_records_not_mapped": "Restricted records are not mapped or exposed.",
+    "restricted_sources_not_mapped": "Restricted sources are not mapped or exposed.",
+    "reviewed_maps_only": "Only reviewed maps should be included as attachment/report support.",
+    "reviewer_supplied_consultation_material_required": "Consultation material must be reviewer supplied and reviewed.",
+    "reviewer_supplied_hazmat_report_required": "Hazmat report material must be reviewer supplied and reviewed.",
+    "reviewer_supplied_parent_study_required": "Parent-study material must be reviewer supplied and reviewed.",
+    "screening_context_only": "The statement is screening/context only.",
+    "screening_level": "The statement is screening-level and not final.",
+    "source_acquisition_deferred": "Source acquisition/query implementation is deferred.",
+    "source_availability_limited": "Source availability is limited.",
+    "source_county_context_not_analysis_extent": "County context is source context, not analysis extent.",
+    "source_specific_limitations_apply": "Source-specific limitations apply.",
+    "source_status_may_be_partial": "Source status may be partial.",
+    "watershed_context_deferred": "Watershed context implementation is deferred.",
+}
+REQUIRED_CAVEAT_TEXT_PATTERNS = {
+    "acs_source_year_and_geography_required": r"\b(acs|census|source year|geograph)",
+    "agency_coordination_may_be_needed": r"\b(agency|coordination|consultation)\b",
+    "comparison_unit_specific": r"\b(comparison unit|alternative)\b",
+    "consultation_required": r"\b(consultation|coordination)\b",
+    "county_regional_context_not_direct_project_impact": r"\b(county|regional|tract|census)\b",
+    "desktop_screening_only": r"\b(screening|desktop)\b",
+    "direct_check_and_context_figure_are_distinct": r"\b(direct check|context figure|nearby context)\b",
+    "do_not_imply_direct_project_impact": r"\b(context|not direct|direct project impact)\b",
+    "do_not_invent_formal_study_context": r"\b(parent study|formal study|reviewer[- ]supplied)\b",
+    "eligibility_requires_review": r"\b(eligibility|eligible|review)\b",
+    "field_locating_required": r"\b(field|locat)\b",
+    "hazmat_report_controls_final_detail": r"\b(hazmat|hazardous materials report|attachment b)\b",
+    "human_review_required": r"\b(human review|reviewer)\b",
+    "ipac_or_agency_material_required": r"\b(ipac|agency|consultation)\b",
+    "local_knowledge_review_needed": r"\b(local knowledge|review)\b",
+    "missing_sources_visible": r"\b(missing|unavailable|source gap)\b",
+    "nearby_context_not_direct_impact": r"\b(nearby|near the project|vicinity|context area|context)\b",
+    "not_contamination_extent_or_liability": r"\b(contamination extent|liability|cleanup)\b",
+    "not_final_floodplain_determination": r"\b(floodplain|floodway|final|determination)\b",
+    "not_jurisdictional_delineation": r"\b(jurisdictional|delineation|delineated)\b",
+    "not_species_clearance": r"\b(species|clearance|effect)\b",
+    "owner_coordination_required": r"\b(owner|coordination)\b",
+    "public_context_only": r"\b(public|coarse|screening context)\b",
+    "qualified_review_required": r"\b(qualified|review)\b",
+    "render_extent_is_presentation_only": r"\b(render|presentation|map|collar)\b",
+    "restricted_archaeology_not_mapped": r"\b(restricted|archaeolog|not mapped|not exposed)\b",
+    "restricted_records_not_mapped": r"\b(restricted|not mapped|not exposed)\b",
+    "restricted_sources_not_mapped": r"\b(restricted|not mapped|not exposed)\b",
+    "reviewed_maps_only": r"\b(reviewed map|reviewed maps|reviewed figure)\b",
+    "reviewer_supplied_consultation_material_required": r"\b(consultation|reviewer[- ]supplied)\b",
+    "reviewer_supplied_hazmat_report_required": r"\b(hazmat|hazardous materials report|reviewer[- ]supplied)\b",
+    "reviewer_supplied_parent_study_required": r"\b(parent study|reviewer[- ]supplied)\b",
+    "screening_context_only": r"\b(screening|context)\b",
+    "screening_level": r"\bscreening\b",
+    "source_acquisition_deferred": r"\b(source acquisition|deferred|unimplemented)\b",
+    "source_availability_limited": r"\b(source availability|limited|unavailable)\b",
+    "source_county_context_not_analysis_extent": r"\b(county|context|analysis extent)\b",
+    "source_specific_limitations_apply": r"\b(source[- ]specific|limitation)\b",
+    "source_status_may_be_partial": r"\b(source status|partial)\b",
+    "watershed_context_deferred": r"\b(watershed|deferred)\b",
+}
 FIGURE_RENDERING_CLASS_BY_VISUAL_CLASS = {
     "small_direct": "small_direct",
     "medium_context": "medium_context",
@@ -384,6 +468,12 @@ def _validate_section_policy(policy: ReportSectionPolicy) -> None:
     if policy.drafting_mode not in DRAFTING_MODES:
         raise ReportSectionPolicyError(
             f"Section policy '{policy.section_id}' has unsupported drafting_mode '{policy.drafting_mode}'."
+        )
+    unknown_caveats = sorted(set(policy.required_caveats) - set(REQUIRED_CAVEAT_GUARDRAILS))
+    if unknown_caveats:
+        raise ReportSectionPolicyError(
+            f"Section policy '{policy.section_id}' references unknown required_caveats: "
+            + ", ".join(unknown_caveats)
         )
     if policy.gpt_readiness not in GPT_READINESS_VALUES:
         raise ReportSectionPolicyError(

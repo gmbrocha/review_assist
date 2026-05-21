@@ -169,6 +169,14 @@ def test_section_activation_fields_are_validated(field: str, value: str) -> None
         ReportSectionPolicyConfig.from_dict(data)
 
 
+def test_unknown_required_caveat_is_rejected() -> None:
+    data = copy.deepcopy(_default_policy_data())
+    data["section_policies"][0]["required_caveats"] = ["not_a_registered_caveat"]  # type: ignore[index]
+
+    with pytest.raises(ReportSectionPolicyError, match="unknown required_caveats"):
+        ReportSectionPolicyConfig.from_dict(data)
+
+
 def test_unknown_source_refs_and_categories_are_rejected_against_catalog() -> None:
     matrix = load_deliverable_matrix()
 
