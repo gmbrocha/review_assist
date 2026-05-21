@@ -445,7 +445,15 @@ class ReportSectionPolicyConfig:
                     + ", ".join(unknown_source_categories)
                 )
 
-        for figure_policy in self.figure_policies:
+        figure_policies = self.by_figure_id()
+        for target in matrix.figure_targets:
+            figure_policy = figure_policies[target.target_id]
+            missing_source_categories = sorted(set(target.source_categories) - set(figure_policy.allowed_source_categories))
+            if missing_source_categories:
+                raise ReportSectionPolicyError(
+                    f"Figure policy '{target.target_id}' does not allow source category/categories: "
+                    + ", ".join(missing_source_categories)
+                )
             unknown_source_categories = sorted(set(figure_policy.allowed_source_categories) - known_source_categories)
             if unknown_source_categories:
                 raise ReportSectionPolicyError(

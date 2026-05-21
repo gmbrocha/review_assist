@@ -229,3 +229,24 @@ def test_table_policy_matrix_coverage_and_categories_are_validated() -> None:
     bad_preview_data["table_policies"][0]["max_body_preview_rows"] = 0  # type: ignore[index]
     with pytest.raises(ReportSectionPolicyError, match="positive integer"):
         ReportSectionPolicyConfig.from_dict(bad_preview_data)
+
+
+def test_figure_policy_matrix_coverage_and_categories_are_validated() -> None:
+    matrix = load_deliverable_matrix()
+
+    missing_figure_data = copy.deepcopy(_default_policy_data())
+    missing_figure_data["figure_policies"] = missing_figure_data["figure_policies"][:-1]  # type: ignore[index]
+    with pytest.raises(ReportSectionPolicyError, match="missing figure policy"):
+        ReportSectionPolicyConfig.from_dict(missing_figure_data).validate_against_matrix(matrix)
+
+    unknown_figure_data = copy.deepcopy(_default_policy_data())
+    unknown_figure = copy.deepcopy(unknown_figure_data["figure_policies"][0])  # type: ignore[index]
+    unknown_figure["figure_id"] = "figure-not-in-matrix"
+    unknown_figure_data["figure_policies"].append(unknown_figure)  # type: ignore[union-attr]
+    with pytest.raises(ReportSectionPolicyError, match="unknown figure"):
+        ReportSectionPolicyConfig.from_dict(unknown_figure_data).validate_against_matrix(matrix)
+
+    bad_category_data = copy.deepcopy(_default_policy_data())
+    bad_category_data["figure_policies"][0]["allowed_source_categories"] = ["not_a_source_category"]  # type: ignore[index]
+    with pytest.raises(ReportSectionPolicyError, match="does not allow source category|unknown source category"):
+        ReportSectionPolicyConfig.from_dict(bad_category_data).validate_against_matrix(matrix)
