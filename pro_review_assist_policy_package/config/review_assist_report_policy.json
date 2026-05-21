@@ -1,0 +1,1168 @@
+{
+  "version": "0.1",
+  "generated_on": "2026-05-21",
+  "report_profile": "environmental_constraints_screening",
+  "purpose": "Canonical Review Assist policy for source-backed, review-gated environmental constraints reports.",
+  "defaults": {
+    "drafting_mode": "deterministic_only",
+    "comparison_unit_expansion": "table_only",
+    "body_compactness": {
+      "max_body_rows_per_table": 12,
+      "overflow_destination": "evidence_attachment"
+    },
+    "extent_terms": {
+      "within": "direct_intersection_with_named_extent",
+      "near": "within_configured_screening_buffer",
+      "adjacent": "touches_or_explicitly_adjoining",
+      "downstream": "hydrologic_network_or_reviewer_confirmed",
+      "watershed": "contextual_huc_wbd_geography",
+      "ape": "reviewer_defined_cultural_extent",
+      "shown_on_map": "presentation_support_not_impact_evidence"
+    }
+  },
+  "classification_values": [
+    "generalizable",
+    "conditional",
+    "project_specific",
+    "trail_corridor_specific",
+    "pel_specific",
+    "incomplete_uncertain",
+    "do_not_generalize"
+  ],
+  "caveat_bundles": {
+    "wetlands_nwi": {
+      "pattern": "Desktop screening identified mapped wetlands and/or waterbodies from configured sources within or near the named extent. These mapped features are useful for early planning but do not establish jurisdictional limits. Final boundaries and jurisdictional status require field delineation and agency coordination.",
+      "avoid": [
+        "jurisdictional wetlands are present",
+        "no wetlands are present",
+        "NWI confirms boundaries",
+        "impacts will or will not occur"
+      ]
+    },
+    "hydrography_water_quality": {
+      "pattern": "Hydrography and watershed datasets identify streams, drainage crossings, receiving waters, and watershed context. If impaired waters are downstream rather than intersecting the project, describe them as downstream/contextual.",
+      "avoid": [
+        "impaired streams are within the project when only downstream",
+        "project will affect water quality without design facts",
+        "no water-quality concerns based only on no direct 303(d) intersections"
+      ]
+    },
+    "floodplain_floodway": {
+      "pattern": "FEMA flood hazard data identify mapped flood zones/floodways within the named extent. Work in mapped flood hazard areas may require local floodplain review and hydrologic/hydraulic analysis depending on final design.",
+      "avoid": [
+        "permit required unless confirmed",
+        "no flood risk",
+        "minimal hazard means no drainage concern"
+      ]
+    },
+    "protected_species_critical_habitat": {
+      "pattern": "Protected species and habitat findings are based on named source/agency material. Desktop range or database screening does not by itself determine project effect.",
+      "avoid": [
+        "no effect",
+        "no species present",
+        "no suitable habitat unless agency/reviewer-confirmed"
+      ]
+    },
+    "cultural_resources_restricted_records": {
+      "pattern": "Separate authorized agency/reviewer-supplied records from public/coarse screening context. Sensitive details should remain in restricted evidence unless approved for disclosure.",
+      "avoid": [
+        "public/coarse data as SHPO/MDAH records",
+        "no historic properties affected without Section 106 basis",
+        "all archaeological resources identified"
+      ]
+    },
+    "community_resources": {
+      "pattern": "Identified nearby community resources may be sensitive to access, detours, noise, or construction staging. Lists are planning-level screens and should be verified with local stakeholders where operations may be affected.",
+      "avoid": [
+        "all facilities",
+        "safe access will be maintained unless committed"
+      ]
+    },
+    "regulated_hazardous_facilities": {
+      "pattern": "Regulatory database screening identifies facilities within the named extent/buffer. Database presence indicates possible due-diligence considerations and does not establish contamination, liability, cleanup status, or construction risk.",
+      "avoid": [
+        "site is contaminated without source support",
+        "no contamination risk",
+        "Phase I ESA conclusion without a Phase I or hazmat report"
+      ]
+    },
+    "utility_infrastructure": {
+      "pattern": "Mapped utility and infrastructure features are planning coordination inputs. Locations and ownership should be verified with providers before design or construction; sensitive details require access controls.",
+      "avoid": [
+        "conflict resolved",
+        "utility location confirmed",
+        "service disruption likely without design evidence"
+      ]
+    },
+    "socioeconomic_demographics": {
+      "pattern": "Census data provide community context for planning and outreach. Census geographies may extend beyond the project area, so tract-level data should not be described as direct project-area demographics without qualification.",
+      "avoid": [
+        "environmental justice impact",
+        "disproportionate effect",
+        "all affected residents"
+      ]
+    },
+    "screening_only_no_determination": {
+      "pattern": "The report is a screening-level constraints review. It does not replace field surveys, agency determinations, permitting, design-level impact analysis, legal conclusions, or regulatory findings.",
+      "avoid": [
+        "compliance determination",
+        "final impact conclusion",
+        "binding commitment"
+      ]
+    }
+  },
+  "prohibited_claim_bundles": {
+    "final_impact": [
+      "no impacts",
+      "no effect",
+      "significant impact",
+      "project complies"
+    ],
+    "wetland_jurisdiction": [
+      "jurisdictional wetland",
+      "confirmed wetland boundary"
+    ],
+    "cultural_determination": [
+      "eligible",
+      "ineligible",
+      "no historic properties affected"
+    ],
+    "contamination_determination": [
+      "site is contaminated",
+      "no contamination",
+      "site is safe"
+    ],
+    "permit_determination": [
+      "permit required",
+      "permit not required"
+    ],
+    "access_commitment": [
+      "safe access will be maintained",
+      "unimpeded access will be ensured"
+    ],
+    "demographic_impact": [
+      "environmental justice impact",
+      "disproportionate effect"
+    ]
+  },
+  "sections": {
+    "exec_summary": {
+      "family": "summary",
+      "include_default": false,
+      "extent_type": "presentation-only",
+      "visual_extent_class": "presentation-only",
+      "comparison_unit_expansion": "none",
+      "evidence_patterns": [
+        "reviewed section summaries"
+      ],
+      "drafting_mode": "GPT only after reviewer confirmation",
+      "expected_output_shape": "Compact narrative",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "intro.project_overview": {
+      "family": "intro",
+      "include_default": false,
+      "extent_type": "manual/project metadata",
+      "visual_extent_class": "presentation-only",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "project metadata"
+      ],
+      "drafting_mode": "GPT after reviewer confirmation",
+      "expected_output_shape": "Paragraph",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "intro.parent_study_relationship": {
+      "family": "planning context",
+      "include_default": false,
+      "extent_type": "manual/reviewer-supplied",
+      "visual_extent_class": "presentation-only",
+      "comparison_unit_expansion": "manual_only",
+      "evidence_patterns": [
+        "reviewer-supplied material"
+      ],
+      "drafting_mode": "manual only",
+      "expected_output_shape": "Paragraph",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "intro.project_area_comparison_units": {
+      "family": "project geography",
+      "include_default": false,
+      "extent_type": "direct project/comparison-unit extent",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "project geometry + comparison-unit metadata"
+      ],
+      "drafting_mode": "GPT after reviewer confirmation",
+      "expected_output_shape": "Paragraph + optional map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "method.sources": {
+      "family": "methodology",
+      "include_default": true,
+      "extent_type": "presentation-only",
+      "visual_extent_class": "presentation-only",
+      "comparison_unit_expansion": "none",
+      "evidence_patterns": [
+        "source status/table summary"
+      ],
+      "drafting_mode": "deterministic only",
+      "expected_output_shape": "Paragraph + source appendix ref",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "method.mapping_analysis": {
+      "family": "methodology",
+      "include_default": true,
+      "extent_type": "presentation-only",
+      "visual_extent_class": "presentation-only",
+      "comparison_unit_expansion": "none",
+      "evidence_patterns": [
+        "figure/map support"
+      ],
+      "drafting_mode": "deterministic only",
+      "expected_output_shape": "Paragraph/bullets",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "method.limitations": {
+      "family": "limitations",
+      "include_default": true,
+      "extent_type": "presentation-only",
+      "visual_extent_class": "presentation-only",
+      "comparison_unit_expansion": "none",
+      "evidence_patterns": [
+        "caveat library + source status"
+      ],
+      "drafting_mode": "deterministic only",
+      "expected_output_shape": "Caveat paragraph/list",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "inventory.overview": {
+      "family": "inventory",
+      "include_default": true,
+      "extent_type": "presentation-only",
+      "visual_extent_class": "attachment/panel",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "table summary + figure support"
+      ],
+      "drafting_mode": "deterministic + reviewed polish",
+      "expected_output_shape": "Section intro",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "natural.wetlands_waterbodies": {
+      "family": "natural",
+      "include_default": true,
+      "extent_type": "direct extent; optional screening buffer",
+      "visual_extent_class": "small/direct",
+      "comparison_unit_expansion": "table_only default",
+      "evidence_patterns": [
+        "direct intersections",
+        "crossing counts",
+        "table summary",
+        "map support"
+      ],
+      "drafting_mode": "GPT with source-backed evidence",
+      "expected_output_shape": "Paragraph + table + figure",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "natural.floodplains_floodways": {
+      "family": "natural",
+      "include_default": true,
+      "extent_type": "direct project/comparison-unit extent",
+      "visual_extent_class": "small/direct",
+      "comparison_unit_expansion": "table_only",
+      "evidence_patterns": [
+        "direct intersections",
+        "acreage by zone",
+        "figure support"
+      ],
+      "drafting_mode": "GPT with source-backed evidence",
+      "expected_output_shape": "Paragraph + table + figure",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "natural.water_quality": {
+      "family": "natural",
+      "include_default": false,
+      "extent_type": "watershed/subwatershed + downstream context",
+      "visual_extent_class": "large/watershed",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "watershed membership",
+        "downstream context",
+        "impaired-water list"
+      ],
+      "drafting_mode": "GPT with source-backed evidence",
+      "expected_output_shape": "Paragraph + watershed map",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "natural.protected_species": {
+      "family": "natural",
+      "include_default": false,
+      "extent_type": "county/regional; screening buffer; manual",
+      "visual_extent_class": "county/regional or attachment",
+      "comparison_unit_expansion": "manual_only",
+      "evidence_patterns": [
+        "agency/reviewer material",
+        "optional screening"
+      ],
+      "drafting_mode": "GPT only after reviewer confirmation",
+      "expected_output_shape": "Paragraph + letter ref",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "cultural.archaeology": {
+      "family": "cultural",
+      "include_default": false,
+      "extent_type": "APE/direct disturbance; manual",
+      "visual_extent_class": "attachment/panel",
+      "comparison_unit_expansion": "manual_only",
+      "evidence_patterns": [
+        "authorized records",
+        "reviewer material"
+      ],
+      "drafting_mode": "manual only",
+      "expected_output_shape": "Paragraph/attachment",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "cultural.architectural": {
+      "family": "cultural",
+      "include_default": false,
+      "extent_type": "APE + visual/noise/vibration context",
+      "visual_extent_class": "medium/context or attachment",
+      "comparison_unit_expansion": "manual_only",
+      "evidence_patterns": [
+        "authorized records",
+        "optional property age"
+      ],
+      "drafting_mode": "manual or GPT after confirmation",
+      "expected_output_shape": "Paragraph/map/table if authorized",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "community.fire_ems": {
+      "family": "community",
+      "include_default": false,
+      "extent_type": "nearby/community context",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "nearest-within-buffer",
+        "count/list"
+      ],
+      "drafting_mode": "GPT with evidence + review",
+      "expected_output_shape": "Paragraph/list/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "community.government": {
+      "family": "community",
+      "include_default": false,
+      "extent_type": "nearby/community context",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "nearest-within-buffer",
+        "count/list"
+      ],
+      "drafting_mode": "GPT with evidence + review",
+      "expected_output_shape": "Paragraph/list/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "community.education_childcare": {
+      "family": "community",
+      "include_default": false,
+      "extent_type": "nearby/community context",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "nearest-within-buffer",
+        "count/list"
+      ],
+      "drafting_mode": "GPT with evidence + review",
+      "expected_output_shape": "Paragraph/list/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "community.healthcare": {
+      "family": "community",
+      "include_default": false,
+      "extent_type": "nearby/community context",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "nearest-within-buffer",
+        "count/list"
+      ],
+      "drafting_mode": "GPT with evidence + review",
+      "expected_output_shape": "Paragraph/list/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "community.places_of_worship": {
+      "family": "community",
+      "include_default": false,
+      "extent_type": "nearby/community context",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "nearest-within-buffer",
+        "count/list"
+      ],
+      "drafting_mode": "GPT with evidence + review",
+      "expected_output_shape": "Paragraph/list/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "community.parks_recreation": {
+      "family": "community",
+      "include_default": false,
+      "extent_type": "direct/adjacent + nearby context",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "nearest-within-buffer",
+        "count/list"
+      ],
+      "drafting_mode": "GPT with evidence + review",
+      "expected_output_shape": "Paragraph/list/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "infrastructure.public_water_supply": {
+      "family": "infrastructure",
+      "include_default": false,
+      "extent_type": "nearby context; optional buffer",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "context_summary_list",
+      "evidence_patterns": [
+        "nearest-within-buffer",
+        "figure support"
+      ],
+      "drafting_mode": "GPT with evidence + review",
+      "expected_output_shape": "Paragraph/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "infrastructure.utilities": {
+      "family": "infrastructure",
+      "include_default": false,
+      "extent_type": "direct intersections + nearby context",
+      "visual_extent_class": "small/direct or medium/context",
+      "comparison_unit_expansion": "table_only or context_summary_list",
+      "evidence_patterns": [
+        "direct intersections",
+        "list context"
+      ],
+      "drafting_mode": "GPT only after reviewer confirmation",
+      "expected_output_shape": "Paragraph/list/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "infrastructure.energy": {
+      "family": "infrastructure",
+      "include_default": false,
+      "extent_type": "direct intersections + nearby context",
+      "visual_extent_class": "small/direct or medium/context",
+      "comparison_unit_expansion": "table_only or context_summary_list",
+      "evidence_patterns": [
+        "direct intersections",
+        "list context"
+      ],
+      "drafting_mode": "GPT only after reviewer confirmation",
+      "expected_output_shape": "Paragraph/list/map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "infrastructure.airports": {
+      "family": "infrastructure",
+      "include_default": false,
+      "extent_type": "county/regional; nearest-within-buffer",
+      "visual_extent_class": "county/regional",
+      "comparison_unit_expansion": "none",
+      "evidence_patterns": [
+        "nearest-within-buffer"
+      ],
+      "drafting_mode": "deterministic or GPT with evidence",
+      "expected_output_shape": "Short paragraph",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "contamination.hazmat_sites": {
+      "family": "contamination",
+      "include_default": true,
+      "extent_type": "screening buffer + direct extent",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "table_only + facility list",
+      "evidence_patterns": [
+        "nearest-within-buffer",
+        "risk table",
+        "attachment"
+      ],
+      "drafting_mode": "GPT with evidence; risk labels review-gated",
+      "expected_output_shape": "Paragraph + table + map",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "contamination.oil_gas_wells": {
+      "family": "contamination",
+      "include_default": false,
+      "extent_type": "direct extent + screening buffer",
+      "visual_extent_class": "small/direct",
+      "comparison_unit_expansion": "table_only if findings",
+      "evidence_patterns": [
+        "direct intersections/nearest"
+      ],
+      "drafting_mode": "deterministic or GPT with evidence",
+      "expected_output_shape": "Short paragraph/map",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "socio.demographics": {
+      "family": "socioeconomic",
+      "include_default": false,
+      "extent_type": "census/community + county/regional comparison",
+      "visual_extent_class": "county/regional",
+      "comparison_unit_expansion": "none",
+      "evidence_patterns": [
+        "table summary",
+        "census membership"
+      ],
+      "drafting_mode": "GPT with source-backed evidence",
+      "expected_output_shape": "Paragraph + tables + map",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "socio.business_nodes": {
+      "family": "socioeconomic",
+      "include_default": false,
+      "extent_type": "nearby/community; manual",
+      "visual_extent_class": "medium/context",
+      "comparison_unit_expansion": "manual_only",
+      "evidence_patterns": [
+        "reviewer-supplied",
+        "optional POI context"
+      ],
+      "drafting_mode": "manual or GPT after confirmation",
+      "expected_output_shape": "Paragraph/list",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "conclusion.next_steps": {
+      "family": "conclusion",
+      "include_default": false,
+      "extent_type": "presentation-only",
+      "visual_extent_class": "presentation-only",
+      "comparison_unit_expansion": "none",
+      "evidence_patterns": [
+        "reviewed findings only"
+      ],
+      "drafting_mode": "GPT only after reviewer confirmation",
+      "expected_output_shape": "Narrative",
+      "review_gate_required": true,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    },
+    "references": {
+      "family": "references",
+      "include_default": true,
+      "extent_type": "presentation-only",
+      "visual_extent_class": "presentation-only",
+      "comparison_unit_expansion": "none",
+      "evidence_patterns": [
+        "source manifest"
+      ],
+      "drafting_mode": "deterministic only",
+      "expected_output_shape": "Reference list",
+      "review_gate_required": false,
+      "notes": "Generated from extraction package; refine source triggers in app code."
+    }
+  },
+  "sources": {
+    "usfws_nwi": {
+      "category": "wetlands",
+      "need_type": "required_for_wetlands_module",
+      "coverage": "covered",
+      "gap": "needs_table_policy"
+    },
+    "nhd_flowlines_waterbodies": {
+      "category": "hydrography",
+      "need_type": "required_for_crossings",
+      "coverage": "covered",
+      "gap": "needs_crossing_policy"
+    },
+    "fema_nfhl_dfirm": {
+      "category": "flood_hazard",
+      "need_type": "required_for_flood_module",
+      "coverage": "covered",
+      "gap": "needs_zone_metrics"
+    },
+    "wbd_huc12": {
+      "category": "watershed",
+      "need_type": "required_for_water_quality_context",
+      "coverage": "partial_unclear",
+      "gap": "materialize_source"
+    },
+    "state_303d_tmdl": {
+      "category": "water_quality",
+      "need_type": "conditional_required",
+      "coverage": "gap",
+      "gap": "add_source_class"
+    },
+    "usfws_ipac_critical_habitat": {
+      "category": "species",
+      "need_type": "manual_or_optional",
+      "coverage": "gap",
+      "gap": "add_manual_or_api_support"
+    },
+    "authorized_cultural_records": {
+      "category": "restricted_cultural",
+      "need_type": "manual_restricted",
+      "coverage": "future_placeholder",
+      "gap": "strict_access_policy"
+    },
+    "public_coarse_cultural_context": {
+      "category": "public_cultural_context",
+      "need_type": "optional",
+      "coverage": "covered_conceptually",
+      "gap": "wording_guard"
+    },
+    "community_facilities": {
+      "category": "community",
+      "need_type": "optional_conditional",
+      "coverage": "gap",
+      "gap": "add_source_modules"
+    },
+    "public_water_supply": {
+      "category": "infrastructure",
+      "need_type": "conditional",
+      "coverage": "gap",
+      "gap": "add_state_epa_source"
+    },
+    "utility_energy_infrastructure": {
+      "category": "utility_energy",
+      "need_type": "conditional_sensitive_manual",
+      "coverage": "gap",
+      "gap": "manual_sensitive_first"
+    },
+    "faa_airports": {
+      "category": "transportation_infrastructure",
+      "need_type": "optional",
+      "coverage": "gap",
+      "gap": "add_if_useful"
+    },
+    "regulated_hazmat_sources": {
+      "category": "regulated_hazardous",
+      "need_type": "required_for_hazmat_module",
+      "coverage": "covered",
+      "gap": "risk_policy"
+    },
+    "state_oil_gas_wells": {
+      "category": "oil_gas",
+      "need_type": "conditional_state_specific",
+      "coverage": "covered_as_class",
+      "gap": "state_config"
+    },
+    "census_acs_decennial": {
+      "category": "socioeconomic",
+      "need_type": "conditional",
+      "coverage": "gap",
+      "gap": "add_module"
+    },
+    "manual_agency_letters": {
+      "category": "manual_agency_material",
+      "need_type": "manual_reviewer_supplied",
+      "coverage": "review_queue_supports",
+      "gap": "source_type_and_summary_policy"
+    }
+  },
+  "figures": {
+    "project_location_study_area_comparison_units": {
+      "title": "Project location / study area / comparison units",
+      "supports_section": "Intro",
+      "likely_layers": "Project geometry, basemap, jurisdictions",
+      "extent_class": "medium/context",
+      "body_or_attachment": "Main body",
+      "matrix_backed": true,
+      "requirement": "Recommended default",
+      "evidence_relation": "Presentation + direct geometry",
+      "current_support": "Likely supported; needs policy"
+    },
+    "overall_environmental_constraints_inventory_map": {
+      "title": "Overall Environmental Constraints Inventory Map",
+      "supports_section": "Inventory / Attachment A",
+      "likely_layers": "All active constraints layers",
+      "extent_class": "large/project-wide",
+      "body_or_attachment": "Attachment/support",
+      "matrix_backed": true,
+      "requirement": "Conditional",
+      "evidence_relation": "Presentation/support",
+      "current_support": "Figure generation supports class"
+    },
+    "panel_index_map": {
+      "title": "Panel Index Map",
+      "supports_section": "Attachment A",
+      "likely_layers": "Project extent, panel footprints",
+      "extent_class": "attachment/panel",
+      "body_or_attachment": "Attachment",
+      "matrix_backed": true,
+      "requirement": "Conditional",
+      "evidence_relation": "Presentation/support",
+      "current_support": "Needs panel policy"
+    },
+    "detailed_panel_maps": {
+      "title": "Detailed Panel Maps",
+      "supports_section": "Attachment A",
+      "likely_layers": "All active constraints layers + basemap",
+      "extent_class": "attachment/panel",
+      "body_or_attachment": "Attachment",
+      "matrix_backed": true,
+      "requirement": "Conditional, especially long corridors",
+      "evidence_relation": "Presentation/support",
+      "current_support": "App supports figures; needs paneling"
+    },
+    "wetlands_and_waterbodies": {
+      "title": "Wetlands and Waterbodies",
+      "supports_section": "3.1.1",
+      "likely_layers": "NWI, NHD/waterbodies, project geometry, basemap",
+      "extent_class": "small/direct or medium/context",
+      "body_or_attachment": "Main body",
+      "matrix_backed": true,
+      "requirement": "Conditional/default if source enabled",
+      "evidence_relation": "Direct evidence + nearby context",
+      "current_support": "Supported"
+    },
+    "fema_flood_zones": {
+      "title": "FEMA Flood Zones",
+      "supports_section": "3.1.2",
+      "likely_layers": "FEMA/NFHL/DFIRM, project geometry",
+      "extent_class": "small/direct",
+      "body_or_attachment": "Main body",
+      "matrix_backed": true,
+      "requirement": "Conditional/default if source enabled",
+      "evidence_relation": "Direct evidence",
+      "current_support": "Supported"
+    },
+    "streams_and_303_d_impaired_waters_within_subwatersheds": {
+      "title": "Streams and 303(d) Impaired Waters within Subwatersheds",
+      "supports_section": "3.1.3",
+      "likely_layers": "NHD, WBD/HUC-12, 303(d), TMDL, project geometry",
+      "extent_class": "large/watershed",
+      "body_or_attachment": "Main or attachment",
+      "matrix_backed": true,
+      "requirement": "Conditional",
+      "evidence_relation": "Watershed/downstream context",
+      "current_support": "Hydro supported; 303(d)/WBD gap"
+    },
+    "protected_species_critical_habitat": {
+      "title": "Protected species / critical habitat",
+      "supports_section": "3.1.4",
+      "likely_layers": "Critical habitat/range/source letters/project geometry",
+      "extent_class": "county/regional or attachment",
+      "body_or_attachment": "Usually attachment/manual",
+      "matrix_backed": false,
+      "requirement": "Conditional/manual",
+      "evidence_relation": "Screening context",
+      "current_support": "Gap"
+    },
+    "cultural_resources": {
+      "title": "Cultural resources",
+      "supports_section": "3.2",
+      "likely_layers": "Restricted cultural records, APE, project geometry",
+      "extent_class": "attachment/restricted",
+      "body_or_attachment": "Attachment/restricted",
+      "matrix_backed": false,
+      "requirement": "Manual/restricted",
+      "evidence_relation": "Authorized records",
+      "current_support": "Placeholder only; needs policy"
+    },
+    "community_resource_maps": {
+      "title": "Community resource maps",
+      "supports_section": "3.3.x",
+      "likely_layers": "Fire/EMS, government, schools, childcare, healthcare, worship, parks",
+      "extent_class": "medium/context",
+      "body_or_attachment": "Main or attachment",
+      "matrix_backed": true,
+      "requirement": "Conditional",
+      "evidence_relation": "Nearby/community context",
+      "current_support": "Gap"
+    },
+    "public_water_supply_wells": {
+      "title": "Public Water Supply Wells",
+      "supports_section": "3.4.1",
+      "likely_layers": "Public wells, water facilities, project geometry",
+      "extent_class": "medium/context",
+      "body_or_attachment": "Main or attachment",
+      "matrix_backed": true,
+      "requirement": "Conditional",
+      "evidence_relation": "Nearby infrastructure context",
+      "current_support": "Gap"
+    },
+    "utility_energy_infrastructure": {
+      "title": "Utility/Energy Infrastructure",
+      "supports_section": "3.4.2-3.4.3",
+      "likely_layers": "Pipelines, transmission lines, substations",
+      "extent_class": "small/direct or medium/context",
+      "body_or_attachment": "Main or attachment with sensitivity controls",
+      "matrix_backed": true,
+      "requirement": "Conditional/manual",
+      "evidence_relation": "Direct crossings + nearby context",
+      "current_support": "Gap"
+    },
+    "airports": {
+      "title": "Airports",
+      "supports_section": "3.4.4",
+      "likely_layers": "FAA airports, project geometry",
+      "extent_class": "county/regional",
+      "body_or_attachment": "Usually no figure unless triggered",
+      "matrix_backed": true,
+      "requirement": "Optional",
+      "evidence_relation": "Nearest/regional context",
+      "current_support": "Gap"
+    },
+    "hazardous_regulated_sites": {
+      "title": "Hazardous/Regulated Sites",
+      "supports_section": "3.5.1",
+      "likely_layers": "EPA/state hazardous layers, project buffer",
+      "extent_class": "medium/context",
+      "body_or_attachment": "Main + support appendix",
+      "matrix_backed": true,
+      "requirement": "Conditional/default if hazmat enabled",
+      "evidence_relation": "Nearby/screening-buffer evidence",
+      "current_support": "Source class supported"
+    },
+    "oil_gas_wells": {
+      "title": "Oil/Gas Wells",
+      "supports_section": "3.5.2",
+      "likely_layers": "State oil/gas wells, project geometry/buffer",
+      "extent_class": "small/direct",
+      "body_or_attachment": "Optional main/attachment",
+      "matrix_backed": true,
+      "requirement": "Conditional",
+      "evidence_relation": "Direct/screening evidence",
+      "current_support": "Source class supported"
+    },
+    "census_tracts": {
+      "title": "Census Tracts",
+      "supports_section": "3.6.1",
+      "likely_layers": "Census tracts, project geometry",
+      "extent_class": "county/regional",
+      "body_or_attachment": "Main body",
+      "matrix_backed": true,
+      "requirement": "Conditional",
+      "evidence_relation": "Community/regional context",
+      "current_support": "Gap"
+    },
+    "business_economic_nodes": {
+      "title": "Business/economic nodes",
+      "supports_section": "3.6.2",
+      "likely_layers": "Parcels, POI/business data, commercial areas",
+      "extent_class": "medium/context",
+      "body_or_attachment": "Optional/manual",
+      "matrix_backed": false,
+      "requirement": "Manual/conditional",
+      "evidence_relation": "Community/economic context",
+      "current_support": "Parcels optional; business gap"
+    }
+  },
+  "tables": {
+    "wetlands_waterbodies_by_comparison_unit": {
+      "title": "Wetlands/waterbodies by comparison unit",
+      "supports_section": "3.1.1",
+      "source_data_needed": "NWI, NHD, project/comparison geometries",
+      "likely_columns": "Unit; stream crossings; wetland class; acres/count; notes; source date",
+      "row_type": "Per comparison unit",
+      "body_or_attachment": "Body if compact; attachment if large",
+      "requirement": "Conditional/default if module enabled",
+      "current_support": "Table system exists; needs spec"
+    },
+    "wetland_waterbody_feature_inventory": {
+      "title": "Wetland/waterbody feature inventory",
+      "supports_section": "3.1.1",
+      "source_data_needed": "NWI/NHD intersections",
+      "likely_columns": "Feature type; name; source ID; unit; acreage/length; direct/buffer flag",
+      "row_type": "Per source feature",
+      "body_or_attachment": "Evidence attachment unless small",
+      "requirement": "Optional/supporting",
+      "current_support": "Evidence package likely supports"
+    },
+    "fema_flood_zones_by_comparison_unit": {
+      "title": "FEMA flood zones by comparison unit",
+      "supports_section": "3.1.2",
+      "source_data_needed": "FEMA/NFHL/DFIRM",
+      "likely_columns": "Unit; zone; floodway flag; acreage/linear crossing; notes",
+      "row_type": "Per comparison unit + zone",
+      "body_or_attachment": "Body if compact",
+      "requirement": "Conditional/default if flood module enabled",
+      "current_support": "Needs policy"
+    },
+    "flood_hazard_feature_inventory": {
+      "title": "Flood hazard feature inventory",
+      "supports_section": "3.1.2",
+      "source_data_needed": "FEMA intersections",
+      "likely_columns": "Zone; BFE if available; floodway; source panel; unit; acreage",
+      "row_type": "Per source feature/zone",
+      "body_or_attachment": "Evidence attachment",
+      "requirement": "Optional",
+      "current_support": "Needs table spec"
+    },
+    "water_quality_watershed_context": {
+      "title": "Water quality / watershed context",
+      "supports_section": "3.1.3",
+      "source_data_needed": "WBD/HUC, NHD, 303(d), TMDL",
+      "likely_columns": "HUC; waterbody; direct/downstream; impairment; TMDL status; notes",
+      "row_type": "Summary/waterbody rows",
+      "body_or_attachment": "Body if small; attachment otherwise",
+      "requirement": "Conditional",
+      "current_support": "Gap source + table spec"
+    },
+    "protected_species_consultation_summary": {
+      "title": "Protected species consultation summary",
+      "supports_section": "3.1.4",
+      "source_data_needed": "Agency letters/IPaC/state species",
+      "likely_columns": "Agency/source; date; finding; conditions; reviewer status",
+      "row_type": "Reviewer-supplied source row",
+      "body_or_attachment": "Body or attachment",
+      "requirement": "Manual/conditional",
+      "current_support": "Needs manual material handling"
+    },
+    "cultural_resource_summary": {
+      "title": "Cultural resource summary",
+      "supports_section": "3.2",
+      "source_data_needed": "Authorized MDAH/SHPO/reviewer data",
+      "likely_columns": "Resource type; count; relation to APE; eligibility/status; caveat",
+      "row_type": "Summary rows; restricted details in attachment",
+      "body_or_attachment": "Restricted attachment",
+      "requirement": "Manual/restricted",
+      "current_support": "Needs access policy"
+    },
+    "community_resources_facility_table": {
+      "title": "Community resources facility table",
+      "supports_section": "3.3",
+      "source_data_needed": "Community facility sources",
+      "likely_columns": "Facility type; name; distance/relation; access sensitivity; source",
+      "row_type": "Per facility",
+      "body_or_attachment": "Attachment; compact body list if small",
+      "requirement": "Conditional",
+      "current_support": "Gap"
+    },
+    "utility_crossings_table": {
+      "title": "Utility crossings table",
+      "supports_section": "3.4.2-3.4.3",
+      "source_data_needed": "Pipeline/transmission/substation sources",
+      "likely_columns": "Asset type; owner if allowed; crossing/nearby; location unit; coordination flag",
+      "row_type": "Per source feature/crossing",
+      "body_or_attachment": "Attachment/body if small",
+      "requirement": "Conditional/manual",
+      "current_support": "Gap"
+    },
+    "public_water_supply_wells_table": {
+      "title": "Public water supply wells table",
+      "supports_section": "3.4.1",
+      "source_data_needed": "Well/facility source",
+      "likely_columns": "Facility/well ID; source; relation; protection notes; caveat",
+      "row_type": "Per facility",
+      "body_or_attachment": "Body/attachment",
+      "requirement": "Conditional",
+      "current_support": "Gap"
+    },
+    "hazardous_regulated_facilities_risk_table": {
+      "title": "Hazardous/regulated facilities risk table",
+      "supports_section": "3.5.1",
+      "source_data_needed": "EPA/state databases + reviewer risk rules",
+      "likely_columns": "Facility; program/source; distance/relation; status; risk tier; reviewer note",
+      "row_type": "Per facility",
+      "body_or_attachment": "Body for elevated-risk subset; full list attachment",
+      "requirement": "Conditional/default if hazmat enabled",
+      "current_support": "Source class covered; risk rules gap"
+    },
+    "oil_gas_wells_table": {
+      "title": "Oil/gas wells table",
+      "supports_section": "3.5.2",
+      "source_data_needed": "State oil/gas wells",
+      "likely_columns": "Well ID/name; status; relation; source date",
+      "row_type": "Per source feature",
+      "body_or_attachment": "Body if findings; otherwise no table",
+      "requirement": "Conditional",
+      "current_support": "Covered class; state config needed"
+    },
+    "income_demographics": {
+      "title": "Income demographics",
+      "supports_section": "3.6.1",
+      "source_data_needed": "ACS/Decennial/Census geography",
+      "likely_columns": "Geography; poverty/low-income metric; comparison geography",
+      "row_type": "Summary rows",
+      "body_or_attachment": "Body if compact",
+      "requirement": "Conditional",
+      "current_support": "Gap"
+    },
+    "demographic_composition": {
+      "title": "Demographic composition",
+      "supports_section": "3.6.1",
+      "source_data_needed": "ACS/Decennial",
+      "likely_columns": "Geography; selected race/ethnicity groups; comparison geography",
+      "row_type": "Summary rows",
+      "body_or_attachment": "Body if compact",
+      "requirement": "Conditional",
+      "current_support": "Gap"
+    },
+    "source_status_evidence_audit": {
+      "title": "Source status / evidence audit",
+      "supports_section": "Method/attachment",
+      "source_data_needed": "App source status",
+      "likely_columns": "Source ID; title; effective truth; acquisition status; sections; caveats",
+      "row_type": "Per source",
+      "body_or_attachment": "Evidence package, not report body",
+      "requirement": "Required internally",
+      "current_support": "App likely supports; needs doc shape"
+    },
+    "review_queue_decisions": {
+      "title": "Review queue decisions",
+      "supports_section": "Evidence/review package",
+      "source_data_needed": "Review queue",
+      "likely_columns": "Item; evidence; reviewer action; final text state",
+      "row_type": "Per deliverable item",
+      "body_or_attachment": "Evidence/review package",
+      "requirement": "Required internally",
+      "current_support": "App supports"
+    }
+  },
+  "implementation_priorities": {
+    "P0": [
+      {
+        "move": "Create canonical review_assist_report_policy.json",
+        "why": "Provides section/source/figure/table/caveat policy spine"
+      },
+      {
+        "move": "Make extent_type and visual_extent_class first-class",
+        "why": "Prevents map extent from becoming analysis claim"
+      },
+      {
+        "move": "Add comparison-unit expansion guard",
+        "why": "Default table_only; narrative children only when enabled"
+      },
+      {
+        "move": "Add caveat and prohibited-claim libraries",
+        "why": "Keeps deterministic and GPT drafting aligned"
+      },
+      {
+        "move": "Add source-needs manifest by section",
+        "why": "Prevents sections from rendering without adequate sources"
+      },
+      {
+        "move": "Add source truth/status wording",
+        "why": "Labels incomplete, stale, deferred, manual data honestly"
+      },
+      {
+        "move": "Segregate cultural source classes",
+        "why": "Public/coarse context must not become authorized SHPO/MDAH records"
+      },
+      {
+        "move": "Add manual/restricted source types",
+        "why": "Needed for letters, hazmat reports, cultural records"
+      },
+      {
+        "move": "Add GPT eligibility matrix",
+        "why": "GPT only where evidence + policy + caveats exist"
+      },
+      {
+        "move": "Add export QA checks",
+        "why": "Catch empty tables, comments, broken captions, figure numbering, stale refs"
+      }
+    ],
+    "P1": [
+      {
+        "move": "Build figure/table matrix from policy",
+        "why": "Makes deliverables predictable and testable"
+      },
+      {
+        "move": "Add wetland, flood, waterbody table specs",
+        "why": "High-value and already source-backed"
+      },
+      {
+        "move": "Add hazmat facility table/risk review workflow",
+        "why": "Current sources exist but risk wording needs guardrails"
+      },
+      {
+        "move": "Add water-quality context policy",
+        "why": "Avoids wrong direct/downstream language before full source expansion"
+      },
+      {
+        "move": "Replace sample Study Area with neutral Project Area and Comparison Units",
+        "why": "Keeps app feature-neutral"
+      },
+      {
+        "move": "Add attachment manifest",
+        "why": "Tracks maps, evidence package, manual attachments, agency letters"
+      },
+      {
+        "move": "Connect review queue to sections/tables/figures",
+        "why": "Human decisions stay explicit"
+      }
+    ],
+    "P2": [
+      {
+        "move": "Add WBD/HUC + state 303(d)/TMDL sources",
+        "why": "Needed for water-quality module"
+      },
+      {
+        "move": "Add species/critical habitat/manual agency letter support",
+        "why": "Needed for protected species"
+      },
+      {
+        "move": "Add Census/ACS module",
+        "why": "Needed for socioeconomic section"
+      },
+      {
+        "move": "Add community facilities and public water supply sources",
+        "why": "Needed for community/infrastructure sections"
+      },
+      {
+        "move": "Add utility/energy/FAA sources as manual/sensitive/deferred",
+        "why": "Useful but needs careful source policy"
+      }
+    ],
+    "P3": [
+      {
+        "move": "Add GPT style context file",
+        "why": "Tone/shape only; no project facts"
+      },
+      {
+        "move": "Polish report rendering, captions, TOC, panels, glossary",
+        "why": "Better UX after core policy works"
+      }
+    ]
+  },
+  "gpt": {
+    "style_context_file": "docs/domains/GPT_STYLE_CONTEXT.md",
+    "principle": "style_and_shape_only_no_project_facts",
+    "early_pilot_sections": [
+      "method.sources",
+      "method.limitations",
+      "natural.wetlands_waterbodies",
+      "natural.floodplains_floodways",
+      "contamination.hazmat_sites",
+      "community.*",
+      "socio.demographics"
+    ],
+    "avoid_initial_sections": [
+      "cultural.*",
+      "natural.protected_species",
+      "intro.parent_study_relationship",
+      "socio.business_nodes",
+      "conclusion.next_steps"
+    ]
+  }
+}
