@@ -16,3 +16,5 @@ Default full-suite command:
 ```
 
 For documentation-only changes, tests are usually unnecessary; state that explicitly in the final summary.
+
+A passing code test does not prove generated project artifacts or the local UI are fresh. For implementation changes that affect generated artifacts, state the affected chain, regenerate necessary artifacts from current CLI code, restart stale Flask servers before UI verification, and report generated artifacts left uncommitted.

@@ -107,6 +107,8 @@ The evidence package includes data lineage, source acquisition provenance, sourc
 
 The evidence package is the bridge between hard GIS/source artifacts and narrative drafting. GPT should read this structured package rather than raw source files, root `sources/` paths, raw geometries, or unbounded prose.
 
+Report-facing and GPT-facing caveats use effective source status. Current local/materialized source availability and logical-rollup satisfaction are reconciled before caveats are copied into deliverable tables, evidence, deliverable items, review queue records, or GPT payloads. Historical source-acquisition attempts remain in acquisition/data-lineage artifacts for debugging, but a stale failed download should not become prose-facing `source_not_downloaded` when current evidence is sourced from a valid local/materialized layer.
+
 Sprint 2.3 evidence also includes deliverable table refs, deliverable figure refs, compact row summaries, figure availability/stub status, comparison-unit summaries, compact source-backed constraint summaries, source-gap status, validation issue codes, and raw artifact paths. The GPT-bound evidence remains compact: no full geometries, no raw feature dumps, and no root `sources/` paths.
 
 Evidence and downstream deliverable artifacts now preserve extent-policy metadata. Current fields distinguish the query extent actually used, the analysis or interpretation extent type, table/list/figure extent type, render extent type, whether render expansion is presentation-only, and a source-selection reason. This allows report prose and reviewer metadata to distinguish direct project-area evidence from nearby/community context, watershed context, county/regional context, and map-collar rendering. This metadata does not create new query buffers or broaden existing source materialization by itself.
@@ -135,6 +137,8 @@ This artifact contains the 15 matrix main figure targets in matrix order, includ
 Unavailable source data or unsupported rendering produces explicit stubs with the canonical stub text and review-needed status. Rendered figures preserve source refs, related comparison-unit constraint IDs, comparison unit IDs, shown-layer summaries, provenance, uncertainty flags, validation issues, and draft review status. Report-ready generated PNGs are map panels only: they include the map, source layers, legend, north arrow, and scale bar, but do not embed captions, source notes, method notes, review/process instructions, or report-facing figure titles. Captions, source notes, and method notes remain editable figure metadata and are written below/near the figure as normal Markdown/DOCX text during export.
 
 Deliverable figures may use selected MARIS/NAIP `.png`, `.tif`, or `.tiff` sidecars when available. `.sid` paths are provenance only. Restricted archaeology locations are never rendered or exposed; restricted cultural status is represented by `restricted_source_not_mapped`.
+
+The existing public water supply wells and streams/impaired-waters figure targets can render project-local materialized MDEQ/MARIS public water supply wells, NHD hydrography layers, and MDEQ 303(d)/TMDL water-quality layers when those source IDs are registered and available. Public water supply wells remain mapped context only. The streams/impaired-waters figure can show available NHD and 303(d)/TMDL layers, but watershed/subwatershed context remains an explicit limitation until separate watershed context generation is implemented.
 
 ## Deliverable Items
 

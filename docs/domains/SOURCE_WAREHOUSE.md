@@ -11,6 +11,7 @@ sources/
   source_warehouse_manifest.json
   environmental/<source_id>/raw/<agency_download_folder>/
   hydrology/<source_id>/raw/<agency_download_folder>/
+  water_quality/<source_id>/raw/<agency_download_folder>/
   conservation/<source_id>/raw/<agency_download_folder>/
   wetlands/<source_id>/raw/<agency_download_folder>/
   ecology/<source_id>/raw/<agency_download_folder>/
@@ -34,10 +35,13 @@ Not every catalog source ID is a physical warehouse source. `usgs_nhd_hydrograph
 
 `mdeq_environmental_context` is a manual residual context bucket for reviewer/source-agency material, not an automated warehouse layer.
 
+Effective source status reconciliation treats these rollups as satisfied for report-facing caveats when their specific project-local/materialized child layers are available. Acquisition manifests may still record older download attempts for the rollup or for the same source ID; those records remain debugging/history, not report limitations unless no current local, materialized, or warehouse-available replacement exists.
+
 ## Current Seeded Groups
 
 - Environmental and regulated facilities: FEMA NFHL flood hazard, EPA FRS, MARIS brownfields, NPDES, landfills, Superfund, TRI, USTs, and Mississippi oil/gas wells.
-- Hydrology: specific NHD flowlines, waterbodies, and other areas. The existing live-download rollup `usgs_nhd_hydrography` remains available as a downloader path, not a seeded physical source folder.
+- Hydrology: specific NHD flowlines, waterbodies, other areas, and MDEQ/MARIS November 2024 public water supply wells. The existing live-download rollup `usgs_nhd_hydrography` remains available as a downloader path, not a seeded physical source folder.
+- Water quality: MDEQ 2024 303(d) impaired waters and TMDL-complete line/polygon layers. Watershed context is not derived from these layers; pair them with HUC/NHD layers when hydrologic context is needed.
 - Conservation/public lands: national wildlife refuges, NRCS easements, and MARIS conservation/recreation lands.
 - Existing baseline sources: NWI wetlands, Critical Habitat, SSURGO soils, MDOT/rail, public cultural context, community facilities, utility infrastructure, boundaries, and MARIS/NAIP basemap provenance.
 

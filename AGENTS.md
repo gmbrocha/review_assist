@@ -57,3 +57,34 @@ For each sprint subunit unless the user changes the protocol:
 Any behavior-changing code needs a documentation review. Update only the docs that own the affected subsystem; use `docs/domains/README.md` to route domain docs.
 
 Run relevant tests before committing code changes when the local environment is available. If tests cannot be run, state why and record residual risk.
+
+## Post-Implementation Generated Artifact Rule
+
+After any implementation that changes source/materialization/status/acquisition/caveats, project area or comparison units, constraints, deliverable tables or figures, evidence packages, deliverable items, review queue/reset behavior, GPT drafting or payloads, export/report assembly, UI adapter paths/review detail display, or canonical artifact paths, explicitly consider generated artifact freshness before closeout.
+
+Required closeout:
+
+1. State whether generated artifacts are affected.
+2. Identify the minimum affected chain, for example source status -> constraints -> tables/figures -> evidence package -> deliverable items -> review queue -> export manifests.
+3. Regenerate only necessary artifacts from current code with CLI commands, not a stale running server.
+4. If the local Flask server is running and code changed, stop/restart it before relying on UI behavior or UI-triggered regeneration.
+5. Confirm UI behavior reads canonical artifact paths.
+6. Report exact regeneration commands run, or explain why regeneration was not needed.
+7. Report generated artifacts intentionally left uncommitted. Do not commit generated project artifacts unless explicitly approved.
+8. If human review state may be overwritten, use the dev/test reset flow only when appropriate and state that it is destructive to generated review candidates.
+
+A passing code test does not prove the current local UI is showing fresh generated artifacts. Distinguish code correctness from sample-project artifact freshness. If the Flask/local web server was started before code changes, it may regenerate canonical artifacts using stale imported modules; restart it before using UI actions to regenerate or verify outputs.
+
+Canonical generated artifact paths include `source_status/source_status_set.json`, `deliverable/tables.json`, `deliverable/figures.json`, `evidence/evidence_package.json`, `deliverable/deliverable_items.json`, `review_queue/review_queue.json`, `exports/export_manifest.json`, and `exports/deliverable_package_manifest.json`.
+
+Implementation closeout must include:
+
+- Generated artifacts affected: yes/no
+- Server restart needed: yes/no
+- Regeneration commands run:
+- Canonical artifacts verified:
+- UI verified from current server: yes/no/not applicable
+- Generated artifacts intentionally uncommitted:
+- Focused tests run:
+- Full suite run: yes/no, reason
+- Remaining stale-artifact risk:

@@ -30,6 +30,14 @@ Use the documentation hierarchy to avoid loading the whole repo context:
 - `docs/archive/README.md`: cold historical context and superseded planning docs.
 - `CANONICAL_PLAN.md`: active high-level canonical plan; read when a planning decision, deliverable-shape decision, or workflow direction is ambiguous.
 
+## Implementation Closeout
+
+Implementation passes must distinguish code correctness from sample-project artifact freshness. A passing code test does not prove the local UI is showing fresh generated artifacts.
+
+After changes to source/materialization/status/caveat logic, constraints, deliverable tables or figures, evidence, deliverable items, review queue/reset behavior, GPT payloads/cache, export/report assembly, UI adapter paths, review detail display, or canonical artifact paths, identify the minimum affected artifact chain and regenerate only the necessary artifacts from current code with CLI commands. Do not rely on a Flask server that was started before the code change; restart it before using UI actions to regenerate or verify outputs.
+
+Canonical generated artifacts use nested project paths, including `source_status/source_status_set.json`, `deliverable/tables.json`, `deliverable/figures.json`, `evidence/evidence_package.json`, `deliverable/deliverable_items.json`, `review_queue/review_queue.json`, `exports/export_manifest.json`, and `exports/deliverable_package_manifest.json`. Do not commit generated project artifacts unless explicitly approved, and state which generated artifacts were intentionally left uncommitted.
+
 ## Directory Notes
 
 - `projects/`: active project workspaces.

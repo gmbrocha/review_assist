@@ -44,3 +44,12 @@ Mandatory workflows live in:
 - Sprint Resolution & Knowledge Migration: `docs/governance/SPRINT_RESOLUTION.md`
 
 The system generates draft, source-backed review packages. Preserve human review, provenance, uncertainty, source gaps, and no-ranking/no-selection/no-final-determination boundaries.
+
+Post-implementation generated artifact rule:
+
+- After source, constraint, table, figure, evidence, deliverable item, review queue, GPT, export/report, UI adapter, or canonical artifact path changes, explicitly decide whether generated artifacts are stale.
+- Regenerate only the necessary artifact chain from current code with CLI commands, not a stale running Flask server.
+- If the local web server was started before code changes, restart it before relying on UI-triggered regeneration or UI verification.
+- Do not confuse passing tests with fresh sample-project artifacts.
+- Do not commit generated project artifacts unless explicitly approved.
+- Canonical generated paths include `source_status/source_status_set.json`, `deliverable/tables.json`, `deliverable/figures.json`, `evidence/evidence_package.json`, `deliverable/deliverable_items.json`, `review_queue/review_queue.json`, `exports/export_manifest.json`, and `exports/deliverable_package_manifest.json`.

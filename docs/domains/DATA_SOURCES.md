@@ -2,7 +2,7 @@
 
 This document defines the practical source stack for building the best-case source/context package for environmental and contextual review reports.
 
-The current baseline includes a local source catalog, project source registries, source status sets, source warehouse manifests, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, explicitly downloaded public layers, or explicitly materialized project-local basemap sidecars can be registered, inspected, and checked. `environmental_constraints_example` is the default source-requirement profile for alternatives review, while `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL effective flood hazard zones are implemented public downloaders. The local Mississippi source warehouse now uses stable app-facing source IDs with raw agency/download folder names preserved under each source's `raw/` folder; its index lives at `sources/source_warehouse_manifest.json`. Seeded local materializers cover NWI wetlands, Critical Habitat, SSURGO soils, MDOT/rail transportation, utilities, administrative/boundary context, public cultural context, community facilities, conservation/recreation lands, FEMA flood hazard, specific NHD flowline/waterbody/area layers, EPA FRS, MARIS brownfields, NPDES, landfills, Superfund, TRI, USTs, oil/gas wells, national wildlife refuges, and NRCS easements. Broad IDs such as `usgs_nhd_hydrography` and `epa_envirofacts_echo` are live download rollups, not required physical warehouse folders when specific seeded or reviewer-supplied local layers satisfy the category. `mdeq_environmental_context` is manual residual context. `materialize-naip-basemap` is implemented as an explicit, optional, AOI-bounded renderable basemap sidecar workflow, not as a deterministic source-layer materializer. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
+The current baseline includes a local source catalog, project source registries, source status sets, source warehouse manifests, local source materialization manifests, source acquisition manifests, and source inventory/provenance artifacts so reviewer-supplied, manually downloaded, locally warehoused, explicitly downloaded public layers, or explicitly materialized project-local basemap sidecars can be registered, inspected, and checked. `environmental_constraints_example` is the default source-requirement profile for alternatives review, while `environmental_constraints_basic` and `location_screening_basic` remain available for explicit use. USFWS NWI wetlands, USGS NHD hydrography, USFWS Critical Habitat, EPA/ECHO regulated facilities, and FEMA NFHL effective flood hazard zones are implemented public downloaders. The local Mississippi source warehouse now uses stable app-facing source IDs with raw agency/download folder names preserved under each source's `raw/` folder; its index lives at `sources/source_warehouse_manifest.json`. Seeded local materializers cover NWI wetlands, Critical Habitat, SSURGO soils, MDOT/rail transportation, utilities, administrative/boundary context, public cultural context, community facilities, conservation/recreation lands, FEMA flood hazard, specific NHD flowline/waterbody/area layers, MDEQ/MARIS public water supply wells, EPA FRS, MARIS brownfields, NPDES, landfills, Superfund, TRI, USTs, oil/gas wells, MDEQ 2024 303(d) impaired waters/TMDL-complete layers, national wildlife refuges, and NRCS easements. Broad IDs such as `usgs_nhd_hydrography` and `epa_envirofacts_echo` are live download rollups, not required physical warehouse folders when specific seeded or reviewer-supplied local layers satisfy the category. `mdeq_environmental_context` is manual residual context. `materialize-naip-basemap` is implemented as an explicit, optional, AOI-bounded renderable basemap sidecar workflow, not as a deterministic source-layer materializer. Other sources below remain candidates requiring validation for coverage, licensing, access method, update cadence, accuracy, attribution, and fitness for use.
 
 ## Source Philosophy
 
@@ -39,6 +39,10 @@ The system should preserve:
 ## Source Status Set
 
 The canonical workflow resolves required report source categories into a `SOURCE_STATUS_SET`.
+
+Effective source status is the report-facing status after reconciliation, not a raw copy of acquisition history. The resolver gives precedence to current project-local materialized layers, registered local files, and valid warehouse availability before it treats an older download failure as a report caveat. A failed historical acquisition remains available in source-acquisition/debug artifacts, but it should not produce a `source_not_downloaded` report/GPT caveat when the same `source_id` is currently available through a valid local or materialized source path.
+
+Project-registered source categories that are not part of the base report profile can still appear in the source status set when the workspace has an enabled project source for that category. This keeps project-local materialized context such as `mdeq_303d_impaired_waters` visible to figures, evidence, and review diagnostics without making the broad report profile require that category for every project.
 
 Suggested statuses:
 
@@ -142,6 +146,8 @@ The Sprint 2.1 catalog also exposes review-visible manual or stub entries for IP
 
 The broad downloader IDs in the command examples are acquisition conveniences. They do not imply that a matching root `sources/<group>/<source_id>/` folder must exist, and they should not override more specific seeded warehouse IDs or reviewer-supplied project-local layers.
 
+Report/GPT-facing caveats use effective status. Logical rollups such as `usgs_nhd_hydrography`, `epa_envirofacts_echo`, and `mdeq_environmental_context` are considered satisfied for caveat purposes when the relevant specific project-local layers are available. Optional or visual-only context such as Google Earth visual review context should not appear as an alarming missing authoritative source when NAIP/MARIS/project-local basemap context is available. Manual and restricted sources remain visible as reviewer-supplied or restricted limitations rather than download failures.
+
 ## Local Source Materialization
 
 The local materializer uses ignored root `sources/` storage as a Mississippi source warehouse. Stable source IDs are the app-facing folder names; raw agency/download names are preserved under `raw/` for provenance. The warehouse index and per-source manifests describe expected local layout without tracking bulk source files in Git. The materializer reads configured statewide or bulk datasets, clips them to the project analysis bounds, writes small project-ready GeoJSON files under `projects/<project_id>/layers/<source_id>/`, and registers those files as real `local_file` sources with `status: local_materialized`.
@@ -159,7 +165,9 @@ Configured materializers:
 - `maris_conservation_recreation_lands`: easement areas, state parks, and wildlife management areas from `sources/conservation/maris_conservation_recreation_lands/raw/`.
 - `fema_nfhl_flood_hazard`: seeded Mississippi DFIRM/FEMA flood hazard polygons from `sources/environmental/fema_nfhl_flood_hazard/raw/`.
 - `usgs_nhd_flowlines`, `usgs_nhd_waterbodies`, and `usgs_nhd_other_areas`: specific seeded NHD layers from `sources/hydrology/`; the live downloader rollup `usgs_nhd_hydrography` remains available but is not a physical seeded source folder.
+- `mdeq_public_water_supply_wells`: MDEQ/MARIS November 2024 Public Water Supply well points filtered from `MS_WaterWells_Nov2024` where `Beneficial` equals `PS`; source metadata states the data is a timestamp and not necessarily current.
 - `epa_frs_facilities_ms`, `maris_brownfields`, `maris_npdes_facilities`, `maris_solid_waste_landfills`, `maris_superfund_sites`, `maris_tri_facilities`, `maris_underground_storage_tanks`, and `mississippi_oil_gas_wells`: seeded regulated facility/contamination context layers from `sources/environmental/`.
+- `mdeq_303d_impaired_waters`: MDEQ 2024 active 303(d) impaired waters and TMDL-complete line/polygon layers from `sources/water_quality/`; this preserves original MDEQ fields but does not derive watershed context without HUC/NHD layers.
 - `usfws_national_wildlife_refuges` and `usda_nrcs_easements`: seeded conservation/public lands context from `sources/conservation/`.
 
 Commands:
@@ -176,6 +184,8 @@ Commands:
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_brownfields
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_npdes_facilities
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_underground_storage_tanks
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdeq_public_water_supply_wells
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdeq_303d_impaired_waters
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdot_transportation_context
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_boundary_context
 .\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_public_cultural_context
