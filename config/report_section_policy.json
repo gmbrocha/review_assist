@@ -4,66 +4,1734 @@
   "description": "Canonical machine-readable section policy for report/extent semantics before GPT Interpretive Assist.",
   "explicit_exemptions": [],
   "section_policies": [
-    {"section_id":"cover-title","title":"Cover and Title Page","section_family":"front_matter","source_category":"front_matter","extent_policy":"not_spatial","visual_extent_class":"none","comparison_unit_expansion_policy":"none","evidence_pattern":["project_metadata"],"drafting_mode":"deterministic_only","expected_output_shape":"title_page","required_caveats":[],"prohibited_claims":["inherit_global_guardrails"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now","exempt_from_spatial_interpretation":true},
-    {"section_id":"list-of-figures","title":"List of Figures","section_family":"front_matter","source_category":"front_matter","extent_policy":"not_spatial","visual_extent_class":"none","comparison_unit_expansion_policy":"none","evidence_pattern":["reviewed_figure_items"],"drafting_mode":"deterministic_only","expected_output_shape":"list","required_caveats":[],"prohibited_claims":["inherit_global_guardrails"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now","exempt_from_spatial_interpretation":true},
-    {"section_id":"list-of-tables","title":"List of Tables","section_family":"front_matter","source_category":"front_matter","extent_policy":"not_spatial","visual_extent_class":"none","comparison_unit_expansion_policy":"none","evidence_pattern":["reviewed_table_items"],"drafting_mode":"deterministic_only","expected_output_shape":"list","required_caveats":[],"prohibited_claims":["inherit_global_guardrails"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now","exempt_from_spatial_interpretation":true},
-    {"section_id":"list-of-attachments","title":"List of Attachments","section_family":"front_matter","source_category":"front_matter","extent_policy":"not_spatial","visual_extent_class":"none","comparison_unit_expansion_policy":"none","evidence_pattern":["reviewed_attachment_items"],"drafting_mode":"deterministic_only","expected_output_shape":"list","required_caveats":[],"prohibited_claims":["inherit_global_guardrails"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now","exempt_from_spatial_interpretation":true},
-    {"section_id":"executive-summary","title":"Executive Summary","section_family":"executive_summary","source_category":"executive_summary","extent_policy":"mixed_summary","visual_extent_class":"mixed","comparison_unit_expansion_policy":"none","evidence_pattern":["section_summaries","table_summary","figure_map_support","source_gap_status"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["screening_level","human_review_required"],"prohibited_claims":["ranking","preferred alternative","final determination","no impact"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"blocked_by_policy_ambiguity"},
-    {"section_id":"introduction","title":"Introduction","section_family":"introduction","source_category":"introduction","extent_policy":"direct_project","visual_extent_class":"none","comparison_unit_expansion_policy":"none","evidence_pattern":["project_metadata","comparison_units"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["screening_level"],"prohibited_claims":["preferred alternative","final determination"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now"},
-    {"section_id":"relationship-with-pel-study","title":"Relationship with the PEL Study","section_family":"introduction","source_category":"introduction","extent_policy":"not_spatial","visual_extent_class":"none","comparison_unit_expansion_policy":"none","evidence_pattern":["project_metadata","reviewer_instructions"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["do_not_invent_formal_study_context"],"prohibited_claims":["agency approval","final determination"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now","exempt_from_spatial_interpretation":true},
-    {"section_id":"study-area","title":"Study Area","section_family":"introduction","source_category":"study_area","extent_policy":"direct_project","visual_extent_class":"small_direct","comparison_unit_expansion_policy":"none","evidence_pattern":["project_geometry","comparison_units","county_context","basemap_context"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["source_county_context_not_analysis_extent"],"prohibited_claims":["final determination","unsupported facts"],"allowed_source_refs":[],"allowed_source_categories":["imagery_basemaps","community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now"},
-    {"section_id":"methodology","title":"Methodology","section_family":"methodology","source_category":"methodology","extent_policy":"not_spatial","visual_extent_class":"none","comparison_unit_expansion_policy":"none","evidence_pattern":["workflow_summary"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["desktop_screening_only"],"prohibited_claims":["field verification claims","jurisdictional determinations"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now","exempt_from_spatial_interpretation":true},
-    {"section_id":"data-collection-and-sources","title":"Data Collection and Sources","section_family":"methodology","source_category":"methodology","extent_policy":"not_spatial","visual_extent_class":"none","comparison_unit_expansion_policy":"none","evidence_pattern":["source_status","source_provenance","manual_sources"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["source_status_may_be_partial"],"prohibited_claims":["unsupported facts","field verification claims"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now","exempt_from_spatial_interpretation":true},
-    {"section_id":"mapping-and-analysis-procedures","title":"Mapping and Analysis Procedures","section_family":"methodology","source_category":"methodology","extent_policy":"mixed_summary","visual_extent_class":"mixed","comparison_unit_expansion_policy":"none","evidence_pattern":["project_geometry","comparison_units","analysis_assumptions","source_status"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["render_extent_is_presentation_only","desktop_screening_only"],"prohibited_claims":["field verification claims","jurisdictional determinations"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now"},
-    {"section_id":"limitations-and-data-gaps","title":"Limitations and Data Gaps","section_family":"methodology","source_category":"assumptions_caveats","extent_policy":"mixed_summary","visual_extent_class":"mixed","comparison_unit_expansion_policy":"none","evidence_pattern":["source_gap_status","validation_warnings","manual_sources"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["missing_sources_visible","restricted_sources_not_mapped"],"prohibited_claims":["no concern","no impact","agency clearance"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now"},
-    {"section_id":"environmental-constraints-inventory","title":"Environmental Constraints Inventory","section_family":"constraints_inventory","source_category":"constraints_inventory","extent_policy":"mixed_summary","visual_extent_class":"mixed","comparison_unit_expansion_policy":"none","evidence_pattern":["section_summaries","comparison_unit_summaries","source_gap_status"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["screening_level","human_review_required"],"prohibited_claims":["ranking","preferred alternative","final determination"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"blocked_by_policy_ambiguity"},
-    {"section_id":"natural-and-ecological-resources","title":"Natural and Ecological Resources","section_family":"natural_ecological","source_category":"natural_ecological","extent_policy":"mixed_summary","visual_extent_class":"mixed","comparison_unit_expansion_policy":"none","evidence_pattern":["section_summaries","source_status"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["source_specific_limitations_apply"],"prohibited_claims":["jurisdictional determinations","final determination"],"allowed_source_refs":[],"allowed_source_categories":["wetlands_waterbodies","hydrography_crossings","flood_hazard","species_habitat"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now"},
-    {"section_id":"wetlands-and-waterbodies","title":"Wetlands and Waterbodies","section_family":"natural_ecological","source_category":"wetlands_waterbodies","extent_policy":"direct_project","visual_extent_class":"small_direct","comparison_unit_expansion_policy":"narrative_children","evidence_pattern":["direct_intersections","nearest_within_buffer","table_summary","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph_with_optional_child_refs","required_caveats":["desktop_screening_only","not_jurisdictional_delineation","agency_coordination_may_be_needed"],"prohibited_claims":["jurisdictional determinations","no impact","agency clearance"],"allowed_source_refs":[],"allowed_source_categories":["wetlands_waterbodies","hydrography_crossings"],"allowed_table_refs":["table-wetlands-waterbodies"],"allowed_figure_refs":["figure-wetlands-waterbodies"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"wetlands-waterbodies-alternative-detail","title":"Alternative Detail","section_family":"natural_ecological","source_category":"wetlands_waterbodies","extent_policy":"direct_project","visual_extent_class":"small_direct","comparison_unit_expansion_policy":"narrative_children","evidence_pattern":["direct_intersections","nearest_within_buffer","comparison_unit_summary","table_summary","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"per_alternative_paragraph","required_caveats":["desktop_screening_only","not_jurisdictional_delineation","comparison_unit_specific"],"prohibited_claims":["jurisdictional determinations","preferred alternative","no impact"],"allowed_source_refs":[],"allowed_source_categories":["wetlands_waterbodies","hydrography_crossings"],"allowed_table_refs":["table-wetlands-waterbodies"],"allowed_figure_refs":["figure-wetlands-waterbodies"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"floodplains-and-floodways","title":"Floodplains and Floodways","section_family":"natural_ecological","source_category":"flood_hazard","extent_policy":"direct_project","visual_extent_class":"small_direct","comparison_unit_expansion_policy":"table_only","evidence_pattern":["direct_intersections","table_summary","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["desktop_screening_only","not_final_floodplain_determination"],"prohibited_claims":["final determination","no impact","agency clearance"],"allowed_source_refs":[],"allowed_source_categories":["flood_hazard"],"allowed_table_refs":["table-fema-flood-zones"],"allowed_figure_refs":["figure-fema-flood-zones"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"water-quality","title":"Water Quality","section_family":"natural_ecological","source_category":"hydrography_crossings","extent_policy":"watershed_context","visual_extent_class":"large_watershed","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["watershed_membership_or_deferred_stub","figure_map_support"],"drafting_mode":"disabled_deferred","expected_output_shape":"manual_placeholder_or_context_summary","required_caveats":["watershed_context_deferred","do_not_imply_direct_project_impact"],"prohibited_claims":["direct impact","no impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["hydrography_crossings"],"allowed_table_refs":[],"allowed_figure_refs":["figure-streams-impaired-waters"],"manual_or_reviewer_supplied":false,"gpt_readiness":"blocked_by_missing_source_acquisition"},
-    {"section_id":"protected-species-and-critical-habitat","title":"Protected Species and Critical Habitat","section_family":"natural_ecological","source_category":"species_habitat","extent_policy":"manual_reviewer_supplied","visual_extent_class":"none","comparison_unit_expansion_policy":"manual_only","evidence_pattern":["reviewer_supplied_material","source_gap_status"],"drafting_mode":"manual_reviewer_supplied_only","expected_output_shape":"manual_placeholder","required_caveats":["ipac_or_agency_material_required","not_species_clearance"],"prohibited_claims":["agency clearance","no effect","final determination"],"allowed_source_refs":[],"allowed_source_categories":["species_habitat"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":true,"gpt_readiness":"manual_reviewer_supplied_only"},
-    {"section_id":"cultural-and-historic-resources","title":"Cultural and Historic Resources","section_family":"cultural_historic","source_category":"cultural_historic","extent_policy":"nearby_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["public_context_list","restricted_source_status","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["public_context_only","restricted_records_not_mapped","consultation_required"],"prohibited_claims":["effect determination","agency clearance","site eligibility determination"],"allowed_source_refs":[],"allowed_source_categories":["cultural_historic"],"allowed_table_refs":[],"allowed_figure_refs":["figure-cultural-resources"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"archaeological-sites","title":"Archaeological Sites","section_family":"cultural_historic","source_category":"cultural_historic","extent_policy":"manual_reviewer_supplied","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"manual_only","evidence_pattern":["restricted_source_status","reviewer_supplied_material"],"drafting_mode":"manual_reviewer_supplied_only","expected_output_shape":"manual_placeholder","required_caveats":["restricted_archaeology_not_mapped","qualified_review_required"],"prohibited_claims":["site absence","effect determination","agency clearance"],"allowed_source_refs":[],"allowed_source_categories":["cultural_historic"],"allowed_table_refs":[],"allowed_figure_refs":["figure-cultural-resources"],"manual_or_reviewer_supplied":true,"gpt_readiness":"manual_reviewer_supplied_only"},
-    {"section_id":"historic-structures-and-districts","title":"Historic Structures and Districts","section_family":"cultural_historic","source_category":"cultural_historic","extent_policy":"nearby_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["public_context_list","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["public_context_only","eligibility_requires_review"],"prohibited_claims":["effect determination","agency clearance","eligibility determination"],"allowed_source_refs":[],"allowed_source_categories":["cultural_historic"],"allowed_table_refs":[],"allowed_figure_refs":["figure-cultural-resources"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"community-resources","title":"Community Resources","section_family":"community_resources","source_category":"community_socioeconomic","extent_policy":"community_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","source_status"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["nearby_context_not_direct_impact","local_knowledge_review_needed"],"prohibited_claims":["direct impact","service impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"fire-ems-stations","title":"Fire/EMS Stations","section_family":"community_resources","source_category":"community_socioeconomic","extent_policy":"community_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["nearby_context_not_direct_impact","local_knowledge_review_needed"],"prohibited_claims":["direct impact","service impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":["figure-fire-ems-stations"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"government-buildings","title":"Government Buildings","section_family":"community_resources","source_category":"community_socioeconomic","extent_policy":"community_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["nearby_context_not_direct_impact","local_knowledge_review_needed"],"prohibited_claims":["direct impact","service impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":["figure-government-offices"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"education-facilities","title":"Education Facilities","section_family":"community_resources","source_category":"community_socioeconomic","extent_policy":"community_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["nearby_context_not_direct_impact","local_knowledge_review_needed"],"prohibited_claims":["direct impact","service impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":["figure-schools-childcare"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"health-care-facilities","title":"Health Care Facilities","section_family":"community_resources","source_category":"community_socioeconomic","extent_policy":"community_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["nearby_context_not_direct_impact","local_knowledge_review_needed"],"prohibited_claims":["direct impact","service impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":["figure-health-care-facilities"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"places-of-worship","title":"Places of Worship","section_family":"community_resources","source_category":"community_socioeconomic","extent_policy":"community_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["nearby_context_not_direct_impact","local_knowledge_review_needed"],"prohibited_claims":["direct impact","service impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":["figure-places-of-worship"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"parks-and-recreation-areas","title":"Parks and Recreation Areas","section_family":"community_resources","source_category":"land_cover_disturbance","extent_policy":"direct_project","visual_extent_class":"none","comparison_unit_expansion_policy":"conditional","evidence_pattern":["source_status","direct_intersections_or_stub"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph_or_stub","required_caveats":["source_availability_limited"],"prohibited_claims":["direct impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["land_cover_disturbance"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"blocked_by_missing_source_acquisition"},
-    {"section_id":"utility-and-infrastructure-considerations","title":"Utility and Infrastructure Considerations","section_family":"utility_infrastructure","source_category":"transportation_utilities","extent_policy":"nearby_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","source_status"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["owner_coordination_required","screening_context_only","nearby_context_not_direct_impact"],"prohibited_claims":["utility conflict determination","relocation requirement","final determination"],"allowed_source_refs":[],"allowed_source_categories":["transportation_utilities"],"allowed_table_refs":[],"allowed_figure_refs":["figure-energy-infrastructure"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"public-water-supply","title":"Public Water Supply","section_family":"utility_infrastructure","source_category":"transportation_utilities","extent_policy":"nearby_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["source_status","figure_map_support_or_stub"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph_or_stub","required_caveats":["nearby_context_not_direct_impact","source_acquisition_deferred"],"prohibited_claims":["direct impact","service impact","final determination"],"allowed_source_refs":[],"allowed_source_categories":["transportation_utilities"],"allowed_table_refs":[],"allowed_figure_refs":["figure-public-water-supply-wells"],"manual_or_reviewer_supplied":false,"gpt_readiness":"blocked_by_missing_source_acquisition"},
-    {"section_id":"utility-infrastructure","title":"Utility Infrastructure","section_family":"utility_infrastructure","source_category":"transportation_utilities","extent_policy":"nearby_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["owner_coordination_required","field_locating_required","nearby_context_not_direct_impact"],"prohibited_claims":["utility conflict determination","relocation requirement","final determination"],"allowed_source_refs":[],"allowed_source_categories":["transportation_utilities"],"allowed_table_refs":[],"allowed_figure_refs":["figure-energy-infrastructure"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"energy-infrastructure","title":"Energy Infrastructure","section_family":"utility_infrastructure","source_category":"transportation_utilities","extent_policy":"nearby_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["owner_coordination_required","field_locating_required","nearby_context_not_direct_impact"],"prohibited_claims":["utility conflict determination","relocation requirement","final determination"],"allowed_source_refs":[],"allowed_source_categories":["transportation_utilities"],"allowed_table_refs":[],"allowed_figure_refs":["figure-energy-infrastructure"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"airports","title":"Airports","section_family":"utility_infrastructure","source_category":"transportation_utilities","extent_policy":"nearby_context","visual_extent_class":"none","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["source_status_or_stub"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph_or_stub","required_caveats":["source_acquisition_deferred"],"prohibited_claims":["direct impact","airspace determination","final determination"],"allowed_source_refs":[],"allowed_source_categories":["transportation_utilities"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"blocked_by_missing_source_acquisition"},
-    {"section_id":"contamination-risks","title":"Contamination Risks","section_family":"contamination","source_category":"regulated_facilities","extent_policy":"nearby_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support","attachment_reference"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["screening_context_only","nearby_context_not_direct_impact","not_contamination_extent_or_liability"],"prohibited_claims":["direct impact","cleanup obligation","liability determination","final determination"],"allowed_source_refs":[],"allowed_source_categories":["regulated_facilities"],"allowed_table_refs":[],"allowed_figure_refs":["figure-hazardous-waste-sites","figure-water-discharge-waste-facilities"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"hazardous-materials-sites","title":"Hazardous Materials Sites","section_family":"contamination","source_category":"regulated_facilities","extent_policy":"nearby_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["count_list_context","figure_map_support","attachment_reference"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["nearby_context_not_direct_impact","not_contamination_extent_or_liability","hazmat_report_controls_final_detail"],"prohibited_claims":["direct impact","cleanup obligation","liability determination","no concern"],"allowed_source_refs":[],"allowed_source_categories":["regulated_facilities"],"allowed_table_refs":[],"allowed_figure_refs":["figure-hazardous-waste-sites","figure-water-discharge-waste-facilities"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"oil-wells","title":"Oil Wells","section_family":"contamination","source_category":"regulated_facilities","extent_policy":"direct_check_with_context_figure","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"conditional","evidence_pattern":["direct_intersections","nearby_context_figure","attachment_reference"],"drafting_mode":"gpt_allowed_source_backed_only","expected_output_shape":"short_paragraph","required_caveats":["direct_check_and_context_figure_are_distinct","nearby_context_not_direct_impact","not_contamination_extent_or_liability"],"prohibited_claims":["direct impact from nearby context","cleanup obligation","liability determination","no concern"],"allowed_source_refs":[],"allowed_source_categories":["regulated_facilities"],"allowed_table_refs":[],"allowed_figure_refs":["figure-oil-gas-wells"],"manual_or_reviewer_supplied":false,"gpt_readiness":"gpt_ready_after_extent_metadata_verification"},
-    {"section_id":"socioeconomic-and-business-considerations","title":"Socioeconomic and Business Considerations","section_family":"socioeconomic","source_category":"community_socioeconomic","extent_policy":"county_or_regional_context","visual_extent_class":"county_regional","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["county_or_regional_context","source_status"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["county_regional_context_not_direct_project_impact"],"prohibited_claims":["direct impact","equity determination","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now"},
-    {"section_id":"demographic-characteristics","title":"Demographic Characteristics","section_family":"socioeconomic","source_category":"community_socioeconomic","extent_policy":"county_or_regional_context","visual_extent_class":"county_regional","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["county_or_regional_context","table_summary","figure_map_support"],"drafting_mode":"deterministic_only","expected_output_shape":"table_summary","required_caveats":["county_regional_context_not_direct_project_impact","acs_source_year_and_geography_required"],"prohibited_claims":["direct impact","equity determination","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":["table-income-demographics","table-demographic-composition"],"allowed_figure_refs":["figure-census-tracts"],"manual_or_reviewer_supplied":false,"gpt_readiness":"deterministic_only_for_now"},
-    {"section_id":"local-businesses-and-economic-nodes","title":"Local Businesses and Economic Nodes","section_family":"socioeconomic","source_category":"community_socioeconomic","extent_policy":"community_context","visual_extent_class":"medium_context","comparison_unit_expansion_policy":"context_summary_list","evidence_pattern":["source_status_or_stub"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph_or_stub","required_caveats":["source_acquisition_deferred","nearby_context_not_direct_impact"],"prohibited_claims":["direct impact","economic impact conclusion","final determination"],"allowed_source_refs":[],"allowed_source_categories":["community_socioeconomic"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"blocked_by_missing_source_acquisition"},
-    {"section_id":"conclusion-and-next-steps","title":"Conclusion and Next Steps","section_family":"conclusion","source_category":"conclusion","extent_policy":"mixed_summary","visual_extent_class":"mixed","comparison_unit_expansion_policy":"none","evidence_pattern":["section_summaries","source_gap_status","review_needs"],"drafting_mode":"deterministic_only","expected_output_shape":"short_paragraph","required_caveats":["screening_level","human_review_required"],"prohibited_claims":["ranking","preferred alternative","final determination","agency clearance"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":false,"gpt_readiness":"blocked_by_policy_ambiguity"},
-    {"section_id":"attachment-a-project-maps","title":"Project Maps","section_family":"attachments","source_category":"attachments","extent_policy":"manual_reviewer_supplied","visual_extent_class":"mixed","comparison_unit_expansion_policy":"manual_only","evidence_pattern":["reviewed_figure_items","attachment_package"],"drafting_mode":"manual_reviewer_supplied_only","expected_output_shape":"attachment_placeholder","required_caveats":["reviewed_maps_only"],"prohibited_claims":["new analysis from attachment"],"allowed_source_refs":[],"allowed_source_categories":[],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":true,"gpt_readiness":"manual_reviewer_supplied_only"},
-    {"section_id":"attachment-b-hazardous-materials-report","title":"Hazardous Materials Report","section_family":"attachments","source_category":"attachments","extent_policy":"manual_reviewer_supplied","visual_extent_class":"none","comparison_unit_expansion_policy":"manual_only","evidence_pattern":["reviewer_supplied_material"],"drafting_mode":"manual_reviewer_supplied_only","expected_output_shape":"attachment_placeholder","required_caveats":["reviewer_supplied_hazmat_report_required"],"prohibited_claims":["cleanup obligation","liability determination"],"allowed_source_refs":[],"allowed_source_categories":["regulated_facilities"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":true,"gpt_readiness":"manual_reviewer_supplied_only"},
-    {"section_id":"attachment-c-agency-consultation-letters","title":"Agency Consultation Letters","section_family":"attachments","source_category":"attachments","extent_policy":"manual_reviewer_supplied","visual_extent_class":"none","comparison_unit_expansion_policy":"manual_only","evidence_pattern":["reviewer_supplied_material"],"drafting_mode":"manual_reviewer_supplied_only","expected_output_shape":"attachment_placeholder","required_caveats":["reviewer_supplied_consultation_material_required"],"prohibited_claims":["agency clearance","approval conclusion"],"allowed_source_refs":[],"allowed_source_categories":["species_habitat","cultural_historic"],"allowed_table_refs":[],"allowed_figure_refs":[],"manual_or_reviewer_supplied":true,"gpt_readiness":"manual_reviewer_supplied_only"}
+    {
+      "section_id": "cover-title",
+      "title": "Cover and Title Page",
+      "section_family": "front_matter",
+      "source_category": "front_matter",
+      "inclusion_status": "default",
+      "activation_condition": "always",
+      "review_requirement": "standard_review",
+      "extent_policy": "not_spatial",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "project_metadata"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "title_page",
+      "required_caveats": [],
+      "prohibited_claims": [
+        "inherit_global_guardrails"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now",
+      "exempt_from_spatial_interpretation": true
+    },
+    {
+      "section_id": "list-of-figures",
+      "title": "List of Figures",
+      "section_family": "front_matter",
+      "source_category": "front_matter",
+      "inclusion_status": "default",
+      "activation_condition": "always",
+      "review_requirement": "standard_review",
+      "extent_policy": "not_spatial",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "reviewed_figure_items"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "list",
+      "required_caveats": [],
+      "prohibited_claims": [
+        "inherit_global_guardrails"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now",
+      "exempt_from_spatial_interpretation": true
+    },
+    {
+      "section_id": "list-of-tables",
+      "title": "List of Tables",
+      "section_family": "front_matter",
+      "source_category": "front_matter",
+      "inclusion_status": "default",
+      "activation_condition": "always",
+      "review_requirement": "standard_review",
+      "extent_policy": "not_spatial",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "reviewed_table_items"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "list",
+      "required_caveats": [],
+      "prohibited_claims": [
+        "inherit_global_guardrails"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now",
+      "exempt_from_spatial_interpretation": true
+    },
+    {
+      "section_id": "list-of-attachments",
+      "title": "List of Attachments",
+      "section_family": "front_matter",
+      "source_category": "front_matter",
+      "inclusion_status": "default",
+      "activation_condition": "always",
+      "review_requirement": "standard_review",
+      "extent_policy": "not_spatial",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "reviewed_attachment_items"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "list",
+      "required_caveats": [],
+      "prohibited_claims": [
+        "inherit_global_guardrails"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now",
+      "exempt_from_spatial_interpretation": true
+    },
+    {
+      "section_id": "executive-summary",
+      "title": "Executive Summary",
+      "section_family": "executive_summary",
+      "source_category": "executive_summary",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "mixed_summary",
+      "visual_extent_class": "mixed",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "section_summaries",
+        "table_summary",
+        "figure_map_support",
+        "source_gap_status"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "screening_level",
+        "human_review_required"
+      ],
+      "prohibited_claims": [
+        "ranking",
+        "preferred alternative",
+        "final determination",
+        "no impact"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "blocked_by_policy_ambiguity"
+    },
+    {
+      "section_id": "introduction",
+      "title": "Introduction",
+      "section_family": "introduction",
+      "source_category": "introduction",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "direct_project",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "project_metadata",
+        "comparison_units"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "screening_level"
+      ],
+      "prohibited_claims": [
+        "preferred alternative",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now"
+    },
+    {
+      "section_id": "relationship-with-pel-study",
+      "title": "Relationship with the PEL Study",
+      "section_family": "introduction",
+      "source_category": "introduction",
+      "inclusion_status": "conditional",
+      "activation_condition": "reviewer_supplied_parent_study",
+      "review_requirement": "manual_review",
+      "extent_policy": "manual_reviewer_supplied",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "manual_only",
+      "evidence_pattern": [
+        "reviewer_supplied_parent_study",
+        "reviewer_supplied_material"
+      ],
+      "drafting_mode": "manual_reviewer_supplied_only",
+      "expected_output_shape": "manual_placeholder_or_short_paragraph",
+      "required_caveats": [
+        "reviewer_supplied_parent_study_required",
+        "do_not_invent_formal_study_context"
+      ],
+      "prohibited_claims": [
+        "agency approval",
+        "final determination",
+        "unsupported parent study facts"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": true,
+      "gpt_readiness": "manual_reviewer_supplied_only",
+      "exempt_from_spatial_interpretation": true
+    },
+    {
+      "section_id": "study-area",
+      "title": "Study Area",
+      "section_family": "introduction",
+      "source_category": "study_area",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "direct_project",
+      "visual_extent_class": "small_direct",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "project_geometry",
+        "comparison_units",
+        "county_context",
+        "basemap_context"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "source_county_context_not_analysis_extent"
+      ],
+      "prohibited_claims": [
+        "final determination",
+        "unsupported facts"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "imagery_basemaps",
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now"
+    },
+    {
+      "section_id": "methodology",
+      "title": "Methodology",
+      "section_family": "methodology",
+      "source_category": "methodology",
+      "inclusion_status": "default",
+      "activation_condition": "always",
+      "review_requirement": "standard_review",
+      "extent_policy": "not_spatial",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "workflow_summary"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "desktop_screening_only"
+      ],
+      "prohibited_claims": [
+        "field verification claims",
+        "jurisdictional determinations"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now",
+      "exempt_from_spatial_interpretation": true
+    },
+    {
+      "section_id": "data-collection-and-sources",
+      "title": "Data Collection and Sources",
+      "section_family": "methodology",
+      "source_category": "methodology",
+      "inclusion_status": "default",
+      "activation_condition": "always",
+      "review_requirement": "standard_review",
+      "extent_policy": "not_spatial",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "source_status",
+        "source_provenance",
+        "manual_sources"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "source_status_may_be_partial"
+      ],
+      "prohibited_claims": [
+        "unsupported facts",
+        "field verification claims"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now",
+      "exempt_from_spatial_interpretation": true
+    },
+    {
+      "section_id": "mapping-and-analysis-procedures",
+      "title": "Mapping and Analysis Procedures",
+      "section_family": "methodology",
+      "source_category": "methodology",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "mixed_summary",
+      "visual_extent_class": "mixed",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "project_geometry",
+        "comparison_units",
+        "analysis_assumptions",
+        "source_status"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "render_extent_is_presentation_only",
+        "desktop_screening_only"
+      ],
+      "prohibited_claims": [
+        "field verification claims",
+        "jurisdictional determinations"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now"
+    },
+    {
+      "section_id": "limitations-and-data-gaps",
+      "title": "Limitations and Data Gaps",
+      "section_family": "methodology",
+      "source_category": "assumptions_caveats",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "mixed_summary",
+      "visual_extent_class": "mixed",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "source_gap_status",
+        "validation_warnings",
+        "manual_sources"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "missing_sources_visible",
+        "restricted_sources_not_mapped"
+      ],
+      "prohibited_claims": [
+        "no concern",
+        "no impact",
+        "agency clearance"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now"
+    },
+    {
+      "section_id": "environmental-constraints-inventory",
+      "title": "Environmental Constraints Inventory",
+      "section_family": "constraints_inventory",
+      "source_category": "constraints_inventory",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "mixed_summary",
+      "visual_extent_class": "mixed",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "section_summaries",
+        "comparison_unit_summaries",
+        "source_gap_status"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "screening_level",
+        "human_review_required"
+      ],
+      "prohibited_claims": [
+        "ranking",
+        "preferred alternative",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "blocked_by_policy_ambiguity"
+    },
+    {
+      "section_id": "natural-and-ecological-resources",
+      "title": "Natural and Ecological Resources",
+      "section_family": "natural_ecological",
+      "source_category": "natural_ecological",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "mixed_summary",
+      "visual_extent_class": "mixed",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "section_summaries",
+        "source_status"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "source_specific_limitations_apply"
+      ],
+      "prohibited_claims": [
+        "jurisdictional determinations",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "wetlands_waterbodies",
+        "hydrography_crossings",
+        "flood_hazard",
+        "species_habitat"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now"
+    },
+    {
+      "section_id": "wetlands-and-waterbodies",
+      "title": "Wetlands and Waterbodies",
+      "section_family": "natural_ecological",
+      "source_category": "wetlands_waterbodies",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "direct_project",
+      "visual_extent_class": "small_direct",
+      "comparison_unit_expansion_policy": "narrative_children",
+      "evidence_pattern": [
+        "direct_intersections",
+        "nearest_within_buffer",
+        "table_summary",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph_with_optional_child_refs",
+      "required_caveats": [
+        "desktop_screening_only",
+        "not_jurisdictional_delineation",
+        "agency_coordination_may_be_needed"
+      ],
+      "prohibited_claims": [
+        "jurisdictional determinations",
+        "no impact",
+        "agency clearance"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "wetlands_waterbodies",
+        "hydrography_crossings"
+      ],
+      "allowed_table_refs": [
+        "table-wetlands-waterbodies"
+      ],
+      "allowed_figure_refs": [
+        "figure-wetlands-waterbodies"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "wetlands-waterbodies-alternative-detail",
+      "title": "Alternative Detail",
+      "section_family": "natural_ecological",
+      "source_category": "wetlands_waterbodies",
+      "inclusion_status": "default",
+      "activation_condition": "dynamic_comparison_units",
+      "review_requirement": "standard_review",
+      "extent_policy": "direct_project",
+      "visual_extent_class": "small_direct",
+      "comparison_unit_expansion_policy": "narrative_children",
+      "evidence_pattern": [
+        "direct_intersections",
+        "nearest_within_buffer",
+        "comparison_unit_summary",
+        "table_summary",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "per_alternative_paragraph",
+      "required_caveats": [
+        "desktop_screening_only",
+        "not_jurisdictional_delineation",
+        "comparison_unit_specific"
+      ],
+      "prohibited_claims": [
+        "jurisdictional determinations",
+        "preferred alternative",
+        "no impact"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "wetlands_waterbodies",
+        "hydrography_crossings"
+      ],
+      "allowed_table_refs": [
+        "table-wetlands-waterbodies"
+      ],
+      "allowed_figure_refs": [
+        "figure-wetlands-waterbodies"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "floodplains-and-floodways",
+      "title": "Floodplains and Floodways",
+      "section_family": "natural_ecological",
+      "source_category": "flood_hazard",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "direct_project",
+      "visual_extent_class": "small_direct",
+      "comparison_unit_expansion_policy": "table_only",
+      "evidence_pattern": [
+        "direct_intersections",
+        "table_summary",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "desktop_screening_only",
+        "not_final_floodplain_determination"
+      ],
+      "prohibited_claims": [
+        "final determination",
+        "no impact",
+        "agency clearance"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "flood_hazard"
+      ],
+      "allowed_table_refs": [
+        "table-fema-flood-zones"
+      ],
+      "allowed_figure_refs": [
+        "figure-fema-flood-zones"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "water-quality",
+      "title": "Water Quality",
+      "section_family": "natural_ecological",
+      "source_category": "hydrography_crossings",
+      "inclusion_status": "required_stub",
+      "activation_condition": "deferred_source",
+      "review_requirement": "source_gap_review",
+      "extent_policy": "watershed_context",
+      "visual_extent_class": "large_watershed",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "watershed_membership_or_deferred_stub",
+        "figure_map_support"
+      ],
+      "drafting_mode": "disabled_deferred",
+      "expected_output_shape": "manual_placeholder_or_context_summary",
+      "required_caveats": [
+        "watershed_context_deferred",
+        "do_not_imply_direct_project_impact"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "no impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "hydrography_crossings"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-streams-impaired-waters"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "blocked_by_missing_source_acquisition"
+    },
+    {
+      "section_id": "protected-species-and-critical-habitat",
+      "title": "Protected Species and Critical Habitat",
+      "section_family": "natural_ecological",
+      "source_category": "species_habitat",
+      "inclusion_status": "manual",
+      "activation_condition": "manual_reviewer_supplied",
+      "review_requirement": "manual_review",
+      "extent_policy": "manual_reviewer_supplied",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "manual_only",
+      "evidence_pattern": [
+        "reviewer_supplied_material",
+        "source_gap_status"
+      ],
+      "drafting_mode": "manual_reviewer_supplied_only",
+      "expected_output_shape": "manual_placeholder",
+      "required_caveats": [
+        "ipac_or_agency_material_required",
+        "not_species_clearance"
+      ],
+      "prohibited_claims": [
+        "agency clearance",
+        "no effect",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "species_habitat"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": true,
+      "gpt_readiness": "manual_reviewer_supplied_only"
+    },
+    {
+      "section_id": "cultural-and-historic-resources",
+      "title": "Cultural and Historic Resources",
+      "section_family": "cultural_historic",
+      "source_category": "cultural_historic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "public_context_list",
+        "restricted_source_status",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "public_context_only",
+        "restricted_records_not_mapped",
+        "consultation_required"
+      ],
+      "prohibited_claims": [
+        "effect determination",
+        "agency clearance",
+        "site eligibility determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "cultural_historic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-cultural-resources"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "archaeological-sites",
+      "title": "Archaeological Sites",
+      "section_family": "cultural_historic",
+      "source_category": "cultural_historic",
+      "inclusion_status": "manual",
+      "activation_condition": "manual_reviewer_supplied",
+      "review_requirement": "manual_review",
+      "extent_policy": "manual_reviewer_supplied",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "manual_only",
+      "evidence_pattern": [
+        "restricted_source_status",
+        "reviewer_supplied_material"
+      ],
+      "drafting_mode": "manual_reviewer_supplied_only",
+      "expected_output_shape": "manual_placeholder",
+      "required_caveats": [
+        "restricted_archaeology_not_mapped",
+        "qualified_review_required"
+      ],
+      "prohibited_claims": [
+        "site absence",
+        "effect determination",
+        "agency clearance"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "cultural_historic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-cultural-resources"
+      ],
+      "manual_or_reviewer_supplied": true,
+      "gpt_readiness": "manual_reviewer_supplied_only"
+    },
+    {
+      "section_id": "historic-structures-and-districts",
+      "title": "Historic Structures and Districts",
+      "section_family": "cultural_historic",
+      "source_category": "cultural_historic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "public_context_list",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "public_context_only",
+        "eligibility_requires_review"
+      ],
+      "prohibited_claims": [
+        "effect determination",
+        "agency clearance",
+        "eligibility determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "cultural_historic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-cultural-resources"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "community-resources",
+      "title": "Community Resources",
+      "section_family": "community_resources",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "source_status"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "nearby_context_not_direct_impact",
+        "local_knowledge_review_needed"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "service impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "fire-ems-stations",
+      "title": "Fire/EMS Stations",
+      "section_family": "community_resources",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "nearby_context_not_direct_impact",
+        "local_knowledge_review_needed"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "service impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-fire-ems-stations"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "government-buildings",
+      "title": "Government Buildings",
+      "section_family": "community_resources",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "nearby_context_not_direct_impact",
+        "local_knowledge_review_needed"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "service impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-government-offices"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "education-facilities",
+      "title": "Education Facilities",
+      "section_family": "community_resources",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "nearby_context_not_direct_impact",
+        "local_knowledge_review_needed"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "service impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-schools-childcare"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "health-care-facilities",
+      "title": "Health Care Facilities",
+      "section_family": "community_resources",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "nearby_context_not_direct_impact",
+        "local_knowledge_review_needed"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "service impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-health-care-facilities"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "places-of-worship",
+      "title": "Places of Worship",
+      "section_family": "community_resources",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "nearby_context_not_direct_impact",
+        "local_knowledge_review_needed"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "service impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-places-of-worship"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "parks-and-recreation-areas",
+      "title": "Parks and Recreation Areas",
+      "section_family": "community_resources",
+      "source_category": "land_cover_disturbance",
+      "inclusion_status": "required_stub",
+      "activation_condition": "deferred_source",
+      "review_requirement": "source_gap_review",
+      "extent_policy": "direct_project",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "conditional",
+      "evidence_pattern": [
+        "source_status",
+        "direct_intersections_or_stub"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph_or_stub",
+      "required_caveats": [
+        "source_availability_limited"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "land_cover_disturbance"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "blocked_by_missing_source_acquisition"
+    },
+    {
+      "section_id": "utility-and-infrastructure-considerations",
+      "title": "Utility and Infrastructure Considerations",
+      "section_family": "utility_infrastructure",
+      "source_category": "transportation_utilities",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "source_status"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "owner_coordination_required",
+        "screening_context_only",
+        "nearby_context_not_direct_impact"
+      ],
+      "prohibited_claims": [
+        "utility conflict determination",
+        "relocation requirement",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "transportation_utilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-energy-infrastructure"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "public-water-supply",
+      "title": "Public Water Supply",
+      "section_family": "utility_infrastructure",
+      "source_category": "transportation_utilities",
+      "inclusion_status": "required_stub",
+      "activation_condition": "deferred_source",
+      "review_requirement": "source_gap_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "source_status",
+        "figure_map_support_or_stub"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph_or_stub",
+      "required_caveats": [
+        "nearby_context_not_direct_impact",
+        "source_acquisition_deferred"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "service impact",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "transportation_utilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-public-water-supply-wells"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "blocked_by_missing_source_acquisition"
+    },
+    {
+      "section_id": "utility-infrastructure",
+      "title": "Utility Infrastructure",
+      "section_family": "utility_infrastructure",
+      "source_category": "transportation_utilities",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "owner_coordination_required",
+        "field_locating_required",
+        "nearby_context_not_direct_impact"
+      ],
+      "prohibited_claims": [
+        "utility conflict determination",
+        "relocation requirement",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "transportation_utilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-energy-infrastructure"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "energy-infrastructure",
+      "title": "Energy Infrastructure",
+      "section_family": "utility_infrastructure",
+      "source_category": "transportation_utilities",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "owner_coordination_required",
+        "field_locating_required",
+        "nearby_context_not_direct_impact"
+      ],
+      "prohibited_claims": [
+        "utility conflict determination",
+        "relocation requirement",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "transportation_utilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-energy-infrastructure"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "airports",
+      "title": "Airports",
+      "section_family": "utility_infrastructure",
+      "source_category": "transportation_utilities",
+      "inclusion_status": "required_stub",
+      "activation_condition": "deferred_source",
+      "review_requirement": "source_gap_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "source_status_or_stub"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph_or_stub",
+      "required_caveats": [
+        "source_acquisition_deferred"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "airspace determination",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "transportation_utilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "blocked_by_missing_source_acquisition"
+    },
+    {
+      "section_id": "contamination-risks",
+      "title": "Contamination Risks",
+      "section_family": "contamination",
+      "source_category": "regulated_facilities",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support",
+        "attachment_reference"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "screening_context_only",
+        "nearby_context_not_direct_impact",
+        "not_contamination_extent_or_liability"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "cleanup obligation",
+        "liability determination",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "regulated_facilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-hazardous-waste-sites",
+        "figure-water-discharge-waste-facilities"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "hazardous-materials-sites",
+      "title": "Hazardous Materials Sites",
+      "section_family": "contamination",
+      "source_category": "regulated_facilities",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "count_list_context",
+        "figure_map_support",
+        "attachment_reference"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "nearby_context_not_direct_impact",
+        "not_contamination_extent_or_liability",
+        "hazmat_report_controls_final_detail"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "cleanup obligation",
+        "liability determination",
+        "no concern"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "regulated_facilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-hazardous-waste-sites",
+        "figure-water-discharge-waste-facilities"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "oil-wells",
+      "title": "Oil Wells",
+      "section_family": "contamination",
+      "source_category": "regulated_facilities",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "direct_check_with_context_figure",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "conditional",
+      "evidence_pattern": [
+        "direct_intersections",
+        "nearby_context_figure",
+        "attachment_reference"
+      ],
+      "drafting_mode": "gpt_allowed_source_backed_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "direct_check_and_context_figure_are_distinct",
+        "nearby_context_not_direct_impact",
+        "not_contamination_extent_or_liability"
+      ],
+      "prohibited_claims": [
+        "direct impact from nearby context",
+        "cleanup obligation",
+        "liability determination",
+        "no concern"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "regulated_facilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [
+        "figure-oil-gas-wells"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+    },
+    {
+      "section_id": "socioeconomic-and-business-considerations",
+      "title": "Socioeconomic and Business Considerations",
+      "section_family": "socioeconomic",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "county_or_regional_context",
+      "visual_extent_class": "county_regional",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "county_or_regional_context",
+        "source_status"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "county_regional_context_not_direct_project_impact"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "equity determination",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now"
+    },
+    {
+      "section_id": "demographic-characteristics",
+      "title": "Demographic Characteristics",
+      "section_family": "socioeconomic",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "county_or_regional_context",
+      "visual_extent_class": "county_regional",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "county_or_regional_context",
+        "table_summary",
+        "figure_map_support"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "table_summary",
+      "required_caveats": [
+        "county_regional_context_not_direct_project_impact",
+        "acs_source_year_and_geography_required"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "equity determination",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [
+        "table-income-demographics",
+        "table-demographic-composition"
+      ],
+      "allowed_figure_refs": [
+        "figure-census-tracts"
+      ],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "deterministic_only_for_now"
+    },
+    {
+      "section_id": "local-businesses-and-economic-nodes",
+      "title": "Local Businesses and Economic Nodes",
+      "section_family": "socioeconomic",
+      "source_category": "community_socioeconomic",
+      "inclusion_status": "required_stub",
+      "activation_condition": "deferred_source",
+      "review_requirement": "source_gap_review",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "comparison_unit_expansion_policy": "context_summary_list",
+      "evidence_pattern": [
+        "source_status_or_stub"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph_or_stub",
+      "required_caveats": [
+        "source_acquisition_deferred",
+        "nearby_context_not_direct_impact"
+      ],
+      "prohibited_claims": [
+        "direct impact",
+        "economic impact conclusion",
+        "final determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "blocked_by_missing_source_acquisition"
+    },
+    {
+      "section_id": "conclusion-and-next-steps",
+      "title": "Conclusion and Next Steps",
+      "section_family": "conclusion",
+      "source_category": "conclusion",
+      "inclusion_status": "default",
+      "activation_condition": "source_backed_or_stub",
+      "review_requirement": "standard_review",
+      "extent_policy": "mixed_summary",
+      "visual_extent_class": "mixed",
+      "comparison_unit_expansion_policy": "none",
+      "evidence_pattern": [
+        "section_summaries",
+        "source_gap_status",
+        "review_needs"
+      ],
+      "drafting_mode": "deterministic_only",
+      "expected_output_shape": "short_paragraph",
+      "required_caveats": [
+        "screening_level",
+        "human_review_required"
+      ],
+      "prohibited_claims": [
+        "ranking",
+        "preferred alternative",
+        "final determination",
+        "agency clearance"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": false,
+      "gpt_readiness": "blocked_by_policy_ambiguity"
+    },
+    {
+      "section_id": "attachment-a-project-maps",
+      "title": "Project Maps",
+      "section_family": "attachments",
+      "source_category": "attachments",
+      "inclusion_status": "manual",
+      "activation_condition": "manual_reviewer_supplied",
+      "review_requirement": "manual_review",
+      "extent_policy": "manual_reviewer_supplied",
+      "visual_extent_class": "mixed",
+      "comparison_unit_expansion_policy": "manual_only",
+      "evidence_pattern": [
+        "reviewed_figure_items",
+        "attachment_package"
+      ],
+      "drafting_mode": "manual_reviewer_supplied_only",
+      "expected_output_shape": "attachment_placeholder",
+      "required_caveats": [
+        "reviewed_maps_only"
+      ],
+      "prohibited_claims": [
+        "new analysis from attachment"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": true,
+      "gpt_readiness": "manual_reviewer_supplied_only"
+    },
+    {
+      "section_id": "attachment-b-hazardous-materials-report",
+      "title": "Hazardous Materials Report",
+      "section_family": "attachments",
+      "source_category": "attachments",
+      "inclusion_status": "manual",
+      "activation_condition": "manual_reviewer_supplied",
+      "review_requirement": "manual_review",
+      "extent_policy": "manual_reviewer_supplied",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "manual_only",
+      "evidence_pattern": [
+        "reviewer_supplied_material"
+      ],
+      "drafting_mode": "manual_reviewer_supplied_only",
+      "expected_output_shape": "attachment_placeholder",
+      "required_caveats": [
+        "reviewer_supplied_hazmat_report_required"
+      ],
+      "prohibited_claims": [
+        "cleanup obligation",
+        "liability determination"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "regulated_facilities"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": true,
+      "gpt_readiness": "manual_reviewer_supplied_only"
+    },
+    {
+      "section_id": "attachment-c-agency-consultation-letters",
+      "title": "Agency Consultation Letters",
+      "section_family": "attachments",
+      "source_category": "attachments",
+      "inclusion_status": "manual",
+      "activation_condition": "manual_reviewer_supplied",
+      "review_requirement": "manual_review",
+      "extent_policy": "manual_reviewer_supplied",
+      "visual_extent_class": "none",
+      "comparison_unit_expansion_policy": "manual_only",
+      "evidence_pattern": [
+        "reviewer_supplied_material"
+      ],
+      "drafting_mode": "manual_reviewer_supplied_only",
+      "expected_output_shape": "attachment_placeholder",
+      "required_caveats": [
+        "reviewer_supplied_consultation_material_required"
+      ],
+      "prohibited_claims": [
+        "agency clearance",
+        "approval conclusion"
+      ],
+      "allowed_source_refs": [],
+      "allowed_source_categories": [
+        "species_habitat",
+        "cultural_historic"
+      ],
+      "allowed_table_refs": [],
+      "allowed_figure_refs": [],
+      "manual_or_reviewer_supplied": true,
+      "gpt_readiness": "manual_reviewer_supplied_only"
+    }
   ],
   "figure_policies": [
-    {"figure_id":"figure-wetlands-waterbodies","title":"Wetlands and Waterbodies in and near the Project Area","extent_policy":"direct_project","visual_extent_class":"small_direct","rendering_extent_class":"small_direct","render_extent_is_presentation_only":true,"allowed_source_categories":["wetlands_waterbodies","hydrography_crossings"]},
-    {"figure_id":"figure-fema-flood-zones","title":"FEMA Flood Zones in and near the Project Area","extent_policy":"direct_project","visual_extent_class":"small_direct","rendering_extent_class":"small_direct","render_extent_is_presentation_only":true,"allowed_source_categories":["flood_hazard"]},
-    {"figure_id":"figure-streams-impaired-waters","title":"Streams and 303(d) Impaired Waters within Project-Area Subwatersheds","extent_policy":"watershed_context","visual_extent_class":"large_watershed","rendering_extent_class":"large_watershed","render_extent_is_presentation_only":true,"allowed_source_categories":["hydrography_crossings"]},
-    {"figure_id":"figure-cultural-resources","title":"Cultural Resources Sites in or near the Project Area","extent_policy":"nearby_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["cultural_historic"]},
-    {"figure_id":"figure-fire-ems-stations","title":"Fire Stations in or near the Project Area","extent_policy":"community_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["community_socioeconomic"]},
-    {"figure_id":"figure-government-offices","title":"Government Offices near the Project Area","extent_policy":"community_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["community_socioeconomic"]},
-    {"figure_id":"figure-schools-childcare","title":"Schools and Childcare Facilities in or near the Project Area","extent_policy":"community_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["community_socioeconomic"]},
-    {"figure_id":"figure-health-care-facilities","title":"Health Care Facilities near the Project Area","extent_policy":"community_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["community_socioeconomic"]},
-    {"figure_id":"figure-places-of-worship","title":"Places of Worship in or near the Project Area","extent_policy":"community_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["community_socioeconomic"]},
-    {"figure_id":"figure-public-water-supply-wells","title":"Public Water Supply Wells near the Project Area","extent_policy":"nearby_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["transportation_utilities"]},
-    {"figure_id":"figure-energy-infrastructure","title":"Energy Infrastructure near the Project Area","extent_policy":"nearby_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["transportation_utilities"]},
-    {"figure_id":"figure-hazardous-waste-sites","title":"Hazardous and Regulated Facility Sites near the Project Area","extent_policy":"nearby_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["regulated_facilities"]},
-    {"figure_id":"figure-water-discharge-waste-facilities","title":"Water Discharge and Waste Facilities near the Project Area","extent_policy":"nearby_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["regulated_facilities"]},
-    {"figure_id":"figure-oil-gas-wells","title":"Oil and Gas Wells near the Project Area","extent_policy":"nearby_context","visual_extent_class":"medium_context","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["regulated_facilities"]},
-    {"figure_id":"figure-census-tracts","title":"Census Tracts in or near the Project Area","extent_policy":"county_or_regional_context","visual_extent_class":"county_regional","rendering_extent_class":"medium_context","render_extent_is_presentation_only":true,"allowed_source_categories":["community_socioeconomic"]}
+    {
+      "figure_id": "figure-wetlands-waterbodies",
+      "title": "Wetlands and Waterbodies in and near the Project Area",
+      "extent_policy": "direct_project",
+      "visual_extent_class": "small_direct",
+      "rendering_extent_class": "small_direct",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "wetlands_waterbodies",
+        "hydrography_crossings"
+      ]
+    },
+    {
+      "figure_id": "figure-fema-flood-zones",
+      "title": "FEMA Flood Zones in and near the Project Area",
+      "extent_policy": "direct_project",
+      "visual_extent_class": "small_direct",
+      "rendering_extent_class": "small_direct",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "flood_hazard"
+      ]
+    },
+    {
+      "figure_id": "figure-streams-impaired-waters",
+      "title": "Streams and 303(d) Impaired Waters within Project-Area Subwatersheds",
+      "extent_policy": "watershed_context",
+      "visual_extent_class": "large_watershed",
+      "rendering_extent_class": "large_watershed",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "hydrography_crossings"
+      ]
+    },
+    {
+      "figure_id": "figure-cultural-resources",
+      "title": "Cultural Resources Sites in or near the Project Area",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "cultural_historic"
+      ]
+    },
+    {
+      "figure_id": "figure-fire-ems-stations",
+      "title": "Fire Stations in or near the Project Area",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ]
+    },
+    {
+      "figure_id": "figure-government-offices",
+      "title": "Government Offices near the Project Area",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ]
+    },
+    {
+      "figure_id": "figure-schools-childcare",
+      "title": "Schools and Childcare Facilities in or near the Project Area",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ]
+    },
+    {
+      "figure_id": "figure-health-care-facilities",
+      "title": "Health Care Facilities near the Project Area",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ]
+    },
+    {
+      "figure_id": "figure-places-of-worship",
+      "title": "Places of Worship in or near the Project Area",
+      "extent_policy": "community_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ]
+    },
+    {
+      "figure_id": "figure-public-water-supply-wells",
+      "title": "Public Water Supply Wells near the Project Area",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "transportation_utilities"
+      ]
+    },
+    {
+      "figure_id": "figure-energy-infrastructure",
+      "title": "Energy Infrastructure near the Project Area",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "transportation_utilities"
+      ]
+    },
+    {
+      "figure_id": "figure-hazardous-waste-sites",
+      "title": "Hazardous and Regulated Facility Sites near the Project Area",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "regulated_facilities"
+      ]
+    },
+    {
+      "figure_id": "figure-water-discharge-waste-facilities",
+      "title": "Water Discharge and Waste Facilities near the Project Area",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "regulated_facilities"
+      ]
+    },
+    {
+      "figure_id": "figure-oil-gas-wells",
+      "title": "Oil and Gas Wells near the Project Area",
+      "extent_policy": "nearby_context",
+      "visual_extent_class": "medium_context",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "regulated_facilities"
+      ]
+    },
+    {
+      "figure_id": "figure-census-tracts",
+      "title": "Census Tracts in or near the Project Area",
+      "extent_policy": "county_or_regional_context",
+      "visual_extent_class": "county_regional",
+      "rendering_extent_class": "medium_context",
+      "render_extent_is_presentation_only": true,
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ]
+    }
   ]
 }

@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from .source_catalog import repo_root
+from .source_catalog import load_source_catalog, repo_root
 
 
 REPORT_SECTION_POLICY_PATH = Path("config/report_section_policy.json")
@@ -42,6 +42,26 @@ COMPARISON_UNIT_EXPANSION_POLICIES = {
     "conditional",
     "context_summary_list",
     "manual_only",
+}
+INCLUSION_STATUSES = {
+    "default",
+    "conditional",
+    "manual",
+    "deferred",
+    "required_stub",
+}
+ACTIVATION_CONDITIONS = {
+    "always",
+    "source_backed_or_stub",
+    "manual_reviewer_supplied",
+    "reviewer_supplied_parent_study",
+    "deferred_source",
+    "dynamic_comparison_units",
+}
+REVIEW_REQUIREMENTS = {
+    "standard_review",
+    "manual_review",
+    "source_gap_review",
 }
 DRAFTING_MODES = {
     "deterministic_only",
@@ -83,6 +103,9 @@ class ReportSectionPolicy:
     title: str
     section_family: str
     source_category: str
+    inclusion_status: str
+    activation_condition: str
+    review_requirement: str
     extent_policy: str
     visual_extent_class: str
     comparison_unit_expansion_policy: str
@@ -107,6 +130,9 @@ class ReportSectionPolicy:
             title=_required_string(data, "title", section_id),
             section_family=_required_string(data, "section_family", section_id),
             source_category=_required_string(data, "source_category", section_id),
+            inclusion_status=_required_string(data, "inclusion_status", section_id),
+            activation_condition=_required_string(data, "activation_condition", section_id),
+            review_requirement=_required_string(data, "review_requirement", section_id),
             extent_policy=_required_string(data, "extent_policy", section_id),
             visual_extent_class=_required_string(data, "visual_extent_class", section_id),
             comparison_unit_expansion_policy=_required_string(data, "comparison_unit_expansion_policy", section_id),
@@ -199,6 +225,7 @@ class ReportSectionPolicyConfig:
         policy_section_ids = set(self.by_section_id())
         policy_figure_ids = set(self.by_figure_id())
         exemptions = set(self.explicit_exemptions)
+        known_source_ids, known_source_categories = _source_catalog_ids_and_categories()
 
         missing_sections = sorted(section_ids - policy_section_ids - exemptions)
         if missing_sections:
@@ -260,6 +287,26 @@ class ReportSectionPolicyConfig:
                     f"Section policy '{target.target_id}' references unknown figure ref(s): "
                     + ", ".join(unknown_figure_refs)
                 )
+            unknown_source_refs = sorted(set(policy.allowed_source_refs) - known_source_ids)
+            if unknown_source_refs:
+                raise ReportSectionPolicyError(
+                    f"Section policy '{target.target_id}' references unknown source ref(s): "
+                    + ", ".join(unknown_source_refs)
+                )
+            unknown_source_categories = sorted(set(policy.allowed_source_categories) - known_source_categories)
+            if unknown_source_categories:
+                raise ReportSectionPolicyError(
+                    f"Section policy '{target.target_id}' references unknown source category/categories: "
+                    + ", ".join(unknown_source_categories)
+                )
+
+        for figure_policy in self.figure_policies:
+            unknown_source_categories = sorted(set(figure_policy.allowed_source_categories) - known_source_categories)
+            if unknown_source_categories:
+                raise ReportSectionPolicyError(
+                    f"Figure policy '{figure_policy.figure_id}' references unknown source category/categories: "
+                    + ", ".join(unknown_source_categories)
+                )
 
 
 def load_report_section_policy(path: Path | None = None) -> ReportSectionPolicyConfig:
@@ -306,6 +353,18 @@ def _policy_record_for_target(target_id: str) -> ReportSectionPolicy | FigurePol
 
 
 def _validate_section_policy(policy: ReportSectionPolicy) -> None:
+    if policy.inclusion_status not in INCLUSION_STATUSES:
+        raise ReportSectionPolicyError(
+            f"Section policy '{policy.section_id}' has unsupported inclusion_status '{policy.inclusion_status}'."
+        )
+    if policy.activation_condition not in ACTIVATION_CONDITIONS:
+        raise ReportSectionPolicyError(
+            f"Section policy '{policy.section_id}' has unsupported activation_condition '{policy.activation_condition}'."
+        )
+    if policy.review_requirement not in REVIEW_REQUIREMENTS:
+        raise ReportSectionPolicyError(
+            f"Section policy '{policy.section_id}' has unsupported review_requirement '{policy.review_requirement}'."
+        )
     if policy.extent_policy not in INTERPRETATION_EXTENT_POLICIES:
         raise ReportSectionPolicyError(
             f"Section policy '{policy.section_id}' has unsupported extent_policy '{policy.extent_policy}'."
@@ -329,6 +388,19 @@ def _validate_section_policy(policy: ReportSectionPolicy) -> None:
     if policy.gpt_readiness not in GPT_READINESS_VALUES:
         raise ReportSectionPolicyError(
             f"Section policy '{policy.section_id}' has unsupported gpt_readiness '{policy.gpt_readiness}'."
+        )
+    if policy.activation_condition in {"manual_reviewer_supplied", "reviewer_supplied_parent_study"}:
+        if not policy.manual_or_reviewer_supplied:
+            raise ReportSectionPolicyError(
+                f"Manual/reviewer-supplied section policy '{policy.section_id}' must be marked manual_or_reviewer_supplied."
+            )
+        if policy.review_requirement != "manual_review":
+            raise ReportSectionPolicyError(
+                f"Manual/reviewer-supplied section policy '{policy.section_id}' must require manual_review."
+            )
+    if policy.activation_condition == "deferred_source" and policy.review_requirement != "source_gap_review":
+        raise ReportSectionPolicyError(
+            f"Deferred-source section policy '{policy.section_id}' must require source_gap_review."
         )
     if policy.manual_or_reviewer_supplied and policy.gpt_readiness not in MANUAL_GPT_READINESS_VALUES:
         raise ReportSectionPolicyError(
@@ -414,3 +486,15 @@ def _ensure_unique(values: list[str], label: str) -> None:
         seen.add(value)
     if duplicates:
         raise ReportSectionPolicyError(f"Duplicate {label} id(s): {', '.join(sorted(duplicates))}")
+
+
+def _source_catalog_ids_and_categories() -> tuple[set[str], set[str]]:
+    catalog = load_source_catalog()
+    source_ids = set(catalog.sources)
+    categories = {
+        str(item.get("category", "")).strip()
+        for item in catalog.categories
+        if str(item.get("category", "")).strip()
+    }
+    categories.update(source.category for source in catalog.sources.values())
+    return source_ids, categories

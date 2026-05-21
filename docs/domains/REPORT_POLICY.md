@@ -8,6 +8,24 @@ The policy defines what each report section is allowed to mean before any GPT-as
 
 The policy is a contract layer. It does not download sources, change query distances, change comparison-unit generation, change analysis geometry, change deliverable counts, or bypass human review.
 
+## Package Reconciliation Workflow
+
+Sprint 5 uses `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` to route proposals mined from `pro_review_assist_policy_package_sprint_5/`. The package policy and docs are requirements evidence, not replacement runtime config.
+
+Every reusable package proposal must be mapped to current app IDs and classified as adopted, routed to a later Sprint 5 subunit, rejected, already covered, or deferred before product behavior consumes it. Example-specific, PEL-specific, trail/corridor-specific, unsupported, incomplete, or unsafe package content must remain out of generic Review Assist behavior unless reviewer-supplied project context supports it.
+
+## Section Activation Fields
+
+Each section policy records three activation/review fields in addition to source, extent, table, figure, caveat, and GPT controls:
+
+- `inclusion_status`: `default`, `conditional`, `manual`, `deferred`, or `required_stub`.
+- `activation_condition`: `always`, `source_backed_or_stub`, `manual_reviewer_supplied`, `reviewer_supplied_parent_study`, `deferred_source`, or `dynamic_comparison_units`.
+- `review_requirement`: `standard_review`, `manual_review`, or `source_gap_review`.
+
+These fields make the current report contract explicit. They do not by themselves add source acquisition, change matrix deliverable counts, or make a section GPT-ready.
+
+`relationship-with-pel-study` is conditional/manual. It activates only when a parent study or equivalent reviewer-supplied context is present, requires manual review, is marked reviewer-supplied, and is not GPT-ready by default.
+
 ## Extent Rules
 
 - `direct_project`: evidence may describe mapped relationships within submitted project features, comparison units, or current project-area analysis bounds.

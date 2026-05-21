@@ -23,6 +23,16 @@ Each deferred item should include:
 
 ## Active Deferred Items
 
+### Sprint 5 Package Proposals Routed Beyond 5.1 And 5.2
+
+- `Deferred item`: Reusable proposals mined from `pro_review_assist_policy_package_sprint_5/` that require later Sprint 5 subunits before product behavior changes.
+- `Why postponed`: Sprint 5.1 only reconciles the canonical policy schema and ledger, and Sprint 5.2 only tightens extent/wording semantics. Source truth changes, section render gating, comparison-unit expansion defaults, caveat/GPT eligibility changes, table/figure target changes, manual material workflows, and export QA changes are intentionally owned by later subunits.
+- `Affected sections/workflows`: Wetlands/waterbodies comparison-unit detail defaults, source needs/effective truth mapping, source-gap wording, caveat/prohibited-claim bundles, GPT eligibility, table/figure/attachment alignment, manual/reviewer-supplied materials, export QA.
+- `Risk if forgotten`: Package proposals could be partially copied without approval, causing generic Review Assist behavior to inherit example-specific, PEL-specific, trail/corridor-specific, unsupported, or unsafe assumptions.
+- `Temporary simplification`: `config/report_section_policy.json` remains canonical; `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` records adopted, routed, rejected, and deferred package proposals.
+- `Target sprint/subunit`: Sprint 5.3 through Sprint 5.9 as routed in the ledger.
+- `Status`: open.
+
 ### Census Live Acquisition And MOE Handling
 
 - `Deferred item`: Add live Census TIGER/ACS acquisition and fuller margin-of-error handling beyond registered local Census-like source tables.

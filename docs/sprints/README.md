@@ -4,9 +4,10 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 5.1 Canonical Policy Schema Reconciliation is the active next target and currently lives in root-level planning docs:
+- Sprint 5.2 Extent Semantics And Wording Enforcement is the active next target and currently lives in root-level planning docs:
   - `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
-  - `SPRINT_5_1_CANONICAL_POLICY_SCHEMA_RECONCILIATION.md`
+  - `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
+  - `SPRINT_5_2_EXTENT_SEMANTICS_AND_WORDING_ENFORCEMENT.md`
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -43,6 +44,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Implemented baseline DOCX page setup/styles, title/front matter/body/attachment assembly, bounded editable table previews, figure placeholders/captions/source/method notes, manifest-level final verification, package-manifest propagation, docs, and focused/full verification.
 - Sprint 5.0 Planning Diff Lock And Numbering Decision: `docs/archive/sprints/SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md`
   - Locked the Sprint 5 report-policy/source-truth/discernment sequence, numbering, non-goals, approval gates, and active pointer handoff to Sprint 5.1.
+- Sprint 5.1 Canonical Policy Schema Reconciliation: `docs/archive/sprints/SPRINT_5_1_CANONICAL_POLICY_SCHEMA_RECONCILIATION.md`
+  - Created the Sprint 5 package reconciliation ledger, kept `config/report_section_policy.json` canonical, added explicit section activation/review policy fields, made the PEL relationship section manual/conditional, and strengthened policy validation.
 
 ## Deferred Work Linked To Sprints
 

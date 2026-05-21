@@ -19,7 +19,8 @@ The system is not a recommendation engine, final environmental review, regulator
 - Completed: Sprint 3.3 DOCX Fidelity Docs And Final Verification.
 - Completed: Sprint 4 Web App And Wiring.
 - Completed: Sprint 5.0 Planning Diff Lock And Numbering Decision.
-- Active next implementation target: Sprint 5.1 Canonical Policy Schema Reconciliation.
+- Completed: Sprint 5.1 Canonical Policy Schema Reconciliation.
+- Active next implementation target: Sprint 5.2 Extent Semantics And Wording Enforcement.
 
 ## Active Architectural State
 
@@ -99,7 +100,7 @@ Important current artifacts:
 - Census source setup and table stubbing/local-source table generation are implemented; live ACS API calls, TIGER download/acquisition, and full margin-of-error handling remain future work.
 - Sprint 3 is complete as the non-UI backend foundation for Sprint 4. Exact/pixel Word template fidelity, page-number fields, PDF export, and any web/UI behavior remain outside the completed Sprint 3 backend scope unless explicitly re-scoped.
 - Missing/gated/manual/stale/failed sources must remain visible and reviewable.
-- Sprint 5 is the accepted next report-policy/source-truth/discernment sprint. It must not implement source acquisition expansion, GPT coverage expansion, or deliverable count changes without explicit approval.
+- Sprint 5 is the active report-policy/source-truth/discernment sprint. Sprint 5.1 created `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`, kept `config/report_section_policy.json` canonical, added explicit section activation/review fields, made `relationship-with-pel-study` conditional/manual reviewer-supplied policy, and strengthened policy validation against source/table/figure contracts. Sprint 5 must not implement source acquisition expansion, GPT coverage expansion, or deliverable count changes without explicit approval.
 - Future Sprint 6 figure-editing work remains outside Sprint 5.
 
 ## Context Routing
@@ -111,6 +112,7 @@ Important current artifacts:
 - Domain doc index: `docs/domains/README.md`
 - Sprint index: `docs/sprints/README.md`
 - Active Sprint 5 root plan: `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
+- Active Sprint 5 routing ledger: `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
 - Deferred work registry: `docs/governance/DEFERRED_WORK.md`
 - High-level canonical plan: `CANONICAL_PLAN.md` when deliverable shape or workflow direction is ambiguous
 - Historical/cold docs: `docs/archive/README.md`

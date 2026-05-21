@@ -84,6 +84,27 @@ def test_oil_wells_direct_check_with_context_figure_policy_is_explicit() -> None
     assert figure_metadata["figure_extent_type"] == "nearby_context_extent"
 
 
+def test_pel_relationship_policy_is_manual_conditional_and_non_gpt() -> None:
+    policy = load_report_section_policy().by_section_id()["relationship-with-pel-study"]
+
+    assert policy.inclusion_status == "conditional"
+    assert policy.activation_condition == "reviewer_supplied_parent_study"
+    assert policy.review_requirement == "manual_review"
+    assert policy.manual_or_reviewer_supplied is True
+    assert policy.drafting_mode == "manual_reviewer_supplied_only"
+    assert policy.gpt_readiness == "manual_reviewer_supplied_only"
+    assert "reviewer_supplied_parent_study_required" in policy.required_caveats
+
+
+def test_wetlands_dynamic_child_policy_preserved_pending_render_gating() -> None:
+    parent = load_report_section_policy().by_section_id()["wetlands-and-waterbodies"]
+    dynamic_child = load_report_section_policy().by_section_id()["wetlands-waterbodies-alternative-detail"]
+
+    assert parent.comparison_unit_expansion_policy == "narrative_children"
+    assert dynamic_child.comparison_unit_expansion_policy == "narrative_children"
+    assert dynamic_child.activation_condition == "dynamic_comparison_units"
+
+
 def test_county_regional_figure_policy_keeps_visual_class_distinct() -> None:
     figure_policy = load_report_section_policy().by_figure_id()["figure-census-tracts"]
     figure_metadata = target_extent_metadata(
@@ -130,3 +151,33 @@ def test_presentation_only_extent_cannot_be_interpretation_policy(tmp_path: Path
 
     with pytest.raises(ReportSectionPolicyError, match="extent_policy"):
         ReportSectionPolicyConfig.from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("inclusion_status", "sometimes"),
+        ("activation_condition", "auto_magic"),
+        ("review_requirement", "skip_review"),
+    ],
+)
+def test_section_activation_fields_are_validated(field: str, value: str) -> None:
+    data = copy.deepcopy(_default_policy_data())
+    data["section_policies"][0][field] = value  # type: ignore[index]
+
+    with pytest.raises(ReportSectionPolicyError, match=field):
+        ReportSectionPolicyConfig.from_dict(data)
+
+
+def test_unknown_source_refs_and_categories_are_rejected_against_catalog() -> None:
+    matrix = load_deliverable_matrix()
+
+    source_ref_data = copy.deepcopy(_default_policy_data())
+    source_ref_data["section_policies"][0]["allowed_source_refs"] = ["not_a_source_id"]  # type: ignore[index]
+    with pytest.raises(ReportSectionPolicyError, match="unknown source ref"):
+        ReportSectionPolicyConfig.from_dict(source_ref_data).validate_against_matrix(matrix)
+
+    source_category_data = copy.deepcopy(_default_policy_data())
+    source_category_data["section_policies"][0]["allowed_source_categories"] = ["not_a_source_category"]  # type: ignore[index]
+    with pytest.raises(ReportSectionPolicyError, match="unknown source category"):
+        ReportSectionPolicyConfig.from_dict(source_category_data).validate_against_matrix(matrix)
