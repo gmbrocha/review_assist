@@ -209,6 +209,9 @@ def test_deliverable_wetlands_table_uses_exact_columns_and_deduplicated_counts(t
     assert row_b["Freshwater Pond"] == 1
     assert wetlands["source_refs"] == ["usfws_nwi_wetlands", "usgs_nhd_flowlines"]
     assert wetlands["provenance"]["metric_contract"]["Stream Crossings"]["required_source_ids"] == ["usgs_nhd_flowlines"]  # type: ignore[index]
+    assert wetlands["table_policy"]["max_body_preview_rows"] == 5  # type: ignore[index]
+    assert wetlands["table_policy"]["overflow_destination"] == "table_artifact"  # type: ignore[index]
+    assert wetlands["provenance"]["table_policy"]["extent_policy"] == "direct_project"  # type: ignore[index]
     assert wetlands["query_extent_type"] == "project_area_analysis_bounds"
     assert wetlands["table_extent_type"] == "direct_intersection_extent"
     assert wetlands["analysis_extent_type"] == "direct_intersection_extent"

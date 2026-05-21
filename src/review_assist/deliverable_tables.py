@@ -24,6 +24,7 @@ from .deliverable_matrix import (
 )
 from .extent_policy import apply_extent_metadata, extent_policy_summary, target_extent_metadata
 from .projects import ProjectManifestError, load_project_manifest
+from .report_section_policy import TablePolicy, default_report_section_policy
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 
 
@@ -612,6 +613,7 @@ def _deliverable_table(
     provenance: dict[str, Any],
 ) -> dict[str, Any]:
     extent = _table_extent(target, provenance)
+    table_policy = _table_policy_summary(target)
     return {
         "table_id": target.target_id,
         "table_number": target.table_number,
@@ -624,6 +626,7 @@ def _deliverable_table(
         "related_constraint_ids": related_constraint_ids,
         "comparison_unit_ids": comparison_unit_ids,
         **extent,
+        "table_policy": table_policy,
         "provenance": provenance,
         "uncertainty_flags": uncertainty_flags,
         "is_stub": False,
@@ -644,6 +647,7 @@ def _stub_table(
     flags = sorted(set(uncertainty_flags or _category_flags(source_context, target.source_categories) or ["source_unavailable"]))
     provenance = _provenance(target, matrix_version, comparison_unit_constraints, source_status, method="matrix_stub_for_unavailable_source")
     extent = _table_extent(target, provenance)
+    table_policy = _table_policy_summary(target)
     return {
         "table_id": target.target_id,
         "table_number": target.table_number,
@@ -656,6 +660,7 @@ def _stub_table(
         "related_constraint_ids": [],
         "comparison_unit_ids": [],
         **extent,
+        "table_policy": table_policy,
         "provenance": provenance,
         "uncertainty_flags": flags,
         "is_stub": True,
@@ -687,9 +692,35 @@ def _provenance(
         "comparison_unit_constraints_path": comparison_unit_constraints.get("output_path"),
         "source_status_path": source_status.get("output_path"),
         "source_categories": list(target.source_categories),
+        "table_policy": _table_policy_summary(target),
         "extent_policy": extent,
         "review_before_export": True,
         "desktop_screening_only": True,
+    }
+
+
+def _table_policy_summary(target: TableTarget) -> dict[str, Any]:
+    policy = default_report_section_policy().by_table_id().get(target.target_id)
+    if policy is None:
+        return {
+            "table_id": target.target_id,
+            "title": target.title,
+            "extent_policy": "",
+            "allowed_source_categories": list(target.source_categories),
+            "max_body_preview_rows": 5,
+            "overflow_destination": "table_artifact",
+        }
+    return _table_policy_to_dict(policy)
+
+
+def _table_policy_to_dict(policy: TablePolicy) -> dict[str, Any]:
+    return {
+        "table_id": policy.table_id,
+        "title": policy.title,
+        "extent_policy": policy.extent_policy,
+        "allowed_source_categories": list(policy.allowed_source_categories),
+        "max_body_preview_rows": policy.max_body_preview_rows,
+        "overflow_destination": policy.overflow_destination,
     }
 
 
@@ -876,6 +907,7 @@ def _validate_deliverable_tables(data: dict[str, Any], location: str) -> None:
         "source_refs",
         "related_constraint_ids",
         "comparison_unit_ids",
+        "table_policy",
         "provenance",
         "uncertainty_flags",
         "is_stub",
@@ -904,6 +936,8 @@ def _validate_deliverable_tables(data: dict[str, Any], location: str) -> None:
             raise DeliverableTableError(f"Deliverable table '{table_id}' has unsupported review_status: {location}")
         if not isinstance(table["provenance"], dict):
             raise DeliverableTableError(f"Deliverable table '{table_id}' provenance must be an object: {location}")
+        if not isinstance(table["table_policy"], dict):
+            raise DeliverableTableError(f"Deliverable table '{table_id}' table_policy must be an object: {location}")
         if not isinstance(table["is_stub"], bool):
             raise DeliverableTableError(f"Deliverable table '{table_id}' is_stub must be boolean: {location}")
         for list_field in ("source_refs", "related_constraint_ids", "comparison_unit_ids", "uncertainty_flags"):

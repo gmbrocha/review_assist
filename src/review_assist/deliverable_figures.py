@@ -55,6 +55,7 @@ from .extent_policy import (
 from .maps import FIGURES_DIR
 from .project_area import PROJECT_AREA_PATH, ProjectAreaError, build_project_area, load_project_area
 from .projects import ProjectManifestError, load_project_manifest
+from .report_section_policy import FigurePolicy, default_report_section_policy
 from .source_catalog import SourceCatalogError, load_project_source_registry, load_source_catalog, resolve_project_source_path
 from .source_status import LOGICAL_ROLLUP_SATISFIERS, SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 
@@ -1132,6 +1133,7 @@ def _stub_figure(
         source_scope=source_scope,
     )
     extent = _figure_extent(target, provenance)
+    figure_policy = _figure_policy_summary(target)
     return {
         "figure_id": target.target_id,
         "type": "deliverable_figure",
@@ -1153,6 +1155,7 @@ def _stub_figure(
         "related_constraint_ids": [],
         "comparison_unit_ids": comparison_unit_ids,
         **extent,
+        "figure_policy": figure_policy,
         "provenance": provenance,
         "uncertainty_flags": flags,
         "is_stub": True,
@@ -1179,6 +1182,7 @@ def _deliverable_figure(
     validation_issues: list[dict[str, Any]],
 ) -> dict[str, Any]:
     extent = _figure_extent(target, provenance)
+    figure_policy = _figure_policy_summary(target)
     return {
         "figure_id": target.target_id,
         "type": "deliverable_figure",
@@ -1200,6 +1204,7 @@ def _deliverable_figure(
         "related_constraint_ids": related_constraint_ids,
         "comparison_unit_ids": comparison_unit_ids,
         **extent,
+        "figure_policy": figure_policy,
         "provenance": provenance,
         "uncertainty_flags": uncertainty_flags,
         "is_stub": False,
@@ -1372,6 +1377,7 @@ def _provenance(
         "source_status_path": source_status.get("output_path"),
         "project_area_path": project_area.get("output_path") if project_area else None,
         "source_categories": list(target.source_categories),
+        "figure_policy": _figure_policy_summary(target),
         "analysis_crs": analysis_crs,
         "extent_policy": extent,
         "review_before_export": True,
@@ -1410,6 +1416,33 @@ def _figure_extent(target: FigureTarget, provenance: dict[str, Any]) -> dict[str
     if not isinstance(extent, dict):
         extent = target_extent_metadata(target_id=target.target_id, target_type="figure", source_categories=target.source_categories)
     return apply_extent_metadata({}, extent)
+
+
+def _figure_policy_summary(target: FigureTarget) -> dict[str, Any]:
+    policy = default_report_section_policy().by_figure_id().get(target.target_id)
+    if policy is None:
+        return {
+            "figure_id": target.target_id,
+            "title": target.title,
+            "extent_policy": "",
+            "visual_extent_class": "",
+            "rendering_extent_class": "",
+            "render_extent_is_presentation_only": True,
+            "allowed_source_categories": list(target.source_categories),
+        }
+    return _figure_policy_to_dict(policy)
+
+
+def _figure_policy_to_dict(policy: FigurePolicy) -> dict[str, Any]:
+    return {
+        "figure_id": policy.figure_id,
+        "title": policy.title,
+        "extent_policy": policy.extent_policy,
+        "visual_extent_class": policy.visual_extent_class,
+        "rendering_extent_class": policy.rendering_extent_class,
+        "render_extent_is_presentation_only": policy.render_extent_is_presentation_only,
+        "allowed_source_categories": list(policy.allowed_source_categories),
+    }
 
 
 def _caption(target: FigureTarget) -> str:

@@ -503,6 +503,11 @@ def test_generated_table_candidate_summarizes_rows_without_dumping_raw_rows(tmp_
         "is_stub": False,
         "review_status": "needs_review",
         "validation_issues": [],
+        "table_policy": {
+            "table_id": target.target_id,
+            "max_body_preview_rows": 5,
+            "overflow_destination": "table_artifact",
+        },
         "provenance": {},
     }
 
@@ -512,6 +517,8 @@ def test_generated_table_candidate_summarizes_rows_without_dumping_raw_rows(tmp_
     assert "Body preview is limited to 5 row(s)" in item["generated_content"]
     assert "usfws_nwi_wetlands" in item["generated_content"]
     assert "Alternative 7" not in item["generated_content"]
+    assert item["assumptions"]["table_policy"]["table_id"] == target.target_id
+    assert item["assumptions"]["max_body_preview_rows"] == 5
 
 
 def test_generated_figure_candidate_includes_caption_source_method_and_image_status(tmp_path: Path) -> None:
@@ -531,6 +538,10 @@ def test_generated_figure_candidate_includes_caption_source_method_and_image_sta
         "is_stub": False,
         "review_status": "needs_review",
         "validation_issues": [],
+        "figure_policy": {
+            "figure_id": target.target_id,
+            "render_extent_is_presentation_only": True,
+        },
         "provenance": {},
     }
 
@@ -538,6 +549,7 @@ def test_generated_figure_candidate_includes_caption_source_method_and_image_sta
 
     assert "Caption: Wetlands and waterbodies" in item["generated_content"]
     assert "Source note: USFWS NWI" in item["generated_content"]
+    assert item["assumptions"]["figure_policy"]["figure_id"] == target.target_id
     assert "Method note: Vector overlay" in item["generated_content"]
     assert "reviewer verification" not in item["generated_content"].lower()
     assert "draft/pre-review" not in item["generated_content"].lower()

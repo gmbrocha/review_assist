@@ -1566,6 +1566,49 @@
       "gpt_readiness": "manual_reviewer_supplied_only"
     }
   ],
+  "table_policies": [
+    {
+      "table_id": "table-wetlands-waterbodies",
+      "title": "Descriptions of Wetlands and Waterbodies Present within the Project Area",
+      "extent_policy": "direct_project",
+      "allowed_source_categories": [
+        "wetlands_waterbodies",
+        "hydrography_crossings"
+      ],
+      "max_body_preview_rows": 5,
+      "overflow_destination": "table_artifact"
+    },
+    {
+      "table_id": "table-fema-flood-zones",
+      "title": "FEMA Flood Zones within the Project Area",
+      "extent_policy": "direct_project",
+      "allowed_source_categories": [
+        "flood_hazard"
+      ],
+      "max_body_preview_rows": 5,
+      "overflow_destination": "table_artifact"
+    },
+    {
+      "table_id": "table-income-demographics",
+      "title": "Income Demographics of Census Tracts in or near the Project Area",
+      "extent_policy": "county_or_regional_context",
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "max_body_preview_rows": 5,
+      "overflow_destination": "table_artifact"
+    },
+    {
+      "table_id": "table-demographic-composition",
+      "title": "Demographic Composition of Census Tracts in or near the Project Area",
+      "extent_policy": "county_or_regional_context",
+      "allowed_source_categories": [
+        "community_socioeconomic"
+      ],
+      "max_body_preview_rows": 5,
+      "overflow_destination": "table_artifact"
+    }
+  ],
   "figure_policies": [
     {
       "figure_id": "figure-wetlands-waterbodies",

@@ -524,6 +524,9 @@ def _compact_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 else [],
                 "is_stub": table.get("is_stub", False),
                 "source_refs": table.get("source_refs", []),
+                "table_policy": table.get("table_policy", {}),
+                "max_body_preview_rows": table.get("max_body_preview_rows"),
+                "overflow_destination": table.get("overflow_destination"),
             }
             for table in deliverable_tables
             if isinstance(table, dict)
@@ -538,6 +541,7 @@ def _compact_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 "has_image": figure.get("has_image", False),
                 "is_stub": figure.get("is_stub", False),
                 "source_refs": figure.get("source_refs", []),
+                "figure_policy": figure.get("figure_policy", {}),
                 "review_status": figure.get("review_status"),
             }
             for figure in deliverable_figures[:COMPACT_FIGURE_LIMIT]

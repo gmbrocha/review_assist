@@ -57,6 +57,7 @@ def _validate_main_figure(figure: Any, location: str, seen_ids: set[str]) -> Non
         "layer_refs",
         "related_constraint_ids",
         "comparison_unit_ids",
+        "figure_policy",
         "provenance",
         "uncertainty_flags",
         "is_stub",
@@ -91,6 +92,8 @@ def _validate_main_figure(figure: Any, location: str, seen_ids: set[str]) -> Non
     ):
         if not isinstance(figure[list_field], list):
             raise DeliverableFigureError(f"Deliverable figure '{figure_id}' field '{list_field}' must be a list: {location}")
+    if not isinstance(figure["figure_policy"], dict):
+        raise DeliverableFigureError(f"Deliverable figure '{figure_id}' figure_policy must be an object: {location}")
 
 
 def _validate_attachment_figure(figure: Any, location: str, seen_ids: set[str]) -> None:

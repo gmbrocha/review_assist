@@ -31,6 +31,7 @@ def test_report_section_policy_loads_and_validates_against_matrix() -> None:
 
     assert policy.profile_id == matrix.profile_id
     assert len(policy.section_policies) == len(matrix.section_targets)
+    assert len(policy.table_policies) == len(matrix.table_targets)
     assert len(policy.figure_policies) == len(matrix.figure_targets)
 
 
@@ -41,6 +42,7 @@ def test_every_matrix_section_has_policy_or_explicit_exemption() -> None:
     exemptions = set(policy.explicit_exemptions)
 
     assert {target.target_id for target in matrix.section_targets}.issubset(policy_ids | exemptions)
+    assert {target.target_id for target in matrix.table_targets} == set(policy.by_table_id())
     assert {target.figure_refs[0] for target in matrix.section_targets if len(target.figure_refs) == 1}.intersection(policy.by_figure_id())
 
 
@@ -119,6 +121,18 @@ def test_county_regional_figure_policy_keeps_visual_class_distinct() -> None:
     assert figure_metadata["figure_extent_type"] == "county_or_regional_context_extent"
 
 
+def test_table_policies_cover_matrix_targets_and_compact_preview_policy() -> None:
+    config = load_report_section_policy()
+    policy = config.by_table_id()["table-wetlands-waterbodies"]
+    census_policy = config.by_table_id()["table-income-demographics"]
+
+    assert policy.max_body_preview_rows == 5
+    assert policy.overflow_destination == "table_artifact"
+    assert policy.extent_policy == "direct_project"
+    assert policy.allowed_source_categories == ["wetlands_waterbodies", "hydrography_crossings"]
+    assert census_policy.extent_policy == "county_or_regional_context"
+
+
 def test_gpt_eligible_sections_have_bounded_sources_caveats_and_prohibitions() -> None:
     policy = load_report_section_policy()
     eligible = [
@@ -189,3 +203,29 @@ def test_unknown_source_refs_and_categories_are_rejected_against_catalog() -> No
     source_category_data["section_policies"][0]["allowed_source_categories"] = ["not_a_source_category"]  # type: ignore[index]
     with pytest.raises(ReportSectionPolicyError, match="unknown source category"):
         ReportSectionPolicyConfig.from_dict(source_category_data).validate_against_matrix(matrix)
+
+
+def test_table_policy_matrix_coverage_and_categories_are_validated() -> None:
+    matrix = load_deliverable_matrix()
+
+    missing_table_data = copy.deepcopy(_default_policy_data())
+    missing_table_data["table_policies"] = missing_table_data["table_policies"][:-1]  # type: ignore[index]
+    with pytest.raises(ReportSectionPolicyError, match="missing table policy"):
+        ReportSectionPolicyConfig.from_dict(missing_table_data).validate_against_matrix(matrix)
+
+    unknown_table_data = copy.deepcopy(_default_policy_data())
+    unknown_table = copy.deepcopy(unknown_table_data["table_policies"][0])  # type: ignore[index]
+    unknown_table["table_id"] = "table-not-in-matrix"
+    unknown_table_data["table_policies"].append(unknown_table)  # type: ignore[union-attr]
+    with pytest.raises(ReportSectionPolicyError, match="unknown table policy"):
+        ReportSectionPolicyConfig.from_dict(unknown_table_data).validate_against_matrix(matrix)
+
+    bad_category_data = copy.deepcopy(_default_policy_data())
+    bad_category_data["table_policies"][0]["allowed_source_categories"] = ["not_a_source_category"]  # type: ignore[index]
+    with pytest.raises(ReportSectionPolicyError, match="does not allow source category|unknown source category"):
+        ReportSectionPolicyConfig.from_dict(bad_category_data).validate_against_matrix(matrix)
+
+    bad_preview_data = copy.deepcopy(_default_policy_data())
+    bad_preview_data["table_policies"][0]["max_body_preview_rows"] = 0  # type: ignore[index]
+    with pytest.raises(ReportSectionPolicyError, match="positive integer"):
+        ReportSectionPolicyConfig.from_dict(bad_preview_data)

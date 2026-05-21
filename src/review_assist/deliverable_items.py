@@ -685,6 +685,8 @@ def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str
     table = _table_lookup(tables).get(target.target_id, {})
     is_stub = bool(table.get("is_stub", True))
     content = _stub_table_content(target, table) if is_stub else _generated_table_content(target, table)
+    table_policy = _record_table_policy(table)
+    preview_limit = _table_preview_limit(table_policy)
     extent_metadata = _record_extent_metadata(
         table,
         fallback=target_extent_metadata(target_id=target.target_id, target_type="table", source_categories=target.source_categories),
@@ -718,13 +720,17 @@ def _table_item(target: TableTarget, tables: dict[str, Any], matrix_version: str
             "table_id": target.target_id,
             "section_target_id": target.section_target_id,
             "table_provenance": table.get("provenance", {}),
+            "table_policy": table_policy,
             "extent_policy": extent_metadata,
             "review_before_export": True,
         },
         assumptions={
             "columns": _string_list(table.get("columns", [])),
             "row_count": table.get("row_count", 0),
-            "rows_preview": _dict_list(table.get("rows", []))[:5],
+            "rows_preview": _dict_list(table.get("rows", []))[:preview_limit],
+            "table_policy": table_policy,
+            "max_body_preview_rows": preview_limit,
+            "overflow_destination": table_policy.get("overflow_destination", "table_artifact"),
             "extent_policy": extent_metadata,
         },
         uncertainty_flags=_dedupe(["draft_pre_review", *_string_list(table.get("uncertainty_flags", []))]),
@@ -739,6 +745,7 @@ def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: 
     figure = _figure_lookup(figures).get(target.target_id, {})
     is_stub = bool(figure.get("is_stub", True))
     content = _stub_figure_content(target, figure) if is_stub else _generated_figure_content(target, figure)
+    figure_policy = _record_figure_policy(figure)
     extent_metadata = _record_extent_metadata(
         figure,
         fallback=target_extent_metadata(target_id=target.target_id, target_type="figure", source_categories=target.source_categories),
@@ -772,6 +779,7 @@ def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: 
             "figure_id": target.target_id,
             "section_target_id": target.section_target_id,
             "figure_provenance": figure.get("provenance", {}),
+            "figure_policy": figure_policy,
             "extent_policy": extent_metadata,
             "review_before_export": True,
         },
@@ -780,6 +788,7 @@ def _figure_item(target: FigureTarget, figures: dict[str, Any], matrix_version: 
             "caption": figure.get("caption", ""),
             "source_note": figure.get("source_note", ""),
             "method_note": figure.get("method_note", ""),
+            "figure_policy": figure_policy,
             "extent_policy": extent_metadata,
         },
         uncertainty_flags=_dedupe(["draft_pre_review", *_string_list(figure.get("uncertainty_flags", []))]),
@@ -1272,7 +1281,9 @@ def _stub_table_content(target: TableTarget, table: dict[str, Any]) -> str:
 
 def _generated_table_content(target: TableTarget, table: dict[str, Any]) -> str:
     row_count = int(table.get("row_count") or 0)
-    rows_preview = _dict_list(table.get("rows", []))[:5]
+    table_policy = _record_table_policy(table)
+    preview_limit = _table_preview_limit(table_policy)
+    rows_preview = _dict_list(table.get("rows", []))[:preview_limit]
     columns = _string_list(table.get("columns", []))
     lines = [str(table.get("title") or target.title)]
     lines.append(f"This table summarizes {row_count} bounded row(s) from the available screening artifacts.")
@@ -1291,6 +1302,23 @@ def _generated_table_content(target: TableTarget, table: dict[str, Any]) -> str:
     lines.append("Source attribution, row classifications, and caveats are recorded in the table artifact.")
     lines.append("This table summary does not rank alternatives or make determinations.")
     return "\n".join(lines)
+
+
+def _record_table_policy(table: dict[str, Any]) -> dict[str, Any]:
+    policy = table.get("table_policy", {})
+    return dict(policy) if isinstance(policy, dict) else {}
+
+
+def _table_preview_limit(table_policy: dict[str, Any]) -> int:
+    value = table_policy.get("max_body_preview_rows", 5)
+    if isinstance(value, int) and value > 0:
+        return value
+    return 5
+
+
+def _record_figure_policy(figure: dict[str, Any]) -> dict[str, Any]:
+    policy = figure.get("figure_policy", {})
+    return dict(policy) if isinstance(policy, dict) else {}
 
 
 def _stub_figure_content(target: FigureTarget, figure: dict[str, Any]) -> str:

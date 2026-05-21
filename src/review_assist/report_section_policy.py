@@ -43,6 +43,7 @@ COMPARISON_UNIT_EXPANSION_POLICIES = {
     "context_summary_list",
     "manual_only",
 }
+TABLE_OVERFLOW_DESTINATIONS = {"table_artifact"}
 INCLUSION_STATUSES = {
     "default",
     "conditional",
@@ -264,11 +265,36 @@ class FigurePolicy:
 
 
 @dataclass(frozen=True)
+class TablePolicy:
+    table_id: str
+    title: str
+    extent_policy: str
+    allowed_source_categories: list[str]
+    max_body_preview_rows: int
+    overflow_destination: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TablePolicy":
+        table_id = _required_string(data, "table_id", "table policy")
+        policy = cls(
+            table_id=table_id,
+            title=_required_string(data, "title", table_id),
+            extent_policy=_required_string(data, "extent_policy", table_id),
+            allowed_source_categories=_string_list(data.get("allowed_source_categories"), "allowed_source_categories", table_id),
+            max_body_preview_rows=_positive_int(data.get("max_body_preview_rows"), "max_body_preview_rows", table_id),
+            overflow_destination=_required_string(data, "overflow_destination", table_id),
+        )
+        _validate_table_policy(policy)
+        return policy
+
+
+@dataclass(frozen=True)
 class ReportSectionPolicyConfig:
     policy_version: str
     profile_id: str
     description: str
     section_policies: list[ReportSectionPolicy]
+    table_policies: list[TablePolicy]
     figure_policies: list[FigurePolicy]
     explicit_exemptions: list[str]
 
@@ -280,12 +306,14 @@ class ReportSectionPolicyConfig:
                 f"Report section policy version must be {REPORT_SECTION_POLICY_VERSION}."
             )
         raw_sections = _object_list(data.get("section_policies"), "section_policies", "report section policy")
+        raw_tables = _object_list(data.get("table_policies"), "table_policies", "report section policy")
         raw_figures = _object_list(data.get("figure_policies"), "figure_policies", "report section policy")
         config = cls(
             policy_version=policy_version,
             profile_id=_required_string(data, "profile_id", "report section policy"),
             description=str(data.get("description", "")),
             section_policies=[ReportSectionPolicy.from_dict(item) for item in raw_sections],
+            table_policies=[TablePolicy.from_dict(item) for item in raw_tables],
             figure_policies=[FigurePolicy.from_dict(item) for item in raw_figures],
             explicit_exemptions=_string_list(data.get("explicit_exemptions", []), "explicit_exemptions", "report section policy"),
         )
@@ -295,11 +323,15 @@ class ReportSectionPolicyConfig:
     def by_section_id(self) -> dict[str, ReportSectionPolicy]:
         return {policy.section_id: policy for policy in self.section_policies}
 
+    def by_table_id(self) -> dict[str, TablePolicy]:
+        return {policy.table_id: policy for policy in self.table_policies}
+
     def by_figure_id(self) -> dict[str, FigurePolicy]:
         return {policy.figure_id: policy for policy in self.figure_policies}
 
     def _validate(self) -> None:
         _ensure_unique([policy.section_id for policy in self.section_policies], "section policy")
+        _ensure_unique([policy.table_id for policy in self.table_policies], "table policy")
         _ensure_unique([policy.figure_id for policy in self.figure_policies], "figure policy")
 
     def validate_against_matrix(self, matrix: Any) -> None:
@@ -307,6 +339,7 @@ class ReportSectionPolicyConfig:
         table_ids = {target.target_id for target in matrix.table_targets}
         figure_ids = {target.target_id for target in matrix.figure_targets}
         policy_section_ids = set(self.by_section_id())
+        policy_table_ids = set(self.by_table_id())
         policy_figure_ids = set(self.by_figure_id())
         exemptions = set(self.explicit_exemptions)
         known_source_ids, known_source_categories = _source_catalog_ids_and_categories()
@@ -322,6 +355,18 @@ class ReportSectionPolicyConfig:
             raise ReportSectionPolicyError(
                 "Report section policy contains unknown section target(s): "
                 + ", ".join(unknown_sections)
+            )
+        missing_tables = sorted(table_ids - policy_table_ids)
+        if missing_tables:
+            raise ReportSectionPolicyError(
+                "Report section policy is missing table policy target(s): "
+                + ", ".join(missing_tables)
+            )
+        unknown_tables = sorted(policy_table_ids - table_ids)
+        if unknown_tables:
+            raise ReportSectionPolicyError(
+                "Report section policy contains unknown table policy target(s): "
+                + ", ".join(unknown_tables)
             )
         missing_figures = sorted(figure_ids - policy_figure_ids)
         if missing_figures:
@@ -384,6 +429,22 @@ class ReportSectionPolicyConfig:
                     + ", ".join(unknown_source_categories)
                 )
 
+        table_policies = self.by_table_id()
+        for target in matrix.table_targets:
+            table_policy = table_policies[target.target_id]
+            missing_source_categories = sorted(set(target.source_categories) - set(table_policy.allowed_source_categories))
+            if missing_source_categories:
+                raise ReportSectionPolicyError(
+                    f"Table policy '{target.target_id}' does not allow source category/categories: "
+                    + ", ".join(missing_source_categories)
+                )
+            unknown_source_categories = sorted(set(table_policy.allowed_source_categories) - known_source_categories)
+            if unknown_source_categories:
+                raise ReportSectionPolicyError(
+                    f"Table policy '{table_policy.table_id}' references unknown source category/categories: "
+                    + ", ".join(unknown_source_categories)
+                )
+
         for figure_policy in self.figure_policies:
             unknown_source_categories = sorted(set(figure_policy.allowed_source_categories) - known_source_categories)
             if unknown_source_categories:
@@ -428,11 +489,14 @@ def rendering_extent_class_for_figure(figure_id: str) -> str:
     return policy.rendering_extent_class if policy else ""
 
 
-def _policy_record_for_target(target_id: str) -> ReportSectionPolicy | FigurePolicy | None:
+def _policy_record_for_target(target_id: str) -> ReportSectionPolicy | TablePolicy | FigurePolicy | None:
     config = default_report_section_policy()
     section = config.by_section_id().get(target_id)
     if section is not None:
         return section
+    table = config.by_table_id().get(target_id)
+    if table is not None:
+        return table
     return config.by_figure_id().get(target_id)
 
 
@@ -525,6 +589,23 @@ def _validate_figure_policy(policy: FigurePolicy) -> None:
         )
 
 
+def _validate_table_policy(policy: TablePolicy) -> None:
+    if policy.extent_policy not in INTERPRETATION_EXTENT_POLICIES:
+        raise ReportSectionPolicyError(
+            f"Table policy '{policy.table_id}' has unsupported extent_policy '{policy.extent_policy}'."
+        )
+    if policy.extent_policy == "presentation_only":
+        raise ReportSectionPolicyError(
+            f"Table policy '{policy.table_id}' cannot use presentation-only extent as interpretation scope."
+        )
+    if not policy.allowed_source_categories:
+        raise ReportSectionPolicyError(f"Table policy '{policy.table_id}' requires allowed_source_categories.")
+    if policy.overflow_destination not in TABLE_OVERFLOW_DESTINATIONS:
+        raise ReportSectionPolicyError(
+            f"Table policy '{policy.table_id}' has unsupported overflow_destination '{policy.overflow_destination}'."
+        )
+
+
 def _load_json_object(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise ReportSectionPolicyError(f"Missing report section policy: {path}")
@@ -548,6 +629,12 @@ def _required_bool(data: dict[str, Any], key: str, context: str) -> bool:
     value = data.get(key)
     if not isinstance(value, bool):
         raise ReportSectionPolicyError(f"{context} requires boolean '{key}'.")
+    return value
+
+
+def _positive_int(value: Any, key: str, context: str) -> int:
+    if not isinstance(value, int) or value <= 0:
+        raise ReportSectionPolicyError(f"{context} requires positive integer '{key}'.")
     return value
 
 

@@ -612,6 +612,8 @@ def _deliverable_figures_for_section(deliverable_figures: dict[str, Any], sectio
 
 def _deliverable_table_summary(table: dict[str, Any]) -> dict[str, Any]:
     rows = _dict_list(table.get("rows", []))
+    table_policy = table.get("table_policy", {}) if isinstance(table.get("table_policy"), dict) else {}
+    preview_limit = _table_policy_preview_limit(table_policy)
     return apply_extent_metadata({
         "table_id": table.get("table_id"),
         "table_number": table.get("table_number"),
@@ -619,10 +621,13 @@ def _deliverable_table_summary(table: dict[str, Any]) -> dict[str, Any]:
         "section_target_id": table.get("section_target_id"),
         "row_count": table.get("row_count", len(rows)),
         "columns": _string_list(table.get("columns", [])),
-        "rows_preview": [_compact_row(row) for row in rows[:5]],
+        "rows_preview": [_compact_row(row) for row in rows[:preview_limit]],
         "source_refs": _string_list(table.get("source_refs", [])),
         "comparison_unit_ids": _string_list(table.get("comparison_unit_ids", [])),
         "related_constraint_ids": _string_list(table.get("related_constraint_ids", []))[:20],
+        "table_policy": table_policy,
+        "max_body_preview_rows": preview_limit,
+        "overflow_destination": _nested_value(table, "table_policy", "overflow_destination") or "table_artifact",
         "is_stub": bool(table.get("is_stub", False)),
         "stub_text": table.get("stub_text", "") if table.get("is_stub") else "",
         "review_status": table.get("review_status"),
@@ -643,10 +648,18 @@ def _deliverable_figure_summary(figure: dict[str, Any]) -> dict[str, Any]:
         "shown_layer_count": len(_dict_list(figure.get("shown_layers", []))),
         "comparison_unit_ids": _string_list(figure.get("comparison_unit_ids", [])),
         "related_constraint_ids": _string_list(figure.get("related_constraint_ids", []))[:20],
+        "figure_policy": figure.get("figure_policy", {}) if isinstance(figure.get("figure_policy"), dict) else {},
         "review_status": figure.get("review_status"),
         "uncertainty_flags": _string_list(figure.get("uncertainty_flags", [])),
         "validation_issue_codes": sorted({str(issue.get("code")) for issue in _dict_list(figure.get("validation_issues", [])) if issue.get("code")}),
     }, _extent_from_record(figure))
+
+
+def _table_policy_preview_limit(table_policy: dict[str, Any]) -> int:
+    value = table_policy.get("max_body_preview_rows", 5)
+    if isinstance(value, int) and value > 0:
+        return value
+    return 5
 
 
 def _row_summaries(deliverable_table_summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:

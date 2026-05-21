@@ -82,6 +82,18 @@ Supported render decisions are `include_body`, `table_figure_only`, `attachment_
 
 Wetlands/waterbodies keep `narrative_children` as the current policy. The package `table_only` recommendation for wetlands/waterbodies was rejected for current behavior in Sprint 5.4 so comparison-unit child review items and deliverable counts remain stable.
 
+## Table And Figure Policies
+
+`config/report_section_policy.json` also defines policy records for matrix-backed tables and figures.
+
+`table_policies` must cover every current matrix table target exactly. Each table policy records the table ID, title, interpretation extent policy, allowed source categories, the maximum number of rows that may appear in normal report-body previews, and the overflow destination for full detail. The current compact default is `max_body_preview_rows: 5` with `overflow_destination: table_artifact`.
+
+`figure_policies` must cover every current matrix figure target exactly. Each figure policy records the figure ID, title, interpretation extent policy, visual extent class, rendering extent class, presentation-only render-extent flag, and allowed source categories.
+
+Policy validation rejects missing or unknown table/figure IDs, unknown source categories, section refs to unknown tables/figures, table policies with invalid extent policies, and non-positive table preview caps. Figure render extent remains presentation support only and must not be used as analysis evidence.
+
+Sprint 5.6 preserves the current deliverable inventory: 4 tables, 15 figures, and 3 attachments. Package-proposed table or figure additions are rejected for current behavior when they would change counts, or deferred to future work when they require new source acquisition, methodology, or export-shape approval. Full table rows and figure metadata remain in artifacts and evidence; the report body receives bounded previews and review-visible policy metadata.
+
 ## GPT Readiness
 
 GPT readiness is not execution. GPT calls remain disabled unless the reviewer/operator explicitly uses GPT Interpretive Assist.

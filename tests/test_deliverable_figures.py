@@ -1582,6 +1582,8 @@ def test_generated_figures_record_distinct_comparison_unit_visual_styles(
     assert wetlands["render_extent_is_presentation_only"] is True
     assert wetlands["provenance"]["render_layout"]["layout_strategy"] == "legend_collar"  # type: ignore[index]
     assert wetlands["provenance"]["render_layout"]["render_extent_is_presentation_only"] is True  # type: ignore[index]
+    assert wetlands["figure_policy"]["render_extent_is_presentation_only"] is True  # type: ignore[index]
+    assert wetlands["provenance"]["figure_policy"]["visual_extent_class"] == "small_direct"  # type: ignore[index]
     assert comparison_layer["rendered_as"] == "individual_comparison_units"
     assert comparison_layer["geometry_type_counts"] == {"LineString": 1}
     assert comparison_layer["unit_styles"]
@@ -1680,6 +1682,7 @@ def test_deliverable_figure_artifact_contract_fields_for_main_and_panel_records(
         "layer_refs",
         "related_constraint_ids",
         "comparison_unit_ids",
+        "figure_policy",
         "provenance",
         "uncertainty_flags",
         "is_stub",

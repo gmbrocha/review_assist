@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked for implementation after Sprint 5.1 through Sprint 5.6 are accepted.
+Active next implementation target after completed Sprint 5.6 table/figure policy alignment.
 
 ## Goal
 

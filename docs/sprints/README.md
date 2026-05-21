@@ -4,10 +4,10 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 5.6 Table/Figure Policy Matrix Alignment is the active next target and currently lives in root-level planning docs:
+- Sprint 5.7 Manual / Reviewer-Supplied Policy MVP is the active next target and currently lives in root-level planning docs:
   - `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
   - `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
-  - `SPRINT_5_6_TABLE_FIGURE_POLICY_MATRIX_ALIGNMENT.md`
+  - `SPRINT_5_7_MANUAL_REVIEWER_SUPPLIED_POLICY_MVP.md`
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -54,6 +54,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Added render-policy metadata to deliverable items, review queue items, web review views, and export manifests; preserved wetlands/waterbodies narrative children; kept PEL/manual/restricted/deferred sections review-visible; and skipped body-ineligible generated placeholders from reviewed exports unless reviewer-supplied content is explicitly exportable.
 - Sprint 5.5 Caveat Bundles, Prohibited Claims, And GPT Eligibility: `docs/archive/sprints/SPRINT_5_5_CAVEAT_BUNDLES_PROHIBITED_CLAIMS_AND_GPT_ELIGIBILITY.md`
   - Added an internal required-caveat guardrail registry, strengthened prohibited-claim family validation, preserved deterministic fallbacks for rejected GPT output, tightened style context as non-evidence, and kept GPT coverage unchanged.
+- Sprint 5.6 Table/Figure Policy Matrix Alignment: `docs/archive/sprints/SPRINT_5_6_TABLE_FIGURE_POLICY_MATRIX_ALIGNMENT.md`
+  - Added explicit table policy records for the current matrix tables, propagated table/figure policy metadata through artifacts, evidence, deliverable items, review/export summaries, preserved wetlands/waterbodies narrative children, and kept the current 4 table, 15 figure, and 3 attachment counts.
 
 ## Deferred Work Linked To Sprints
 
