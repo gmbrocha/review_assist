@@ -4,9 +4,9 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 5.0 planning is the active next target and currently lives in root-level planning docs:
+- Sprint 5.1 Canonical Policy Schema Reconciliation is the active next target and currently lives in root-level planning docs:
   - `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
-  - `SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md`
+  - `SPRINT_5_1_CANONICAL_POLICY_SCHEMA_RECONCILIATION.md`
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -41,6 +41,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Completed Sprint 3 across deliverable items, bounded review queue, terminal statuses, review-complete export gate, package manifests, compactness budget, DOCX fidelity, and final verification.
 - Sprint 3.3 DOCX Fidelity Docs And Final Verification: `docs/archive/sprints/SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
   - Implemented baseline DOCX page setup/styles, title/front matter/body/attachment assembly, bounded editable table previews, figure placeholders/captions/source/method notes, manifest-level final verification, package-manifest propagation, docs, and focused/full verification.
+- Sprint 5.0 Planning Diff Lock And Numbering Decision: `docs/archive/sprints/SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md`
+  - Locked the Sprint 5 report-policy/source-truth/discernment sequence, numbering, non-goals, approval gates, and active pointer handoff to Sprint 5.1.
 
 ## Deferred Work Linked To Sprints
 

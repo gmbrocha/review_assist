@@ -18,7 +18,8 @@ The system is not a recommendation engine, final environmental review, regulator
 - Completed: Sprint 3.2 Export Gate And Package Commands.
 - Completed: Sprint 3.3 DOCX Fidelity Docs And Final Verification.
 - Completed: Sprint 4 Web App And Wiring.
-- Active next implementation target: Sprint 5.0 Planning Diff Lock And Numbering Decision.
+- Completed: Sprint 5.0 Planning Diff Lock And Numbering Decision.
+- Active next implementation target: Sprint 5.1 Canonical Policy Schema Reconciliation.
 
 ## Active Architectural State
 

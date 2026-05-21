@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked for implementation after Sprint 5.0 is accepted and the worktree is clean.
+Active next implementation target after Sprint 5.0 planning resolution. Begin only from a clean checkpoint with this subunit doc loaded.
 
 ## Goal
 

@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted planning direction; implementation has not started.
+Sprint 5.0 planning resolution is complete. Sprint 5.1 is the active next implementation target.
 
-Do not start Sprint 5 implementation until the current clean checkpoint is confirmed and the active subunit doc is loaded. This sprint is report-policy integration work, not figure editing.
+Before starting each Sprint 5 implementation subunit, confirm the current clean checkpoint and load the active subunit doc. This sprint is report-policy integration work, not figure editing.
 
-This file and the linked subunit files are root-level planning notes for human review. Move completed subunit docs into `docs/archive/sprints/` only when each subunit is completed under the normal sprint protocol.
+This file and the linked active subunit files are root-level planning notes for human review. Sprint 5.0 is archived as completed; move each remaining subunit doc into `docs/archive/sprints/` only when that subunit is completed under the normal sprint protocol.
 
 ## Purpose
 
@@ -32,7 +32,7 @@ Document instead of implementing any correction that is not clearly safe.
 
 ## Pre-Sprint Gate
 
-The stabilization gate is complete enough to begin planning and then Sprint 5.0. Before each implementation subunit:
+The stabilization gate and Sprint 5.0 planning lock are complete. Before each implementation subunit:
 
 - inspect `git status`
 - confirm the accepted checkpoint is clean
@@ -68,7 +68,7 @@ Sprint 5 must not become:
 
 ## Subunits
 
-- Sprint 5.0: [Planning Diff Lock And Numbering Decision](SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md)
+- Sprint 5.0: [Planning Diff Lock And Numbering Decision](docs/archive/sprints/SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md) - completed and archived
 - Sprint 5.1: [Canonical Policy Schema Reconciliation](SPRINT_5_1_CANONICAL_POLICY_SCHEMA_RECONCILIATION.md)
 - Sprint 5.2: [Extent Semantics And Wording Enforcement](SPRINT_5_2_EXTENT_SEMANTICS_AND_WORDING_ENFORCEMENT.md)
 - Sprint 5.3: [Source Needs And Effective Truth Mapping](SPRINT_5_3_SOURCE_NEEDS_MANIFEST_AND_WAREHOUSE_ALIGNMENT.md)
