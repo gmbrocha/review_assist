@@ -4,11 +4,16 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 4: `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md`
+- Sprint 5.0 planning is the active next target and currently lives in root-level planning docs:
+  - `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
+  - `SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md`
+
+`docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
 ## Planned Sprint/Subunits
 
 - Roadmap reference: `docs/sprints/ROADMAP.md`
+- Sprint 5 report-policy/source-truth/discernment subunits currently live as root-level planning docs until they are implemented and archived.
 
 ## Completed Sprint/Subunits
 
@@ -42,3 +47,4 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 See `docs/governance/DEFERRED_WORK.md` for full detail.
 
 - Sprint 4: no backend deferred item should be newly routed here by default; Sprint 4 should consume the resolved Sprint 2/3 service contracts through a thin UI.
+- Sprint 5: route source acquisition expansion, production review-state migration, GPT rewrite UX, and future figure work to deferred/future sprint items unless explicitly approved in the active subunit.

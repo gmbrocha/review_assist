@@ -2,7 +2,7 @@
 
 ## Summary
 
-This pass stabilized the current Review Assist baseline before Sprint 5 figure-editing work. The pass was audit-first and treated all implementation changes as `SAFE LAYER CHANGE`: no Sprint 5 figure recipe, override, regeneration job, versioning, or approval model was implemented.
+This pass stabilized the current Review Assist baseline before Sprint 5 report-policy integration work. The pass was audit-first and treated all implementation changes as `SAFE LAYER CHANGE`: no Sprint 5 report-policy, source-needs, GPT eligibility, table/figure policy, manual-material, or export-QA implementation was started.
 
 The accepted dirty worktree was inventoried, committed, and pushed as checkpoint `944e3b5` before stabilization edits began. Current app health checks found the reset path, duplicate-output protections, route loading, artifact allowlist, figure/table source scoping, and review/export gates generally stable.
 
@@ -48,7 +48,7 @@ Possible blocker before next sprint:
 
 ## Deferred Issues
 
-- Review queue freshness/versioning remains deferred because solving it properly requires upstream fingerprints and production review-state migration. It does not block Sprint 5, but Sprint 5 should design figure versioning with explicit freshness/version references.
+- Review queue freshness/versioning remains deferred because solving it properly requires upstream fingerprints and production review-state migration. It does not block Sprint 5, and any future figure-versioning sprint should design figure freshness/version references explicitly rather than relying on the developer reset flow.
 - Browser console verification was not run because no browser automation tool was used in this pass. It does not block Sprint 5 because Flask route and form coverage is strong, but adding browser smoke tests would reduce UI regression risk.
 - Stream crossing counts remain methodology-sensitive. Existing code now counts canonical NHD flowline crossing events and documents the metric contract; matching manually prepared example counts would require a separate methodology decision. This does not block Sprint 5.
 
