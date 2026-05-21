@@ -12,11 +12,13 @@ from typing import Any
 
 from .data_lineage import build_data_lineage
 from .deliverable_items import DeliverableItemsError, RENDER_POLICY_FIELDS, load_deliverable_items
-from .deliverable_matrix import REQUIRED_STUB_TEXT
+from .deliverable_matrix import DeliverableMatrixError, REQUIRED_STUB_TEXT, load_deliverable_matrix
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_area import ProjectAreaError, load_project_area
 from .projects import ProjectManifestError, load_project_manifest
+from .report_section_policy import ReportSectionPolicyError, load_report_section_policy
 from .review_queue import ReviewQueueError, generate_review_queue, load_review_queue
+from .source_catalog import SourceCatalogError, load_source_catalog
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
 from .tables import TABLES_PATH, TableGenerationError, load_comparison_tables
 
@@ -97,6 +99,14 @@ class ExportGateError(ExportReportError):
         super().__init__(message)
 
 
+class ExportQAError(ExportReportError):
+    """Raised when reviewed export is blocked by policy-aware export QA."""
+
+    def __init__(self, details: dict[str, Any]):
+        self.details = details
+        super().__init__(_export_qa_error_message(details))
+
+
 def export_report(project_dir: Path, *, include_draft: bool = False, output_format: str = "markdown") -> dict[str, Any]:
     project_dir = project_dir.resolve()
     formats = _output_formats(output_format)
@@ -105,11 +115,13 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         source_status = _load_or_generate_source_status(project_dir)
         comparison_tables = _load_optional_comparison_tables(project_dir)
         map_manifest = _load_optional_map_manifest(project_dir)
-    except (ReviewQueueError, SourceStatusError) as exc:
+        matrix = load_deliverable_matrix()
+        section_policy = load_report_section_policy()
+        source_catalog = load_source_catalog()
+    except (ReviewQueueError, SourceStatusError, DeliverableMatrixError, ReportSectionPolicyError, SourceCatalogError) as exc:
         raise ExportReportError(str(exc)) from exc
 
     output_dir = project_dir / EXPORT_DIR
-    output_dir.mkdir(parents=True, exist_ok=True)
     markdown_path = project_dir / EXPORT_MARKDOWN_PATH
     docx_path = project_dir / EXPORT_DOCX_PATH
     manifest_path = project_dir / EXPORT_MANIFEST_PATH
@@ -135,8 +147,6 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         validation_issues.extend(_dict_list(comparison_tables.get("validation_issues", [])))
     if map_manifest:
         validation_issues.extend(_dict_list(map_manifest.get("validation_issues", [])))
-    figure_assets, figure_asset_issues = _prepare_export_figure_assets(project_dir, included, map_manifest)
-    validation_issues.extend(figure_asset_issues)
 
     mvp_quality = _mvp_quality_summary(
         included=included,
@@ -145,9 +155,43 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         validation_issues=validation_issues,
         comparison_tables=comparison_tables,
         map_manifest=map_manifest,
-        figure_assets=figure_assets,
+        figure_assets=[],
     )
     validation_issues.extend(_mvp_quality_validation_issues(mvp_quality, include_draft=include_draft))
+    mvp_quality = _mvp_quality_summary(
+        included=included,
+        data_lineage=data_lineage,
+        unresolved_required_sources=unresolved_required_sources,
+        validation_issues=validation_issues,
+        comparison_tables=comparison_tables,
+        map_manifest=map_manifest,
+        figure_assets=[],
+    )
+    compactness_budget = _compactness_budget(
+        included=included,
+        review_gate=review_gate,
+        mvp_quality=mvp_quality,
+    )
+    export_qa = _export_qa_summary(
+        project_dir=project_dir,
+        include_draft=include_draft,
+        review_gate=review_gate,
+        included=included,
+        validation_issues=validation_issues,
+        compactness_budget=compactness_budget,
+        matrix=matrix,
+        section_policy=section_policy,
+        source_catalog=source_catalog,
+        source_status=source_status,
+        comparison_tables=comparison_tables,
+        map_manifest=map_manifest,
+    )
+    if not include_draft and export_qa["export_qa_status"] == "failed":
+        raise ExportQAError(export_qa)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    figure_assets, figure_asset_issues = _prepare_export_figure_assets(project_dir, included, map_manifest)
+    validation_issues.extend(figure_asset_issues)
     mvp_quality = _mvp_quality_summary(
         included=included,
         data_lineage=data_lineage,
@@ -204,6 +248,21 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         docx_path=docx_path if "docx" in formats else None,
     )
     validation_issues = _dedupe_issues([*validation_issues, *_dict_list(final_verification.get("issues", []))])
+    export_qa = _export_qa_summary(
+        project_dir=project_dir,
+        include_draft=include_draft,
+        review_gate=review_gate,
+        included=included,
+        validation_issues=validation_issues,
+        compactness_budget=compactness_budget,
+        matrix=matrix,
+        section_policy=section_policy,
+        source_catalog=source_catalog,
+        source_status=source_status,
+        comparison_tables=comparison_tables,
+        map_manifest=map_manifest,
+        final_verification=final_verification,
+    )
 
     manifest = {
         "project_id": queue.get("project_id"),
@@ -217,6 +276,11 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         "package_status": "internal_preview" if include_draft else "reviewed_content",
         "review_gate_status": review_gate["review_gate_status"],
         "review_gate": review_gate,
+        "export_qa_status": export_qa["export_qa_status"],
+        "export_qa_issue_count": export_qa["export_qa_issue_count"],
+        "export_qa_blocking_error_count": export_qa["export_qa_blocking_error_count"],
+        "export_qa_issues": export_qa["export_qa_issues"],
+        "export_qa": export_qa,
         "review_queue_path": queue.get("output_path"),
         "source_status_path": source_status.get("output_path"),
         "comparison_tables_path": comparison_tables.get("output_path") if comparison_tables else None,
@@ -641,6 +705,7 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "type": str(item.get("type", "")),
         "title": str(item.get("title", "")),
         "status": status,
+        "is_stub": bool(item.get("is_stub", False)),
         "export_group": str(item.get("export_group") or _default_export_group(item)),
         "export_section": str(item.get("export_section", "")),
         "section_number": item.get("section_number") or matrix_target.get("section_number"),
@@ -650,6 +715,11 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "content_source": content_source,
         "source_refs": _string_list(item.get("source_refs", [])),
         "uncertainty_flags": _string_list(item.get("uncertainty_flags", [])),
+        "required_caveats": _policy_list_from_item(item, assumptions, "required_caveats"),
+        "allowed_source_refs": _policy_list_from_item(item, assumptions, "allowed_source_refs"),
+        "allowed_source_categories": _policy_list_from_item(item, assumptions, "allowed_source_categories"),
+        "allowed_table_refs": _policy_list_from_item(item, assumptions, "allowed_table_refs"),
+        "allowed_figure_refs": _policy_list_from_item(item, assumptions, "allowed_figure_refs"),
         "visual_slots": _string_list(assumptions.get("visual_slots", [])),
         "table_slots": _string_list(assumptions.get("table_slots", [])),
         "related_figure_ids": _string_list(item.get("related_figure_ids", [])),
@@ -668,6 +738,7 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "table_id": item.get("table_id"),
         "columns": _string_list(item.get("columns", [])) or _string_list(assumptions.get("columns", [])),
         "rows_preview": _dict_list(item.get("rows_preview", [])) or _dict_list(assumptions.get("rows_preview", [])),
+        "required_columns": _string_list(item.get("required_columns", [])) or _string_list(assumptions.get("required_columns", [])),
         "row_count": item.get("row_count") if item.get("row_count") is not None else assumptions.get("row_count"),
         "attachment_id": item.get("attachment_id"),
         "attachment_refs": _string_list(item.get("attachment_refs", [])) or _string_list(matrix_target.get("attachment_refs", [])),
@@ -802,6 +873,17 @@ def _manual_material_fields(item: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _policy_list_from_item(item: dict[str, Any], assumptions: dict[str, Any], key: str) -> list[str]:
+    values = _string_list(item.get(key, []))
+    if values:
+        return values
+    values = _string_list(assumptions.get(key, []))
+    if values:
+        return values
+    matrix_target = assumptions.get("matrix_target", {}) if isinstance(assumptions.get("matrix_target"), dict) else {}
+    return _string_list(matrix_target.get(key, []))
+
+
 def _coerce_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -878,6 +960,311 @@ def _export_validation_issues(
             )
         )
     return issues
+
+
+def _export_qa_summary(
+    *,
+    project_dir: Path,
+    include_draft: bool,
+    review_gate: dict[str, Any],
+    included: list[dict[str, Any]],
+    validation_issues: list[dict[str, Any]],
+    compactness_budget: dict[str, Any],
+    matrix: Any,
+    section_policy: Any,
+    source_catalog: Any,
+    source_status: dict[str, Any],
+    comparison_tables: dict[str, Any] | None,
+    map_manifest: dict[str, Any] | None,
+    final_verification: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    table_ids = {str(target.target_id) for target in getattr(matrix, "table_targets", [])}
+    figure_ids = {str(target.target_id) for target in getattr(matrix, "figure_targets", [])}
+    source_ids = _known_source_ids(source_catalog, source_status)
+    policies = section_policy.by_section_id()
+    table_lookup = _tables_by_id(comparison_tables)
+    table_lookup.update(_included_tables_by_id(included))
+    figure_lookup = _figures_by_id(map_manifest, included)
+    issues: list[dict[str, Any]] = []
+
+    if include_draft:
+        issues.append(
+            _qa_issue(
+                "warning",
+                "preview_export_qa_bypassed",
+                "Internal preview export bypasses reviewed-export QA blocking; do not use it as reviewed content.",
+            )
+        )
+
+    if not include_draft and review_gate.get("review_gate_status") != "passed":
+        issues.append(
+            _qa_issue(
+                "error",
+                "review_gate_not_passed",
+                "Reviewed export requires a passed standard review gate before export QA can pass.",
+            )
+        )
+
+    for item in included:
+        item_id = str(item.get("id") or item.get("target_id") or "")
+        item_type = str(item.get("type") or "")
+        manual_material = item.get("manual_material", {}) if isinstance(item.get("manual_material"), dict) else {}
+        manual_status = str(manual_material.get("material_status") or "")
+        export_behavior = str(manual_material.get("export_behavior") or "")
+        content_source = str(item.get("content_source") or "")
+        if (
+            item_type in {"report_section", "section_text"}
+            and manual_status in {"manual_required", "restricted_reviewer_supplied_required"}
+            and export_behavior == "body_replacement_when_reviewed"
+            and content_source == "generated_content"
+        ):
+            issues.append(
+                _qa_issue(
+                    "error",
+                    "manual_material_without_reviewer_content",
+                    "Manual/restricted body content cannot export from generated placeholder text; reviewer-supplied edited or replacement content is required.",
+                    item_id=item_id,
+                )
+            )
+
+        _qa_check_refs(
+            issues,
+            item=item,
+            item_id=item_id,
+            table_ids=table_ids,
+            figure_ids=figure_ids,
+            source_ids=source_ids,
+            policies=policies,
+        )
+
+        required_caveats = _required_caveats_for_export_item(item, policies)
+        carried_caveats = set(_string_list(item.get("required_caveats", [])))
+        missing_caveats = sorted(set(required_caveats) - carried_caveats)
+        if item_type in {"report_section", "section_text"} and missing_caveats:
+            issues.append(
+                _qa_issue(
+                    "error",
+                    "required_caveat_missing",
+                    "Included section is missing required caveat metadata: " + ", ".join(missing_caveats) + ".",
+                    item_id=item_id,
+                )
+            )
+
+        if item_type in {"comparison_table", "table"}:
+            _qa_check_table_item(issues, item, item_id, table_lookup)
+        if item_type in {"map_figure", "figure"}:
+            _qa_check_figure_item(issues, project_dir, item, item_id, figure_lookup)
+
+    for issue in validation_issues:
+        if str(issue.get("severity") or "") == "error":
+            issues.append(
+                _qa_issue(
+                    "error",
+                    str(issue.get("code") or "export_validation_error"),
+                    str(issue.get("message") or "Export validation reported an error."),
+                    item_id=str(issue.get("item_id") or ""),
+                    target_id=str(issue.get("target_id") or ""),
+                )
+            )
+    for issue in _dict_list((final_verification or {}).get("issues", [])):
+        if str(issue.get("severity") or "") == "error":
+            issues.append(
+                _qa_issue(
+                    "error",
+                    str(issue.get("code") or "final_verification_error"),
+                    str(issue.get("message") or "Final verification reported an error."),
+                )
+            )
+    if final_verification and final_verification.get("status") == "failed":
+        issues.append(_qa_issue("error", "final_verification_failed", "Final verification status is failed."))
+
+    if not compactness_budget:
+        issues.append(_qa_issue("error", "compactness_budget_missing", "Export QA requires compactness budget metadata."))
+
+    issues = _dedupe_issues(issues)
+    blocking = [issue for issue in issues if str(issue.get("severity")) == "error"]
+    warning = [issue for issue in issues if str(issue.get("severity")) == "warning"]
+    return {
+        "export_qa_status": "failed" if blocking else ("warning" if warning else "passed"),
+        "preview_mode": include_draft,
+        "checked_at": _utc_now(),
+        "export_qa_issue_count": len(issues),
+        "export_qa_blocking_error_count": len(blocking),
+        "export_qa_warning_count": len(warning),
+        "export_qa_issues": issues,
+        "hard_block_policy": "reviewed_export_blocks_on_error",
+        "override_supported": False,
+        "override_policy": "deferred",
+    }
+
+
+def _qa_check_refs(
+    issues: list[dict[str, Any]],
+    *,
+    item: dict[str, Any],
+    item_id: str,
+    table_ids: set[str],
+    figure_ids: set[str],
+    source_ids: set[str],
+    policies: dict[str, Any],
+) -> None:
+    table_refs = _string_list(item.get("related_table_ids", []))
+    if item.get("table_id"):
+        table_refs.append(str(item.get("table_id")))
+    for table_id in table_refs:
+        if table_id and table_id not in table_ids:
+            issues.append(_qa_issue("error", "unknown_table_ref", f"Included item references unknown table id '{table_id}'.", item_id=item_id, target_id=table_id))
+    figure_refs = _string_list(item.get("related_figure_ids", []))
+    if item.get("figure_id"):
+        figure_refs.append(str(item.get("figure_id")))
+    for figure_id in figure_refs:
+        if figure_id and figure_id not in figure_ids and not _is_attachment_panel_figure_id(figure_id):
+            issues.append(_qa_issue("error", "unknown_figure_ref", f"Included item references unknown figure id '{figure_id}'.", item_id=item_id, target_id=figure_id))
+    for source_ref in _string_list(item.get("source_refs", [])):
+        if source_ref and source_ref not in source_ids:
+            issues.append(_qa_issue("error", "unknown_source_ref", f"Included item references unknown source id '{source_ref}'.", item_id=item_id, target_id=source_ref))
+
+    policy = _policy_for_export_item(item, policies)
+    if policy is None:
+        return
+    allowed_tables = set(_string_list(item.get("allowed_table_refs", [])) or list(policy.allowed_table_refs))
+    allowed_figures = set(_string_list(item.get("allowed_figure_refs", [])) or list(policy.allowed_figure_refs))
+    if allowed_tables:
+        for table_id in _string_list(item.get("related_table_ids", [])):
+            if table_id not in allowed_tables:
+                issues.append(_qa_issue("error", "disallowed_table_ref", f"Included section references table id '{table_id}' outside its policy allowance.", item_id=item_id, target_id=table_id))
+    if allowed_figures:
+        for figure_id in _string_list(item.get("related_figure_ids", [])):
+            if figure_id not in allowed_figures:
+                issues.append(_qa_issue("error", "disallowed_figure_ref", f"Included section references figure id '{figure_id}' outside its policy allowance.", item_id=item_id, target_id=figure_id))
+
+
+def _known_source_ids(source_catalog: Any, source_status: dict[str, Any]) -> set[str]:
+    values = set(getattr(source_catalog, "sources", {}).keys())
+    for status in _dict_list(source_status.get("statuses", [])):
+        values.update(_string_list(status.get("source_ids", [])))
+        values.update(_string_list(status.get("registered_source_ids", [])))
+        for detail in _dict_list(status.get("source_details", [])):
+            source_id = str(detail.get("source_id") or "").strip()
+            if source_id:
+                values.add(source_id)
+    return values
+
+
+def _is_attachment_panel_figure_id(value: str) -> bool:
+    if not value.startswith("attachment-a-panel-"):
+        return False
+    suffix = value.removeprefix("attachment-a-panel-")
+    return len(suffix) == 3 and suffix.isdigit()
+
+
+def _qa_check_table_item(
+    issues: list[dict[str, Any]],
+    item: dict[str, Any],
+    item_id: str,
+    table_lookup: dict[str, dict[str, Any]],
+) -> None:
+    if bool(item.get("is_stub", False)):
+        return
+    columns = _string_list(item.get("columns", []))
+    rows = _dict_list(item.get("rows_preview", []))
+    table = table_lookup.get(str(item.get("table_id") or ""))
+    if table:
+        columns = columns or _string_list(table.get("columns", []))
+        rows = rows or _dict_list(table.get("rows", []))
+    required_columns = _string_list(item.get("required_columns", [])) or _string_list((table or {}).get("required_columns", []))
+    for row_index, row in enumerate(rows, start=1):
+        for column in required_columns:
+            if not str(row.get(column, "")).strip():
+                issues.append(_qa_issue("error", "blank_required_table_cell", f"Included table has a blank required cell in column '{column}' row {row_index}.", item_id=item_id, target_id=str(item.get("table_id") or "")))
+
+
+def _qa_check_figure_item(
+    issues: list[dict[str, Any]],
+    project_dir: Path,
+    item: dict[str, Any],
+    item_id: str,
+    figure_lookup: dict[str, dict[str, Any]],
+) -> None:
+    if bool(item.get("is_stub", False)):
+        return
+    figure_id = _item_figure_id(item)
+    figure = figure_lookup.get(figure_id, {})
+    caption = str(item.get("caption") or figure.get("caption") or "").strip()
+    source_note = str(item.get("source_note") or figure.get("source_note") or "").strip()
+    method_note = str(item.get("method_note") or figure.get("method_note") or "").strip()
+    image_path = str(item.get("image_path") or figure.get("image_path") or "").strip()
+    for field, value in (("caption", caption), ("source_note", source_note), ("method_note", method_note)):
+        if not value:
+            issues.append(_qa_issue("error", f"missing_figure_{field}", f"Included non-stub figure is missing {field}.", item_id=item_id, target_id=figure_id))
+    if not image_path:
+        if _figure_placeholder_allowed(source_note=source_note, method_note=method_note):
+            issues.append(
+                _qa_issue(
+                    "warning",
+                    "figure_placeholder_without_image",
+                    "Included figure is reviewed as a placeholder/status item without an image path.",
+                    item_id=item_id,
+                    target_id=figure_id,
+                )
+            )
+        else:
+            issues.append(_qa_issue("error", "missing_figure_image_path", "Included non-stub figure is missing image_path.", item_id=item_id, target_id=figure_id))
+    elif not _resolve_project_path(project_dir, image_path).exists():
+        issues.append(_qa_issue("error", "missing_figure_image_file", f"Included non-stub figure image file is missing: {image_path}.", item_id=item_id, target_id=figure_id))
+
+
+def _figure_placeholder_allowed(*, source_note: str, method_note: str) -> bool:
+    text = f"{source_note} {method_note}".lower()
+    return any(marker in text for marker in ("placeholder", "unavailable", "unsupported for automated figure rendering"))
+
+
+def _required_caveats_for_export_item(item: dict[str, Any], policies: dict[str, Any]) -> list[str]:
+    policy = _policy_for_export_item(item, policies)
+    if policy:
+        return list(policy.required_caveats)
+    return _string_list(item.get("required_caveats", []))
+
+
+def _policy_for_export_item(item: dict[str, Any], policies: dict[str, Any]) -> Any | None:
+    target_id = str(item.get("target_id") or item.get("id") or "")
+    if target_id in policies:
+        return policies[target_id]
+    provenance = item.get("provenance", {}) if isinstance(item.get("provenance"), dict) else {}
+    deliverable_provenance = provenance.get("deliverable_item_provenance", {}) if isinstance(provenance.get("deliverable_item_provenance"), dict) else {}
+    template_id = str(deliverable_provenance.get("template_target_id") or "")
+    return policies.get(template_id) if template_id else None
+
+
+def _qa_issue(
+    severity: str,
+    code: str,
+    message: str,
+    *,
+    item_id: str = "",
+    target_id: str = "",
+) -> dict[str, str]:
+    issue = _issue(severity, code, message)
+    if item_id:
+        issue["item_id"] = item_id
+    if target_id:
+        issue["target_id"] = target_id
+    return issue
+
+
+def _export_qa_error_message(details: dict[str, Any]) -> str:
+    issues = _dict_list(details.get("export_qa_issues", []))
+    blocking = [issue for issue in issues if str(issue.get("severity") or "") == "error"]
+    examples = ", ".join(
+        f"{issue.get('code')}{' on ' + str(issue.get('item_id')) if issue.get('item_id') else ''}"
+        for issue in blocking[:5]
+    )
+    suffix = f" First issues: {examples}." if examples else ""
+    return (
+        "Reviewed export is blocked by export QA: "
+        f"{details.get('export_qa_blocking_error_count', 0)} blocking issue(s)."
+        f"{suffix} Use --include-draft only for an internal/pre-review preview."
+    )
 
 
 def _unresolved_required_sources(source_status: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1817,6 +2204,7 @@ def _included_tables_by_id(included: list[dict[str, Any]]) -> dict[str, dict[str
             "title": item.get("title") or table_id,
             "columns": _string_list(item.get("columns", [])),
             "rows": _dict_list(item.get("rows_preview", [])),
+            "required_columns": _string_list(item.get("required_columns", [])),
             "row_count": item.get("row_count"),
         }
     return tables

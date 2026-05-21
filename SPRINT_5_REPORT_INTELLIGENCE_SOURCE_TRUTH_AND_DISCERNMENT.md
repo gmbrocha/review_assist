@@ -2,11 +2,11 @@
 
 ## Status
 
-Sprint 5.0 planning resolution, Sprint 5.1 canonical policy schema reconciliation, Sprint 5.2 extent semantics enforcement, Sprint 5.3 source needs/effective truth mapping, Sprint 5.4 report inclusion gating, Sprint 5.5 GPT guardrails, Sprint 5.6 table/figure policy alignment, and Sprint 5.7 manual/reviewer-supplied policy MVP are complete. Sprint 5.8 is the active next implementation target.
+Sprint 5.0 planning resolution, Sprint 5.1 canonical policy schema reconciliation, Sprint 5.2 extent semantics enforcement, Sprint 5.3 source needs/effective truth mapping, Sprint 5.4 report inclusion gating, Sprint 5.5 GPT guardrails, Sprint 5.6 table/figure policy alignment, Sprint 5.7 manual/reviewer-supplied policy MVP, and Sprint 5.8 export QA hard-block policy are complete. Sprint 5.9 is the active next implementation target.
 
 Before starting each Sprint 5 implementation subunit, confirm the current clean checkpoint and load the active subunit doc. This sprint is report-policy integration work, not figure editing.
 
-This file and the linked active subunit files are root-level planning notes for human review. Sprint 5.0 through Sprint 5.7 are archived as completed; move each remaining subunit doc into `docs/archive/sprints/` only when that subunit is completed under the normal sprint protocol.
+This file and the linked active subunit files are root-level planning notes for human review. Sprint 5.0 through Sprint 5.8 are archived as completed; move each remaining subunit doc into `docs/archive/sprints/` only when that subunit is completed under the normal sprint protocol.
 
 ## Purpose
 
@@ -98,7 +98,7 @@ Sprint 5 must not become:
 - Sprint 5.5: [Caveat Bundles, Prohibited Claims, And GPT Eligibility](docs/archive/sprints/SPRINT_5_5_CAVEAT_BUNDLES_PROHIBITED_CLAIMS_AND_GPT_ELIGIBILITY.md) - completed and archived
 - Sprint 5.6: [Table/Figure Policy Matrix Alignment](docs/archive/sprints/SPRINT_5_6_TABLE_FIGURE_POLICY_MATRIX_ALIGNMENT.md) - completed and archived
 - Sprint 5.7: [Manual / Reviewer-Supplied Policy MVP](docs/archive/sprints/SPRINT_5_7_MANUAL_REVIEWER_SUPPLIED_POLICY_MVP.md) - completed and archived
-- Sprint 5.8: [Export QA And Override Policy](SPRINT_5_8_EXPORT_QA_AND_OVERRIDE_POLICY.md)
+- Sprint 5.8: [Export QA And Override Policy](docs/archive/sprints/SPRINT_5_8_EXPORT_QA_AND_OVERRIDE_POLICY.md) - completed and archived
 - Sprint 5.9: [End-To-End Trial, Docs, And Verification](SPRINT_5_9_END_TO_END_TRIAL_DOCS_AND_VERIFICATION.md)
 
 ## Dependency Order
@@ -123,7 +123,7 @@ Human approval is required for:
 - wetlands/waterbodies comparison-unit narrative default
 - initial GPT-eligible sections
 - manual/reviewer-supplied source class behavior
-- export QA hard-block versus reviewer override with required reason
+- export QA hard-block policy implemented in Sprint 5.8; reviewer override with required reason remains deferred
 - any deliverable matrix count change
 
 ## Implementation Rules

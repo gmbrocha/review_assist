@@ -22,7 +22,7 @@ from .deliverable_items import DeliverableItemsError, generate_deliverable_items
 from .deliverable_tables import DeliverableTableError, generate_deliverable_tables
 from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from .evidence_package import EvidencePackageError, build_evidence_package
-from .export_report import ExportGateError, ExportReportError, export_report
+from .export_report import ExportGateError, ExportQAError, ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
 from .gpt_interpretive_assist import GptInterpretiveAssistError, draft_section_candidates
 from .input_package import InputPackageError, classify_input_package
@@ -1198,6 +1198,16 @@ def export_report_command(project_dir: Path, include_draft: bool, output_format:
                         f"  - {item.get('id') or 'unknown'} [{item.get('status', 'unknown')}]: {item.get('title', '')}",
                         file=sys.stderr,
                     )
+        return 1
+    except ExportQAError as exc:
+        if print_json:
+            print(json.dumps(exc.details, indent=2))
+        else:
+            print(f"error: {exc}", file=sys.stderr)
+            for issue in exc.details.get("export_qa_issues", [])[:10]:
+                if isinstance(issue, dict):
+                    suffix = f" on {issue.get('item_id')}" if issue.get("item_id") else ""
+                    print(f"  - {issue.get('code', 'export_qa_issue')}{suffix}: {issue.get('message', '')}", file=sys.stderr)
         return 1
     except ExportReportError as exc:
         print(f"error: {exc}", file=sys.stderr)

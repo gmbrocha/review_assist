@@ -4,10 +4,10 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 5.8 Export QA And Override Policy is the active next target and currently lives in root-level planning docs:
+- Sprint 5.9 End-To-End Trial, Docs, And Verification is the active next target and currently lives in root-level planning docs:
   - `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
   - `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
-  - `SPRINT_5_8_EXPORT_QA_AND_OVERRIDE_POLICY.md`
+  - `SPRINT_5_9_END_TO_END_TRIAL_DOCS_AND_VERIFICATION.md`
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -58,6 +58,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Added explicit table policy records for the current matrix tables, propagated table/figure policy metadata through artifacts, evidence, deliverable items, review/export summaries, preserved wetlands/waterbodies narrative children, and kept the current 4 table, 15 figure, and 3 attachment counts.
 - Sprint 5.7 Manual / Reviewer-Supplied Policy MVP: `docs/archive/sprints/SPRINT_5_7_MANUAL_REVIEWER_SUPPLIED_POLICY_MVP.md`
   - Added manual-material metadata to deliverable items, review queue items, review detail summaries, and export manifest records; kept restricted/manual/optional/reviewer-supplied needs visible as review states; preserved reviewer notes as internal; and reused existing edited/replacement content and figure replacement/caption flows without adding generalized uploads.
+- Sprint 5.8 Export QA And Override Policy: `docs/archive/sprints/SPRINT_5_8_EXPORT_QA_AND_OVERRIDE_POLICY.md`
+  - Added policy-aware export QA manifest fields, hard-blocked default reviewed export on blocking QA errors before writing new reviewed outputs, surfaced QA readiness in export UI paths, kept internal preview as a QA-recording bypass, and deferred reviewer override-with-reason.
 
 ## Deferred Work Linked To Sprints
 

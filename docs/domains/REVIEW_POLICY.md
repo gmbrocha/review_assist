@@ -26,7 +26,7 @@ Every generated report-facing artifact should become a review queue item before 
 
 Nothing generated should be compiled into an export package unless it has been accepted, edited and approved, or explicitly included by a reviewer with caveat language.
 
-Default reviewed-content export is now blocked by a review-complete gate over the standard matrix-backed deliverable queue. Internal preview remains available with `--include-draft`, but preview output is labeled pre-review and does not mutate item status.
+Default reviewed-content export is now blocked by a review-complete gate over the standard matrix-backed deliverable queue and by policy-aware export QA after the gate passes. Internal preview remains available with `--include-draft`, but preview output is labeled pre-review, records QA status/issues, and does not mutate item status.
 
 ## Review Item Statuses
 
@@ -130,7 +130,7 @@ Deterministic draft report sections are generated at:
 
 Current section generation creates no-blank-page draft sections from structured workflow artifacts through a deterministic section-drafting provider. These sections are not final report prose and are not exportable unless they pass through review queue status and export-eligibility rules.
 
-The current baseline does not generate template-grade DOCX layout or PDF exports. It does generate descriptive comparison table artifacts, matrix-backed deliverable tables/figures/items, deterministic or GPT-assisted draft section artifacts, bounded review queue items, and Markdown/DOCX export packages. Default reviewed export is blocked until every standard deliverable item is terminal or explicitly export-includable. `--include-draft` remains an internal preview bypass and exported preview content remains pre-review.
+The current baseline does not generate template-grade DOCX layout or PDF exports. It does generate descriptive comparison table artifacts, matrix-backed deliverable tables/figures/items, deterministic or GPT-assisted draft section artifacts, bounded review queue items, and Markdown/DOCX export packages. Default reviewed export is blocked until every standard deliverable item is terminal or explicitly export-includable and export QA has no blocking errors. `--include-draft` remains an internal preview bypass and exported preview content remains pre-review. Reviewer override with a required reason is not implemented yet.
 
 ## Policy Notes
 

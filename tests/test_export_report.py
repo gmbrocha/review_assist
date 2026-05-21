@@ -12,7 +12,7 @@ from review_assist import deliverable as deliverable_module
 from review_assist.data_lineage import build_data_lineage
 from review_assist.deliverable import MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from review_assist.cli import main
-from review_assist.export_report import ExportGateError, export_report
+from review_assist.export_report import ExportGateError, ExportQAError, export_report
 from review_assist.populate_for_review import populate_for_review
 from review_assist.review_queue import load_review_queue, update_review_item
 
@@ -187,6 +187,20 @@ def set_queue_item(project_dir: Path, item_id: str, **updates: Any) -> None:
 
 def included_ids(manifest: dict[str, Any]) -> set[str]:
     return {item["id"] for item in manifest["included_items"]}
+
+
+def qa_codes(error: ExportQAError) -> set[str]:
+    return {str(issue.get("code")) for issue in error.details.get("export_qa_issues", [])}
+
+
+def mutate_queue_item(project_dir: Path, item_id: str, callback: Any) -> None:
+    queue = load_review_queue(project_dir)
+    for item in queue["items"]:
+        if item["id"] == item_id or item.get("target_id") == item_id or item.get("deliverable_item_id") == item_id:
+            callback(item)
+            Path(queue["output_path"]).write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
+            return
+    raise AssertionError(f"Missing queue item: {item_id}")
 
 
 def docx_text(path: str | Path) -> str:
@@ -453,6 +467,132 @@ def test_export_manifest_filters_reviewed_items_and_uses_edited_content(tmp_path
     assert manifest["included_figure_ids"]
     assert manifest["included_attachment_ids"]
     assert manifest["stub_item_count"] > 0
+
+
+def test_preview_export_records_export_qa_without_hard_blocking(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    manifest = export_report(project_dir, include_draft=True)
+
+    assert manifest["preview_mode"] is True
+    assert manifest["export_qa_status"] in {"warning", "failed"}
+    assert manifest["export_qa"]["override_supported"] is False
+    assert any(issue["code"] == "preview_export_qa_bypassed" for issue in manifest["export_qa_issues"])
+
+
+def test_reviewed_export_hard_blocks_unknown_source_ref(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir)
+    set_queue_item(project_dir, "study-area", source_refs=["not_a_source_id"])
+
+    with pytest.raises(ExportQAError) as exc:
+        export_report(project_dir)
+
+    assert "unknown_source_ref" in qa_codes(exc.value)
+    assert not (project_dir / "exports" / "environmental_constraints_report.md").exists()
+
+
+def test_reviewed_export_hard_blocks_disallowed_figure_ref(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir)
+    set_queue_item(project_dir, "wetlands-and-waterbodies", related_figure_ids=["figure-fema-flood-zones"])
+
+    with pytest.raises(ExportQAError) as exc:
+        export_report(project_dir)
+
+    assert "disallowed_figure_ref" in qa_codes(exc.value)
+
+
+def test_reviewed_export_hard_blocks_missing_required_caveat_metadata(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir, default_status="declined", overrides={"wetlands-and-waterbodies": "accepted"})
+
+    def remove_caveats(item: dict[str, Any]) -> None:
+        item["required_caveats"] = []
+        assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+        assumptions["required_caveats"] = []
+        matrix_target = assumptions.get("matrix_target", {}) if isinstance(assumptions.get("matrix_target"), dict) else {}
+        matrix_target["required_caveats"] = []
+        assumptions["matrix_target"] = matrix_target
+        item["assumptions"] = assumptions
+
+    mutate_queue_item(project_dir, "wetlands-and-waterbodies", remove_caveats)
+
+    with pytest.raises(ExportQAError) as exc:
+        export_report(project_dir)
+
+    assert "required_caveat_missing" in qa_codes(exc.value)
+
+
+def test_reviewed_export_hard_blocks_blank_required_table_cell(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir, default_status="declined", overrides={"table-wetlands-waterbodies": "accepted"})
+    set_queue_item(
+        project_dir,
+        "table-wetlands-waterbodies",
+        is_stub=False,
+        table_id="table-wetlands-waterbodies",
+        columns=["Feature", "Result"],
+        rows_preview=[{"Feature": "", "Result": "reviewed"}],
+        required_columns=["Feature"],
+    )
+
+    with pytest.raises(ExportQAError) as exc:
+        export_report(project_dir)
+
+    assert "blank_required_table_cell" in qa_codes(exc.value)
+
+
+def test_reviewed_export_hard_blocks_missing_figure_metadata(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir, default_status="declined", overrides={"figure-wetlands-waterbodies": "accepted"})
+
+    def remove_figure_metadata(item: dict[str, Any]) -> None:
+        item.update({"is_stub": False, "caption": "", "source_note": "", "method_note": "", "image_path": ""})
+        assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+        assumptions.update({"caption": "", "source_note": "", "method_note": "", "image_path": ""})
+        item["assumptions"] = assumptions
+
+    mutate_queue_item(project_dir, "figure-wetlands-waterbodies", remove_figure_metadata)
+
+    with pytest.raises(ExportQAError) as exc:
+        export_report(project_dir)
+
+    assert {"missing_figure_caption", "missing_figure_source_note", "missing_figure_method_note"}.issubset(qa_codes(exc.value))
+
+
+def test_reviewed_export_hard_blocks_manual_material_without_reviewer_content(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir, default_status="declined", overrides={"relationship-with-pel-study": "accepted"})
+    set_queue_item(
+        project_dir,
+        "relationship-with-pel-study",
+        report_body_eligible=True,
+        render_decision="include_body",
+        render_destination="report_body",
+        export_eligible=True,
+        manual_material={
+            "material_type": "manual_text",
+            "material_status": "manual_required",
+            "export_behavior": "body_replacement_when_reviewed",
+            "reviewer_action": "Supply reviewer-approved parent-study relationship text before export.",
+            "source_refs": [],
+            "source_categories": [],
+            "internal_note_only": False,
+        },
+    )
+
+    with pytest.raises(ExportQAError) as exc:
+        export_report(project_dir)
+
+    assert "manual_material_without_reviewer_content" in qa_codes(exc.value)
 
 
 def test_export_edited_without_content_falls_back_with_warning(tmp_path: Path) -> None:
@@ -965,6 +1105,25 @@ def test_cli_export_report_gate_failure_text_and_json(tmp_path: Path, capsys: py
     payload = json.loads(captured.out)
     assert payload["review_gate_status"] == "blocked"
     assert payload["unreviewed_item_count"] > 0
+
+
+def test_cli_export_report_qa_failure_text_and_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_review_states(project_dir)
+    set_queue_item(project_dir, "study-area", source_refs=["not_a_source_id"])
+
+    assert main(["export-report", str(project_dir)]) == 1
+    captured = capsys.readouterr()
+    assert "export QA" in captured.err
+    assert "unknown_source_ref" in captured.err
+
+    assert main(["export-report", str(project_dir), "--json"]) == 1
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["export_qa_status"] == "failed"
+    assert payload["export_qa_blocking_error_count"] > 0
+    assert any(issue["code"] == "unknown_source_ref" for issue in payload["export_qa_issues"])
 
 
 def test_build_demo_deliverable_writes_package_manifest_without_accepting_items(tmp_path: Path) -> None:

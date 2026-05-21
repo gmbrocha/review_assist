@@ -641,7 +641,13 @@ def _section_item(
                 extent_metadata=extent_metadata,
                 validation_issues=validation_issues,
                 project_context=context,
-                matrix_target=_matrix_target_summary(target, template_target=template_target, comparison_unit=comparison_unit, render_policy=render_policy),
+                matrix_target=_matrix_target_summary(
+                    target,
+                    template_target=template_target,
+                    comparison_unit=comparison_unit,
+                    render_policy=render_policy,
+                    section_policy=policy,
+                ),
                 prompt_key=target.prompt_key,
                 prompt=_prompt_summary(prompt),
                 global_prompt=_prompt_summary(global_prompt),
@@ -697,11 +703,22 @@ def _section_item(
             "desktop_screening_only": True,
         },
         assumptions={
-            "matrix_target": _matrix_target_summary(target, template_target=template_target, comparison_unit=comparison_unit, render_policy=render_policy),
+            "matrix_target": _matrix_target_summary(
+                target,
+                template_target=template_target,
+                comparison_unit=comparison_unit,
+                render_policy=render_policy,
+                section_policy=policy,
+            ),
             "prompt_contract": _prompt_summary(prompt),
             "source_gap_status": source_gap_status,
             "extent_policy": extent_metadata,
             "render_policy": render_policy,
+            "required_caveats": list(policy.required_caveats) if policy else [],
+            "allowed_source_refs": list(policy.allowed_source_refs) if policy else [],
+            "allowed_source_categories": list(policy.allowed_source_categories) if policy else [],
+            "allowed_table_refs": list(policy.allowed_table_refs) if policy else [],
+            "allowed_figure_refs": list(policy.allowed_figure_refs) if policy else [],
         },
         uncertainty_flags=uncertainty_flags,
         is_stub=is_stub,
@@ -1252,17 +1269,23 @@ def _manual_material_record(
             reviewer_action = "Supply reviewer-approved parent-study relationship text before this section can export as body content."
         else:
             reviewer_action = "Supply reviewer-approved manual text before this item can export as normal report content."
-    elif source_states.intersection({"gated", "restricted"}):
+    elif source_states.intersection({"gated", "restricted"}) and (
+        review_requirement == "source_gap_review"
+        or render_decision in {"blocked_manual_or_restricted_source", "needs_reviewer_decision"}
+        or not source_refs
+    ):
         material_type = "manual_text"
         status = "restricted_reviewer_supplied_required"
         export_behavior = "body_replacement_when_reviewed"
         reviewer_action = "Restricted or authorized-source material is required; public/coarse context does not satisfy this review need."
-    elif source_states.intersection({"manual", "stubbed"}):
+    elif source_states.intersection({"manual", "stubbed"}) and not source_refs and not source_states.intersection(
+        AVAILABLE_SOURCE_STATES
+    ):
         material_type = "manual_table" if is_table else "manual_text"
         status = "manual_required"
         export_behavior = "body_replacement_when_reviewed"
         reviewer_action = "Manual or reviewer-supplied source material is required before this item can be treated as source-backed content."
-    elif source_states.intersection({"optional"}):
+    elif source_states.intersection({"optional"}) and not source_refs:
         status = "optional_absent"
         export_behavior = "do_not_export"
         reviewer_action = "Optional source material is absent; this does not block the required review package."
@@ -2142,6 +2165,7 @@ def _matrix_target_summary(
     template_target: SectionTarget | None = None,
     comparison_unit: dict[str, Any] | None = None,
     render_policy: dict[str, Any] | None = None,
+    section_policy: ReportSectionPolicy | None = None,
 ) -> dict[str, Any]:
     summary = {
         "target_id": target.target_id,
@@ -2173,6 +2197,12 @@ def _matrix_target_summary(
         for key in RENDER_POLICY_FIELDS:
             if key in render_policy:
                 summary[key] = render_policy[key]
+    if section_policy:
+        summary["required_caveats"] = list(section_policy.required_caveats)
+        summary["allowed_source_refs"] = list(section_policy.allowed_source_refs)
+        summary["allowed_source_categories"] = list(section_policy.allowed_source_categories)
+        summary["allowed_table_refs"] = list(section_policy.allowed_table_refs)
+        summary["allowed_figure_refs"] = list(section_policy.allowed_figure_refs)
     return summary
 
 

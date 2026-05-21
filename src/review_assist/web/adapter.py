@@ -24,6 +24,7 @@ from review_assist.deliverable_items import DELIVERABLE_ITEMS_PATH, RENDER_POLIC
 from review_assist.export_report import (
     EXPORT_MANIFEST_PATH,
     ExportGateError,
+    ExportQAError,
     ExportReportError,
     export_report,
 )
@@ -900,6 +901,8 @@ def export_readiness(project_dir: Path) -> dict[str, Any]:
             "can_export": False,
             "compactness_budget": {},
             "final_verification": {},
+            "export_qa": {},
+            "export_qa_status": "not_run",
             "preview_mode": False,
             "latest_run": latest_run_status(project_dir),
         }
@@ -922,6 +925,8 @@ def export_readiness(project_dir: Path) -> dict[str, Any]:
         "can_export": bool(standard_items) and not blockers,
         "compactness_budget": manifest.get("compactness_budget", {}) if isinstance(manifest, dict) else {},
         "final_verification": manifest.get("final_verification", {}) if isinstance(manifest, dict) else {},
+        "export_qa": manifest.get("export_qa", {}) if isinstance(manifest, dict) else {},
+        "export_qa_status": str(manifest.get("export_qa_status") or "not_run") if isinstance(manifest, dict) else "not_run",
         "preview_mode": bool(manifest.get("preview_mode", False)) if isinstance(manifest, dict) else False,
         "last_export_manifest": _manifest_summary_row(project_dir, EXPORT_MANIFEST_PATH, manifest),
         "latest_run": latest_run_status(project_dir),
@@ -946,6 +951,15 @@ def run_export(project_dir: Path, *, preview: bool) -> dict[str, Any]:
             action=action,
             status="failed",
             message="Export is blocked by the review-complete gate." if not preview else "Internal preview export failed.",
+            error=str(exc),
+        )
+        raise WebAdapterError(str(exc)) from exc
+    except ExportQAError as exc:
+        _write_run_status(
+            project_dir,
+            action=action,
+            status="failed",
+            message="Reviewed export is blocked by export QA." if not preview else "Internal preview export failed export QA.",
             error=str(exc),
         )
         raise WebAdapterError(str(exc)) from exc
@@ -979,6 +993,8 @@ def package_outputs(project_dir: Path) -> dict[str, Any]:
         "artifacts": _allowed_artifact_rows(project_dir),
         "compactness_budget": export_manifest.get("compactness_budget", {}) if isinstance(export_manifest, dict) else {},
         "final_verification": export_manifest.get("final_verification", {}) if isinstance(export_manifest, dict) else {},
+        "export_qa": export_manifest.get("export_qa", {}) if isinstance(export_manifest, dict) else {},
+        "export_qa_status": str(export_manifest.get("export_qa_status") or "not_run") if isinstance(export_manifest, dict) else "not_run",
         "package_final_verification": package_manifest.get("final_verification", {}) if isinstance(package_manifest, dict) else {},
     }
 

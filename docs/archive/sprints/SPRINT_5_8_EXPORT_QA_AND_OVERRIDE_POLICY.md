@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked for implementation after Sprint 5.1 through Sprint 5.7 are accepted.
+Completed on branch `sprint-5`.
 
 ## Goal
 
@@ -35,12 +35,7 @@ This subunit may update:
 
 ## Human Decision Required
 
-Decide whether final export QA should:
-
-- hard-block default reviewed export, or
-- allow reviewer override with a required reason.
-
-Preview exports may remain an internal bypass if clearly marked.
+Sprint 5.8 implements hard-block default reviewed export. Reviewer override with a required reason is deferred to future approved review-governance work. Preview exports remain an internal bypass and record export QA status/issues clearly.
 
 ## Non-Goals
 
