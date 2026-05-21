@@ -39,6 +39,8 @@ Effective source status reconciliation treats the logical rollups as satisfied f
 
 The source status artifact also records `section_source_needs`, a policy-derived trace from report sections to catalog/profile/warehouse truth. Warehouse-present sources are classified as `warehouse_available_not_materialized` until materialized into a project layer; logical rollups satisfied by current child layers are classified as `available_materialized`; public/coarse cultural or visual context remains distinct from restricted or reviewer-supplied material.
 
+Manual, restricted, and reviewer-supplied material remains outside the automated warehouse contract unless a reviewer registers a project-local source through existing source registration paths. Sprint 5.7 surfaces those needs in deliverable/review/export metadata as manual material status rather than treating absent documents, restricted records, IPaC reports, agency letters, or hazmat support reports as warehouse download failures.
+
 ## Current Seeded Groups
 
 - Environmental and regulated facilities: FEMA NFHL flood hazard, EPA FRS, MARIS brownfields, NPDES, landfills, Superfund, TRI, USTs, and Mississippi oil/gas wells.

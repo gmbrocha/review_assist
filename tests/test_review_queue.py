@@ -151,7 +151,13 @@ def test_generate_review_queue_writes_bounded_deliverable_item_queue(tmp_path: P
     assert pel["render_decision"] == "needs_reviewer_decision"
     assert pel["report_body_eligible"] is False
     assert pel["status"] == "needs_verification"
+    assert pel["manual_material"]["material_type"] == "manual_text"  # type: ignore[index]
+    assert pel["manual_material"]["material_status"] == "manual_required"  # type: ignore[index]
+    assert pel["manual_material"]["export_behavior"] == "body_replacement_when_reviewed"  # type: ignore[index]
     assert pel["assumptions"]["render_policy"]["render_decision"] == "needs_reviewer_decision"  # type: ignore[index]
+    cultural = item_by_id(queue, "cultural-and-historic-resources")
+    assert cultural["manual_material"]["material_status"] == "restricted_reviewer_supplied_required"  # type: ignore[index]
+    assert cultural["manual_material"]["source_refs"]  # type: ignore[index]
     contamination = item_by_id(queue, "contamination-risks")
     oil_wells = item_by_id(queue, "oil-wells")
     demographics = item_by_id(queue, "demographic-characteristics")
@@ -268,6 +274,8 @@ def test_update_review_item_appends_notes_and_enforces_export_rules(tmp_path: Pa
 
     item = update_review_item(project_dir, item_id, status="edited", edited_content="Reviewer edited wetlands text.")
     assert item["edited_content"] == "Reviewer edited wetlands text."
+    assert item["manual_material"]["material_status"] == "reviewer_supplied"
+    assert item["manual_material"]["material_type"] == "manual_text"
 
     item = update_review_item(project_dir, item_id, status="replaced")
     assert item["export_eligible"] is False
@@ -276,6 +284,7 @@ def test_update_review_item_appends_notes_and_enforces_export_rules(tmp_path: Pa
     item = update_review_item(project_dir, item_id, status="replaced", replacement_content="Reviewer replacement text.")
     assert item["replacement_content"] == "Reviewer replacement text."
     assert item["export_eligible"] is True
+    assert item["manual_material"]["material_status"] == "reviewer_supplied"
     assert not any(issue["code"] == "replacement_content_missing" for issue in item["validation_issues"])
 
 

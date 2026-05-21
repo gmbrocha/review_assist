@@ -633,6 +633,7 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         image_path = item.get("image_path") or assumptions.get("image_path")
         image_source = "generated_figure"
     render_policy = _render_policy_fields(item)
+    manual_material = _manual_material_fields(item)
     return {
         "id": str(item.get("id", "")),
         "target_id": str(item.get("target_id") or item.get("id", "")),
@@ -672,6 +673,7 @@ def _export_item(item: dict[str, Any]) -> dict[str, Any]:
         "attachment_refs": _string_list(item.get("attachment_refs", [])) or _string_list(matrix_target.get("attachment_refs", [])),
         "artifact_path": provenance.get("artifact_path"),
         "provenance": provenance,
+        "manual_material": manual_material,
         **render_policy,
         "render_policy": render_policy,
     }
@@ -710,6 +712,7 @@ def _is_figure_image_path(value: Any) -> bool:
 
 def _skipped_item(item: dict[str, Any], *, include_draft: bool) -> dict[str, Any]:
     render_policy = _render_policy_fields(item)
+    manual_material = _manual_material_fields(item)
     return {
         "id": str(item.get("id", "")),
         "type": str(item.get("type", "")),
@@ -717,6 +720,7 @@ def _skipped_item(item: dict[str, Any], *, include_draft: bool) -> dict[str, Any
         "status": _normalized_status(item.get("status")),
         "export_group": str(item.get("export_group") or _default_export_group(item)),
         "reason": _skip_reason(item, include_draft=include_draft),
+        "manual_material": manual_material,
         **render_policy,
         "render_policy": render_policy,
     }
@@ -764,6 +768,37 @@ def _render_policy_fields(item: dict[str, Any]) -> dict[str, Any]:
     for key in RENDER_POLICY_FIELDS:
         value = item.get(key, defaults[key])
         result[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
+    return result
+
+
+def _manual_material_fields(item: dict[str, Any]) -> dict[str, Any]:
+    record = item.get("manual_material", {}) if isinstance(item.get("manual_material"), dict) else {}
+    result = {
+        "material_type": str(record.get("material_type") or "none"),
+        "material_status": str(record.get("material_status") or "not_used"),
+        "export_behavior": str(record.get("export_behavior") or "do_not_export"),
+        "reviewer_action": str(record.get("reviewer_action") or ""),
+        "source_refs": _string_list(item.get("source_refs", [])) or _string_list(record.get("source_refs", [])),
+        "source_categories": _string_list(record.get("source_categories", [])),
+        "internal_note_only": bool(record.get("internal_note_only", False)),
+    }
+    status = _normalized_status(item.get("status"))
+    edited = _edited_content(item)
+    replacement = _replacement_content(item)
+    is_figure = _is_figure_item(item)
+    if status == "declined":
+        result["material_status"] = "not_used"
+        result["export_behavior"] = "do_not_export"
+    elif status == "unable_to_verify":
+        result["material_status"] = "unable_to_verify"
+    elif replacement:
+        result["material_status"] = "reviewer_supplied"
+        result["material_type"] = "replacement_figure" if is_figure and _is_figure_image_path(replacement) else "manual_text"
+        result["export_behavior"] = "figure_review_when_reviewed" if is_figure else "body_replacement_when_reviewed"
+    elif edited:
+        result["material_status"] = "reviewer_supplied"
+        result["material_type"] = "edited_caption" if is_figure else "manual_text"
+        result["export_behavior"] = "figure_review_when_reviewed" if is_figure else "body_replacement_when_reviewed"
     return result
 
 

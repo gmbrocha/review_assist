@@ -660,6 +660,8 @@ def test_export_skips_body_ineligible_generated_placeholders_until_reviewer_supp
     assert skipped_pel["render_decision"] == "needs_reviewer_decision"
     assert skipped_pel["report_body_eligible"] is False
     assert skipped_pel["reason"] == "policy_render_needs_reviewer_decision"
+    assert skipped_pel["manual_material"]["material_type"] == "manual_text"
+    assert skipped_pel["manual_material"]["material_status"] == "manual_required"
 
     set_review_states(
         project_dir,
@@ -678,6 +680,8 @@ def test_export_skips_body_ineligible_generated_placeholders_until_reviewer_supp
     assert exported_pel["content_source"] == "edited_content"
     assert exported_pel["render_decision"] == "needs_reviewer_decision"
     assert exported_pel["report_body_eligible"] is False
+    assert exported_pel["manual_material"]["material_status"] == "reviewer_supplied"
+    assert exported_pel["manual_material"]["material_type"] == "manual_text"
 
 
 def test_default_export_fails_when_review_gate_has_unreviewed_items(tmp_path: Path) -> None:

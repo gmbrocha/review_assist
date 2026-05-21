@@ -13,6 +13,9 @@ from .constraints import CONSTRAINT_RESULTS_PATH, ConstraintAnalysisError, load_
 from .deliverable_items import (
     DELIVERABLE_ITEMS_PATH,
     DeliverableItemsError,
+    MANUAL_MATERIAL_EXPORT_BEHAVIORS,
+    MANUAL_MATERIAL_STATUSES,
+    MANUAL_MATERIAL_TYPES,
     RENDER_POLICY_FIELDS,
     generate_deliverable_items,
     load_deliverable_items,
@@ -78,6 +81,7 @@ REQUIRED_ITEM_FIELDS = {
     *EXTENT_FIELD_NAMES,
     "extent_policy_version",
     *RENDER_POLICY_FIELDS,
+    "manual_material",
 }
 
 
@@ -258,6 +262,7 @@ def update_review_item(
 
     if note is not None and note.strip():
         item["reviewer_notes"].append({"created_at": now, "note": note.strip()})
+    item["manual_material"] = _manual_material_for_review_item(item)
     item["updated_at"] = now
     queue["updated_at"] = now
     queue["validation_issues"] = _queue_validation_issues(_dict_list(queue.get("items", [])), _dict_list(queue.get("validation_issues", [])))
@@ -450,6 +455,7 @@ def _deliverable_review_item(
             "related_figure_ids": _string_list(deliverable_item.get("related_figure_ids", [])),
             "evidence_refs": _string_list(deliverable_item.get("evidence_refs", [])),
             "validation_issues": _dict_list(deliverable_item.get("validation_issues", [])),
+            "manual_material": _manual_material_from_deliverable(deliverable_item),
             **extent_metadata,
             **render_policy,
         },
@@ -979,6 +985,7 @@ def _review_item(
         "updated_at": now,
         **render_policy,
     }
+    item["manual_material"] = _normalize_manual_material(extra.get("manual_material"), item)
     item = apply_extent_metadata(item, extent_metadata)
     for key, value in extra.items():
         if key not in item:
@@ -1112,6 +1119,7 @@ def _merge_existing_review_state(item: dict[str, Any], existing_items: dict[str,
             item["validation_issues"] = _with_replacement_issue(_dict_list(item.get("validation_issues", [])), item["id"])
         else:
             item["validation_issues"] = _without_replacement_issue(_dict_list(item.get("validation_issues", [])))
+        item["manual_material"] = _manual_material_for_review_item(item)
     item["updated_at"] = now
     return item
 
@@ -1198,6 +1206,7 @@ def _validate_queue(queue: dict[str, Any]) -> None:
             raise ReviewQueueError(f"Review item '{item_id}' evidence_refs must be a list.")
         if not isinstance(item["validation_issues"], list):
             raise ReviewQueueError(f"Review item '{item_id}' validation_issues must be a list.")
+        _validate_manual_material(item["manual_material"], item_id)
 
 
 def _normalize_queue_compat(queue: Any) -> None:
@@ -1232,6 +1241,7 @@ def _normalize_queue_compat(queue: Any) -> None:
         item.setdefault("validation_issues", [])
         item.setdefault("edited_content", "")
         item.setdefault("reviewer_notes", [])
+        item["manual_material"] = _normalize_manual_material(item.get("manual_material"), item)
         render_policy = _render_policy_from_review_item(item)
         for key, value in render_policy.items():
             item[key] = value
@@ -1253,6 +1263,88 @@ def _normalize_queue_compat(queue: Any) -> None:
 
 def _default_export_eligible(status: str) -> bool:
     return status in {"accepted", "edited", "replaced"}
+
+
+def _manual_material_from_deliverable(deliverable_item: dict[str, Any]) -> dict[str, Any]:
+    record = deliverable_item.get("manual_material")
+    if isinstance(record, dict):
+        return dict(record)
+    return _default_manual_material()
+
+
+def _normalize_manual_material(record: Any, item: dict[str, Any]) -> dict[str, Any]:
+    if isinstance(record, dict):
+        result = _default_manual_material()
+        result.update({key: value for key, value in record.items() if key in result})
+        result["source_refs"] = _string_list(item.get("source_refs", [])) or _string_list(result.get("source_refs", []))
+        result["source_categories"] = _string_list(result.get("source_categories", []))
+        result["internal_note_only"] = bool(result.get("internal_note_only", False))
+        return _manual_material_for_review_item({**item, "manual_material": result})
+    return _manual_material_for_review_item({**item, "manual_material": _default_manual_material()})
+
+
+def _manual_material_for_review_item(item: dict[str, Any]) -> dict[str, Any]:
+    record = item.get("manual_material", {}) if isinstance(item.get("manual_material"), dict) else {}
+    result = _default_manual_material()
+    result.update({key: value for key, value in record.items() if key in result})
+    result["source_refs"] = _string_list(item.get("source_refs", [])) or _string_list(result.get("source_refs", []))
+    result["source_categories"] = _string_list(result.get("source_categories", []))
+    result["internal_note_only"] = bool(result.get("internal_note_only", False))
+
+    status = _normalize_status(item.get("status", "draft"))
+    edited = str(item.get("edited_content") or "").strip()
+    replacement = str(item.get("replacement_content") or "").strip()
+    is_figure = str(item.get("type") or "") in {"map_figure", "figure"} or bool(str(item.get("figure_id") or "").strip())
+    if status == "declined":
+        result["material_status"] = "not_used"
+        result["export_behavior"] = "do_not_export"
+    elif status == "unable_to_verify":
+        result["material_status"] = "unable_to_verify"
+    elif replacement:
+        result["material_status"] = "reviewer_supplied"
+        result["material_type"] = "replacement_figure" if is_figure and _looks_like_image_path(replacement) else "manual_text"
+        result["export_behavior"] = "figure_review_when_reviewed" if is_figure else "body_replacement_when_reviewed"
+        result["reviewer_action"] = "Reviewer-supplied replacement content is present and remains subject to export eligibility."
+    elif edited:
+        result["material_status"] = "reviewer_supplied"
+        result["material_type"] = "edited_caption" if is_figure else "manual_text"
+        result["export_behavior"] = "figure_review_when_reviewed" if is_figure else "body_replacement_when_reviewed"
+        result["reviewer_action"] = "Reviewer-edited content is present and remains subject to export eligibility."
+    return result
+
+
+def _default_manual_material() -> dict[str, Any]:
+    return {
+        "material_type": "none",
+        "material_status": "not_used",
+        "export_behavior": "do_not_export",
+        "reviewer_action": "No manual reviewer-supplied material is expected for this item.",
+        "source_refs": [],
+        "source_categories": [],
+        "internal_note_only": False,
+    }
+
+
+def _validate_manual_material(record: Any, item_id: str) -> None:
+    if not isinstance(record, dict):
+        raise ReviewQueueError(f"Review item '{item_id}' manual_material must be an object.")
+    if str(record.get("material_type") or "") not in MANUAL_MATERIAL_TYPES:
+        raise ReviewQueueError(f"Review item '{item_id}' manual_material has unsupported material_type.")
+    if str(record.get("material_status") or "") not in MANUAL_MATERIAL_STATUSES:
+        raise ReviewQueueError(f"Review item '{item_id}' manual_material has unsupported material_status.")
+    if str(record.get("export_behavior") or "") not in MANUAL_MATERIAL_EXPORT_BEHAVIORS:
+        raise ReviewQueueError(f"Review item '{item_id}' manual_material has unsupported export_behavior.")
+    for list_field in ("source_refs", "source_categories"):
+        if not isinstance(record.get(list_field, []), list):
+            raise ReviewQueueError(f"Review item '{item_id}' manual_material.{list_field} must be a list.")
+    if not isinstance(record.get("reviewer_action", ""), str):
+        raise ReviewQueueError(f"Review item '{item_id}' manual_material.reviewer_action must be a string.")
+    if not isinstance(record.get("internal_note_only", False), bool):
+        raise ReviewQueueError(f"Review item '{item_id}' manual_material.internal_note_only must be boolean.")
+
+
+def _looks_like_image_path(value: str) -> bool:
+    return Path(value).suffix.lower() in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
 
 
 def _default_export_group(item_type: str, export_section: str) -> str:

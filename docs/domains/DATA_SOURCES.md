@@ -46,6 +46,8 @@ Project-registered source categories that are not part of the base report profil
 
 Sprint 5.3 also records a policy-derived `section_source_needs` manifest inside `source_status/source_status_set.json`. Each section record traces `config/report_section_policy.json` source categories and source refs to current catalog IDs, effective source statuses, and one of these source need classes: `available_materialized`, `warehouse_available_not_materialized`, `acquisition_candidate`, `optional`, `manual_reviewer_supplied`, `restricted_authorized_reviewer_supplied`, `public_coarse_screening_context`, `deferred`, or `deprecated_legacy`. These classes explain report-facing source truth; they do not start downloads, add query buffers, or imply final regulatory fitness.
 
+Sprint 5.7 propagates manual/reviewer-supplied source truth into deliverable and review metadata as `manual_material`. Manual and restricted needs are review states, not failed downloads. Public/coarse cultural context can support screening context but does not satisfy restricted archaeological or authorized cultural-resource source needs. Optional absent material is recorded as non-blocking, while deferred source work remains visible for future approved implementation.
+
 Suggested statuses:
 
 - `provided_locally`: user supplied a local layer, document, report, or map.
@@ -65,7 +67,7 @@ Suggested statuses:
 - `optional`: useful context but not required for the selected report profile.
 - `needs_review`: source status or fitness for use requires reviewer confirmation.
 
-Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, and report caveats so the reviewer can decide how to proceed.
+Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, manual-material status, and report caveats so the reviewer can decide how to proceed.
 
 ## Phase 2A/2B Source Priority
 

@@ -11,6 +11,7 @@
 <section class="summary-grid">
   <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if item.export_eligible else 'no' }}</strong></div>
   <div class="metric"><span>Render</span><strong>{{ item.render_decision }}</strong></div>
+  <div class="metric"><span>Manual Status</span><strong>{{ item.manual_material.material_status }}</strong></div>
   <div class="metric"><span>Table</span><strong>{{ item.display_table_refs|join(', ') if item.display_table_refs else 'none' }}</strong></div>
   <div class="metric"><span>Figure</span><strong>{{ item.display_figure_refs|join(', ') if item.display_figure_refs else 'none' }}</strong></div>
 </section>
@@ -25,6 +26,19 @@
     <dt>Inclusion</dt><dd>{{ item.policy_inclusion_status }}</dd>
     <dt>Activation</dt><dd>{{ item.policy_activation_condition }}</dd>
     <dt>Review</dt><dd>{{ item.policy_review_requirement }}</dd>
+  </dl>
+</section>
+{% endif %}
+
+{% if item.manual_material.material_status != 'not_used' %}
+<section class="panel">
+  <h2>Manual Material</h2>
+  <dl class="details">
+    <dt>Type</dt><dd>{{ item.manual_material.material_type }}</dd>
+    <dt>Status</dt><dd>{{ item.manual_material.material_status }}</dd>
+    <dt>Export Behavior</dt><dd>{{ item.manual_material.export_behavior }}</dd>
+    <dt>Reviewer Action</dt><dd>{{ item.manual_material.reviewer_action }}</dd>
+    <dt>Source Refs</dt><dd>{{ item.manual_material.source_refs|join(', ') if item.manual_material.source_refs else 'None recorded' }}</dd>
   </dl>
 </section>
 {% endif %}

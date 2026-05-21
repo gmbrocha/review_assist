@@ -153,6 +153,9 @@ def test_deliverable_items_write_matrix_contract_and_dynamic_children(
     assert pel["report_body_eligible"] is False
     assert pel["review_status"] == "needs_verification"
     assert pel["is_stub"] is True
+    assert pel["manual_material"]["material_type"] == "manual_text"
+    assert pel["manual_material"]["material_status"] == "manual_required"
+    assert pel["manual_material"]["export_behavior"] == "body_replacement_when_reviewed"
     assert "Render decision: needs_reviewer_decision." in pel["generated_content"]
 
     floodplains = item_by_id(result, "floodplains-and-floodways")
@@ -193,6 +196,9 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
     assert "missing figure should be carried as an explicit limitation" in figure["generated_content"]
     assert attachment["review_item_type"] == "attachment"
     assert attachment["attachment_id"] == "attachment-hazardous-materials-report"
+    assert attachment["manual_material"]["material_type"] == "supporting_document"
+    assert attachment["manual_material"]["material_status"] == "manual_required"
+    assert attachment["manual_material"]["export_behavior"] == "attachment_status_when_reviewed"
     assert attachment["stub_text"] == REQUIRED_STUB_TEXT
     assert "Hazardous Materials Report" in attachment["generated_content"]
     assert "supporting attachment material" in attachment["generated_content"]

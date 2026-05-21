@@ -23,14 +23,24 @@ Each deferred item should include:
 
 ## Active Deferred Items
 
-### Sprint 5 Package Proposals Routed Beyond 5.6
+### Sprint 5 Package Proposals Routed Beyond 5.7
 
 - `Deferred item`: Reusable proposals mined from `pro_review_assist_policy_package_sprint_5/` that require later Sprint 5 subunits before product behavior changes.
-- `Why postponed`: Sprint 5.1 reconciled the canonical policy schema and ledger, Sprint 5.2 tightened extent/wording semantics, Sprint 5.3 added source-needs/effective-truth mapping, Sprint 5.4 added section render gating while preserving wetlands/waterbodies narrative children, Sprint 5.5 adopted internal caveat/prohibited-claim guardrails without expanding GPT coverage, and Sprint 5.6 aligned current table/figure policy records while preserving the 4 table, 15 figure, and 3 attachment inventory. Package-proposed count changes, fuller manual material workflows, and export QA hard-block/override policy remain owned by later subunits or future approved work.
-- `Affected sections/workflows`: Wetlands/waterbodies comparison-unit detail defaults, source needs/effective truth mapping, source-gap wording, table/figure/attachment alignment, manual/reviewer-supplied materials, export QA.
+- `Why postponed`: Sprint 5.1 reconciled the canonical policy schema and ledger, Sprint 5.2 tightened extent/wording semantics, Sprint 5.3 added source-needs/effective-truth mapping, Sprint 5.4 added section render gating while preserving wetlands/waterbodies narrative children, Sprint 5.5 adopted internal caveat/prohibited-claim guardrails without expanding GPT coverage, Sprint 5.6 aligned current table/figure policy records while preserving the 4 table, 15 figure, and 3 attachment inventory, and Sprint 5.7 added manual-material review/export metadata without broad document management. Package-proposed count changes, fuller manual upload/document workflows, and export QA hard-block/override policy remain owned by later subunits or future approved work.
+- `Affected sections/workflows`: Wetlands/waterbodies comparison-unit detail defaults, source needs/effective truth mapping, source-gap wording, table/figure/attachment alignment, manual/reviewer-supplied material workflows, export QA.
 - `Risk if forgotten`: Package proposals could be partially copied without approval, causing generic Review Assist behavior to inherit example-specific, PEL-specific, trail/corridor-specific, unsupported, or unsafe assumptions.
 - `Temporary simplification`: `config/report_section_policy.json` remains canonical; table and figure policies are aligned to existing matrix targets only; `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` records adopted, rejected, and deferred package proposals.
-- `Target sprint/subunit`: Sprint 5.7 through Sprint 5.9 as routed in the ledger, plus future approved source/table/figure work where count changes are required.
+- `Target sprint/subunit`: Sprint 5.8 through Sprint 5.9 as routed in the ledger, plus future approved source/table/figure/manual-document work where count changes or upload/document-management features are required.
+- `Status`: open.
+
+### Broad Manual Material Upload And Document Management
+
+- `Deferred item`: Add supporting-document/manual-table uploads, document metadata management, restricted-source permissions, OCR or document interpretation, and reviewer-controlled attachment packaging beyond the existing figure replacement flow.
+- `Why postponed`: Sprint 5.7 intentionally implemented manual/reviewer-supplied material as policy/review/export metadata only. Adding generalized uploads or restricted document handling would broaden the product surface and requires security, storage, provenance, and review-state design.
+- `Affected sections/workflows`: PEL relationship text, cultural/restricted records, IPaC and agency consultation materials, hazardous materials support report, attachments B/C, manual tables, reviewer notes.
+- `Risk if forgotten`: Reviewers may see manual-required status but expect the current MVP to store or interpret arbitrary support documents. The current contract only exposes the need and gates export behavior.
+- `Temporary simplification`: Use existing edited/replacement content fields for reviewer-supplied body text and the existing figure replacement/caption flow for figures. Reviewer notes remain internal.
+- `Target sprint/subunit`: future approved manual-document workflow.
 - `Status`: open.
 
 ### Census Live Acquisition And MOE Handling

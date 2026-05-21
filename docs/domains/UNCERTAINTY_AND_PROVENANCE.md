@@ -189,9 +189,11 @@ Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderabl
 
 Sprint 5.3 source need classes are report-facing provenance labels, not confidence scores. `available_materialized` means current project-local/downloaded/materialized source truth can support report-facing caveat suppression. `warehouse_available_not_materialized`, `acquisition_candidate`, and `deferred` mean the source need remains visible for reviewer or future workflow action. `manual_reviewer_supplied` and `restricted_authorized_reviewer_supplied` preserve human/restricted-source boundaries. `public_coarse_screening_context` marks public cultural or visual context that can support screening context but must not substitute for restricted records, field verification, or reviewer-supplied authority.
 
+Sprint 5.7 adds item-level manual-material provenance for review/export decisions. The current statuses are `source_backed_generated`, `manual_required`, `reviewer_supplied`, `restricted_reviewer_supplied_required`, `optional_absent`, `not_used`, `unable_to_verify`, and `deferred_source`. These statuses describe how an item should be reviewed and exported; they are not source confidence scores and do not authorize restricted-source interpretation.
+
 ## Data Authenticity and Lineage
 
-Export and deliverable manifests include a `data_lineage` summary. It counts project inputs, registered local source layers, provided-in-input source layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records.
+Export and deliverable manifests include a `data_lineage` summary and item-level manual-material metadata. The lineage summary counts project inputs, registered local source layers, provided-in-input source layers, downloaded public source layers, manual/gated/missing stubs, and test/mock records.
 
 The current convention is:
 

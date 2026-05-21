@@ -74,6 +74,33 @@ RENDER_POLICY_FIELDS = {
     "render_decision_reason",
     "report_body_eligible",
 }
+MANUAL_MATERIAL_TYPES = {
+    "none",
+    "manual_text",
+    "replacement_figure",
+    "edited_caption",
+    "manual_table",
+    "supporting_document",
+    "reviewer_note",
+}
+MANUAL_MATERIAL_STATUSES = {
+    "source_backed_generated",
+    "manual_required",
+    "reviewer_supplied",
+    "restricted_reviewer_supplied_required",
+    "optional_absent",
+    "not_used",
+    "unable_to_verify",
+    "deferred_source",
+}
+MANUAL_MATERIAL_EXPORT_BEHAVIORS = {
+    "standard_review_export",
+    "body_replacement_when_reviewed",
+    "attachment_status_when_reviewed",
+    "figure_review_when_reviewed",
+    "internal_note_only",
+    "do_not_export",
+}
 BODY_INELIGIBLE_RENDER_DECISIONS = {
     "table_figure_only",
     "needs_reviewer_decision",
@@ -163,6 +190,7 @@ REQUIRED_ITEM_FIELDS = {
     *EXTENT_FIELD_NAMES,
     "extent_policy_version",
     *RENDER_POLICY_FIELDS,
+    "manual_material",
 }
 
 
@@ -291,6 +319,7 @@ def _normalize_deliverable_items_compat(data: dict[str, Any]) -> None:
         )
         apply_extent_metadata(item, extent)
         _apply_render_policy_fields(item, _item_render_policy(item))
+        item.setdefault("manual_material", _manual_material_record_from_item(item))
 
 
 def validate_deliverable_items(data: dict[str, Any], location: str) -> None:
@@ -353,6 +382,7 @@ def validate_deliverable_items(data: dict[str, Any], location: str) -> None:
         for object_field in ("provenance", "assumptions"):
             if not isinstance(item[object_field], dict):
                 raise DeliverableItemsError(f"Deliverable item '{item_id}' field '{object_field}' must be an object: {location}")
+        _validate_manual_material(item["manual_material"], item_id, location)
 
 
 def _load_or_generate_context(project_dir: Path) -> dict[str, Any]:
@@ -908,6 +938,19 @@ def _base_item(
                 target_id,
             )
         )
+    effective_render_policy = render_policy or _default_render_policy()
+    manual_material = _manual_material_record(
+        target_id=target_id,
+        target_type=target_type,
+        review_item_type=review_item_type,
+        table_id=table_id,
+        figure_id=figure_id,
+        attachment_id=attachment_id,
+        source_refs=source_refs,
+        assumptions=assumptions,
+        render_policy=effective_render_policy,
+        is_stub=is_stub,
+    )
     item = {
         "deliverable_item_id": deliverable_item_id,
         "target_id": target_id,
@@ -939,8 +982,9 @@ def _base_item(
         "review_status": status,
         "export_eligible": status in {"accepted", "edited", "replaced", "unable_to_verify"},
         "validation_issues": _dedupe_issues(issues),
+        "manual_material": manual_material,
     }
-    _apply_render_policy_fields(item, render_policy or _default_render_policy())
+    _apply_render_policy_fields(item, effective_render_policy)
     return apply_extent_metadata(item, extent_metadata)
 
 
@@ -1144,6 +1188,137 @@ def _apply_render_policy_fields(item: dict[str, Any], render_policy: dict[str, A
     for key in RENDER_POLICY_FIELDS:
         value = render_policy.get(key, defaults[key])
         item[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
+
+
+def _manual_material_record_from_item(item: dict[str, Any]) -> dict[str, Any]:
+    return _manual_material_record(
+        target_id=str(item.get("target_id") or item.get("deliverable_item_id") or ""),
+        target_type=str(item.get("target_type") or ""),
+        review_item_type=str(item.get("review_item_type") or ""),
+        table_id=str(item.get("table_id") or ""),
+        figure_id=str(item.get("figure_id") or ""),
+        attachment_id=str(item.get("attachment_id") or ""),
+        source_refs=_string_list(item.get("source_refs", [])),
+        assumptions=item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {},
+        render_policy=_item_render_policy(item),
+        is_stub=bool(item.get("is_stub", False)),
+    )
+
+
+def _manual_material_record(
+    *,
+    target_id: str,
+    target_type: str,
+    review_item_type: str,
+    table_id: str,
+    figure_id: str,
+    attachment_id: str,
+    source_refs: list[str],
+    assumptions: dict[str, Any],
+    render_policy: dict[str, Any],
+    is_stub: bool,
+) -> dict[str, Any]:
+    source_gap_status = _dict_list(assumptions.get("source_gap_status", []))
+    source_states = {str(status.get("status") or "") for status in source_gap_status}
+    source_ids = _dedupe([ref for status in source_gap_status for ref in _string_list(status.get("source_ids", []))] + source_refs)
+    categories = _dedupe([str(status.get("category") or "") for status in source_gap_status if status.get("category")])
+    activation = str(render_policy.get("policy_activation_condition") or "")
+    review_requirement = str(render_policy.get("policy_review_requirement") or "")
+    render_decision = str(render_policy.get("render_decision") or "")
+    material_type = "none"
+    status = "not_used"
+    export_behavior = "do_not_export"
+    reviewer_action = "No manual reviewer-supplied material is expected for this item."
+
+    is_attachment = target_type == "attachment" or review_item_type == "attachment" or bool(attachment_id)
+    is_figure = target_type == "figure" or review_item_type == "figure" or bool(figure_id)
+    is_table = target_type == "table" or review_item_type == "table" or bool(table_id)
+    is_manual_policy = activation in {"manual_reviewer_supplied", "reviewer_supplied_parent_study"} or review_requirement == "manual_review"
+
+    if is_attachment:
+        material_type = "supporting_document"
+        export_behavior = "attachment_status_when_reviewed"
+        if target_id == "attachment-environmental-constraints-maps" and not is_stub:
+            status = "source_backed_generated"
+            reviewer_action = "Review generated map-package figure support before export."
+        else:
+            status = "manual_required"
+            reviewer_action = "Supply, verify, or explicitly carry the attachment/supporting-document limitation before export."
+    elif is_manual_policy:
+        material_type = "manual_text"
+        status = "manual_required"
+        export_behavior = "body_replacement_when_reviewed"
+        if activation == "reviewer_supplied_parent_study":
+            reviewer_action = "Supply reviewer-approved parent-study relationship text before this section can export as body content."
+        else:
+            reviewer_action = "Supply reviewer-approved manual text before this item can export as normal report content."
+    elif source_states.intersection({"gated", "restricted"}):
+        material_type = "manual_text"
+        status = "restricted_reviewer_supplied_required"
+        export_behavior = "body_replacement_when_reviewed"
+        reviewer_action = "Restricted or authorized-source material is required; public/coarse context does not satisfy this review need."
+    elif source_states.intersection({"manual", "stubbed"}):
+        material_type = "manual_table" if is_table else "manual_text"
+        status = "manual_required"
+        export_behavior = "body_replacement_when_reviewed"
+        reviewer_action = "Manual or reviewer-supplied source material is required before this item can be treated as source-backed content."
+    elif source_states.intersection({"optional"}):
+        status = "optional_absent"
+        export_behavior = "do_not_export"
+        reviewer_action = "Optional source material is absent; this does not block the required review package."
+    elif render_decision in {"blocked_missing_source", "audit_only"} or activation == "deferred_source":
+        status = "deferred_source"
+        export_behavior = "do_not_export"
+        reviewer_action = "Carry this as deferred or source-gap status unless future source work supplies material."
+    elif is_figure:
+        status = "source_backed_generated" if source_refs or not is_stub else "manual_required"
+        export_behavior = "figure_review_when_reviewed"
+        reviewer_action = "Review figure image, caption, source note, and method note before export."
+    elif is_table:
+        status = "source_backed_generated" if source_refs or not is_stub else "manual_required"
+        export_behavior = "standard_review_export"
+        reviewer_action = "Review table preview and source metadata before export."
+    elif source_refs or source_states.intersection(AVAILABLE_SOURCE_STATES):
+        status = "source_backed_generated"
+        export_behavior = "standard_review_export"
+        reviewer_action = "Review generated source-backed content before export."
+
+    if target_id in {"attachment-hazardous-materials-report", "attachment-agency-consultation-letters"}:
+        material_type = "supporting_document"
+        status = "manual_required"
+        export_behavior = "attachment_status_when_reviewed"
+        reviewer_action = "Supply and review the supporting document, or carry its absence as an explicit attachment limitation."
+
+    return {
+        "material_type": material_type,
+        "material_status": status,
+        "export_behavior": export_behavior,
+        "reviewer_action": reviewer_action,
+        "source_refs": source_ids,
+        "source_categories": categories,
+        "internal_note_only": False,
+    }
+
+
+def _validate_manual_material(record: Any, item_id: str, location: str) -> None:
+    if not isinstance(record, dict):
+        raise DeliverableItemsError(f"Deliverable item '{item_id}' manual_material must be an object: {location}")
+    material_type = str(record.get("material_type") or "")
+    status = str(record.get("material_status") or "")
+    export_behavior = str(record.get("export_behavior") or "")
+    if material_type not in MANUAL_MATERIAL_TYPES:
+        raise DeliverableItemsError(f"Deliverable item '{item_id}' manual_material has unsupported material_type: {location}")
+    if status not in MANUAL_MATERIAL_STATUSES:
+        raise DeliverableItemsError(f"Deliverable item '{item_id}' manual_material has unsupported material_status: {location}")
+    if export_behavior not in MANUAL_MATERIAL_EXPORT_BEHAVIORS:
+        raise DeliverableItemsError(f"Deliverable item '{item_id}' manual_material has unsupported export_behavior: {location}")
+    for list_field in ("source_refs", "source_categories"):
+        if not isinstance(record.get(list_field, []), list):
+            raise DeliverableItemsError(f"Deliverable item '{item_id}' manual_material.{list_field} must be a list: {location}")
+    if not isinstance(record.get("reviewer_action", ""), str):
+        raise DeliverableItemsError(f"Deliverable item '{item_id}' manual_material.reviewer_action must be a string: {location}")
+    if not isinstance(record.get("internal_note_only", False), bool):
+        raise DeliverableItemsError(f"Deliverable item '{item_id}' manual_material.internal_note_only must be boolean: {location}")
 
 
 def _item_render_policy(item: dict[str, Any]) -> dict[str, Any]:

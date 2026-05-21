@@ -25,3 +25,4 @@ Current archived sprint records include:
 - `docs/archive/sprints/SPRINT_5_4_REPORT_INCLUSION_AND_DISCERNMENT_PASS.md`
 - `docs/archive/sprints/SPRINT_5_5_CAVEAT_BUNDLES_PROHIBITED_CLAIMS_AND_GPT_ELIGIBILITY.md`
 - `docs/archive/sprints/SPRINT_5_6_TABLE_FIGURE_POLICY_MATRIX_ALIGNMENT.md`
+- `docs/archive/sprints/SPRINT_5_7_MANUAL_REVIEWER_SUPPLIED_POLICY_MVP.md`

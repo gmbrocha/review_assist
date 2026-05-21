@@ -792,6 +792,7 @@ def review_item_detail(project_dir: Path, item_id: str) -> dict[str, Any]:
         },
         "provenance": _provenance_summary(item.get("provenance", {})),
         "source_refs": _string_list(item.get("source_refs", [])),
+        "manual_material": _manual_material_fields(item),
         "comparison_unit_ids": _string_list(item.get("comparison_unit_ids", [])),
         "reviewer_notes": _dict_list(item.get("reviewer_notes", [])),
         "validation_issues": _dict_list(item.get("validation_issues", [])),
@@ -1061,6 +1062,7 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
     related_figure_ids = _string_list(item.get("related_figure_ids", []))
     related_attachment_ids = _string_list(item.get("related_attachment_ids", []))
     render_policy = _render_policy_fields(item)
+    manual_material = _manual_material_fields(item)
     return {
         "id": str(item.get("id") or item.get("deliverable_item_id") or item.get("target_id") or ""),
         "deliverable_item_id": str(item.get("deliverable_item_id") or ""),
@@ -1085,6 +1087,7 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
         "display_attachment_refs": [attachment_id] if attachment_id else related_attachment_ids,
         "comparison_unit_ids": _string_list(item.get("comparison_unit_ids", [])),
         "validation_issue_count": len(_dict_list(item.get("validation_issues", []))),
+        "manual_material": manual_material,
         "updated_at": item.get("updated_at"),
         **render_policy,
         "render_policy": render_policy,
@@ -1488,6 +1491,19 @@ def _render_policy_fields(item: dict[str, Any]) -> dict[str, Any]:
         value = item.get(key, defaults[key])
         result[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
     return result
+
+
+def _manual_material_fields(item: dict[str, Any]) -> dict[str, Any]:
+    record = item.get("manual_material", {}) if isinstance(item.get("manual_material"), dict) else {}
+    return {
+        "material_type": str(record.get("material_type") or "none"),
+        "material_status": str(record.get("material_status") or "not_used"),
+        "export_behavior": str(record.get("export_behavior") or "do_not_export"),
+        "reviewer_action": str(record.get("reviewer_action") or ""),
+        "source_refs": _string_list(item.get("source_refs", [])) or _string_list(record.get("source_refs", [])),
+        "source_categories": _string_list(record.get("source_categories", [])),
+        "internal_note_only": bool(record.get("internal_note_only", False)),
+    }
 
 
 def _coerce_bool(value: Any) -> bool:
