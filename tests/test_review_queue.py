@@ -150,7 +150,7 @@ def test_generate_review_queue_writes_bounded_deliverable_item_queue(tmp_path: P
     assert oil_wells["related_figure_ids"] == ["figure-oil-gas-wells"]
     assert oil_wells["analysis_extent_type"] == "direct_intersection_extent"
     assert demographics["analysis_extent_type"] == "county_or_regional_context_extent"
-    assert "county or regional context" in demographics["interpretation_scope_label"]
+    assert "for county or regional context" in demographics["interpretation_scope_label"]
     assert not items_by_type(queue, "draft_finding")
     assert not items_by_type(queue, "comparison_table")
     assert not items_by_type(queue, "spatial_relationship")

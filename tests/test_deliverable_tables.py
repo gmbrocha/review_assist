@@ -217,7 +217,7 @@ def test_deliverable_wetlands_table_uses_exact_columns_and_deduplicated_counts(t
     census = table_by_id(tables, "table-income-demographics")
     assert census["is_stub"] is True
     assert census["table_extent_type"] == "county_or_regional_context_extent"
-    assert "county or regional context" in census["interpretation_scope_label"]
+    assert "for county or regional context" in census["interpretation_scope_label"]
 
 
 def test_wetlands_table_uses_effective_source_status_not_logical_rollup_noise(tmp_path: Path) -> None:

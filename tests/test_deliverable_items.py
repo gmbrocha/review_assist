@@ -395,7 +395,7 @@ def test_watershed_section_wording_uses_context_scope_without_fake_implementatio
     )
 
     lowered = content.lower()
-    assert "within the watershed/subwatershed context" in content
+    assert "in the watershed/subwatershed context" in content
     assert "current automated watershed context remains limited" in content
     assert "direct project impact" not in lowered
 
@@ -563,4 +563,4 @@ def test_cli_generate_deliverable_items_json(
     assert health_care["analysis_extent_type"] == "community_context_extent"
     assert "near the project area" in health_care["interpretation_scope_label"]
     assert demographics["analysis_extent_type"] == "county_or_regional_context_extent"
-    assert "county or regional context" in demographics["interpretation_scope_label"]
+    assert "for county or regional context" in demographics["interpretation_scope_label"]

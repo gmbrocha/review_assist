@@ -72,6 +72,39 @@ def context_direct_impact_gpt_response(self: section_drafting.OpenAISectionDraft
     }
 
 
+def context_project_intersection_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": "County and regional context shows the facility within the project area and directly intersecting the project footprint.",
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": [],
+        "caveats": [],
+    }
+
+
+def map_extent_overclaim_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": "The feature is shown on the map, which confirms a direct project intersection.",
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": [],
+        "caveats": [],
+    }
+
+
+def generic_ape_gpt_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": "The generic screening buffer is the APE for the project.",
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": [],
+        "caveats": [],
+    }
+
+
 def policy_prohibited_claim_response(self: section_drafting.OpenAISectionDraftProvider, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "draft_content": "Nearby regulated facility context creates a cleanup obligation for the project.",
@@ -380,6 +413,86 @@ def test_section_drafting_rejects_direct_impact_language_for_context_extent(monk
     assert result.content == "Nearby health care context is summarized for reviewer consideration."
     assert result.provenance["gpt_output_accepted"] is False
     assert any(issue["code"] == "direct_impact_language_for_context_extent" for issue in result.validation_issues)
+
+
+def test_section_drafting_rejects_direct_project_language_for_county_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", context_project_intersection_gpt_response)
+    provider = section_drafting.OpenAISectionDraftProvider(model="gpt-test", api_key="test-key")
+
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="demographic-characteristics",
+            section_type="section_text",
+            title="Demographic Characteristics",
+            purpose="Summarize county/regional context.",
+            resource_category="community_socioeconomic",
+            deterministic_content="County and regional context remains for reviewer consideration.",
+            extent_metadata={
+                "query_extent_type": "project_area_analysis_bounds",
+                "analysis_extent_type": "county_or_regional_context_extent",
+                "interpretation_scope_label": "for county or regional context",
+            },
+        )
+    )
+
+    assert result.content == "County and regional context remains for reviewer consideration."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert any(issue["code"] == "direct_project_language_for_context_extent" for issue in result.validation_issues)
+
+
+def test_section_drafting_rejects_map_extent_as_analysis_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", map_extent_overclaim_gpt_response)
+    provider = section_drafting.OpenAISectionDraftProvider(model="gpt-test", api_key="test-key")
+
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="wetlands-and-waterbodies",
+            section_type="section_text",
+            title="Wetlands and Waterbodies",
+            purpose="Summarize source-backed wetlands evidence.",
+            resource_category="wetlands_waterbodies",
+            deterministic_content="Deterministic wetlands text remains for review.",
+            extent_metadata={
+                "analysis_extent_type": "direct_intersection_extent",
+                "render_extent_type": "figure_render_extent",
+                "presentation_extent_type": "presentation_only_collar_extent",
+                "render_extent_is_presentation_only": True,
+            },
+        )
+    )
+
+    assert result.content == "Deterministic wetlands text remains for review."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert any(issue["code"] == "map_extent_used_as_analysis_evidence" for issue in result.validation_issues)
+
+
+def test_section_drafting_rejects_ape_language_without_manual_cultural_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(section_drafting.OpenAISectionDraftProvider, "_create_response", generic_ape_gpt_response)
+    provider = section_drafting.OpenAISectionDraftProvider(model="gpt-test", api_key="test-key")
+
+    result = provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="cultural-and-historic-resources",
+            section_type="section_text",
+            title="Cultural and Historic Resources",
+            purpose="Summarize public cultural context.",
+            resource_category="cultural_historic",
+            deterministic_content="Public cultural context remains bounded and reviewer-facing.",
+            extent_metadata={
+                "analysis_extent_type": "nearby_context_extent",
+                "interpretation_scope_label": "in the project vicinity",
+            },
+            section_policy={
+                "section_id": "cultural-and-historic-resources",
+                "source_category": "cultural_historic",
+                "manual_or_reviewer_supplied": False,
+            },
+        )
+    )
+
+    assert result.content == "Public cultural context remains bounded and reviewer-facing."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert any(issue["code"] == "ape_language_requires_manual_cultural_context" for issue in result.validation_issues)
 
 
 def test_section_drafting_rejects_section_policy_prohibited_claims(monkeypatch: pytest.MonkeyPatch) -> None:

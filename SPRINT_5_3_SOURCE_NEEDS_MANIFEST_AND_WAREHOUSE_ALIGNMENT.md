@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked for implementation after Sprint 5.1 policy reconciliation and Sprint 5.2 extent semantics are accepted.
+Active next implementation target after Sprint 5.2 extent semantics enforcement.
 
 ## Goal
 

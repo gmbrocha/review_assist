@@ -70,6 +70,18 @@ DIRECT_IMPACT_PATTERNS = {
     "direct impact": r"\bdirect (?:project )?impact\b|\bdirectly impact(?:s|ed)?\b",
     "project impact": r"\bwill impact\b|\bwould impact\b|\bimpacts the project\b",
 }
+CONTEXT_ONLY_DIRECT_PROJECT_PATTERNS = {
+    "direct project intersection": r"\bdirect (?:project )?(?:intersection|overlap)\b",
+    "within project footprint": r"\b(?:within|inside) (?:the )?(?:project area|project footprint|project limits|project corridor|submitted project)\b",
+    "intersects project footprint": r"\b(?:intersects?|overlaps?|crosses) (?:the )?(?:project area|project footprint|project limits|project corridor|submitted project)\b",
+    "project impact from context": r"\b(?:would|will|may) (?:affect|impact) (?:the )?project\b",
+}
+MAP_PRESENTATION_OVERCLAIM_PATTERNS = {
+    "shown on map as evidence": r"\b(?:shown|depicted|appears) on (?:the )?(?:map|figure) (?:means|shows|confirms|establishes|indicates|proves)\b",
+    "map extent as evidence": r"\b(?:map|figure|render|rendering|collar|presentation) extent (?:means|shows|confirms|establishes|indicates|proves|is evidence of)\b",
+    "map presence as intersection": r"\b(?:shown|depicted|appears) on (?:the )?(?:map|figure).{0,80}\b(?:direct|intersection|intersects?|impact|within the project)\b",
+}
+APE_PATTERN = r"\bape\b|\barea of potential effects?\b"
 POLICY_PROHIBITED_CLAIM_PATTERNS = {
     "agency approval": r"\bagency approval\b|\bapproved by (?:the )?(?:agency|agencies)\b",
     "agency clearance": r"\bagency clearance\b|\bcleared by (?:the )?(?:agency|agencies)\b|\bclearance\b",
@@ -652,12 +664,35 @@ def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], c
         for label, pattern in DIRECT_IMPACT_PATTERNS.items():
             if re.search(pattern, lowered):
                 issues.append(_issue("error", "direct_impact_language_for_context_extent", f"GPT output used {label} language for context-only extent metadata."))
+        for label, pattern in CONTEXT_ONLY_DIRECT_PROJECT_PATTERNS.items():
+            if re.search(pattern, lowered):
+                issues.append(_issue("error", "direct_project_language_for_context_extent", f"GPT output used {label} language for context-only extent metadata."))
+    for label, pattern in MAP_PRESENTATION_OVERCLAIM_PATTERNS.items():
+        if re.search(pattern, lowered):
+            issues.append(_issue("error", "map_extent_used_as_analysis_evidence", f"GPT output treated map presentation as analysis evidence: {label}."))
+    if re.search(APE_PATTERN, lowered) and not _allows_ape_language(request):
+        issues.append(_issue("error", "ape_language_requires_manual_cultural_context", "GPT output used APE language without reviewer-defined cultural context."))
     return issues
 
 
 def _context_only_extent(extent_metadata: dict[str, Any]) -> bool:
     extent_type = str(extent_metadata.get("analysis_extent_type") or extent_metadata.get("list_extent_type") or "")
     return extent_type in {"nearby_context_extent", "community_context_extent", "watershed_context_extent", "county_or_regional_context_extent"}
+
+
+def _allows_ape_language(request: SectionDraftRequest) -> bool:
+    policy = request.section_policy if isinstance(request.section_policy, dict) else {}
+    policy_category = str(policy.get("source_category", ""))
+    section_text = " ".join([request.section_id, request.resource_category, policy_category]).lower()
+    cultural_context = any(term in section_text for term in ("cultural", "historic", "archaeological"))
+    manual_context = bool(policy.get("manual_or_reviewer_supplied")) or policy.get("drafting_mode") == "manual_reviewer_supplied_only"
+    manual_context = manual_context or policy.get("activation_condition") in {
+        "manual_reviewer_supplied",
+        "reviewer_supplied_parent_study",
+    }
+    extent_type = str(request.extent_metadata.get("analysis_extent_type") or request.extent_metadata.get("list_extent_type") or "")
+    manual_context = manual_context or extent_type == "manual_reviewer_supplied"
+    return cultural_context and manual_context
 
 
 def _references_style_context_as_evidence(parsed: dict[str, Any], lowered_content: str) -> bool:

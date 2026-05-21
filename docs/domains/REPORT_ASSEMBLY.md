@@ -113,6 +113,8 @@ Sprint 2.3 evidence also includes deliverable table refs, deliverable figure ref
 
 Evidence and downstream deliverable artifacts now preserve extent-policy metadata. Current fields distinguish the query extent actually used, the analysis or interpretation extent type, table/list/figure extent type, render extent type, whether render expansion is presentation-only, and a source-selection reason. This allows report prose and reviewer metadata to distinguish direct project-area evidence from nearby/community context, watershed context, county/regional context, and map-collar rendering. This metadata does not create new query buffers or broaden existing source materialization by itself.
 
+Current named context extents are policy labels unless a source-query implementation explicitly exists. Nearby/community, watershed/subwatershed, and county/regional labels constrain wording and review metadata; they do not prove that a separate context query was run. Render extent, basemap materialization extent, and presentation collar extent are presentation-only and must not be described as source evidence, direct intersection, project footprint, or project impact.
+
 ## Deliverable Tables
 
 The current CLI can generate the exact standard table targets from the canonical deliverable matrix:

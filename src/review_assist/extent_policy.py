@@ -34,6 +34,7 @@ EXTENT_FIELD_NAMES = (
     "list_extent_type",
     "figure_extent_type",
     "render_extent_type",
+    "presentation_extent_type",
     "render_extent_is_presentation_only",
     "interpretation_scope_label",
     "source_selection_reason",
@@ -73,6 +74,17 @@ COUNTY_OR_REGIONAL_TARGET_IDS = {
 DIRECT_TARGET_IDS = {
     "oil-wells",
 }
+EXTENT_TERM_SEMANTICS = {
+    "within": "Use only for direct intersection with a named analysis extent, or for a named buffer explicitly stated in the sentence.",
+    "near": "Use for features outside direct project extent but within configured screening or context evidence.",
+    "adjacent": "Use only when a source relationship explicitly touches or is tagged adjoining.",
+    "downstream": "Use only for hydrologic network evidence or reviewer-confirmed downstream relationships.",
+    "watershed/subwatershed": "Hydrologic context geography, not a direct project footprint or impact claim.",
+    "county/regional": "Regional context geography, not a project-area impact or project-footprint demographic claim.",
+    "APE": "Reviewer-defined cultural extent only; never infer from a generic buffer.",
+    "corridor": "Use only when submitted project geometry or reviewer metadata supports corridor/route language.",
+    "shown on map": "Presentation support only; map extent or collar space is not evidence of intersection or impact.",
+}
 
 
 def base_extent_metadata(
@@ -85,6 +97,7 @@ def base_extent_metadata(
     list_extent_type: str = "",
     figure_extent_type: str = "",
     render_extent_type: str = "",
+    presentation_extent_type: str = "",
     render_extent_is_presentation_only: bool = False,
     interpretation_scope_label: str = "within the project area or comparison-unit screening geometry",
     source_selection_reason: str = "Existing automated checks use registered project-local source layers clipped to project_area_analysis_bounds.",
@@ -98,6 +111,7 @@ def base_extent_metadata(
         "list_extent_type": list_extent_type,
         "figure_extent_type": figure_extent_type,
         "render_extent_type": render_extent_type,
+        "presentation_extent_type": presentation_extent_type,
         "render_extent_is_presentation_only": bool(render_extent_is_presentation_only),
         "interpretation_scope_label": interpretation_scope_label,
         "source_selection_reason": source_selection_reason,
@@ -257,6 +271,7 @@ def extent_policy_summary() -> dict[str, Any]:
             FIGURE_RENDER_EXTENT,
             PRESENTATION_ONLY_COLLAR_EXTENT,
         ],
+        "extent_term_semantics": dict(EXTENT_TERM_SEMANTICS),
         "report_section_policy_path": "config/report_section_policy.json",
         "core_rule": "Rendered map extent and legend/basemap collar extent are presentation-only and must not drive counts, findings, source inclusion, or interpretation.",
     }
@@ -269,9 +284,9 @@ def extent_wording_for_scope(metadata: dict[str, Any]) -> str:
     if extent_type == NEARBY_CONTEXT_EXTENT:
         return "in the project vicinity"
     if extent_type == WATERSHED_CONTEXT_EXTENT:
-        return "within the watershed/subwatershed context"
+        return "in the watershed/subwatershed context"
     if extent_type == COUNTY_OR_REGIONAL_CONTEXT_EXTENT:
-        return "within the county or regional context"
+        return "for county or regional context"
     if extent_type == SCREENING_BUFFER_EXTENT:
         return "within the screening buffer"
     return "within the project area"
@@ -346,7 +361,7 @@ def _metadata_for_scope(scope: str, *, query_distance: float | int | None, query
             analysis_extent_type=WATERSHED_CONTEXT_EXTENT,
             query_distance=query_distance,
             query_units=query_units,
-            interpretation_scope_label="within the watershed/subwatershed context",
+            interpretation_scope_label="in the watershed/subwatershed context",
             source_selection_reason=(
                 "Watershed/subwatershed context is a report-scope target. Current automated evidence remains "
                 "limited to project_area_analysis_bounds until watershed_context_extent and 303(d) acquisition are implemented."
@@ -358,7 +373,7 @@ def _metadata_for_scope(scope: str, *, query_distance: float | int | None, query
             analysis_extent_type=COUNTY_OR_REGIONAL_CONTEXT_EXTENT,
             query_distance=query_distance,
             query_units=query_units,
-            interpretation_scope_label="within the county or regional context",
+            interpretation_scope_label="for county or regional context",
             source_selection_reason=(
                 "This report target is interpreted as county/regional context. Current automated evidence uses "
                 "available local source geometry intersecting project_area_analysis_bounds until county/regional querying is implemented."

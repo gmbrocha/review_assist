@@ -86,10 +86,10 @@ Each deferred item should include:
 ### Extent Semantics Query Implementation
 
 - `Deferred item`: Implement separate nearby/community, watershed/subwatershed, county/regional, and other named context queries where needed.
-- `Why postponed`: The current pass adds extent-policy metadata only; it does not change query buffers, source clipping, or analysis geometry.
+- `Why postponed`: The current passes add extent-policy metadata and Sprint 5.2 wording guardrails only; they do not change query buffers, source clipping, or analysis geometry.
 - `Affected sections/workflows`: Constraints, deliverable tables, evidence package, section drafting, review queue, figure metadata, report interpretation labels.
 - `Risk if forgotten`: Metadata labels could imply context extents that were not actually queried, or rendered map/collar extents could be misread as analysis extents.
-- `Temporary simplification`: Automated evidence remains bounded by current project-area/source materialization behavior unless a future pass explicitly adds named context extents.
+- `Temporary simplification`: Automated evidence remains bounded by current project-area/source materialization behavior unless a future pass explicitly adds named context extents. Nearby/community, watershed/subwatershed, and county/regional labels constrain wording but are not proof that a separate context query was run.
 - `Target sprint/subunit`: Future methodology/source-query hardening.
 - `Status`: open.
 

@@ -4,10 +4,10 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 5.2 Extent Semantics And Wording Enforcement is the active next target and currently lives in root-level planning docs:
+- Sprint 5.3 Source Needs Manifest And Warehouse Alignment is the active next target and currently lives in root-level planning docs:
   - `SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
   - `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
-  - `SPRINT_5_2_EXTENT_SEMANTICS_AND_WORDING_ENFORCEMENT.md`
+  - `SPRINT_5_3_SOURCE_NEEDS_MANIFEST_AND_WAREHOUSE_ALIGNMENT.md`
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -46,6 +46,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Locked the Sprint 5 report-policy/source-truth/discernment sequence, numbering, non-goals, approval gates, and active pointer handoff to Sprint 5.1.
 - Sprint 5.1 Canonical Policy Schema Reconciliation: `docs/archive/sprints/SPRINT_5_1_CANONICAL_POLICY_SCHEMA_RECONCILIATION.md`
   - Created the Sprint 5 package reconciliation ledger, kept `config/report_section_policy.json` canonical, added explicit section activation/review policy fields, made the PEL relationship section manual/conditional, and strengthened policy validation.
+- Sprint 5.2 Extent Semantics And Wording Enforcement: `docs/archive/sprints/SPRINT_5_2_EXTENT_SEMANTICS_AND_WORDING_ENFORCEMENT.md`
+  - Adopted reusable extent vocabulary, preserved presentation/collar extent metadata through merges, tightened deterministic context wording, and rejected unsafe GPT direct-project, APE, and map-as-evidence language.
 
 ## Deferred Work Linked To Sprints
 

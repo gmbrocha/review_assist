@@ -38,6 +38,18 @@ These fields make the current report contract explicit. They do not by themselve
 
 Presentation-only render/collar extent is never an interpretation extent. Figure render extent, basemap materialization extent, and legend/collar space may make a map readable, but they must not drive intersections, counts, evidence, tables, or report conclusions.
 
+Extent term semantics:
+
+- `within`: direct intersection with a named analysis extent, or a named buffer explicitly stated in the sentence.
+- `near`: outside direct extent but within configured screening/context evidence.
+- `adjacent`: touches or is explicitly tagged adjoining; not generic nearby.
+- `downstream`: hydrologic network evidence or reviewer-confirmed relationship.
+- `watershed/subwatershed`: hydrologic context geography, not a direct project footprint or impact claim.
+- `county/regional`: regional context geography, not a project-area impact or project-footprint demographic claim.
+- `APE`: reviewer-defined cultural extent only; do not infer it from a generic buffer.
+- `corridor`: use only when submitted project geometry or reviewer metadata supports corridor/route language.
+- `shown on map`: presentation support only; map extent or collar space is not evidence of intersection or impact.
+
 ## Comparison-Unit Expansion
 
 The policy distinguishes:

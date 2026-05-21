@@ -17,7 +17,10 @@ from review_assist.extent_policy import (
     COUNTY_OR_REGIONAL_CONTEXT_EXTENT,
     DIRECT_INTERSECTION_EXTENT,
     NEARBY_CONTEXT_EXTENT,
+    PRESENTATION_ONLY_COLLAR_EXTENT,
     WATERSHED_CONTEXT_EXTENT,
+    merge_extent_metadata,
+    render_extent_metadata,
     target_extent_metadata,
 )
 from review_assist.source_catalog import repo_root
@@ -164,6 +167,16 @@ def test_deliverable_matrix_extent_policy_keeps_key_scope_assignments_stable() -
     assert figure_scope("figure-hazardous-waste-sites") == NEARBY_CONTEXT_EXTENT
     assert figure_scope("figure-oil-gas-wells") == NEARBY_CONTEXT_EXTENT
     assert figure_scope("figure-census-tracts") == COUNTY_OR_REGIONAL_CONTEXT_EXTENT
+
+
+def test_presentation_extent_type_survives_extent_metadata_merge() -> None:
+    render_metadata = render_extent_metadata({"collar_bounds": [-90.0, 32.0, -89.9, 32.1]})
+    merged = merge_extent_metadata([render_metadata])
+
+    assert render_metadata["render_extent_type"] == "figure_render_extent"
+    assert render_metadata["render_extent_is_presentation_only"] is True
+    assert render_metadata["presentation_extent_type"] == PRESENTATION_ONLY_COLLAR_EXTENT
+    assert merged["presentation_extent_type"] == PRESENTATION_ONLY_COLLAR_EXTENT
 
 
 def test_deliverable_matrix_rejects_invalid_table_ref() -> None:

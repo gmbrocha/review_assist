@@ -56,7 +56,7 @@ def test_demographic_characteristics_uses_county_regional_policy() -> None:
     assert policy.extent_policy == "county_or_regional_context"
     assert policy.visual_extent_class == "county_regional"
     assert metadata["analysis_extent_type"] == "county_or_regional_context_extent"
-    assert "county or regional context" in metadata["interpretation_scope_label"]
+    assert "for county or regional context" in metadata["interpretation_scope_label"]
 
 
 def test_oil_wells_direct_check_with_context_figure_policy_is_explicit() -> None:
