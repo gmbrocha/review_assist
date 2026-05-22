@@ -24,6 +24,7 @@ from .deliverable import DemoDeliverableError, MvpDeliverableError, build_demo_d
 from .evidence_package import EvidencePackageError, build_evidence_package
 from .export_report import ExportGateError, ExportQAError, ExportReportError, export_report
 from .findings import FindingGenerationError, generate_draft_findings
+from .figure_style_model import FigureStyleModelError, initialize_figure_style_model
 from .gpt_interpretive_assist import GptInterpretiveAssistError, draft_section_candidates
 from .input_package import InputPackageError, classify_input_package
 from .inspection import ProjectInspectionError, inspect_project
@@ -240,6 +241,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     deliverable_figures_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
     deliverable_figures_parser.add_argument("--json", action="store_true", help="Print full JSON deliverable figures artifact to stdout.")
+
+    figure_style_model_parser = subparsers.add_parser(
+        "initialize-figure-style-model",
+        help="Initialize project-local figure recipe/style/version metadata from existing deliverable figures.",
+    )
+    figure_style_model_parser.add_argument("project_dir", type=Path, help="Path to a project workspace directory.")
+    figure_style_model_parser.add_argument("--json", action="store_true", help="Print full JSON figure style model initialization summary.")
 
     deliverable_items_parser = subparsers.add_parser(
         "generate-deliverable-items",
@@ -1035,6 +1043,26 @@ def generate_deliverable_figures_command(project_dir: Path, print_json: bool) ->
     return 0
 
 
+def initialize_figure_style_model_command(project_dir: Path, print_json: bool) -> int:
+    try:
+        result = initialize_figure_style_model(project_dir)
+    except FigureStyleModelError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if print_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"Initialized figure style model: {result['project_id']} ({result['project_name']})")
+    print(f"Recipes: {result['recipe_count']}")
+    print(f"Versions: {result['version_count']}")
+    print(f"Overrides: {result['override_count']}")
+    print(f"Render jobs: {result['render_job_count']}")
+    print(f"Recipes output: {result['recipes_path']}")
+    return 0
+
+
 def generate_deliverable_items_command(
     project_dir: Path,
     print_json: bool,
@@ -1535,6 +1563,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_deliverable_tables_command(args.project_dir, args.json)
     if args.command == "generate-deliverable-figures":
         return generate_deliverable_figures_command(args.project_dir, args.json)
+    if args.command == "initialize-figure-style-model":
+        return initialize_figure_style_model_command(args.project_dir, args.json)
     if args.command == "generate-deliverable-items":
         return generate_deliverable_items_command(args.project_dir, args.json, args.gpt_drafting, args.no_gpt_drafting, args.gpt_model)
     if args.command == "draft-section-candidates":
