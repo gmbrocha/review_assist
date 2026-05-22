@@ -4,14 +4,20 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- None. Sprint 5 is complete; pause for post-Sprint-5 / Sprint 6 planning.
+- Sprint 6.2 Figure Recipe And Override Model: `SPRINT_6_2_FIGURE_RECIPE_AND_OVERRIDE_MODEL.md`
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
 ## Planned Sprint/Subunits
 
 - Roadmap reference: `docs/sprints/ROADMAP.md`
-- Sprint 6 planning is not yet active.
+- Sprint 6 root plan: `SPRINT_6_REVIEWER_FIGURE_STYLING_AND_REGENERATION.md`
+- Sprint 6.3 Reviewer Figure Editor UI: `SPRINT_6_3_REVIEWER_FIGURE_EDITOR_UI.md`
+- Sprint 6.4 Style Override Save Logic: `SPRINT_6_4_STYLE_OVERRIDE_SAVE_LOGIC.md`
+- Sprint 6.5 Regeneration Job: `SPRINT_6_5_REGENERATION_JOB.md`
+- Sprint 6.6 Figure Versioning And Approval: `SPRINT_6_6_FIGURE_VERSIONING_AND_APPROVAL.md`
+- Sprint 6.7 Export Integration: `SPRINT_6_7_EXPORT_INTEGRATION.md`
+- Sprint 6.8 QA And Scope-Control Pass: `SPRINT_6_8_QA_AND_SCOPE_CONTROL_PASS.md`
 
 ## Completed Sprint/Subunits
 
@@ -63,6 +69,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Completed Sprint 5 across policy schema, extent semantics, source truth, render gating, GPT guardrails, table/figure policy, manual material status, export QA, and final verification.
 - Sprint 5 Policy Package Reconciliation Ledger: `docs/archive/sprints/SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
   - Historical package-to-policy disposition record for adopted, rejected, already-covered, and deferred Sprint 5 package proposals.
+- Sprint 6.1 Existing Figure Flow Audit: `docs/archive/sprints/SPRINT_6_1_EXISTING_FIGURE_FLOW_AUDIT.md`
+  - Audited the current figure generation, review queue, caption/replacement, export-image resolution, and safe integration points for future figure recipes, sparse style overrides, render jobs, versions, approval state, and export resolution.
 
 ## Deferred Work Linked To Sprints
 

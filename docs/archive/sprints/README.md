@@ -30,3 +30,4 @@ Current archived sprint records include:
 - `docs/archive/sprints/SPRINT_5_9_END_TO_END_TRIAL_DOCS_AND_VERIFICATION.md`
 - `docs/archive/sprints/SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
 - `docs/archive/sprints/SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
+- `docs/archive/sprints/SPRINT_6_1_EXISTING_FIGURE_FLOW_AUDIT.md`
