@@ -11,6 +11,7 @@ from review_assist.deliverable_items import generate_deliverable_items, load_del
 from review_assist.deliverable_matrix import load_deliverable_matrix
 from review_assist.export_report import export_report
 from review_assist.populate_for_review import populate_for_review
+from review_assist.report_section_policy import load_report_section_policy
 from review_assist.review_queue import generate_review_queue, load_review_queue
 
 from test_export_report import set_only_reviewed_items, set_review_states, write_project
@@ -111,12 +112,18 @@ def test_standard_deliverable_outline_is_bounded(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     result = generate_deliverable_items(project_dir, gpt_drafting=False)
     matrix = load_deliverable_matrix()
-    static_sections = [target for target in matrix.section_targets if target.target_type != "dynamic_subsection_template"]
+    policies = load_report_section_policy().by_section_id()
+    static_sections = [
+        target
+        for target in matrix.section_targets
+        if target.target_type != "dynamic_subsection_template"
+        and policies[target.target_id].section_role != "structural_heading"
+    ]
     dynamic_templates = [target for target in matrix.section_targets if target.target_type == "dynamic_subsection_template"]
     comparison_unit_count = 1
     expected_count = len(static_sections) + comparison_unit_count + len(matrix.table_targets) + len(matrix.figure_targets) + len(matrix.attachment_targets)
 
-    assert len(static_sections) == 43
+    assert len(static_sections) == 42
     assert len(dynamic_templates) == 1
     assert len(matrix.table_targets) == 4
     assert len(matrix.figure_targets) == 15

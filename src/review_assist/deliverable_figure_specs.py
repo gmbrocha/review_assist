@@ -44,6 +44,7 @@ NHD_ROLLUP_SOURCE_ID = "usgs_nhd_hydrography"
 NHD_PHYSICAL_SOURCE_IDS = ("usgs_nhd_flowlines", "usgs_nhd_waterbodies", "usgs_nhd_other_areas")
 NHD_SOURCE_IDS = (NHD_ROLLUP_SOURCE_ID, *NHD_PHYSICAL_SOURCE_IDS)
 IMPAIRED_WATERS_SOURCE_IDS = ("mdeq_303d_impaired_waters",)
+WBD_HUC12_SOURCE_IDS = ("usgs_wbd_huc12_subwatersheds",)
 HAZARDOUS_REGULATED_SOURCE_IDS = (
     "epa_frs_facilities_ms",
     "maris_brownfields",
@@ -116,6 +117,7 @@ TARGET_SPECS: dict[str, TargetFigureSpec] = {
     ),
     "figure-streams-impaired-waters": TargetFigureSpec(
         (*NHD_PHYSICAL_SOURCE_IDS, *IMPAIRED_WATERS_SOURCE_IDS),
+        optional_source_ids=WBD_HUC12_SOURCE_IDS,
         excluded_source_ids=(NHD_ROLLUP_SOURCE_ID, "usfws_nwi_wetlands"),
     ),
     "figure-cultural-resources": TargetFigureSpec(

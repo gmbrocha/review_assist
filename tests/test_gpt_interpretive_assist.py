@@ -23,12 +23,21 @@ from review_assist.review_queue import load_review_queue
 from review_assist.review_queue import update_review_item
 from review_assist.section_drafting import SectionDraftRequest
 
-from test_export_report import add_supported_real_source_inputs, write_project
+from test_export_report import add_source_input, add_supported_real_source_inputs, write_project
 
 
 def _source_backed_project(tmp_path: Path) -> Path:
     project_dir = write_project(tmp_path)
     add_supported_real_source_inputs(project_dir)
+    add_source_input(
+        project_dir,
+        "fema_nfhl_flood_hazard",
+        "provided_fema_flood_hazard.geojson",
+        {
+            "type": "Polygon",
+            "coordinates": [[[-90.001, 31.999], [-89.998, 31.999], [-89.998, 32.001], [-90.001, 32.001], [-90.001, 31.999]]],
+        },
+    )
     populate_for_review(project_dir, prepare_sources=True, gpt_drafting=False)
     return project_dir
 
@@ -120,11 +129,60 @@ def test_dry_run_reports_planned_sections_without_api_calls(tmp_path: Path) -> N
 def test_gpt_planning_skips_body_ineligible_render_items(tmp_path: Path) -> None:
     project_dir = _source_backed_project(tmp_path)
 
-    plan = plan_gpt_section_drafts(project_dir)
+    plan = plan_gpt_section_drafts(project_dir, max_calls=None)
     skipped = {row["target_id"]: row["reason"] for row in plan["skipped_sections"]}
+    eligible = {row["target_id"] for row in plan["eligible_sections"]}
+    planned_or_skipped = {row["target_id"] for row in [*plan["planned_sections"], *plan["eligible_sections"], *plan["skipped_sections"]]}
 
-    assert skipped["floodplains-and-floodways"] == "render_table_figure_only_not_body_eligible"
+    assert "floodplains-and-floodways" in eligible
+    assert "floodplains-and-floodways" not in skipped
     assert skipped["relationship-with-pel-study"] == "manual_or_reviewer_supplied"
+    assert skipped["community-resources"] == "umbrella_section_deterministic_only"
+    assert skipped["environmental-constraints-inventory"] == "umbrella_section_deterministic_only"
+    assert "natural-and-ecological-resources" not in planned_or_skipped
+
+
+def test_floodplains_gpt_payload_includes_fema_table_figure_extent_and_caveats(tmp_path: Path) -> None:
+    project_dir = _source_backed_project(tmp_path)
+    captured: dict[str, Any] = {}
+
+    def capture_response(*, model: str, payload: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+        captured["payload"] = payload
+        return _safe_gpt_response(model=model, payload=payload, schema=schema)
+
+    result = draft_section_candidates(
+        project_dir,
+        sections=["floodplains-and-floodways"],
+        max_calls=1,
+        response_create=capture_response,
+    )
+
+    payload = captured["payload"]
+    assert result["accepted_gpt_draft_count"] == 1
+    assert payload["section_policy"]["section_id"] == "floodplains-and-floodways"
+    assert "fema_nfhl_flood_hazard" in payload["related_ids"]["source_refs"]
+    assert payload["related_ids"]["table_ids"] == ["table-fema-flood-zones"]
+    assert payload["related_ids"]["figure_ids"] == ["figure-fema-flood-zones"]
+    assert payload["related_labels"]["tables"][0]["label"] == "Table 2"
+    assert payload["related_labels"]["figures"][0]["label"] == "Figure 2"
+    assert payload["related_labels"]["sources"][0]["label"] != "fema_nfhl_flood_hazard"
+    assert payload["extent_metadata"]["analysis_extent_type"] == "direct_intersection_extent"
+    assert payload["extent_metadata"]["interpretation_scope_label"] == "within the project area"
+    assert "not_final_floodplain_determination" in payload["section_policy"]["required_caveats"]
+
+
+def test_gpt_planning_skips_manual_and_restricted_source_need_sections(tmp_path: Path) -> None:
+    project_dir = _source_backed_project(tmp_path)
+
+    plan = plan_gpt_section_drafts(project_dir, max_calls=None)
+    skipped = {row["target_id"]: row["reason"] for row in plan["skipped_sections"]}
+    eligible = {row["target_id"] for row in plan["eligible_sections"]}
+
+    assert "wetlands-and-waterbodies" in eligible
+    assert "cultural-and-historic-resources" not in eligible
+    assert skipped["cultural-and-historic-resources"] == "section_source_needs_restricted_review_needed"
+    assert "hazardous-materials-sites" not in eligible
+    assert skipped["hazardous-materials-sites"] == "section_source_needs_manual_review_needed"
 
 
 def test_cli_draft_section_candidates_dry_run_reports_planned_sections(

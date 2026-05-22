@@ -98,6 +98,39 @@ def test_pel_relationship_policy_is_manual_conditional_and_non_gpt() -> None:
     assert "reviewer_supplied_parent_study_required" in policy.required_caveats
 
 
+def test_study_area_policy_uses_project_context_not_broad_imagery_source_gap() -> None:
+    policy = load_report_section_policy().by_section_id()["study-area"]
+
+    assert policy.drafting_mode == "deterministic_only"
+    assert policy.allowed_source_categories == ["imagery_basemaps", "community_socioeconomic"]
+    assert "google_earth_visual_context" not in policy.allowed_source_refs
+    assert "maris_boundary_context" in policy.allowed_source_refs
+    assert "maris_naip_2025_imagery" in policy.allowed_source_refs
+    assert "usda_naip_imagery" in policy.allowed_source_refs
+
+
+def test_umbrella_parent_sections_are_structural_not_evidence_bearing() -> None:
+    policies = load_report_section_policy().by_section_id()
+
+    for section_id in [
+        "environmental-constraints-inventory",
+        "community-resources",
+        "utility-and-infrastructure-considerations",
+        "socioeconomic-and-business-considerations",
+    ]:
+        policy = policies[section_id]
+        assert policy.section_role == "umbrella_section"
+        assert policy.drafting_mode == "deterministic_only"
+
+
+def test_natural_ecological_parent_is_heading_only() -> None:
+    policy = load_report_section_policy().by_section_id()["natural-and-ecological-resources"]
+
+    assert policy.section_role == "structural_heading"
+    assert policy.drafting_mode == "deterministic_only"
+    assert policy.gpt_readiness == "deterministic_only_for_now"
+
+
 def test_wetlands_dynamic_child_policy_preserved_pending_render_gating() -> None:
     parent = load_report_section_policy().by_section_id()["wetlands-and-waterbodies"]
     dynamic_child = load_report_section_policy().by_section_id()["wetlands-waterbodies-alternative-detail"]
@@ -105,6 +138,22 @@ def test_wetlands_dynamic_child_policy_preserved_pending_render_gating() -> None
     assert parent.comparison_unit_expansion_policy == "narrative_children"
     assert dynamic_child.comparison_unit_expansion_policy == "narrative_children"
     assert dynamic_child.activation_condition == "dynamic_comparison_units"
+
+
+def test_floodplains_policy_is_source_backed_body_section_with_fema_artifacts() -> None:
+    policy = load_report_section_policy().by_section_id()["floodplains-and-floodways"]
+
+    assert policy.section_role == "evidence_section"
+    assert policy.comparison_unit_expansion_policy == "conditional"
+    assert policy.drafting_mode == "gpt_allowed_source_backed_only"
+    assert policy.gpt_readiness == "gpt_ready_after_extent_metadata_verification"
+    assert policy.allowed_source_categories == ["flood_hazard"]
+    assert policy.allowed_table_refs == ["table-fema-flood-zones"]
+    assert policy.allowed_figure_refs == ["figure-fema-flood-zones"]
+    assert "table_and_figure_supported" in policy.evidence_pattern
+    assert "not_final_floodplain_determination" in policy.required_caveats
+    assert "source_specific_limitations_apply" in policy.required_caveats
+    assert "no permit required" in policy.prohibited_claims
 
 
 def test_county_regional_figure_policy_keeps_visual_class_distinct() -> None:
@@ -173,6 +222,7 @@ def test_presentation_only_extent_cannot_be_interpretation_policy(tmp_path: Path
         ("inclusion_status", "sometimes"),
         ("activation_condition", "auto_magic"),
         ("review_requirement", "skip_review"),
+        ("section_role", "evidence_junk_drawer"),
     ],
 )
 def test_section_activation_fields_are_validated(field: str, value: str) -> None:

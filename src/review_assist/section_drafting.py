@@ -11,9 +11,10 @@ from typing import Any, Callable, Protocol
 
 from .env_config import GptConfigurationError, gpt_draft_max_payload_bytes, openai_api_key_required, resolve_gpt_model
 from .report_section_policy import REQUIRED_CAVEAT_TEXT_PATTERNS
+from .source_catalog import SourceCatalogError, load_source_catalog
 
 
-PROMPT_VERSION = "report-section-drafting-v2"
+PROMPT_VERSION = "report-section-drafting-v3"
 OUTPUT_SCHEMA_VERSION = "report-section-draft-schema-v1"
 MAX_GPT_STRING_LENGTH = 2000
 MAX_GPT_LIST_ITEMS = 20
@@ -57,7 +58,23 @@ PROHIBITED_PATTERNS = {
     "final impact conclusion": r"\bfinal (?:impact|effect)s? (?:determination|finding|conclusion)\b",
     "no effect determination": r"\bno (?:adverse )?effect\b|\bnot likely to adversely affect\b|\blikely to adversely affect\b",
     "jurisdictional certainty": r"\b(jurisdictionally determined|jurisdictional determination|jurisdictional certainty|jurisdictional evidence)\b",
-    "jurisdictional wetland determination": r"\bjurisdictional (?:wetland|water|waters|determination)\b|\bwaters? of the u\.?s\.?",
+    "jurisdictional wetland determination": (
+        r"\b(?:is|are|was|were|constitutes?|represent(?:s|ed)?|qualif(?:y|ies|ied) as) "
+        r"(?:a |an |the )?jurisdictional (?:wetlands?|waters?)\b"
+        r"|\b(?:wetlands?|waters?|area|feature|mapped wetland|mapped water|resources?) "
+        r"(?:is|are|was|were) jurisdictional\b"
+        r"|\bno jurisdictional (?:wetlands?|waters?) (?:is |are |was |were )?"
+        r"(?:present|identified|mapped|found)\b"
+        r"|\bjurisdictional (?:wetlands?|waters?) (?:is |are |was |were )?"
+        r"(?:absent|present|identified|mapped|confirmed)\b"
+        r"|\b(?:this|the|these|screening|data|evidence|analysis|review|report|output|map|figure) "
+        r"(?:determines?|confirms?|establishes?|verifies?|delineates?) "
+        r"jurisdictional (?:status|boundaries|limits|wetlands?|waters?)\b"
+        r"|\bjurisdictional (?:status|boundaries|limits) (?:is |are |was |were )?"
+        r"(?:confirmed|determined|established|verified|delineated)\b"
+        r"|\busace jurisdiction (?:does not apply|applies|is|is not)\b"
+        r"|\bwaters? of the u\.?s\.?"
+    ),
     "cultural clearance or eligibility": r"\b(?:cultural|historic|archaeolog)[^.]{0,80}\b(?:clearance|cleared|eligible|eligibility|effect determination|adverse effect)\b",
     "contamination determination": r"\b(?:contamination|contaminated|cleanup|liability|phase i|recognized environmental condition|rec)\b.{0,80}\b(?:present|absent|required|obligation|determination)\b",
     "permit determination": r"\b(?:permit|permits) (?:is |are |was |were |not )?(?:required|needed|necessary)\b|\brequires? (?:a )?permit\b|\bno permit\b",
@@ -74,6 +91,7 @@ PROCESS_LANGUAGE_PATTERNS = {
     "reviewer verification": r"\breviewer verification\b|\bfor reviewer verification\b",
     "reviewer focus": r"\breviewer focus\b",
     "related table status": r"\brelated table status\b",
+    "pipeline source-layer provenance": r"\bregistered project[- ]local source layers\b|\bclipped to project_area_analysis_bounds\b|\bproject_area_analysis_bounds\b",
 }
 DIRECT_IMPACT_PATTERNS = {
     "direct impact": r"\bdirect (?:project )?impact\b|\bdirectly impact(?:s|ed)?\b",
@@ -344,6 +362,7 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
             "figure_ids": request.related_figure_ids,
             "source_refs": request.source_refs,
         },
+        "related_labels": _related_label_payload(request),
         "slots": {
             "visual_slots": request.visual_slots,
             "table_slots": request.table_slots,
@@ -355,12 +374,14 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
             "Produce review-candidate report prose only; do not include process labels such as draft review candidate, pre-review, reviewer verification, reviewer focus, or related table status in output content.",
             "Use only the structured evidence provided in this request.",
             "Mirror the environmental constraints report shape with concise paragraphs, not standalone duplicate headings.",
-            "Cite IDs that appear in related_ids or the evidence bundle.",
-            "Mention related finding, table, figure, and source IDs only when they are supplied.",
+            "Use related_labels for report-facing prose, such as Table 1, Figure 1, and source display names.",
+            "Use internal IDs only in the JSON citation arrays. Do not print IDs such as table-wetlands-waterbodies, figure-wetlands-waterbodies, or source refs in draft_content.",
+            "Cite IDs that appear in related_ids or the evidence bundle only in cited_finding_ids, cited_table_ids, cited_figure_ids, and cited_source_refs.",
             "Do not rank, score, select, reject, recommend, or identify a preferred alternative.",
             "Do not state field verification, jurisdictional determinations, approvals, no-impact conclusions, or final conclusions.",
             "Preserve missing, gated, failed, and manual-source caveats.",
-            "Use extent_metadata to choose within/near/watershed/county wording and do not upgrade context-only evidence into direct project impact language.",
+            "Use extent_metadata.interpretation_scope_label precisely for within/near/watershed/county wording; do not use combined fallback phrases when a precise scope label is supplied.",
+            "Keep source_selection_reason and other pipeline/provenance details out of draft_content unless they are necessary as a short limitation.",
             "Use style_context only for tone and structure. Do not cite it, treat it as evidence, or copy example-report facts or assumptions.",
             "Return required caveat IDs in the caveats array when section_policy supplies required_caveats.",
         ],
@@ -373,6 +394,7 @@ def _system_prompt() -> str:
         "You draft environmental constraints report-section review candidates from structured evidence. "
         "Do not invent facts. Do not recommend, rank, select, reject, or identify a preferred alternative. "
         "Do not include duplicate section headings or process/status labels in the report content. "
+        "Use reviewer-facing labels in prose; keep internal IDs only in structured citation fields. "
         "Keep language objective, screening-level, and reviewer-editable. "
         "Return only valid JSON."
     )
@@ -411,6 +433,92 @@ def _bounded_payload(payload: dict[str, Any]) -> dict[str, Any]:
     raise SectionDraftingError(
         "GPT section drafting payload exceeds GPT_DRAFT_MAX_PAYLOAD_BYTES after safe compaction."
     )
+
+
+def _related_label_payload(request: SectionDraftRequest) -> dict[str, Any]:
+    return {
+        "tables": _table_label_records(request),
+        "figures": _figure_label_records(request),
+        "sources": _source_label_records(request),
+    }
+
+
+def _table_label_records(request: SectionDraftRequest) -> list[dict[str, str]]:
+    records = _records_by_id(request.evidence_bundle, ("deliverable_tables", "tables"), "table_id")
+    result: list[dict[str, str]] = []
+    for table_id in request.related_table_ids:
+        record = records.get(table_id, {})
+        number = str(record.get("table_number") or "").strip()
+        title = str(record.get("title") or "").strip()
+        label = f"Table {number}" if number else (title or table_id)
+        result.append({"id": table_id, "label": label, "title": title, "display": _display_with_title(label, title)})
+    return result
+
+
+def _figure_label_records(request: SectionDraftRequest) -> list[dict[str, str]]:
+    records = _records_by_id(request.evidence_bundle, ("deliverable_figures", "figures"), "figure_id")
+    result: list[dict[str, str]] = []
+    for figure_id in request.related_figure_ids:
+        record = records.get(figure_id, {})
+        number = str(record.get("figure_number") or "").strip()
+        title = str(record.get("title") or "").strip()
+        label = f"Figure {number}" if number else (title or figure_id)
+        result.append({"id": figure_id, "label": label, "title": title, "display": _display_with_title(label, title)})
+    return result
+
+
+def _source_label_records(request: SectionDraftRequest) -> list[dict[str, str]]:
+    source_names = _source_display_names(request.evidence_bundle)
+    return [{"id": source_ref, "label": source_names.get(source_ref, source_ref)} for source_ref in request.source_refs]
+
+
+def _display_with_title(label: str, title: str) -> str:
+    if title and title != label:
+        return f"{label}. {title}"
+    return label
+
+
+def _records_by_id(evidence: dict[str, Any], keys: tuple[str, ...], id_field: str) -> dict[str, dict[str, Any]]:
+    records: dict[str, dict[str, Any]] = {}
+    if not isinstance(evidence, dict):
+        return records
+    for key in keys:
+        for record in evidence.get(key, []) if isinstance(evidence.get(key, []), list) else []:
+            if not isinstance(record, dict):
+                continue
+            record_id = str(record.get(id_field) or "").strip()
+            if record_id:
+                records.setdefault(record_id, record)
+    return records
+
+
+def _source_display_names(evidence: dict[str, Any]) -> dict[str, str]:
+    names: dict[str, str] = {}
+    if isinstance(evidence, dict):
+        for source in evidence.get("sources", []) if isinstance(evidence.get("sources", []), list) else []:
+            if not isinstance(source, dict):
+                continue
+            candidate_name = str(
+                source.get("source_name")
+                or source.get("name")
+                or source.get("display_name")
+                or source.get("title")
+                or ""
+            ).strip()
+            for source_id in _string_list(source.get("source_ids", [])) or _string_list(source.get("source_refs", [])):
+                if source_id and candidate_name:
+                    names.setdefault(source_id, candidate_name)
+            source_id = str(source.get("source_id") or "").strip()
+            if source_id and candidate_name:
+                names.setdefault(source_id, candidate_name)
+    try:
+        catalog = load_source_catalog()
+    except SourceCatalogError:
+        return names
+    for source_id, definition in catalog.sources.items():
+        if definition.name:
+            names.setdefault(source_id, definition.name)
+    return names
 
 
 def _sanitize_for_gpt(value: Any) -> Any:
@@ -680,6 +788,7 @@ def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], c
         issues.append(_issue("error", "style_context_fact_import", "GPT output appears to import example/style-context facts or assumptions."))
     if _contains_raw_or_unbounded_output(lowered):
         issues.append(_issue("error", "raw_or_unbounded_gpt_output", "GPT output included raw rows, coordinates, GeoJSON, or local/source paths."))
+    issues.extend(_internal_id_leakage_issues(request, content))
     issues.extend(_missing_required_caveat_issues(request, parsed, lowered))
     issues.extend(_policy_prohibited_claim_issues(request, lowered))
     if _misstates_public_cultural_context(request, lowered):
@@ -703,6 +812,48 @@ def _validate_gpt_output(request: SectionDraftRequest, parsed: dict[str, Any], c
     if re.search(APE_PATTERN, lowered) and not _allows_ape_language(request):
         issues.append(_issue("error", "ape_language_requires_manual_cultural_context", "GPT output used APE language without reviewer-defined cultural context."))
     return issues
+
+
+def _internal_id_leakage_issues(request: SectionDraftRequest, content: str) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    internal_refs = _internal_refs_for_request(request)
+    for ref in internal_refs:
+        if _contains_internal_ref(content, ref):
+            issues.append(
+                _issue(
+                    "error",
+                    "internal_id_in_gpt_prose",
+                    f"GPT output printed internal ID '{ref}' in draft_content; use reviewer-facing labels in prose and reserve IDs for structured citations.",
+                )
+            )
+    return issues
+
+
+def _internal_refs_for_request(request: SectionDraftRequest) -> list[str]:
+    refs = [
+        *request.related_table_ids,
+        *request.related_figure_ids,
+        *request.source_refs,
+        *_evidence_ids(request.evidence_bundle, ("tables", "deliverable_tables"), "table_id"),
+        *_evidence_ids(request.evidence_bundle, ("figures", "deliverable_figures"), "figure_id"),
+        *_evidence_source_refs(request.evidence_bundle),
+    ]
+    return sorted({ref for ref in refs if _looks_like_internal_ref(ref)})
+
+
+def _looks_like_internal_ref(value: str) -> bool:
+    lowered = str(value).strip().lower()
+    return bool(
+        lowered
+        and (
+            "_" in lowered
+            or lowered.startswith(("table-", "figure-", "attachment-", "section_evidence:", "constraint-"))
+        )
+    )
+
+
+def _contains_internal_ref(content: str, ref: str) -> bool:
+    return bool(re.search(rf"(?<![\w:-]){re.escape(ref)}(?![\w:-])", content, flags=re.IGNORECASE))
 
 
 def _context_only_extent(extent_metadata: dict[str, Any]) -> bool:

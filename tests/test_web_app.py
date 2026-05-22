@@ -373,6 +373,10 @@ def test_review_queue_default_uses_bounded_items_and_excludes_legacy_types(tmp_p
     assert "spatial_relationship" not in text
     assert "source_inventory_note" not in text
     assert "comparison_table" not in text
+    assert "Report Role" in text
+    assert "Report body" in text
+    assert ">Render<" not in text
+    assert "include_body" not in text
 
 
 def test_review_page_rejects_legacy_audit_queue_by_default(tmp_path: Path) -> None:
@@ -547,6 +551,9 @@ def test_section_review_detail_displays_related_table_figure_and_evidence_refs(t
     assert "table-wetlands-waterbodies" in text
     assert "figure-wetlands-waterbodies" in text
     assert "section_evidence:wetlands-and-waterbodies" in text
+    assert "Report Role" in text
+    assert "Report body" in text
+    assert "<strong>include_body</strong>" not in text
     assert "<span>Table</span><strong>none</strong>" not in text
     assert "<span>Figure</span><strong>none</strong>" not in text
 

@@ -23,6 +23,7 @@ from review_assist.deliverable_items import (
 )
 from review_assist.deliverable_matrix import REQUIRED_STUB_TEXT, load_deliverable_matrix
 from review_assist.extent_policy import target_extent_metadata
+from review_assist.report_section_policy import load_report_section_policy
 
 
 PROCESS_LANGUAGE = [
@@ -115,7 +116,13 @@ def test_deliverable_items_write_matrix_contract_and_dynamic_children(
 
     result = generate_deliverable_items(project_dir, gpt_drafting=False)
     matrix = load_deliverable_matrix()
-    static_sections = [target for target in matrix.section_targets if target.target_type != "dynamic_subsection_template"]
+    policies = load_report_section_policy().by_section_id()
+    static_sections = [
+        target
+        for target in matrix.section_targets
+        if target.target_type != "dynamic_subsection_template"
+        and policies[target.target_id].section_role != "structural_heading"
+    ]
     expected_count = len(static_sections) + 2 + len(matrix.table_targets) + len(matrix.figure_targets) + len(matrix.attachment_targets)
 
     assert (project_dir / DELIVERABLE_ITEMS_PATH).exists()
@@ -128,6 +135,11 @@ def test_deliverable_items_write_matrix_contract_and_dynamic_children(
     for item in result["items"]:
         lowered = str(item["generated_content"]).lower()
         assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
+    assert not any(item["deliverable_item_id"] == "natural-and-ecological-resources" for item in result["items"])
+    source_status = json.loads((project_dir / "source_status" / "source_status_set.json").read_text(encoding="utf-8"))
+    assert "natural-and-ecological-resources" not in {
+        item["section_id"] for item in source_status["section_source_needs"]
+    }
 
     dynamic_a = item_by_id(result, "wetlands-waterbodies-comparison-unit-00001")
     dynamic_b = item_by_id(result, "wetlands-waterbodies-comparison-unit-00002")
@@ -159,12 +171,13 @@ def test_deliverable_items_write_matrix_contract_and_dynamic_children(
     assert "Render decision: needs_reviewer_decision." in pel["generated_content"]
 
     floodplains = item_by_id(result, "floodplains-and-floodways")
-    assert floodplains["policy_comparison_unit_expansion"] == "table_only"
-    assert floodplains["render_decision"] == "table_figure_only"
-    assert floodplains["render_destination"] == "tables_figures"
-    assert floodplains["report_body_eligible"] is False
+    assert floodplains["policy_comparison_unit_expansion"] == "conditional"
+    assert floodplains["render_decision"] == "include_body"
+    assert floodplains["render_destination"] == "report_body"
+    assert floodplains["report_body_eligible"] is True
     assert floodplains["related_table_ids"] == ["table-fema-flood-zones"]
-    assert "Render decision: table_figure_only." in floodplains["generated_content"]
+    assert floodplains["related_figure_ids"] == ["figure-fema-flood-zones"]
+    assert "Policy keeps this topic in table/figure artifacts" not in floodplains["generated_content"]
 
 
 def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
@@ -220,6 +233,82 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
     assert contamination["related_figure_ids"] == ["figure-hazardous-waste-sites", "figure-water-discharge-waste-facilities"]
     assert hazardous["related_figure_ids"] == ["figure-hazardous-waste-sites", "figure-water-discharge-waste-facilities"]
     assert oil_wells["related_figure_ids"] == ["figure-oil-gas-wells"]
+
+
+def test_front_matter_lists_use_generated_table_and_figure_artifacts(
+    tmp_path: Path,
+    empty_basemap_root: Path,
+) -> None:
+    project_dir = write_project(tmp_path, alternatives=1)
+
+    result = generate_deliverable_items(project_dir, gpt_drafting=False)
+    figures = item_by_id(result, "list-of-figures")
+    tables = item_by_id(result, "list-of-tables")
+
+    assert "The figure list reflects matrix-backed figure items in matrix order." not in figures["generated_content"]
+    assert "The table list reflects matrix-backed table items in matrix order." not in tables["generated_content"]
+    assert "Figure 1. Wetlands and Waterbodies in and near the Project Area" in figures["generated_content"]
+    assert "Figure 2. FEMA Flood Zones in and near the Project Area" in figures["generated_content"]
+    assert "Table 1. Descriptions of Wetlands and Waterbodies Present within the Project Area" in tables["generated_content"]
+    assert "Table 2. FEMA Flood Zones within the Project Area" in tables["generated_content"]
+    assert "`figure-wetlands-waterbodies`" not in figures["generated_content"]
+    assert "`table-wetlands-waterbodies`" not in tables["generated_content"]
+    assert "(stubbed)" in figures["generated_content"]
+    assert "(stubbed)" in tables["generated_content"]
+    assert result["item_count"] == result["expected_item_count"]
+
+
+def test_study_area_uses_project_context_not_source_gap_stub(
+    tmp_path: Path,
+    empty_basemap_root: Path,
+) -> None:
+    project_dir = write_project(tmp_path, alternatives=2)
+
+    result = generate_deliverable_items(project_dir, gpt_drafting=False)
+    study_area = item_by_id(result, "study-area")
+
+    assert study_area["is_stub"] is False
+    assert study_area["manual_material"]["material_status"] == "source_backed_generated"
+    assert "submitted project geometry" in study_area["generated_content"]
+    assert "Alternative A" in study_area["generated_content"]
+    assert "Alternative B" in study_area["generated_content"]
+    assert "source/data gap" not in study_area["generated_content"]
+    assert "required source data, table output, or figure output is not available" not in study_area["generated_content"]
+    assert "Listed source data are not available" not in study_area["generated_content"]
+    assert "google_earth_visual_context" not in study_area["source_refs"]
+    source_status = json.loads((project_dir / "source_status" / "source_status_set.json").read_text(encoding="utf-8"))
+    study_area_need = next(item for item in source_status["section_source_needs"] if item["section_id"] == "study-area")
+    assert study_area_need["source_refs"] == ["maris_boundary_context", "maris_naip_2025_imagery", "usda_naip_imagery"]
+    assert "google_earth_visual_context" not in study_area_need["source_ids"]
+    assert "hifld_community_infrastructure" not in study_area_need["source_ids"]
+    assert result["item_count"] == result["expected_item_count"]
+
+
+def test_missing_project_geometry_blocks_study_area_generation(
+    tmp_path: Path,
+    empty_basemap_root: Path,
+) -> None:
+    project_dir = tmp_path / "project"
+    (project_dir / "config").mkdir(parents=True)
+    (project_dir / "inputs").mkdir()
+    (project_dir / "config" / "project.json").write_text(
+        json.dumps(
+            {
+                "project_id": "missing_geometry",
+                "name": "Missing Geometry",
+                "description": "No submitted geometry",
+                "project_type": "alternatives_review",
+                "inputs": [],
+                "assumptions": {"default_buffer_feet": 100, "input_crs": "EPSG:4326"},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(DeliverableItemsError):
+        generate_deliverable_items(project_dir, gpt_drafting=False)
 
 
 def test_load_deliverable_items_round_trip_and_validates_contract(
@@ -281,6 +370,51 @@ def test_section_evidence_prefers_available_category_for_broad_targets() -> None
     assert selected["section_id"] == "wetlands-and-waterbodies"
 
 
+def test_umbrella_inventory_candidate_summarizes_structure_without_child_issue_dump(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    result = generate_deliverable_items(project_dir, gpt_drafting=False)
+    item = next(item for item in result["items"] if item["deliverable_item_id"] == "environmental-constraints-inventory")
+
+    content = item["generated_content"]
+    lowered = content.lower()
+    raw_child_codes = {
+        "source_stubbed",
+        "deliverable_table_created_as_stub",
+        "basemap_sidecar_extent_insufficient",
+        "figure_source_unimplemented",
+        "restricted_source_not_mapped",
+        "figure_extent_context_deferred",
+        "figure_created_as_stub",
+    }
+
+    assert item["is_stub"] is False
+    assert item["review_status"] == "draft"
+    assert item["source_refs"] == []
+    assert item["evidence_refs"] == []
+    assert item["validation_issues"] == []
+    assert "orients the reviewer to the environmental constraints inventory" in content
+    assert "natural and ecological resources" in content
+    assert "cultural and historic resources" in content
+    assert "relevant child section, table, figure, or attachment review items" in content
+    assert "does not rank alternatives" in content
+    assert "source/data gap" not in lowered
+    assert "required source data" not in lowered
+    assert not any(code in content for code in raw_child_codes)
+
+
+def test_child_validation_issues_remain_on_child_artifacts_after_umbrella_suppression(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    result = generate_deliverable_items(project_dir, gpt_drafting=False)
+    child = next(item for item in result["items"] if item["deliverable_item_id"] == "figure-cultural-resources")
+    parent = next(item for item in result["items"] if item["deliverable_item_id"] == "environmental-constraints-inventory")
+    child_codes = {issue["code"] for issue in child["validation_issues"]}
+    parent_codes = {issue["code"] for issue in parent["validation_issues"]}
+
+    assert {"figure_source_unimplemented", "restricted_source_not_mapped"}.issubset(child_codes)
+    assert "figure_source_unimplemented" not in parent_codes
+    assert "restricted_source_not_mapped" not in parent_codes
+
+
 def test_source_backed_wetlands_section_candidate_is_report_style_prose() -> None:
     matrix = load_deliverable_matrix()
     target = next(item for item in matrix.section_targets if item.target_id == "wetlands-and-waterbodies")
@@ -328,6 +462,59 @@ def test_source_backed_wetlands_section_candidate_is_report_style_prose() -> Non
     assert "coordinates" not in lowered
     assert "FeatureCollection" not in content
     assert "sources/" not in content
+
+
+def test_source_backed_floodplains_candidate_uses_fema_table_and_figure_support() -> None:
+    matrix = load_deliverable_matrix()
+    target = next(item for item in matrix.section_targets if item.target_id == "floodplains-and-floodways")
+    table = {
+        "table_id": "table-fema-flood-zones",
+        "table_number": 2,
+        "title": "FEMA Flood Zones within the Project Area",
+        "is_stub": False,
+        "row_count": 3,
+        "source_refs": ["fema_nfhl_flood_hazard"],
+    }
+    figure = {
+        "figure_id": "figure-fema-flood-zones",
+        "figure_number": 2,
+        "title": "FEMA Flood Zones in the Project Area",
+        "is_stub": False,
+        "image_path": "maps/figures/figure-fema-flood-zones.png",
+        "source_refs": ["fema_nfhl_flood_hazard"],
+    }
+    evidence = {
+        "source_refs": ["fema_nfhl_flood_hazard"],
+        "source_gap_status": [{"category": "flood_hazard", "status": "provided_locally"}],
+        "constraint_summaries": [{"constraint_id": "constraint-flood-1", "source_category": "flood_hazard"}],
+        "comparison_unit_summaries": [{"comparison_unit_id": "comparison-unit-00001"}],
+    }
+
+    content = _section_content(
+        target=target,
+        context={"project_name": "Test Project"},
+        evidence=evidence,
+        related_tables=[table],
+        related_figures=[figure],
+        comparison_unit=None,
+        extent_metadata=target_extent_metadata(
+            target_id=target.target_id,
+            target_type=target.target_type,
+            resource_category=target.resource_category,
+            source_categories=target.source_categories,
+        ),
+    )
+
+    lowered = content.lower()
+    assert "FEMA National Flood Hazard Layer" in content
+    assert "Table 2" in content
+    assert "Figure 2" in content
+    assert "3 bounded row(s)" in content
+    assert "FEMA NFHL/DFIRM flood hazard data support screening-level review only" in content
+    assert "do not replace official floodplain administration" in content
+    assert "Policy keeps this topic in table/figure artifacts" not in content
+    assert "no permit is required" not in lowered
+    assert "final determination" not in lowered
 
 
 def test_dynamic_wetlands_comparison_unit_candidate_mentions_unit_and_remains_compact() -> None:

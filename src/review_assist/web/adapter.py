@@ -61,6 +61,23 @@ RAW_LEGACY_ITEM_TYPES = {
     "validation_issue",
     "missing_data_placeholder",
 }
+REPORT_ROLE_LABELS = {
+    "include_body": "Report body",
+    "table_figure_only": "Table/Figure support",
+    "attachment_status": "Attachment/support",
+    "needs_reviewer_decision": "Reviewer decision needed",
+    "blocked_missing_source": "Source/status review",
+    "blocked_manual_or_restricted_source": "Manual/restricted source",
+    "custom_project_required": "Custom project content",
+    "audit_only": "Audit only",
+}
+OUTPUT_DESTINATION_LABELS = {
+    "report_body": "Report body",
+    "tables_figures": "Table/Figure support",
+    "attachments": "Attachment/support",
+    "review_status": "Review/status item",
+    "audit_evidence": "Audit evidence",
+}
 TERMINAL_STATUSES = {"accepted", "edited", "replaced", "declined"}
 BLOCKING_STATUSES = {"draft", "needs_review", "needs_verification"}
 PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -1506,7 +1523,16 @@ def _render_policy_fields(item: dict[str, Any]) -> dict[str, Any]:
     for key in RENDER_POLICY_FIELDS:
         value = item.get(key, defaults[key])
         result[key] = _coerce_bool(value) if key == "report_body_eligible" else str(value)
+    result["report_role_label"] = REPORT_ROLE_LABELS.get(result["render_decision"], _title_from_enum(result["render_decision"]))
+    result["output_destination_label"] = OUTPUT_DESTINATION_LABELS.get(
+        result["render_destination"],
+        _title_from_enum(result["render_destination"]),
+    )
     return result
+
+
+def _title_from_enum(value: str) -> str:
+    return str(value or "").replace("_", " ").replace("-", " ").title()
 
 
 def _manual_material_fields(item: dict[str, Any]) -> dict[str, Any]:

@@ -31,6 +31,7 @@ from .deliverable_figure_specs import (
     TARGET_SPECS,
     UNIMPLEMENTED_SOURCE_STATUSES,
     USABLE_SOURCE_STATUSES,
+    WBD_HUC12_SOURCE_IDS,
     TargetFigureSpec,
 )
 from .deliverable_constraints import (
@@ -68,7 +69,7 @@ SMALL_DIRECT_EXTENT_CLASS = "small_direct"
 MEDIUM_CONTEXT_EXTENT_CLASS = "medium_context"
 LARGE_WATERSHED_EXTENT_CLASS = "large_watershed"
 COUNTY_REGIONAL_EXTENT_CLASS = "county_regional"
-PLANNED_FIGURE_STATUSES = {"planned", "planned_current_project_area_context"}
+PLANNED_FIGURE_STATUSES = {"planned", "planned_current_project_area_context", "planned_watershed_context"}
 
 
 def generate_deliverable_figures(project_dir: Path) -> dict[str, Any]:
@@ -591,23 +592,28 @@ def _figure_extent_plan_record(
     required_available_source_ids = available_source_ids.intersection(required_public_source_ids)
 
     if extent_class == LARGE_WATERSHED_EXTENT_CLASS:
-        status = "planned_current_project_area_context" if required_available_source_ids else "deferred_watershed_context"
-        status_reason = (
-            "Watershed/subwatershed render context is not implemented; available source layers are rendered "
-            "with the current project-area presentation extent and are not treated as watershed context."
-            if required_available_source_ids
-            else "Watershed/subwatershed render context is not implemented; this plan does not use "
-            "project-area bounds as a substitute for watershed context."
-        )
-        issues.append(
-            _issue(
-                "warning",
-                "figure_extent_context_deferred",
-                status_reason,
-                str(project_dir / FIGURE_EXTENT_PLAN_PATH),
-                target_id=target.target_id,
+        if available_source_ids.intersection(WBD_HUC12_SOURCE_IDS):
+            status = "planned_watershed_context"
+            status_reason = "Materialized HUC-12 watershed/subwatershed polygons are available and used for watershed context rendering."
+            core_bounds = _bounds_for_source_ids(layer_records, set(WBD_HUC12_SOURCE_IDS), fallback=core_bounds)
+        else:
+            status = "planned_current_project_area_context" if required_available_source_ids else "deferred_watershed_context"
+            status_reason = (
+                "HUC-12 watershed/subwatershed render context is not materialized; available source layers are rendered "
+                "with the current project-area presentation extent and are not treated as watershed context."
+                if required_available_source_ids
+                else "HUC-12 watershed/subwatershed render context is not materialized; this plan does not use "
+                "project-area bounds as a substitute for watershed context."
             )
-        )
+            issues.append(
+                _issue(
+                    "warning",
+                    "figure_extent_context_deferred",
+                    status_reason,
+                    str(project_dir / FIGURE_EXTENT_PLAN_PATH),
+                    target_id=target.target_id,
+                )
+            )
     elif not required_available_source_ids:
         status = "source_unavailable_stub"
         status_reason = "Usable public source layers are not available, so no NAIP sidecar is needed for this figure target."
@@ -680,6 +686,31 @@ def _core_bounds_for_extent_class(extent_class: str, analysis_bounds: Any) -> tu
     if extent_class in {MEDIUM_CONTEXT_EXTENT_CLASS, COUNTY_REGIONAL_EXTENT_CLASS}:
         return _pad_bounds(bounds, 0.2)
     return bounds
+
+
+def _bounds_for_source_ids(
+    layer_records: list[dict[str, Any]],
+    source_ids: set[str],
+    *,
+    fallback: tuple[float, float, float, float],
+) -> tuple[float, float, float, float]:
+    bounds: list[Any] = []
+    for layer in layer_records:
+        if str(layer.get("source_id") or "") not in source_ids:
+            continue
+        gdf = layer.get("gdf")
+        if isinstance(gdf, gpd.GeoDataFrame) and not gdf.empty:
+            bounds.append(gdf.total_bounds)
+    if not bounds:
+        return fallback
+    return _clean_bounds_tuple(
+        (
+            min(float(bound[0]) for bound in bounds),
+            min(float(bound[1]) for bound in bounds),
+            max(float(bound[2]) for bound in bounds),
+            max(float(bound[3]) for bound in bounds),
+        )
+    )
 
 
 def _basemap_group_for_extent_class(extent_class: str) -> str:
@@ -834,17 +865,17 @@ def _figure_for_target(
         )
         uncertainty_flags.add("source_unimplemented")
 
-    if isinstance(figure_plan, dict) and (
-        str(figure_plan.get("status") or "") == "deferred_watershed_context"
-        or str(figure_plan.get("extent_class") or "") == LARGE_WATERSHED_EXTENT_CLASS
-    ):
+    if isinstance(figure_plan, dict) and str(figure_plan.get("status") or "") in {
+        "deferred_watershed_context",
+        "planned_current_project_area_context",
+    }:
         validation_issues.append(
             _issue(
                 "warning",
                 "figure_extent_context_deferred",
                 str(
                     figure_plan.get("status_reason")
-                    or "Watershed/subwatershed render context is not implemented for this figure target."
+                    or "HUC-12 watershed/subwatershed context is not materialized for this figure target."
                 ),
                 str(project_dir / FIGURE_EXTENT_PLAN_PATH),
                 target_id=target.target_id,
@@ -1368,6 +1399,11 @@ def _provenance(
         extent["render_extent_is_presentation_only"] = render_extent["render_extent_is_presentation_only"]
         if render_extent.get("presentation_extent_type"):
             extent["presentation_extent_type"] = render_extent["presentation_extent_type"]
+    if isinstance(figure_plan, dict) and str(figure_plan.get("status") or "") == "planned_watershed_context":
+        extent["source_selection_reason"] = (
+            "Materialized HUC-12 watershed/subwatershed polygons are available for watershed context. "
+            "Watershed context remains broader than direct project-feature intersection."
+        )
     provenance = {
         "matrix_version": matrix_version,
         "figure_target_id": target.target_id,
@@ -1494,7 +1530,10 @@ def _source_note(
         if "mdeq_303d_impaired_waters" in source_ids:
             notes.append("MDEQ 303(d) impaired waters and TMDL-complete waters are shown where available.")
         if isinstance(figure_plan, dict) and str(figure_plan.get("extent_class") or "") == LARGE_WATERSHED_EXTENT_CLASS:
-            notes.append("Watershed/subwatershed context remains deferred and is not inferred from project-area bounds.")
+            if "usgs_wbd_huc12_subwatersheds" in source_ids and str(figure_plan.get("status") or "") == "planned_watershed_context":
+                notes.append("USGS WBD HUC-12 subwatershed boundaries are shown for watershed context.")
+            else:
+                notes.append("Watershed/subwatershed context remains deferred and is not inferred from project-area bounds.")
     source_sentence = "Sources: " + "; ".join(labels) + "."
     return source_sentence + ((" " + " ".join(notes)) if notes else "")
 

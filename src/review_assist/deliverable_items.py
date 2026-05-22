@@ -120,16 +120,56 @@ FIRST_PASS_REPORT_STYLE_SECTION_IDS = {
     "hazardous-materials-sites",
     "oil-wells",
 }
+UMBRELLA_SECTION_IDS = {
+    "environmental-constraints-inventory",
+    "natural-and-ecological-resources",
+    "community-resources",
+    "utility-and-infrastructure-considerations",
+    "socioeconomic-and-business-considerations",
+}
+UMBRELLA_CHILD_CATEGORY_LABELS = {
+    "environmental-constraints-inventory": [
+        "natural and ecological resources",
+        "cultural and historic resources",
+        "community resources",
+        "utility and infrastructure considerations",
+        "contamination risks",
+        "socioeconomic and business considerations",
+    ],
+    "natural-and-ecological-resources": [
+        "wetlands and waterbodies",
+        "floodplains and floodways",
+        "water quality and streams",
+        "protected species and critical habitat",
+    ],
+    "community-resources": [
+        "public facilities",
+        "health care and emergency services",
+        "schools and civic resources",
+    ],
+    "utility-and-infrastructure-considerations": [
+        "public water supply",
+        "utility infrastructure",
+        "energy infrastructure",
+        "airports and transportation context",
+    ],
+    "socioeconomic-and-business-considerations": [
+        "demographic characteristics",
+        "local businesses and economic nodes",
+    ],
+}
 SOURCE_DISPLAY_NAMES = {
     "usfws_nwi_wetlands": "U.S. Fish and Wildlife Service National Wetlands Inventory",
     "usgs_nhd_hydrography": "U.S. Geological Survey National Hydrography Dataset",
     "usgs_nhd_flowlines": "U.S. Geological Survey NHD flowlines",
     "usgs_nhd_waterbodies": "U.S. Geological Survey NHD waterbodies",
     "usgs_nhd_other_areas": "U.S. Geological Survey NHD other areas",
+    "usgs_wbd_huc12_subwatersheds": "USGS WBD HUC-12 subwatersheds",
     "fema_nfhl_flood_hazard": "FEMA National Flood Hazard Layer",
     "usfws_critical_habitat": "U.S. Fish and Wildlife Service critical habitat",
     "maris_public_cultural_context": "MARIS public cultural context",
     "mdot_transportation_context": "Mississippi transportation context",
+    "faa_airports": "FAA airport and aeronautical facility context",
     "epa_envirofacts_echo": "EPA ECHO regulated facilities",
     "epa_frs_facilities_ms": "EPA Facility Registry Service facilities",
     "maris_brownfields": "MARIS brownfields",
@@ -255,7 +295,14 @@ def generate_deliverable_items(
     attachment_items = [_attachment_item(target, figures, matrix.matrix_version, output_path) for target in matrix.attachment_targets]
     items = [*section_items, *table_items, *figure_items, *attachment_items]
     validation_issues = _dedupe_issues([*_artifact_validation_issues(items), *_dict_list(evidence_package.get("validation_issues", []))])
-    expected_item_count = _expected_item_count(matrix.section_targets, matrix.table_targets, matrix.figure_targets, matrix.attachment_targets, unit_records)
+    expected_item_count = _expected_item_count(
+        matrix.section_targets,
+        matrix.table_targets,
+        matrix.figure_targets,
+        matrix.attachment_targets,
+        unit_records,
+        section_policy=section_policy,
+    )
     result = {
         "project_id": manifest.project_id,
         "project_name": manifest.name,
@@ -453,13 +500,21 @@ def _section_items(
     workers: int,
     parallel: bool,
 ) -> list[dict[str, Any]]:
-    target_records = _expanded_section_targets(matrix.section_targets, comparison_units)
+    target_records = [
+        target_record
+        for target_record in _expanded_section_targets(matrix.section_targets, comparison_units)
+        if not _is_structural_heading(
+            target_record["target"],
+            _section_policy_for_target(section_policy, target_record["target"], target_record.get("template_target")),
+        )
+    ]
+    section_context = {**context, "_comparison_units": comparison_units}
     kwargs = {
         "matrix_version": matrix.matrix_version,
         "prompt_version": prompts.prompt_version,
         "global_prompt": prompt_by_key.get(prompts.global_prompt_key),
         "prompt_by_key": prompt_by_key,
-        "context": context,
+        "context": section_context,
         "tables": tables,
         "figures": figures,
         "evidence_package": evidence_package,
@@ -566,26 +621,32 @@ def _section_item(
     if prompt is None:
         raise DeliverableItemsError(f"Missing report prompt for deliverable target '{target.target_id}': {target.prompt_key}")
 
-    evidence = _section_evidence(evidence_package, target, template_target, comparison_unit)
-    related_tables = _related_table_records(tables, target.table_refs)
-    related_figures = _related_figure_records(figures, target.figure_refs)
+    policy = _section_policy_for_target(section_policy, target, template_target)
+    is_umbrella_section = _is_umbrella_section(target, policy)
+    evidence = _section_evidence(evidence_package, target, template_target, comparison_unit, policy)
+    related_tables = _related_table_records(tables, _support_table_refs(target, policy))
+    related_figures = _related_figure_records(figures, _support_figure_refs(target, policy))
     related_table_ids = [str(table.get("table_id")) for table in related_tables if table.get("table_id")]
     related_figure_ids = [str(figure.get("figure_id")) for figure in related_figures if figure.get("figure_id")]
+    source_gap_status = _dict_list(evidence.get("source_gap_status", []))
     source_refs = _dedupe(
         [
             *_string_list(evidence.get("source_refs", [])),
             *[ref for table in related_tables for ref in _string_list(table.get("source_refs", []))],
             *[ref for figure in related_figures for ref in _string_list(figure.get("source_refs", []))],
+            *_available_policy_source_refs(policy, source_gap_status),
+            *_study_area_context_source_refs(target, context, policy),
         ]
     )
-    comparison_unit_ids = [str(comparison_unit["comparison_unit_id"])] if comparison_unit else _evidence_comparison_unit_ids(evidence, related_tables, related_figures)
-    validation_issues = _target_validation_issues(evidence, related_tables, related_figures, target)
-    evidence_refs = _evidence_refs(evidence)
-    source_gap_status = _dict_list(evidence.get("source_gap_status", []))
+    item_source_gap_status = [] if is_umbrella_section else source_gap_status
+    if is_umbrella_section:
+        source_refs = []
+    comparison_unit_ids = [] if is_umbrella_section else ([str(comparison_unit["comparison_unit_id"])] if comparison_unit else _evidence_comparison_unit_ids(evidence, related_tables, related_figures))
+    validation_issues = _target_validation_issues(evidence, related_tables, related_figures, target, policy=policy)
+    evidence_refs = [] if is_umbrella_section else _evidence_refs(evidence)
     extent_metadata = _section_extent_metadata(target, evidence, related_tables, related_figures)
-    policy = _section_policy_for_target(section_policy, target, template_target)
-    render_policy = _section_render_policy(target, policy, source_gap_status=source_gap_status)
-    source_stub = _section_is_stub(target, evidence, related_tables, related_figures, source_gap_status, comparison_unit)
+    render_policy = _section_render_policy(target, policy, source_gap_status=item_source_gap_status, source_refs=source_refs)
+    source_stub = _section_is_stub(target, evidence, related_tables, related_figures, item_source_gap_status, comparison_unit, policy=policy)
     is_stub = source_stub or _render_policy_is_stub(render_policy)
     if render_policy["render_decision"] != "include_body" and not bool(render_policy.get("report_body_eligible", True)):
         generated_content = _render_policy_status_content(
@@ -607,20 +668,23 @@ def _section_item(
             related_figures=related_figures,
             comparison_unit=comparison_unit,
             extent_metadata=extent_metadata,
+            front_matter_tables=_dict_list(tables.get("tables", [])),
+            front_matter_figures=_dict_list(figures.get("figures", [])),
+            policy=policy,
         )
     uncertainty_flags = _dedupe(
         [
             "draft_pre_review",
             "desktop_screening_only",
             *[str(issue.get("code")) for issue in validation_issues if issue.get("code")],
-            *[str(flag) for status in source_gap_status for flag in _string_list(status.get("uncertainty_flags", []))],
+            *[str(flag) for status in item_source_gap_status for flag in _string_list(status.get("uncertainty_flags", []))],
             *[flag for table in related_tables for flag in _string_list(table.get("uncertainty_flags", []))],
             *[flag for figure in related_figures for flag in _string_list(figure.get("uncertainty_flags", []))],
         ]
     )
     if is_stub:
         uncertainty_flags = _dedupe([*uncertainty_flags, "deliverable_item_stub"])
-    review_status = _review_status(target, is_stub, source_gap_status, validation_issues, related_tables, related_figures)
+    review_status = _review_status(target, is_stub, item_source_gap_status, validation_issues, related_tables, related_figures)
     review_status = _render_policy_review_status(render_policy, review_status)
 
     try:
@@ -711,7 +775,7 @@ def _section_item(
                 section_policy=policy,
             ),
             "prompt_contract": _prompt_summary(prompt),
-            "source_gap_status": source_gap_status,
+            "source_gap_status": item_source_gap_status,
             "extent_policy": extent_metadata,
             "render_policy": render_policy,
             "required_caveats": list(policy.required_caveats) if policy else [],
@@ -1010,6 +1074,7 @@ def _section_evidence(
     target: SectionTarget,
     template_target: SectionTarget | None,
     comparison_unit: dict[str, Any] | None,
+    policy: ReportSectionPolicy | None = None,
 ) -> dict[str, Any]:
     for section_id in (target.target_id, template_target.target_id if template_target else ""):
         evidence = section_evidence_for(evidence_package, section_id)
@@ -1040,6 +1105,7 @@ def _section_evidence(
                 category_candidates.append(evidence)
     if category_candidates:
         evidence = _best_section_evidence(category_candidates)
+        evidence = _policy_filtered_category_evidence(evidence, target, policy)
         if comparison_unit:
             return _comparison_unit_evidence(evidence, comparison_unit)
         return evidence
@@ -1068,6 +1134,64 @@ def _section_evidence_score(evidence: dict[str, Any]) -> int:
     if statuses and statuses.issubset(VERIFICATION_SOURCE_STATES | REVIEW_SOURCE_STATES):
         return 3
     return 2
+
+
+def _policy_filtered_category_evidence(evidence: dict[str, Any], target: SectionTarget, policy: ReportSectionPolicy | None) -> dict[str, Any]:
+    if policy is None or not policy.allowed_source_refs:
+        return evidence
+    if str(evidence.get("section_id") or "") == target.target_id:
+        return evidence
+    allowed_refs = set(policy.allowed_source_refs)
+    source_gap_status = _dict_list(evidence.get("source_gap_status", []))
+    available_allowed_refs = [ref for ref in policy.allowed_source_refs if _source_available_in_status(ref, source_gap_status)]
+    existing_allowed_refs = [ref for ref in _string_list(evidence.get("source_refs", [])) if ref in allowed_refs]
+    narrowed_refs = _dedupe([*existing_allowed_refs, *available_allowed_refs])
+    if not narrowed_refs:
+        return evidence
+    filtered = dict(evidence)
+    filtered["section_id"] = target.target_id
+    filtered["source_refs"] = narrowed_refs
+    filtered["source_gap_status"] = _filtered_source_gap_status(source_gap_status, allowed_refs)
+    filtered["sources"] = [
+        source
+        for source in _dict_list(evidence.get("sources", []))
+        if set(_string_list(source.get("source_ids", []))).intersection(narrowed_refs)
+    ]
+    filtered["findings"] = []
+    filtered["deliverable_table_ids"] = []
+    filtered["deliverable_tables"] = []
+    filtered["row_summaries"] = []
+    filtered["deliverable_figure_ids"] = []
+    filtered["deliverable_figures"] = []
+    filtered["figure_availability"] = []
+    filtered["figures"] = []
+    filtered["constraint_summaries"] = [
+        summary
+        for summary in _dict_list(evidence.get("constraint_summaries", []))
+        if set(_string_list(summary.get("source_refs", []))).intersection(narrowed_refs)
+    ]
+    filtered["validation_issues"] = [
+        issue
+        for issue in _dict_list(evidence.get("validation_issues", []))
+        if not issue.get("source_id") or str(issue.get("source_id")) in allowed_refs
+    ]
+    if narrowed_refs and not filtered.get("evidence_classes"):
+        filtered["evidence_classes"] = ["source_backed"]
+    return filtered
+
+
+def _filtered_source_gap_status(source_gap_status: list[dict[str, Any]], allowed_refs: set[str]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for status in source_gap_status:
+        source_ids = [ref for ref in _string_list(status.get("source_ids", [])) if ref in allowed_refs]
+        available_source_ids = [ref for ref in _string_list(status.get("available_source_ids", [])) if ref in allowed_refs]
+        if not source_ids and not available_source_ids:
+            continue
+        filtered = dict(status)
+        filtered["source_ids"] = source_ids or available_source_ids
+        filtered["available_source_ids"] = available_source_ids
+        records.append(filtered)
+    return records
 
 
 def _comparison_unit_evidence(evidence: dict[str, Any], comparison_unit: dict[str, Any]) -> dict[str, Any]:
@@ -1101,6 +1225,7 @@ def _section_render_policy(
     policy: ReportSectionPolicy | None,
     *,
     source_gap_status: list[dict[str, Any]],
+    source_refs: list[str] | None = None,
 ) -> dict[str, Any]:
     if policy is None:
         if target.target_type == "attachment" or target.review_item_type == "attachment":
@@ -1133,7 +1258,30 @@ def _section_render_policy(
             "render_decision_reason": "Section requires reviewer-supplied/manual context before normal report-body prose is supported.",
             "report_body_eligible": False,
         }
+    if policy.section_id == "study-area":
+        return {
+            **base,
+            "render_decision": "include_body",
+            "render_destination": "report_body",
+            "render_decision_reason": "Study Area is supported by submitted project geometry and project context; imagery is visual context only.",
+            "report_body_eligible": True,
+        }
     if policy.review_requirement == "source_gap_review" or policy.activation_condition == "deferred_source" or policy.inclusion_status == "required_stub":
+        if _source_gap_review_has_usable_support(policy, source_gap_status, source_refs=source_refs or []):
+            limitation_reason = (
+                "Current airport source data are available for screening review; any remaining deferred transportation/utility "
+                "source needs remain review limitations instead of blocking body review."
+                if policy.section_id == "airports"
+                else "Current source-backed support artifacts are available; deferred watershed/subwatershed context "
+                "remains a review limitation instead of blocking body review."
+            )
+            return {
+                **base,
+                "render_decision": "include_body",
+                "render_destination": "report_body",
+                "render_decision_reason": limitation_reason,
+                "report_body_eligible": True,
+            }
         return {
             **base,
             "render_decision": "blocked_missing_source",
@@ -1172,6 +1320,33 @@ def _section_render_policy(
         "render_decision_reason": "Policy allows standard report-body review candidate generation.",
         "report_body_eligible": True,
     }
+
+
+def _source_gap_review_has_usable_support(
+    policy: ReportSectionPolicy,
+    source_gap_status: list[dict[str, Any]],
+    *,
+    source_refs: list[str],
+) -> bool:
+    if policy.section_id == "airports":
+        return "faa_airports" in set(source_refs) and _source_available_in_status("faa_airports", source_gap_status)
+    if policy.section_id != "water-quality":
+        return False
+    source_states = {str(status.get("status", "")) for status in source_gap_status}
+    return bool(source_states.intersection(AVAILABLE_SOURCE_STATES))
+
+
+def _available_policy_source_refs(policy: ReportSectionPolicy | None, source_gap_status: list[dict[str, Any]]) -> list[str]:
+    if policy is None or not policy.allowed_source_refs:
+        return []
+    return [ref for ref in policy.allowed_source_refs if _source_available_in_status(ref, source_gap_status)]
+
+
+def _source_available_in_status(source_ref: str, source_gap_status: list[dict[str, Any]]) -> bool:
+    for status in source_gap_status:
+        if source_ref in _string_list(status.get("available_source_ids", [])):
+            return True
+    return False
 
 
 def _default_render_policy(reason: str = "No render gating applies.") -> dict[str, Any]:
@@ -1278,6 +1453,10 @@ def _manual_material_record(
         status = "restricted_reviewer_supplied_required"
         export_behavior = "body_replacement_when_reviewed"
         reviewer_action = "Restricted or authorized-source material is required; public/coarse context does not satisfy this review need."
+    elif target_id == "study-area" and not is_stub:
+        status = "source_backed_generated"
+        export_behavior = "standard_review_export"
+        reviewer_action = "Review generated project-context content before export."
     elif source_states.intersection({"manual", "stubbed"}) and not source_refs and not source_states.intersection(
         AVAILABLE_SOURCE_STATES
     ):
@@ -1289,7 +1468,9 @@ def _manual_material_record(
         status = "optional_absent"
         export_behavior = "do_not_export"
         reviewer_action = "Optional source material is absent; this does not block the required review package."
-    elif render_decision in {"blocked_missing_source", "audit_only"} or activation == "deferred_source":
+    elif render_decision in {"blocked_missing_source", "audit_only"} or (
+        activation == "deferred_source" and not (source_refs or source_states.intersection(AVAILABLE_SOURCE_STATES))
+    ):
         status = "deferred_source"
         export_behavior = "do_not_export"
         reviewer_action = "Carry this as deferred or source-gap status unless future source work supplies material."
@@ -1417,8 +1598,13 @@ def _section_is_stub(
     related_figures: list[dict[str, Any]],
     source_gap_status: list[dict[str, Any]],
     comparison_unit: dict[str, Any] | None,
+    policy: ReportSectionPolicy | None = None,
 ) -> bool:
     if not target.stub_when_missing:
+        return False
+    if _is_umbrella_section(target, policy):
+        return False
+    if target.target_id == "study-area" or target.resource_category == "study_area":
         return False
     if target.target_type in {"front_matter", "section"} and not target.source_categories and not comparison_unit:
         return False
@@ -1703,6 +1889,68 @@ def _source_backed_report_style(target: SectionTarget, evidence: dict[str, Any],
     return targeted and bool(source_states.intersection(AVAILABLE_SOURCE_STATES))
 
 
+def _is_umbrella_section(target: SectionTarget, policy: ReportSectionPolicy | None = None) -> bool:
+    if policy is not None:
+        return policy.section_role == "umbrella_section"
+    return target.target_id in UMBRELLA_SECTION_IDS
+
+
+def _is_structural_heading(target: SectionTarget, policy: ReportSectionPolicy | None = None) -> bool:
+    return policy is not None and policy.section_role == "structural_heading"
+
+
+def _umbrella_section_content(
+    target: SectionTarget,
+    context: dict[str, Any],
+    related_tables: list[dict[str, Any]],
+    related_figures: list[dict[str, Any]],
+) -> str:
+    lines = [_title_line(target)]
+    child_labels = UMBRELLA_CHILD_CATEGORY_LABELS.get(target.target_id, [])
+    if target.target_id == "environmental-constraints-inventory":
+        lines.append(
+            "This section orients the reviewer to the environmental constraints inventory and the resource categories addressed in the report."
+        )
+    else:
+        lines.append(f"This section orients the reviewer to {target.title.lower()} topics addressed in the report.")
+    if child_labels:
+        lines.append("The relevant subsections address " + _limited_join(child_labels, limit=8) + " where applicable.")
+    lines.append(
+        "Subsections summarize available screening evidence, and supporting tables, figures, and Appendix A maps are provided where current artifacts support them."
+    )
+    if _umbrella_artifact_status_sentence(related_tables, related_figures):
+        lines.append(_umbrella_artifact_status_sentence(related_tables, related_figures))
+    project_name = str(context.get("project_name") or "").strip()
+    project_phrase = f" for {project_name}" if project_name else ""
+    lines.append(
+        "Source limitations, deferred source categories, restricted-source constraints, and reviewer-supplied material needs are documented in the relevant child section, table, figure, or attachment review items."
+    )
+    subject = "This inventory" if target.target_id == "environmental-constraints-inventory" else "This section"
+    lines.append(
+        f"{subject}{project_phrase} is screening-level orientation only; it does not rank alternatives, select a preferred option, or make regulatory determinations."
+    )
+    return "\n".join(line for line in lines if line)
+
+
+def _umbrella_artifact_status_sentence(related_tables: list[dict[str, Any]], related_figures: list[dict[str, Any]]) -> str:
+    generated_tables = [table for table in related_tables if not table.get("is_stub")]
+    generated_figures = [figure for figure in related_figures if not figure.get("is_stub")]
+    stubbed_tables = [table for table in related_tables if table.get("is_stub")]
+    stubbed_figures = [figure for figure in related_figures if figure.get("is_stub")]
+    parts: list[str] = []
+    if generated_tables:
+        table_word = "table" if len(generated_tables) == 1 else "tables"
+        parts.append(f"{len(generated_tables)} generated {table_word}")
+    if generated_figures:
+        figure_word = "figure" if len(generated_figures) == 1 else "figures"
+        parts.append(f"{len(generated_figures)} generated {figure_word}")
+    if stubbed_tables or stubbed_figures:
+        parts.append(f"{len(stubbed_tables) + len(stubbed_figures)} stubbed support artifact(s)")
+    if not parts:
+        return ""
+    return "Current support artifacts include " + ", ".join(parts) + "; detailed artifact status remains on the specific review items."
+
+
 def _section_lead_sentence(target: SectionTarget, comparison_unit: dict[str, Any] | None, extent_metadata: dict[str, Any] | None = None) -> str:
     unit_name = str((comparison_unit or {}).get("comparison_unit_name") or "").strip()
     scope_phrase = extent_wording_for_scope(extent_metadata or {})
@@ -1712,6 +1960,8 @@ def _section_lead_sentence(target: SectionTarget, comparison_unit: dict[str, Any
         subject = "Public cultural and historic resource context"
     elif target.resource_category == "community_socioeconomic":
         subject = "Mapped community resource and socioeconomic context"
+    elif target.target_id == "airports":
+        subject = "Mapped airport and aeronautical facility context"
     elif target.resource_category == "transportation_utilities":
         subject = "Mapped utility, transportation, and energy infrastructure context"
     elif target.resource_category == "regulated_facilities":
@@ -1851,6 +2101,10 @@ def _source_limitation_sentence(
         limitations.append(
             "Utility and infrastructure datasets are screening context only and do not replace owner coordination, field locating, or engineering verification."
         )
+    elif target.resource_category == "flood_hazard":
+        limitations.append(
+            "FEMA NFHL/DFIRM flood hazard data support screening-level review only and do not replace official floodplain administration, engineering review, FEMA determinations, or local permitting review."
+        )
     elif target.resource_category == "regulated_facilities":
         limitations.append(
             "Regulated facility datasets are screening context only and do not establish contamination extent, liability, or cleanup obligations."
@@ -1878,7 +2132,9 @@ def _extent_limitation_sentence(extent_metadata: dict[str, Any]) -> str:
     if analysis_extent_type in {"nearby_context_extent", "community_context_extent"}:
         return "Context records should not be interpreted as direct project impacts unless a direct project-area relationship is separately documented."
     if analysis_extent_type == "watershed_context_extent":
-        return "Watershed and impaired-water context is broader than direct project-feature intersection; current automated watershed context remains limited where source acquisition is deferred."
+        if "Materialized HUC-12 watershed/subwatershed polygons are available" in source_selection_reason:
+            return "Watershed and impaired-water context is broader than direct project-feature intersection; materialized HUC-12 subwatershed context is available for screening-level review."
+        return "Watershed and impaired-water context is broader than direct project-feature intersection; current automated watershed context remains limited until HUC-12 watershed/subwatershed context is materialized."
     if source_selection_reason and "until" in source_selection_reason:
         return source_selection_reason
     return ""
@@ -1886,6 +2142,88 @@ def _extent_limitation_sentence(extent_metadata: dict[str, Any]) -> str:
 
 def _limiting_source_gap_status(source_gap_status: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [status for status in source_gap_status if str(status.get("status", "")) not in AVAILABLE_SOURCE_STATES]
+
+
+def _study_area_content(
+    target: SectionTarget,
+    context: dict[str, Any],
+    evidence: dict[str, Any],
+    extent_metadata: dict[str, Any],
+) -> str:
+    project_name = str(context.get("project_name") or "the project").strip()
+    lines = [_title_line(target)]
+    lines.append(
+        f"The study area for {project_name} is based on the submitted project geometry and the project-area analysis bounds prepared from the input package."
+    )
+    comparison_unit_names = _study_area_comparison_unit_names(context)
+    if comparison_unit_names:
+        unit_word = "comparison unit" if len(comparison_unit_names) == 1 else "comparison units"
+        lines.append("The current review package includes " + _limited_join(comparison_unit_names, limit=8) + f" as {unit_word} for screening.")
+    county_names = _study_area_county_names(context)
+    if county_names:
+        lines.append("Administrative context places the study area in " + _limited_join(county_names, limit=6) + ".")
+    source_refs = _dedupe([*_string_list(evidence.get("source_refs", [])), *_study_area_context_source_refs(target, context, None)])
+    if source_refs:
+        lines.append(_source_reference_sentence(source_refs))
+    lines.append(
+        "Project-area boundaries and analysis bounds support source screening and map presentation; they are not regulatory determinations or final design limits."
+    )
+    if _study_area_has_visual_context(evidence):
+        lines.append(
+            "Available NAIP/MARIS basemap imagery is used as visual context for screening and figure presentation only; it is not treated as authoritative source evidence."
+        )
+    extent_limitation = _extent_limitation_sentence(extent_metadata)
+    if extent_limitation:
+        lines.append(extent_limitation)
+    return "\n".join(line for line in lines if line)
+
+
+def _study_area_comparison_unit_names(context: dict[str, Any]) -> list[str]:
+    return _dedupe(
+        [
+            str(unit.get("comparison_unit_name") or unit.get("comparison_unit_id") or "").strip()
+            for unit in _dict_list(context.get("_comparison_units", []))
+            if unit.get("comparison_unit_name") or unit.get("comparison_unit_id")
+        ]
+    )
+
+
+def _study_area_county_names(context: dict[str, Any]) -> list[str]:
+    admin = context.get("administrative_areas", {}) if isinstance(context.get("administrative_areas"), dict) else {}
+    counties = [
+        str(county.get("name") or county.get("raw_name") or "").strip()
+        for county in _dict_list(admin.get("counties", []))
+        if county.get("name") or county.get("raw_name")
+    ]
+    return _dedupe([*counties, *_string_list(context.get("county_names", [])), *_string_list(context.get("project_county_names", []))])
+
+
+def _study_area_has_visual_context(evidence: dict[str, Any]) -> bool:
+    refs = set(_string_list(evidence.get("source_refs", [])))
+    for status in _dict_list(evidence.get("source_gap_status", [])):
+        refs.update(_string_list(status.get("available_source_ids", [])))
+    return bool(refs.intersection({"maris_naip_2025_imagery", "usda_naip_imagery"}))
+
+
+def _study_area_context_source_refs(
+    target: SectionTarget,
+    context: dict[str, Any],
+    policy: ReportSectionPolicy | None,
+) -> list[str]:
+    if target.target_id != "study-area" and target.resource_category != "study_area":
+        return []
+    allowed = set(policy.allowed_source_refs) if policy is not None and policy.allowed_source_refs else set()
+    admin = context.get("administrative_areas", {}) if isinstance(context.get("administrative_areas"), dict) else {}
+    refs = [
+        str(admin.get("source_id") or "").strip(),
+        *[
+            str(county.get("source_id") or "").strip()
+            for county in _dict_list(admin.get("counties", []))
+            if county.get("source_id")
+        ],
+    ]
+    clean = _dedupe([ref for ref in refs if ref])
+    return [ref for ref in clean if not allowed or ref in allowed]
 
 
 def _general_section_content(
@@ -1936,10 +2274,27 @@ def _section_content(
     related_figures: list[dict[str, Any]],
     comparison_unit: dict[str, Any] | None,
     extent_metadata: dict[str, Any] | None = None,
+    front_matter_tables: list[dict[str, Any]] | None = None,
+    front_matter_figures: list[dict[str, Any]] | None = None,
+    policy: ReportSectionPolicy | None = None,
 ) -> str:
     extent_metadata = extent_metadata or {}
+    if target.target_id == "study-area" or target.resource_category == "study_area":
+        return _study_area_content(target, context, evidence, extent_metadata)
+    if _is_umbrella_section(target, policy):
+        return _umbrella_section_content(target, context, related_tables, related_figures)
     if target.target_type == "front_matter":
-        return "\n".join([_title_line(target), _front_matter_content(target, context, related_tables, related_figures)])
+        return "\n".join(
+            [
+                _title_line(target),
+                _front_matter_content(
+                    target,
+                    context,
+                    related_tables=front_matter_tables if front_matter_tables is not None else related_tables,
+                    related_figures=front_matter_figures if front_matter_figures is not None else related_figures,
+                ),
+            ]
+        )
     if target.target_type == "attachment":
         if target.attachment_refs:
             return "\n".join([_title_line(target), _attachment_wrapper_content(target)])
@@ -1966,12 +2321,59 @@ def _front_matter_content(target: SectionTarget, context: dict[str, Any], relate
     if target.target_id == "cover-title":
         return f"{context.get('project_name', 'Project')} Environmental Constraints Report."
     if target.target_id == "list-of-figures":
-        return "The figure list reflects matrix-backed figure items in matrix order."
+        return _front_matter_figure_list(related_figures)
     if target.target_id == "list-of-tables":
-        return "The table list reflects matrix-backed table items in matrix order."
+        return _front_matter_table_list(related_tables)
     if target.target_id == "list-of-attachments":
         return "The attachment list reflects Attachment A, Attachment B, and Attachment C targets."
     return f"Front-matter content for {target.title}."
+
+
+def _front_matter_figure_list(figures: list[dict[str, Any]]) -> str:
+    records = sorted(_dict_list(figures), key=lambda figure: _artifact_number(figure, "figure_number", 9999))
+    if not records:
+        return "No figures are currently included."
+    return "\n".join(_front_matter_figure_entry(figure, index) for index, figure in enumerate(records, start=1))
+
+
+def _front_matter_table_list(tables: list[dict[str, Any]]) -> str:
+    records = sorted(_dict_list(tables), key=lambda table: _artifact_number(table, "table_number", 9999))
+    if not records:
+        return "No tables are currently included."
+    return "\n".join(_front_matter_table_entry(table, index) for index, table in enumerate(records, start=1))
+
+
+def _front_matter_figure_entry(figure: dict[str, Any], fallback_number: int) -> str:
+    number = _artifact_number(figure, "figure_number", fallback_number)
+    title = str(figure.get("caption") or figure.get("title") or "Untitled Figure").strip()
+    return f"Figure {number}. {title}{_front_matter_status_suffix(figure)}"
+
+
+def _front_matter_table_entry(table: dict[str, Any], fallback_number: int) -> str:
+    number = _artifact_number(table, "table_number", fallback_number)
+    title = str(table.get("title") or "Untitled Table").strip()
+    return f"Table {number}. {title}{_front_matter_status_suffix(table)}"
+
+
+def _front_matter_status_suffix(record: dict[str, Any]) -> str:
+    if bool(record.get("is_stub", False)):
+        return " (stubbed)"
+    status = str(record.get("review_status") or "").strip()
+    if status in {"accepted", "edited", "replaced", "unable_to_verify"}:
+        return f" ({status.replace('_', ' ')})"
+    return ""
+
+
+def _artifact_number(record: dict[str, Any], key: str, fallback: int) -> int:
+    value = record.get(key)
+    if isinstance(value, bool):
+        return fallback
+    if isinstance(value, (int, float)):
+        return int(value)
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return fallback
 
 
 def _review_status(
@@ -2003,17 +2405,54 @@ def _target_validation_issues(
     related_tables: list[dict[str, Any]],
     related_figures: list[dict[str, Any]],
     target: SectionTarget,
+    policy: ReportSectionPolicy | None = None,
 ) -> list[dict[str, Any]]:
-    issues = _dict_list(evidence.get("validation_issues", []))
+    if _is_umbrella_section(target, policy):
+        return []
+    required_table_refs = {str(ref) for ref in target.table_refs}
+    required_figure_refs = {str(ref) for ref in target.figure_refs}
+    issues = _section_evidence_validation_issues(
+        evidence,
+        target=target,
+        required_table_refs=required_table_refs,
+        required_figure_refs=required_figure_refs,
+    )
     for table in related_tables:
-        issues.extend(_dict_list(table.get("validation_issues", [])))
-        if table.get("is_stub"):
+        table_id = str(table.get("table_id") or "")
+        is_required = table_id in required_table_refs
+        if is_required or not table.get("is_stub"):
+            issues.extend(_dict_list(table.get("validation_issues", [])))
+        if is_required and table.get("is_stub"):
             issues.append(_issue("warning", "deliverable_table_stub", f"Related deliverable table '{table.get('table_id')}' is a stub.", "deliverable/tables.json", target.target_id))
     for figure in related_figures:
-        issues.extend(_dict_list(figure.get("validation_issues", [])))
-        if figure.get("is_stub"):
+        figure_id = str(figure.get("figure_id") or "")
+        is_required = figure_id in required_figure_refs
+        if is_required or not figure.get("is_stub"):
+            issues.extend(_dict_list(figure.get("validation_issues", [])))
+        if is_required and figure.get("is_stub"):
             issues.append(_issue("warning", "deliverable_figure_stub", f"Related deliverable figure '{figure.get('figure_id')}' is a stub.", "deliverable/figures.json", target.target_id))
     return _dedupe_issues(issues)
+
+
+def _section_evidence_validation_issues(
+    evidence: dict[str, Any],
+    *,
+    target: SectionTarget,
+    required_table_refs: set[str],
+    required_figure_refs: set[str],
+) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for issue in _dict_list(evidence.get("validation_issues", [])):
+        code = str(issue.get("code") or "")
+        issue_target_id = str(issue.get("target_id") or "")
+        if code in {"figure_created_as_stub", "deliverable_figure_stub"}:
+            if issue_target_id and issue_target_id not in required_figure_refs and issue_target_id != target.target_id:
+                continue
+        if code in {"deliverable_table_stub", "table_created_as_stub"}:
+            if issue_target_id and issue_target_id not in required_table_refs and issue_target_id != target.target_id:
+                continue
+        issues.append(issue)
+    return issues
 
 
 def _table_lookup(tables: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -2032,6 +2471,20 @@ def _related_table_records(tables: dict[str, Any], table_refs: list[str]) -> lis
 def _related_figure_records(figures: dict[str, Any], figure_refs: list[str]) -> list[dict[str, Any]]:
     lookup = _figure_lookup(figures)
     return [lookup[figure_ref] for figure_ref in figure_refs if figure_ref in lookup]
+
+
+def _support_table_refs(target: SectionTarget, policy: ReportSectionPolicy | None) -> list[str]:
+    refs = list(target.table_refs)
+    if policy is not None:
+        refs.extend(policy.allowed_table_refs)
+    return _dedupe(refs)
+
+
+def _support_figure_refs(target: SectionTarget, policy: ReportSectionPolicy | None) -> list[str]:
+    refs = list(target.figure_refs)
+    if policy is not None:
+        refs.extend(policy.allowed_figure_refs)
+    return _dedupe(refs)
 
 
 def _missing_upstream_issue(record: dict[str, Any], target_id: str, output_path: Path, target_type: str) -> list[dict[str, Any]]:
@@ -2063,9 +2516,21 @@ def _expected_item_count(
     figure_targets: list[FigureTarget],
     attachment_targets: list[AttachmentTarget],
     comparison_units: list[dict[str, Any]],
+    *,
+    section_policy: ReportSectionPolicyConfig | None = None,
 ) -> int:
-    static_sections = sum(1 for target in section_targets if target.target_type in STATIC_SECTION_TARGET_TYPES)
-    dynamic_children = sum(len(comparison_units) for target in section_targets if target.dynamic_children)
+    policies = section_policy.by_section_id() if section_policy is not None else {}
+    static_sections = sum(
+        1
+        for target in section_targets
+        if target.target_type in STATIC_SECTION_TARGET_TYPES
+        and not _is_structural_heading(target, policies.get(target.target_id))
+    )
+    dynamic_children = sum(
+        len(comparison_units)
+        for target in section_targets
+        if target.dynamic_children and not _is_structural_heading(target, policies.get(target.target_id))
+    )
     return static_sections + dynamic_children + len(table_targets) + len(figure_targets) + len(attachment_targets)
 
 
@@ -2141,6 +2606,8 @@ def _prefer_target_scope_for_context_targets(metadata: dict[str, Any], fallback:
     result["interpretation_scope_label"] = fallback.get("interpretation_scope_label", result.get("interpretation_scope_label", ""))
     reason = str(fallback.get("source_selection_reason", "")).strip()
     existing = str(result.get("source_selection_reason", "")).strip()
+    if target_scope == WATERSHED_CONTEXT_EXTENT and "Materialized HUC-12 watershed/subwatershed polygons are available" in existing:
+        return result
     if reason and reason not in existing:
         result["source_selection_reason"] = (existing + " " + reason).strip()
     return result
@@ -2198,6 +2665,7 @@ def _matrix_target_summary(
             if key in render_policy:
                 summary[key] = render_policy[key]
     if section_policy:
+        summary["section_role"] = section_policy.section_role
         summary["required_caveats"] = list(section_policy.required_caveats)
         summary["allowed_source_refs"] = list(section_policy.allowed_source_refs)
         summary["allowed_source_categories"] = list(section_policy.allowed_source_categories)

@@ -64,6 +64,13 @@ REVIEW_REQUIREMENTS = {
     "manual_review",
     "source_gap_review",
 }
+SECTION_ROLES = {
+    "evidence_section",
+    "umbrella_section",
+    "structural_heading",
+    "front_matter",
+    "manual_item",
+}
 DRAFTING_MODES = {
     "deterministic_only",
     "gpt_allowed",
@@ -188,6 +195,7 @@ class ReportSectionPolicy:
     title: str
     section_family: str
     source_category: str
+    section_role: str
     inclusion_status: str
     activation_condition: str
     review_requirement: str
@@ -215,6 +223,7 @@ class ReportSectionPolicy:
             title=_required_string(data, "title", section_id),
             section_family=_required_string(data, "section_family", section_id),
             source_category=_required_string(data, "source_category", section_id),
+            section_role=str(data.get("section_role") or "evidence_section"),
             inclusion_status=_required_string(data, "inclusion_status", section_id),
             activation_condition=_required_string(data, "activation_condition", section_id),
             review_requirement=_required_string(data, "review_requirement", section_id),
@@ -509,6 +518,19 @@ def _policy_record_for_target(target_id: str) -> ReportSectionPolicy | TablePoli
 
 
 def _validate_section_policy(policy: ReportSectionPolicy) -> None:
+    if policy.section_role not in SECTION_ROLES:
+        raise ReportSectionPolicyError(
+            f"Section policy '{policy.section_id}' has unsupported section_role '{policy.section_role}'."
+        )
+    if policy.section_role == "structural_heading":
+        if policy.drafting_mode != "deterministic_only":
+            raise ReportSectionPolicyError(
+                f"Structural heading section policy '{policy.section_id}' must use deterministic_only drafting."
+            )
+        if policy.gpt_readiness in GPT_READY_VALUES:
+            raise ReportSectionPolicyError(
+                f"Structural heading section policy '{policy.section_id}' cannot be GPT-ready."
+            )
     if policy.inclusion_status not in INCLUSION_STATUSES:
         raise ReportSectionPolicyError(
             f"Section policy '{policy.section_id}' has unsupported inclusion_status '{policy.inclusion_status}'."

@@ -1430,6 +1430,21 @@ def test_new_source_figure_refs_flow_into_deliverable_items_and_review_queue(
         [LineString([(-90.0002, 31.9996), (-89.9982, 32.0009)])],
         [{"WATER_BODY_NAME": "Test Creek", "review_assist_mdeq_303d_status": "TMDL complete", "review_assist_list_year": "2024"}],
     )
+    write_layer(
+        project_dir / "huc12.geojson",
+        [
+            Polygon(
+                [
+                    (-90.1, 31.9),
+                    (-89.9, 31.9),
+                    (-89.9, 32.1),
+                    (-90.1, 32.1),
+                    (-90.1, 31.9),
+                ]
+            )
+        ],
+        [{"huc12": "080302010407", "name": "Test Creek", "tohuc": "080302010408"}],
+    )
     write_registry(
         project_dir,
         [
@@ -1438,13 +1453,16 @@ def test_new_source_figure_refs_flow_into_deliverable_items_and_review_queue(
             ("usgs_nhd_waterbodies", "nhd_waterbody.geojson"),
             ("usgs_nhd_other_areas", "nhd_other_area.geojson"),
             ("mdeq_303d_impaired_waters", "impaired.geojson"),
+            ("usgs_wbd_huc12_subwatersheds", "huc12.geojson"),
         ],
     )
 
-    generate_deliverable_figures(project_dir)
-    build_evidence_package(project_dir)
+    figures = generate_deliverable_figures(project_dir)
+    evidence = build_evidence_package(project_dir)
     items = generate_deliverable_items(project_dir, gpt_drafting=False)
     queue = generate_review_queue(project_dir)
+    streams = figure_by_id(figures, "figure-streams-impaired-waters")
+    water_quality_evidence = evidence["section_evidence"]["water-quality"]
 
     pws_item = next(item for item in items["items"] if item["deliverable_item_id"] == "public-water-supply")
     water_quality_item = next(item for item in items["items"] if item["deliverable_item_id"] == "water-quality")
@@ -1454,8 +1472,15 @@ def test_new_source_figure_refs_flow_into_deliverable_items_and_review_queue(
 
     assert "figure-public-water-supply-wells" in pws_item["related_figure_ids"]
     assert "figure-streams-impaired-waters" in water_quality_item["related_figure_ids"]
+    assert "figure-wetlands-waterbodies" in water_quality_item["related_figure_ids"]
+    assert "table-wetlands-waterbodies" in water_quality_item["related_table_ids"]
     assert "figure-public-water-supply-wells" in pws_queue["related_figure_ids"]
     assert "figure-streams-impaired-waters" in water_quality_queue["related_figure_ids"]
+    assert "figure-wetlands-waterbodies" in water_quality_queue["related_figure_ids"]
+    assert "table-wetlands-waterbodies" in water_quality_queue["related_table_ids"]
+    assert water_quality_item["render_decision"] == "include_body"
+    assert water_quality_item["report_body_eligible"] is True
+    assert water_quality_item["manual_material"]["material_status"] == "source_backed_generated"
     assert "mdeq_303d_impaired_waters" in water_quality_item["source_refs"]
     assert "mdeq_303d_impaired_waters" in water_quality_queue["source_refs"]
     assert "usgs_nhd_flowlines" in water_quality_item["source_refs"]
@@ -1464,6 +1489,15 @@ def test_new_source_figure_refs_flow_into_deliverable_items_and_review_queue(
     assert "usgs_nhd_waterbodies" in water_quality_queue["source_refs"]
     assert "usgs_nhd_other_areas" in water_quality_item["source_refs"]
     assert "usgs_nhd_other_areas" in water_quality_queue["source_refs"]
+    assert "usgs_wbd_huc12_subwatersheds" in streams["source_refs"]
+    assert "usgs_wbd_huc12_subwatersheds" in water_quality_evidence["source_refs"]
+    assert "usgs_wbd_huc12_subwatersheds" in water_quality_item["source_refs"]
+    assert "usgs_wbd_huc12_subwatersheds" in water_quality_queue["source_refs"]
+    assert "USGS WBD HUC-12 subwatershed boundaries are shown" in streams["source_note"]
+    assert "Materialized HUC-12 watershed/subwatershed polygons are available" in streams["source_selection_reason"]
+    assert "Materialized HUC-12 watershed/subwatershed polygons are available" in water_quality_evidence["source_selection_reason"]
+    assert not any(issue["code"] == "figure_extent_context_deferred" for issue in streams["validation_issues"])
+    assert not any(issue["code"] == "figure_extent_context_deferred" for issue in water_quality_item["validation_issues"])
     assert "usgs_nhd_hydrography" not in water_quality_item["source_refs"]
     assert "usgs_nhd_hydrography" not in water_quality_queue["source_refs"]
     assert not any(issue["code"] == "figure_created_as_stub" for issue in pws_item["validation_issues"])
@@ -1597,7 +1631,8 @@ def test_generated_figures_record_distinct_comparison_unit_visual_styles(
     streams = figure_by_id(result, "figure-streams-impaired-waters")
     assert streams["figure_extent_type"] == "watershed_context_extent"
     assert streams["analysis_extent_type"] == "watershed_context_extent"
-    assert "watershed_context_extent and 303(d) acquisition" in streams["source_selection_reason"]
+    assert "HUC-12" in streams["source_selection_reason"]
+    assert "until HUC-12 watershed/subwatershed context is materialized" in streams["source_selection_reason"]
 
 
 def test_restricted_cultural_source_is_not_mapped_or_exposed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

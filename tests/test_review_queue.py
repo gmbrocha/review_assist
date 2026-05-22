@@ -129,6 +129,7 @@ def test_generate_review_queue_writes_bounded_deliverable_item_queue(tmp_path: P
     assert queue["queue_mode"] == "deliverable_items"
     assert queue["item_count"] == len(queue["items"])
     assert queue["item_count"] == deliverable_items["item_count"]
+    assert "natural-and-ecological-resources" not in {item["id"] for item in queue["items"]}
     assert all(REQUIRED_ITEM_FIELDS.issubset(item) for item in queue["items"])
 
     wetlands = item_by_id(queue, "wetlands-and-waterbodies")

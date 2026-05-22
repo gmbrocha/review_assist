@@ -26,6 +26,7 @@ from .extent_policy import (
 from .findings import FINDINGS_PATH, FindingGenerationError, generate_draft_findings, load_draft_findings
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_context import ProjectContextError, generate_project_context, load_project_context
+from .report_section_policy import ReportSectionPolicy, load_report_section_policy
 from .source_acquisition import SOURCE_ACQUISITION_PATH
 from .source_inventory import SOURCE_INVENTORY_PATH, SourceInventoryError, generate_source_inventory, load_source_inventory
 from .source_status import SOURCE_STATUS_PATH, SourceStatusError, resolve_source_status_set
@@ -40,6 +41,13 @@ EVIDENCE_CLASSES = {
     "failed_or_missing",
     "test_fixture_blocked",
 }
+AVAILABLE_SOURCE_DETAIL_STATES = {
+    "registered_local",
+    "local_materialized",
+    "provided_in_input",
+    "downloaded",
+    "available",
+}
 SOURCE_ACQUISITION_CAVEAT_CODES = {
     "source_download_failed",
     "source_not_downloaded",
@@ -52,6 +60,7 @@ SOURCE_ID_CATEGORY_HINTS = {
     "usgs_nhd_waterbodies": "hydrography_crossings",
     "usgs_nhd_other_areas": "hydrography_crossings",
     "mdeq_303d_impaired_waters": "water_quality",
+    "usgs_wbd_huc12_subwatersheds": "water_quality",
     "fema_nfhl_flood_hazard": "flood_hazard",
     "maris_public_cultural_context": "cultural_historic",
     "mdah_public_historic_resources": "cultural_historic",
@@ -61,6 +70,7 @@ SOURCE_ID_CATEGORY_HINTS = {
     "census_tiger_acs": "community_socioeconomic",
     "mdeq_public_water_supply_wells": "transportation_utilities",
     "local_utility_infrastructure": "transportation_utilities",
+    "faa_airports": "transportation_utilities",
     "epa_envirofacts_echo": "regulated_facilities",
     "epa_frs_facilities_ms": "regulated_facilities",
     "maris_brownfields": "regulated_facilities",
@@ -271,12 +281,24 @@ def _section_bundles(
     data_lineage: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
     categories = _categories(source_status, draft_findings, constraints, deliverable_tables, deliverable_figures)
+    policy_by_section = load_report_section_policy().by_section_id()
     bundles: dict[str, dict[str, Any]] = {}
     for section_id, category in categories.items():
+        section_policy = policy_by_section.get(section_id)
         findings = _findings_for_category(draft_findings, category)
         tables = _tables_for_category(comparison_tables, category)
-        deliverable_section_tables = _deliverable_tables_for_section(deliverable_tables, section_id, category)
-        deliverable_section_figures = _deliverable_figures_for_section(deliverable_figures, section_id, category)
+        deliverable_section_tables = _deliverable_tables_for_section(
+            deliverable_tables,
+            section_id,
+            category,
+            section_policy=section_policy,
+        )
+        deliverable_section_figures = _deliverable_figures_for_section(
+            deliverable_figures,
+            section_id,
+            category,
+            section_policy=section_policy,
+        )
         source_refs = sorted(
             {
                 ref
@@ -580,13 +602,22 @@ def _figures_for_refs(map_manifest: dict[str, Any] | None, source_refs: list[str
     return figures[:8]
 
 
-def _deliverable_tables_for_section(deliverable_tables: dict[str, Any], section_id: str, category: str) -> list[dict[str, Any]]:
+def _deliverable_tables_for_section(
+    deliverable_tables: dict[str, Any],
+    section_id: str,
+    category: str,
+    *,
+    section_policy: ReportSectionPolicy | None = None,
+) -> list[dict[str, Any]]:
     tables = _dict_list(deliverable_tables.get("tables", []))
     if category == "overall":
         return tables[:8]
+    lookup = {str(table.get("table_id")): table for table in tables if table.get("table_id")}
     result = [table for table in tables if table.get("section_target_id") == section_id]
+    if section_policy is not None:
+        result.extend(lookup[table_id] for table_id in section_policy.allowed_table_refs if table_id in lookup)
     if result:
-        return result
+        return _dedupe_records_by_id(result, "table_id")
     return [
         table
         for table in tables
@@ -595,19 +626,40 @@ def _deliverable_tables_for_section(deliverable_tables: dict[str, Any], section_
     ]
 
 
-def _deliverable_figures_for_section(deliverable_figures: dict[str, Any], section_id: str, category: str) -> list[dict[str, Any]]:
+def _deliverable_figures_for_section(
+    deliverable_figures: dict[str, Any],
+    section_id: str,
+    category: str,
+    *,
+    section_policy: ReportSectionPolicy | None = None,
+) -> list[dict[str, Any]]:
     figures = _dict_list(deliverable_figures.get("figures", []))
     if category == "overall":
         return figures[:8]
+    lookup = {str(figure.get("figure_id")): figure for figure in figures if figure.get("figure_id")}
     result = [figure for figure in figures if figure.get("section_target_id") == section_id]
+    if section_policy is not None:
+        result.extend(lookup[figure_id] for figure_id in section_policy.allowed_figure_refs if figure_id in lookup)
     if result:
-        return result
+        return _dedupe_records_by_id(result, "figure_id")
     return [
         figure
         for figure in figures
         if category in _string_list(figure.get("related_resource_categories", []))
         or category in _source_categories_from_refs(_string_list(figure.get("source_refs", [])))
     ]
+
+
+def _dedupe_records_by_id(records: list[dict[str, Any]], id_field: str) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for record in records:
+        record_id = str(record.get(id_field) or "")
+        if not record_id or record_id in seen:
+            continue
+        seen.add(record_id)
+        result.append(record)
+    return result
 
 
 def _deliverable_table_summary(table: dict[str, Any]) -> dict[str, Any]:
@@ -779,6 +831,8 @@ def _prefer_target_scope_for_context_targets(metadata: dict[str, Any], fallback:
     result["interpretation_scope_label"] = fallback.get("interpretation_scope_label", result.get("interpretation_scope_label", ""))
     reason = str(fallback.get("source_selection_reason", "")).strip()
     existing = str(result.get("source_selection_reason", "")).strip()
+    if target_scope == WATERSHED_CONTEXT_EXTENT and "Materialized HUC-12 watershed/subwatershed polygons are available" in existing:
+        return result
     if reason and reason not in existing:
         result["source_selection_reason"] = (existing + " " + reason).strip()
     return result
@@ -805,11 +859,17 @@ def _source_gap_status(source_status: dict[str, Any], category: str) -> list[dic
     for item in _dict_list(source_status.get("statuses", [])):
         if category != "overall" and item.get("category") != category:
             continue
+        available_source_ids = [
+            str(detail.get("source_id"))
+            for detail in _dict_list(item.get("source_details", []))
+            if detail.get("source_id") and str(detail.get("status") or "") in AVAILABLE_SOURCE_DETAIL_STATES
+        ]
         records.append(
             {
                 "category": item.get("category"),
                 "status": item.get("status"),
                 "source_ids": _source_ids_for_status(item),
+                "available_source_ids": available_source_ids,
                 "notes": item.get("notes", ""),
                 "uncertainty_flags": _string_list(item.get("report_caveat_flags", item.get("uncertainty_flags", []))),
             }

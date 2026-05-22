@@ -133,6 +133,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         raise ExportGateError(review_gate)
 
     included, skipped = _partition_export_items(items, include_draft=include_draft)
+    included = [*included, *_structural_heading_export_items(matrix, section_policy)]
     included = sorted(included, key=_export_sort_key)
     data_lineage = build_data_lineage(project_dir, included_items=included)
     unresolved_required_sources = _unresolved_required_sources(source_status)
@@ -656,6 +657,91 @@ def _partition_export_items(
     return included, skipped
 
 
+def _structural_heading_export_items(matrix: Any, section_policy: Any) -> list[dict[str, Any]]:
+    policies = section_policy.by_section_id()
+    items: list[dict[str, Any]] = []
+    for target in getattr(matrix, "section_targets", []):
+        policy = policies.get(str(target.target_id))
+        if policy is None or policy.section_role != "structural_heading":
+            continue
+        render_policy = {
+            "policy_inclusion_status": policy.inclusion_status,
+            "policy_activation_condition": policy.activation_condition,
+            "policy_review_requirement": policy.review_requirement,
+            "policy_comparison_unit_expansion": policy.comparison_unit_expansion_policy,
+            "render_decision": "include_body",
+            "render_destination": "report_outline",
+            "render_decision_reason": "Structural heading is emitted from matrix policy and does not require review.",
+            "report_body_eligible": True,
+        }
+        items.append(
+            {
+                "id": str(target.target_id),
+                "target_id": str(target.target_id),
+                "deliverable_item_id": str(target.target_id),
+                "type": "structural_heading",
+                "title": str(target.title),
+                "status": "not_review_required",
+                "is_stub": False,
+                "export_group": str(target.export_group),
+                "export_section": str(target.target_id),
+                "section_number": target.section_number,
+                "section_order": _optional_number(target.section_order),
+                "heading_level": _optional_int(target.heading_level),
+                "content": "",
+                "content_source": "structural_heading",
+                "source_refs": [],
+                "uncertainty_flags": [],
+                "required_caveats": [],
+                "allowed_source_refs": [],
+                "allowed_source_categories": [],
+                "allowed_table_refs": [],
+                "allowed_figure_refs": [],
+                "visual_slots": [],
+                "table_slots": [],
+                "related_figure_ids": [],
+                "related_table_ids": [],
+                "image_path": "",
+                "figure_id": "",
+                "figure_type": "",
+                "caption": "",
+                "caption_source": "",
+                "image_source": "",
+                "source_note": "",
+                "method_note": "",
+                "map_elements": [],
+                "figure_group": "",
+                "related_resource_categories": [],
+                "table_id": "",
+                "columns": [],
+                "rows_preview": [],
+                "required_columns": [],
+                "row_count": None,
+                "attachment_id": "",
+                "attachment_refs": [],
+                "artifact_path": "",
+                "provenance": {
+                    "artifact": "deliverable_matrix",
+                    "matrix_version": getattr(matrix, "matrix_version", ""),
+                    "section_role": "structural_heading",
+                    "review_before_export": False,
+                },
+                "manual_material": {
+                    "material_type": "none",
+                    "material_status": "not_used",
+                    "export_behavior": "do_not_export",
+                    "reviewer_action": "No review action is required for structural headings.",
+                    "source_refs": [],
+                    "source_categories": [],
+                    "internal_note_only": False,
+                },
+                **render_policy,
+                "render_policy": render_policy,
+            }
+        )
+    return items
+
+
 def _export_item(item: dict[str, Any]) -> dict[str, Any]:
     status = _normalized_status(item.get("status"))
     assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
@@ -923,7 +1009,7 @@ def _export_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
     group = str(item.get("export_group", ""))
     group_index = EXPORT_GROUP_ORDER.index(group) if group in EXPORT_GROUP_ORDER else len(EXPORT_GROUP_ORDER)
     item_type = str(item.get("type", ""))
-    type_index = 0 if item_type in {"report_section", "section_text"} else 1
+    type_index = 0 if item_type in {"report_section", "section_text", "structural_heading"} else 1
     order = _sort_order_value(item.get("section_order"))
     return (group_index, type_index, order, str(item.get("title", "")))
 
@@ -1338,7 +1424,8 @@ def _markdown_report(
         group = str(item.get("export_group", "resource_sections"))
         if group != current_group:
             current_group = group
-            lines.extend([f"## {EXPORT_GROUP_TITLES.get(group, group.replace('_', ' ').title())}", ""])
+            if not _structural_heading_matches_group(item, group):
+                lines.extend([f"## {EXPORT_GROUP_TITLES.get(group, group.replace('_', ' ').title())}", ""])
         if _standalone_rendered_inline(item, planned_inline_table_ids, planned_inline_figure_ids):
             continue
         lines.extend(
@@ -1373,9 +1460,13 @@ def _markdown_item(
     lines: list[str] = []
     heading = _item_heading_text(item)
     if not suppress_heading:
-        lines.extend([f"### {heading}", ""])
+        heading_marker = "##" if item.get("type") == "structural_heading" else "###"
+        lines.extend([f"{heading_marker} {heading}", ""])
+    if item.get("type") == "structural_heading":
+        return lines
+    front_matter_list_kind = _front_matter_list_kind(item)
     content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), heading, str(item.get("title", "")))
-    if content:
+    if content and not front_matter_list_kind:
         lines.extend([content, ""])
     if item.get("type") in {"report_section", "section_text"} and not _is_front_matter_item(item):
         lines.extend(
@@ -1389,7 +1480,6 @@ def _markdown_item(
                 rendered_figure_ids=rendered_figure_ids if rendered_figure_ids is not None else set(),
             )
         )
-    front_matter_list_kind = _front_matter_list_kind(item)
     if front_matter_list_kind:
         lines.extend(_markdown_front_matter_list(front_matter_list_kind, all_included_items or []))
     elif item.get("type") in {"report_section", "section_text"} and _is_front_matter_item(item):
@@ -1517,12 +1607,12 @@ def _markdown_front_matter_lists(included: list[dict[str, Any]]) -> list[str]:
     tables = [item for item in included if item.get("type") in {"comparison_table", "table"}]
     lines = ["List of Figures", ""]
     if figures:
-        lines.extend(f"- {item.get('title')} (`{_item_figure_id(item)}`)" for item in figures)
+        lines.extend(f"- {_front_matter_export_figure_label(item, index)}" for index, item in enumerate(figures, start=1))
     else:
         lines.append("- No figure items are included in this export.")
     lines.extend(["", "List of Tables", ""])
     if tables:
-        lines.extend(f"- {item.get('title')} (`{item.get('table_id')}`)" for item in tables)
+        lines.extend(f"- {_front_matter_export_table_label(item, index)}" for index, item in enumerate(tables, start=1))
     else:
         lines.append("- No table items are included in this export.")
     lines.extend(["", "List of Attachments", ""])
@@ -1539,12 +1629,12 @@ def _markdown_front_matter_list(kind: str, included: list[dict[str, Any]]) -> li
     if kind == "figures":
         figures = [item for item in included if item.get("type") in {"map_figure", "figure"}]
         if figures:
-            return [*[f"- {item.get('title')} (`{_item_figure_id(item)}`)" for item in figures], ""]
+            return [*[f"- {_front_matter_export_figure_label(item, index)}" for index, item in enumerate(figures, start=1)], ""]
         return ["- No figure items are included in this export.", ""]
     if kind == "tables":
         tables = [item for item in included if item.get("type") in {"comparison_table", "table"}]
         if tables:
-            return [*[f"- {item.get('title')} (`{item.get('table_id')}`)" for item in tables], ""]
+            return [*[f"- {_front_matter_export_table_label(item, index)}" for index, item in enumerate(tables, start=1)], ""]
         return ["- No table items are included in this export.", ""]
     if kind == "attachments":
         attachments = _front_matter_attachment_items(included)
@@ -1552,6 +1642,25 @@ def _markdown_front_matter_list(kind: str, included: list[dict[str, Any]]) -> li
             return [*[f"- {_attachment_list_label(item)}" for item in attachments], ""]
         return ["- No attachment items are included in this export.", ""]
     return []
+
+
+def _front_matter_export_figure_label(item: dict[str, Any], fallback_number: int) -> str:
+    number = _front_matter_export_number(item, base=20_000, fallback=fallback_number)
+    title = str(item.get("caption") or item.get("title") or "Untitled Figure").strip()
+    return f"Figure {number}. {title}"
+
+
+def _front_matter_export_table_label(item: dict[str, Any], fallback_number: int) -> str:
+    number = _front_matter_export_number(item, base=10_000, fallback=fallback_number)
+    title = str(item.get("title") or "Untitled Table").strip()
+    return f"Table {number}. {title}"
+
+
+def _front_matter_export_number(item: dict[str, Any], *, base: int, fallback: int) -> int:
+    order = _optional_number(item.get("section_order"))
+    if isinstance(order, (int, float)) and base < int(order) < base + 1000:
+        return int(order) - base
+    return fallback
 
 
 def _markdown_data_lineage(data_lineage: dict[str, Any]) -> list[str]:
@@ -1673,7 +1782,8 @@ def _write_docx_report(
                     document.add_page_break()
                 first_group = False
                 current_group = group
-                document.add_heading(EXPORT_GROUP_TITLES.get(group, group.replace("_", " ").title()), level=1)
+                if not _structural_heading_matches_group(item, group):
+                    document.add_heading(EXPORT_GROUP_TITLES.get(group, group.replace("_", " ").title()), level=1)
             if _standalone_rendered_inline(item, planned_inline_table_ids, planned_inline_figure_ids):
                 continue
             _add_docx_item(
@@ -1915,16 +2025,19 @@ def _add_docx_item(
     item_type = str(item.get("type", ""))
     heading = _item_heading_text(item)
     heading_level = _docx_heading_level(item, item_type)
+    front_matter_list_kind = _front_matter_list_kind(item)
     if not suppress_heading:
         if item_type == "attachment":
             document.add_paragraph(heading, style="Attachment Title")
         else:
             document.add_heading(heading, level=heading_level)
+    if item_type == "structural_heading":
+        return
 
     content = _strip_duplicate_leading_heading(str(item.get("content", "")).strip(), heading, str(item.get("title", "")))
-    if content:
+    if content and not front_matter_list_kind:
         _add_docx_content(document, content)
-    elif item_type not in {"map_figure", "figure"}:
+    elif item_type not in {"map_figure", "figure"} and not front_matter_list_kind:
         document.add_paragraph("No generated or reviewer-edited content was available for this item.")
 
     if item_type in {"comparison_table", "table"}:
@@ -1932,7 +2045,6 @@ def _add_docx_item(
     elif item_type in {"map_figure", "figure"}:
         _add_docx_map_figure(document, item, project_dir, image_width)
     else:
-        front_matter_list_kind = _front_matter_list_kind(item)
         if front_matter_list_kind:
             _add_docx_front_matter_list(document, front_matter_list_kind, all_included_items or [])
         elif item_type in {"report_section", "section_text"} and _is_front_matter_item(item):
@@ -2000,14 +2112,14 @@ def _add_docx_front_matter_lists(document: Any, included: list[dict[str, Any]]) 
     tables = [item for item in included if item.get("type") in {"comparison_table", "table"}]
     document.add_heading("List of Figures", level=2)
     if figures:
-        for item in figures:
-            document.add_paragraph(f"{item.get('title')} ({_item_figure_id(item)})", style="List Bullet")
+        for index, item in enumerate(figures, start=1):
+            document.add_paragraph(_front_matter_export_figure_label(item, index), style="List Bullet")
     else:
         document.add_paragraph("No figure items are included in this export.", style="List Bullet")
     document.add_heading("List of Tables", level=2)
     if tables:
-        for item in tables:
-            document.add_paragraph(f"{item.get('title')} ({item.get('table_id')})", style="List Bullet")
+        for index, item in enumerate(tables, start=1):
+            document.add_paragraph(_front_matter_export_table_label(item, index), style="List Bullet")
     else:
         document.add_paragraph("No table items are included in this export.", style="List Bullet")
     document.add_heading("List of Attachments", level=2)
@@ -2023,15 +2135,15 @@ def _add_docx_front_matter_list(document: Any, kind: str, included: list[dict[st
     if kind == "figures":
         figures = [item for item in included if item.get("type") in {"map_figure", "figure"}]
         if figures:
-            for item in figures:
-                document.add_paragraph(f"{item.get('title')} ({_item_figure_id(item)})", style="List Bullet")
+            for index, item in enumerate(figures, start=1):
+                document.add_paragraph(_front_matter_export_figure_label(item, index), style="List Bullet")
         else:
             document.add_paragraph("No figure items are included in this export.", style="List Bullet")
     elif kind == "tables":
         tables = [item for item in included if item.get("type") in {"comparison_table", "table"}]
         if tables:
-            for item in tables:
-                document.add_paragraph(f"{item.get('title')} ({item.get('table_id')})", style="List Bullet")
+            for index, item in enumerate(tables, start=1):
+                document.add_paragraph(_front_matter_export_table_label(item, index), style="List Bullet")
         else:
             document.add_paragraph("No table items are included in this export.", style="List Bullet")
     elif kind == "attachments":
@@ -2462,6 +2574,13 @@ def _suppress_item_heading(item: dict[str, Any]) -> bool:
     if item.get("type") not in {"report_section", "section_text"}:
         return False
     group_title = EXPORT_GROUP_TITLES.get(str(item.get("export_group", "")), "")
+    return _normalized_heading(str(item.get("title", ""))) == _normalized_heading(group_title)
+
+
+def _structural_heading_matches_group(item: dict[str, Any], group: str) -> bool:
+    if item.get("type") != "structural_heading":
+        return False
+    group_title = EXPORT_GROUP_TITLES.get(group, group.replace("_", " ").title())
     return _normalized_heading(str(item.get("title", ""))) == _normalized_heading(group_title)
 
 

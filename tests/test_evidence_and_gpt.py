@@ -141,6 +141,51 @@ def prohibited_family_response(self: section_drafting.OpenAISectionDraftProvider
     }
 
 
+def _draft_wetlands_gpt_text(
+    content: str,
+    *,
+    extent_metadata: dict[str, Any] | None = None,
+    prohibited_claims: list[str] | None = None,
+) -> section_drafting.SectionDraftResult:
+    section_policy = {
+        "section_id": "wetlands-and-waterbodies",
+        "required_caveats": ["desktop_screening_only", "not_jurisdictional_delineation"],
+        "prohibited_claims": prohibited_claims
+        or ["wetland jurisdiction", "permit determination", "direct impact", "agency clearance"],
+    }
+
+    def response_create(*, model: str, payload: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "draft_content": content,
+            "cited_finding_ids": [],
+            "cited_table_ids": ["table-wetlands-waterbodies"],
+            "cited_figure_ids": ["figure-wetlands-waterbodies"],
+            "cited_source_refs": ["usfws_nwi_wetlands"],
+            "caveats": section_policy["required_caveats"],
+        }
+
+    provider = section_drafting.OpenAISectionDraftProvider(
+        model="gpt-test",
+        api_key="test-key",
+        response_create=response_create,
+    )
+    return provider.draft(
+        section_drafting.SectionDraftRequest(
+            section_id="wetlands-and-waterbodies",
+            section_type="section_text",
+            title="Wetlands and Waterbodies",
+            purpose="Draft bounded wetlands context.",
+            resource_category="wetlands_waterbodies",
+            deterministic_content="Deterministic wetlands context remains for review.",
+            related_table_ids=["table-wetlands-waterbodies"],
+            related_figure_ids=["figure-wetlands-waterbodies"],
+            source_refs=["usfws_nwi_wetlands"],
+            extent_metadata=extent_metadata or {"analysis_extent_type": "direct_intersection_extent"},
+            section_policy=section_policy,
+        )
+    )
+
+
 def test_gpt_env_parsing_and_missing_key(monkeypatch: pytest.MonkeyPatch) -> None:
     for value in ("1", "true", "yes", "on", "TRUE"):
         monkeypatch.setenv("GPT_DRAFTING", value)
@@ -603,6 +648,92 @@ def test_section_drafting_rejects_prohibited_claim_families(monkeypatch: pytest.
     assert result.content == "Deterministic wetlands context remains for review."
     assert result.provenance["gpt_output_accepted"] is False
     assert "prohibited_gpt_language" in codes
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "NWI data do not define jurisdictional wetland boundaries.",
+        "Site-specific delineation and agency coordination may be needed before jurisdictional determinations.",
+        "Site-specific delineation may be required, and agency coordination may be required before jurisdictional determinations.",
+        (
+            "The screening does not determine jurisdictional status and does not make jurisdictional determinations. "
+            "Jurisdictional status must be verified by appropriate review or agency process."
+        ),
+    ],
+)
+def test_section_drafting_allows_jurisdictional_limitation_language(content: str) -> None:
+    result = _draft_wetlands_gpt_text(content)
+    codes = {issue["code"] for issue in result.validation_issues}
+
+    assert result.content == content
+    assert result.provenance["gpt_output_accepted"] is True
+    assert "prohibited_gpt_language" not in codes
+    assert "policy_prohibited_claim" not in codes
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "No jurisdictional wetlands are present.",
+        "This area is a jurisdictional wetland.",
+        "USACE jurisdiction applies.",
+        "USACE jurisdiction does not apply.",
+        "This determines jurisdictional boundaries.",
+        "This confirms jurisdictional status.",
+        "No permit is required.",
+        "A permit is required.",
+    ],
+)
+def test_section_drafting_rejects_jurisdictional_and_permit_determinations(content: str) -> None:
+    result = _draft_wetlands_gpt_text(content)
+    codes = {issue["code"] for issue in result.validation_issues}
+
+    assert result.content == "Deterministic wetlands context remains for review."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert {"prohibited_gpt_language", "policy_prohibited_claim"} & codes
+
+
+def test_section_drafting_still_rejects_direct_impact_and_agency_clearance_claims() -> None:
+    direct_impact = _draft_wetlands_gpt_text(
+        "Nearby context evidence directly impacts the project.",
+        extent_metadata={
+            "analysis_extent_type": "nearby_context_extent",
+            "interpretation_scope_label": "nearby context",
+        },
+    )
+    agency_clearance = _draft_wetlands_gpt_text("Agency clearance has been obtained for the wetlands review.")
+
+    assert direct_impact.provenance["gpt_output_accepted"] is False
+    assert any(issue["code"] == "direct_impact_language_for_context_extent" for issue in direct_impact.validation_issues)
+    assert agency_clearance.provenance["gpt_output_accepted"] is False
+    assert any(issue["code"] == "policy_prohibited_claim" for issue in agency_clearance.validation_issues)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "The table-wetlands-waterbodies item summarizes mapped wetlands.",
+        "The figure-wetlands-waterbodies map shows screening evidence.",
+        "The usfws_nwi_wetlands source is used for screening.",
+    ],
+)
+def test_section_drafting_rejects_internal_ids_in_report_prose(content: str) -> None:
+    result = _draft_wetlands_gpt_text(content)
+    codes = {issue["code"] for issue in result.validation_issues}
+
+    assert result.content == "Deterministic wetlands context remains for review."
+    assert result.provenance["gpt_output_accepted"] is False
+    assert "internal_id_in_gpt_prose" in codes
+
+
+def test_section_drafting_allows_display_labels_in_report_prose() -> None:
+    result = _draft_wetlands_gpt_text(
+        "Table 1 and Figure 1 summarize National Wetlands Inventory screening evidence."
+    )
+
+    assert result.provenance["gpt_output_accepted"] is True
+    assert not any(issue["code"] == "internal_id_in_gpt_prose" for issue in result.validation_issues)
 
 
 def test_gpt_enabled_without_key_fails_clearly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

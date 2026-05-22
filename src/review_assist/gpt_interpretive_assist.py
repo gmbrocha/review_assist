@@ -29,6 +29,7 @@ from .section_drafting import (
     OpenAISectionDraftProvider,
 )
 from .source_catalog import repo_root
+from .source_status import SOURCE_STATUS_PATH
 
 
 GPT_INTERPRETIVE_CACHE_PATH = Path("drafts/gpt_interpretive_assist_cache.json")
@@ -39,6 +40,22 @@ RUN_SCHEMA_VERSION = "gpt-interpretive-assist-run-v1"
 STYLE_CONTEXT_SCHEMA_VERSION = "report-style-context-v1"
 TERMINAL_REVIEW_STATUSES = {"accepted", "edited", "replaced", "declined", "unable_to_verify"}
 DEFAULT_MAX_CALLS = 5
+GPT_BLOCKING_SECTION_NEED_STATUSES = {
+    "manual_reviewer_supplied",
+    "manual_review_needed",
+    "restricted_review_needed",
+}
+GPT_BLOCKING_SECTION_NEED_CLASSES = {
+    "manual_reviewer_supplied",
+    "restricted_authorized_reviewer_supplied",
+}
+GPT_BLOCKING_MANUAL_MATERIAL_STATUSES = {
+    "manual_required",
+    "reviewer_supplied",
+    "restricted_reviewer_supplied_required",
+    "deferred_source",
+    "unable_to_verify",
+}
 
 
 class GptInterpretiveAssistError(RuntimeError):
@@ -360,6 +377,7 @@ def _load_planning_bundle(project_dir: Path, *, model: str | None, style_context
         "queue": queue,
         "evidence": evidence,
         "context": context,
+        "source_status": _load_optional_json(project_dir / SOURCE_STATUS_PATH),
         "policy": policy,
         "matrix": matrix,
         "prompts": prompts,
@@ -380,6 +398,7 @@ def _candidate_records(
     policies = bundle["policy"].by_section_id()
     prompt_by_key = bundle["prompts"].by_prompt_key()
     global_prompt = prompt_by_key.get(bundle["prompts"].global_prompt_key)
+    source_needs_by_section = _source_needs_by_section_id(bundle.get("source_status", {}))
     cache = _load_cache(project_dir)
     records: list[dict[str, Any]] = []
     for item in _dict_list(bundle["queue"].get("items", [])):
@@ -394,10 +413,16 @@ def _candidate_records(
             "section_id": policy_id,
             "title": str(item.get("title") or target_id),
             "policy": policy,
+            "section_source_need": source_needs_by_section.get(policy_id, {}),
             "eligible": False,
             "skip_reason": "",
         }
-        skip_reason = _eligibility_skip_reason(item, policy, source_backed_only=source_backed_only)
+        skip_reason = _eligibility_skip_reason(
+            item,
+            policy,
+            section_source_need=record["section_source_need"],
+            source_backed_only=source_backed_only,
+        )
         if skip_reason:
             record["skip_reason"] = skip_reason
             records.append(record)
@@ -440,6 +465,7 @@ def _eligibility_skip_reason(
     item: dict[str, Any],
     policy: ReportSectionPolicy | None,
     *,
+    section_source_need: dict[str, Any] | None = None,
     source_backed_only: bool,
 ) -> str:
     if str(item.get("type") or "") != "section_text":
@@ -448,8 +474,18 @@ def _eligibility_skip_reason(
         return "human_review_state_preserved"
     if policy is None:
         return "missing_section_policy"
+    if policy.section_role == "structural_heading":
+        return "structural_heading_not_review_item"
+    if policy.section_role == "umbrella_section":
+        return "umbrella_section_deterministic_only"
     if policy.manual_or_reviewer_supplied:
         return "manual_or_reviewer_supplied"
+    source_need_reason = _source_need_skip_reason(section_source_need)
+    if source_need_reason:
+        return source_need_reason
+    manual_material_reason = _manual_material_skip_reason(item)
+    if manual_material_reason:
+        return manual_material_reason
     if _coerce_bool(item.get("report_body_eligible", True)) is False:
         return f"render_{str(item.get('render_decision') or 'body_ineligible')}_not_body_eligible"
     if policy.drafting_mode not in GPT_ELIGIBLE_DRAFTING_MODES or policy.gpt_readiness not in GPT_READY_VALUES:
@@ -460,6 +496,31 @@ def _eligibility_skip_reason(
         return "presentation_only_extent"
     if source_backed_only and not _item_is_source_backed(item):
         return "not_source_backed"
+    return ""
+
+
+def _source_need_skip_reason(section_source_need: dict[str, Any] | None) -> str:
+    if not isinstance(section_source_need, dict) or not section_source_need:
+        return ""
+    status = str(section_source_need.get("section_need_status") or "")
+    if status in GPT_BLOCKING_SECTION_NEED_STATUSES:
+        return f"section_source_needs_{status}"
+    classes = set(_string_list(section_source_need.get("source_need_classes", [])))
+    blocking_classes = classes.intersection(GPT_BLOCKING_SECTION_NEED_CLASSES)
+    if "restricted_authorized_reviewer_supplied" in blocking_classes:
+        return "section_source_needs_restricted_review_needed"
+    if "manual_reviewer_supplied" in blocking_classes:
+        return "section_source_needs_manual_review_needed"
+    return ""
+
+
+def _manual_material_skip_reason(item: dict[str, Any]) -> str:
+    manual_material = item.get("manual_material", {})
+    if not isinstance(manual_material, dict):
+        return ""
+    status = str(manual_material.get("material_status") or "")
+    if status in GPT_BLOCKING_MANUAL_MATERIAL_STATUSES:
+        return f"manual_material_{status}"
     return ""
 
 
@@ -475,6 +536,17 @@ def _item_is_source_backed(item: dict[str, Any]) -> bool:
     source_gap = _dict_list(assumptions.get("source_gap_status", []))
     statuses = {str(record.get("status", "")) for record in source_gap}
     return bool(statuses.intersection({"provided_locally", "local_materialized", "downloaded", "available"}))
+
+
+def _source_needs_by_section_id(source_status: Any) -> dict[str, dict[str, Any]]:
+    if not isinstance(source_status, dict):
+        return {}
+    records: dict[str, dict[str, Any]] = {}
+    for item in _dict_list(source_status.get("section_source_needs", [])):
+        section_id = str(item.get("section_id") or "")
+        if section_id:
+            records[section_id] = item
+    return records
 
 
 def _draft_request_for_item(

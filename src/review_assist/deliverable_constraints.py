@@ -253,10 +253,9 @@ def analyze_comparison_unit_constraints(project_dir: Path, *, tolerate_source_er
         analysis_extent_type=COMPARISON_UNITS,
         query_distance=default_buffer_feet,
         query_units="feet",
-        interpretation_scope_label="comparison-unit screening geometry within project-area analysis bounds",
+        interpretation_scope_label="within each comparison-unit screening extent",
         source_selection_reason=(
-            "Comparison-unit constraints use registered project-local source layers clipped to "
-            "project_area_analysis_bounds, then compare features against submitted comparison-unit "
+            "Comparison-unit constraints compare available source layers against submitted comparison-unit "
             "geometry and configured screening buffers."
         ),
     )

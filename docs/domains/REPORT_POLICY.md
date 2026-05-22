@@ -18,6 +18,7 @@ Reusable package proposals were mapped to current app IDs and classified as adop
 
 Each section policy records three activation/review fields in addition to source, extent, table, figure, caveat, and GPT controls:
 
+- `section_role`: `evidence_section`, `umbrella_section`, `structural_heading`, `front_matter`, or `manual_item`.
 - `inclusion_status`: `default`, `conditional`, `manual`, `deferred`, or `required_stub`.
 - `activation_condition`: `always`, `source_backed_or_stub`, `manual_reviewer_supplied`, `reviewer_supplied_parent_study`, `deferred_source`, or `dynamic_comparison_units`.
 - `review_requirement`: `standard_review`, `manual_review`, or `source_gap_review`.
@@ -25,6 +26,10 @@ Each section policy records three activation/review fields in addition to source
 These fields make the current report contract explicit. They do not by themselves add source acquisition, change matrix deliverable counts, or make a section GPT-ready.
 
 `relationship-with-pel-study` is conditional/manual. It activates only when a parent study or equivalent reviewer-supplied context is present, requires manual review, is marked reviewer-supplied, and is not GPT-ready by default.
+
+`umbrella_section` policies are structural report-orientation sections. They summarize report categories and child-section status at a high level, but they do not inherit every child source/table/figure validation issue as report-facing body text or parent blockers. Detailed source gaps, restricted/manual needs, render limitations, and stubbed artifact warnings remain attached to the relevant child section, table, figure, or attachment item.
+
+`structural_heading` policies are outline-only report headings. They remain in matrix/report order and export as headings, but they do not create deliverable items or review queue items, do not aggregate evidence/source refs, do not require review-gate acceptance, and are never GPT-ready. `natural-and-ecological-resources` is currently heading-only; its child resource subsections carry the reviewable evidence and limitations.
 
 ## Extent Rules
 
@@ -81,6 +86,8 @@ Supported render decisions are `include_body`, `table_figure_only`, `attachment_
 `include_body` sections may produce normal report-body review candidates. `table_figure_only` sections preserve related table/figure refs and stay out of normal body prose unless a reviewer supplies exportable body content. `attachment_status` items belong in the attachment export group. Manual, restricted, deferred, or missing-source sections remain visible in the review queue as status/stub items rather than unsupported generic prose.
 
 Wetlands/waterbodies keep `narrative_children` as the current policy. The package `table_only` recommendation for wetlands/waterbodies was rejected for current behavior in Sprint 5.4 so comparison-unit child review items and deliverable counts remain stable.
+
+Floodplains and floodways are an evidence-bearing body section supported by the FEMA flood-zone table and figure. Their comparison-unit detail remains table-oriented, but the section itself is report-body eligible when FEMA/NFHL evidence is available and must carry screening-level, non-regulatory floodplain limitations.
 
 ## Table And Figure Policies
 

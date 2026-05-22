@@ -243,7 +243,11 @@
         "final determination",
         "unsupported facts"
       ],
-      "allowed_source_refs": [],
+      "allowed_source_refs": [
+        "maris_boundary_context",
+        "maris_naip_2025_imagery",
+        "usda_naip_imagery"
+      ],
       "allowed_source_categories": [
         "imagery_basemaps",
         "community_socioeconomic"
@@ -390,6 +394,7 @@
       "title": "Environmental Constraints Inventory",
       "section_family": "constraints_inventory",
       "source_category": "constraints_inventory",
+      "section_role": "umbrella_section",
       "inclusion_status": "default",
       "activation_condition": "source_backed_or_stub",
       "review_requirement": "standard_review",
@@ -417,13 +422,14 @@
       "allowed_table_refs": [],
       "allowed_figure_refs": [],
       "manual_or_reviewer_supplied": false,
-      "gpt_readiness": "blocked_by_policy_ambiguity"
+      "gpt_readiness": "deterministic_only_for_now"
     },
     {
       "section_id": "natural-and-ecological-resources",
       "title": "Natural and Ecological Resources",
       "section_family": "natural_ecological",
       "source_category": "natural_ecological",
+      "section_role": "structural_heading",
       "inclusion_status": "default",
       "activation_condition": "source_backed_or_stub",
       "review_requirement": "standard_review",
@@ -552,21 +558,27 @@
       "review_requirement": "standard_review",
       "extent_policy": "direct_project",
       "visual_extent_class": "small_direct",
-      "comparison_unit_expansion_policy": "table_only",
+      "comparison_unit_expansion_policy": "conditional",
       "evidence_pattern": [
         "direct_intersections",
         "table_summary",
-        "figure_map_support"
+        "figure_map_support",
+        "table_and_figure_supported"
       ],
       "drafting_mode": "gpt_allowed_source_backed_only",
       "expected_output_shape": "short_paragraph",
       "required_caveats": [
         "desktop_screening_only",
-        "not_final_floodplain_determination"
+        "screening_level",
+        "not_final_floodplain_determination",
+        "source_specific_limitations_apply"
       ],
       "prohibited_claims": [
         "final determination",
         "no impact",
+        "permit required",
+        "no permit required",
+        "regulatory determination",
         "agency clearance"
       ],
       "allowed_source_refs": [],
@@ -595,10 +607,12 @@
       "comparison_unit_expansion_policy": "context_summary_list",
       "evidence_pattern": [
         "watershed_membership_or_deferred_stub",
+        "source_backed_partial_context",
+        "table_summary",
         "figure_map_support"
       ],
       "drafting_mode": "disabled_deferred",
-      "expected_output_shape": "manual_placeholder_or_context_summary",
+      "expected_output_shape": "source_backed_context_summary_with_deferred_watershed_limitation",
       "required_caveats": [
         "watershed_context_deferred",
         "do_not_imply_direct_project_impact"
@@ -608,13 +622,26 @@
         "no impact",
         "final determination"
       ],
-      "allowed_source_refs": [],
-      "allowed_source_categories": [
-        "hydrography_crossings"
+      "allowed_source_refs": [
+        "usgs_nhd_flowlines",
+        "usgs_nhd_waterbodies",
+        "usgs_nhd_other_areas",
+        "usgs_nhd_hydrography",
+        "mdeq_303d_impaired_waters",
+        "usgs_wbd_huc12_subwatersheds",
+        "usfws_nwi_wetlands"
       ],
-      "allowed_table_refs": [],
+      "allowed_source_categories": [
+        "hydrography_crossings",
+        "water_quality",
+        "wetlands_waterbodies"
+      ],
+      "allowed_table_refs": [
+        "table-wetlands-waterbodies"
+      ],
       "allowed_figure_refs": [
-        "figure-streams-impaired-waters"
+        "figure-streams-impaired-waters",
+        "figure-wetlands-waterbodies"
       ],
       "manual_or_reviewer_supplied": false,
       "gpt_readiness": "blocked_by_missing_source_acquisition"
@@ -772,6 +799,7 @@
       "title": "Community Resources",
       "section_family": "community_resources",
       "source_category": "community_socioeconomic",
+      "section_role": "umbrella_section",
       "inclusion_status": "default",
       "activation_condition": "source_backed_or_stub",
       "review_requirement": "standard_review",
@@ -782,7 +810,7 @@
         "count_list_context",
         "source_status"
       ],
-      "drafting_mode": "gpt_allowed_source_backed_only",
+      "drafting_mode": "deterministic_only",
       "expected_output_shape": "short_paragraph",
       "required_caveats": [
         "nearby_context_not_direct_impact",
@@ -800,7 +828,7 @@
       "allowed_table_refs": [],
       "allowed_figure_refs": [],
       "manual_or_reviewer_supplied": false,
-      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+      "gpt_readiness": "deterministic_only_for_now"
     },
     {
       "section_id": "fire-ems-stations",
@@ -1025,6 +1053,7 @@
       "title": "Utility and Infrastructure Considerations",
       "section_family": "utility_infrastructure",
       "source_category": "transportation_utilities",
+      "section_role": "umbrella_section",
       "inclusion_status": "default",
       "activation_condition": "source_backed_or_stub",
       "review_requirement": "standard_review",
@@ -1035,7 +1064,7 @@
         "count_list_context",
         "source_status"
       ],
-      "drafting_mode": "gpt_allowed_source_backed_only",
+      "drafting_mode": "deterministic_only",
       "expected_output_shape": "short_paragraph",
       "required_caveats": [
         "owner_coordination_required",
@@ -1056,7 +1085,7 @@
         "figure-energy-infrastructure"
       ],
       "manual_or_reviewer_supplied": false,
-      "gpt_readiness": "gpt_ready_after_extent_metadata_verification"
+      "gpt_readiness": "deterministic_only_for_now"
     },
     {
       "section_id": "public-water-supply",
@@ -1195,7 +1224,9 @@
         "airspace determination",
         "final determination"
       ],
-      "allowed_source_refs": [],
+      "allowed_source_refs": [
+        "faa_airports"
+      ],
       "allowed_source_categories": [
         "transportation_utilities"
       ],
@@ -1331,6 +1362,7 @@
       "title": "Socioeconomic and Business Considerations",
       "section_family": "socioeconomic",
       "source_category": "community_socioeconomic",
+      "section_role": "umbrella_section",
       "inclusion_status": "default",
       "activation_condition": "source_backed_or_stub",
       "review_requirement": "standard_review",
@@ -1641,7 +1673,8 @@
       "rendering_extent_class": "large_watershed",
       "render_extent_is_presentation_only": true,
       "allowed_source_categories": [
-        "hydrography_crossings"
+        "hydrography_crossings",
+        "water_quality"
       ]
     },
     {

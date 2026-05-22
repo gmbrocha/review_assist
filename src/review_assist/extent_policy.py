@@ -99,8 +99,8 @@ def base_extent_metadata(
     render_extent_type: str = "",
     presentation_extent_type: str = "",
     render_extent_is_presentation_only: bool = False,
-    interpretation_scope_label: str = "within the project area or comparison-unit screening geometry",
-    source_selection_reason: str = "Existing automated checks use registered project-local source layers clipped to project_area_analysis_bounds.",
+    interpretation_scope_label: str = "within the project area",
+    source_selection_reason: str = "Existing automated checks use project-area analysis bounds.",
 ) -> dict[str, Any]:
     return {
         "query_extent_type": query_extent_type,
@@ -364,7 +364,7 @@ def _metadata_for_scope(scope: str, *, query_distance: float | int | None, query
             interpretation_scope_label="in the watershed/subwatershed context",
             source_selection_reason=(
                 "Watershed/subwatershed context is a report-scope target. Current automated evidence remains "
-                "limited to project_area_analysis_bounds until watershed_context_extent and 303(d) acquisition are implemented."
+                "limited to project_area_analysis_bounds until HUC-12 watershed/subwatershed context is materialized."
             ),
         )
     if scope == COUNTY_OR_REGIONAL_CONTEXT_EXTENT:
@@ -394,8 +394,8 @@ def _metadata_for_scope(scope: str, *, query_distance: float | int | None, query
             analysis_extent_type=DIRECT_INTERSECTION_EXTENT,
             query_distance=query_distance,
             query_units=query_units,
-            interpretation_scope_label="within the project area or comparison-unit screening geometry",
-            source_selection_reason="Current automated evidence uses registered project-local source layers clipped to project_area_analysis_bounds.",
+            interpretation_scope_label="within the project area",
+            source_selection_reason="Current automated evidence compares available project-local source layers against the submitted project geometry or comparison units.",
         )
     return base_extent_metadata(
         query_extent_type=PROJECT_AREA_ANALYSIS_BOUNDS,

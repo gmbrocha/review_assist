@@ -32,6 +32,7 @@ GPT section drafting receives a bounded request:
 - Related table IDs.
 - Related figure IDs.
 - Source refs.
+- Reviewer-facing related labels for prose, such as `Table 1`, `Figure 1`, and source display names.
 - Visual/table slots.
 - Section evidence bundle from `projects/<project_id>/evidence/evidence_package.json`.
 - Validation issues.
@@ -69,6 +70,8 @@ The implementation validates GPT output for:
 - Jurisdictional-certainty language.
 - Field-verification claims.
 - Process/status language in export-facing content.
+- Internal table/figure/source IDs in report-facing prose; IDs are allowed only in the structured citation arrays.
+- Pipeline/provenance phrasing such as project-local layer clipping details in report-facing prose.
 - Direct-impact wording from context-only evidence.
 - Style-context citation or example/style fact leakage.
 - Raw rows, coordinates, GeoJSON, or local/source paths.
@@ -78,6 +81,7 @@ The implementation validates GPT output for:
 - Final impact/no-impact/no-effect language.
 - Jurisdictional wetland/water, cultural eligibility/effect/clearance, contamination/liability/cleanup, permit required/not-required, access/mitigation/construction commitment, ranking/scoring/selection, and demographic impact claim families.
 - Body-ineligible render-policy items, manual/reviewer-supplied items, restricted/manual source placeholders, and missing-source stubs before any GPT call is planned.
+- `section_source_needs` statuses that require manual or restricted reviewer material before a source-backed GPT candidate can be planned.
 
 Rejected GPT output keeps the deterministic baseline content and records validation issues plus GPT provenance.
 

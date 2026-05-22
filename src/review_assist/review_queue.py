@@ -395,7 +395,14 @@ def _build_deliverable_review_items(
     return [
         _deliverable_review_item(project_id, now, deliverable_items, item)
         for item in _dict_list(deliverable_items.get("items", []))
+        if not _deliverable_item_is_structural_heading(item)
     ]
+
+
+def _deliverable_item_is_structural_heading(item: dict[str, Any]) -> bool:
+    assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+    matrix_target = assumptions.get("matrix_target", {}) if isinstance(assumptions.get("matrix_target"), dict) else {}
+    return str(item.get("target_type") or "") == "structural_heading" or str(matrix_target.get("section_role") or "") == "structural_heading"
 
 
 def _deliverable_review_item(

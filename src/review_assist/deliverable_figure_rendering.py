@@ -99,6 +99,7 @@ SOURCE_LABEL_OVERRIDES = {
     "usgs_nhd_hydrography": "NHD hydrography",
     "usgs_nhd_other_areas": "NHD Other Areas",
     "usgs_nhd_waterbodies": "NHD Waterbodies",
+    "usgs_wbd_huc12_subwatersheds": "HUC-12",
 }
 SOURCE_STYLE_OVERRIDES = {
     "epa_envirofacts_echo": {"color": "#FF2A00", "marker": "o"},
@@ -128,6 +129,7 @@ SOURCE_STYLE_OVERRIDES = {
     "usgs_nhd_hydrography": {"color": "#00D5FF", "marker": "o", "line_width": 0.86, "line_alpha": 0.82},
     "usgs_nhd_waterbodies": {"color": "#0057FF", "marker": "o", "line_width": 0.7, "line_alpha": 0.72, "polygon_alpha": 0.24, "polygon_line_width": 0.42},
     "usgs_nhd_other_areas": {"color": "#FF00FF", "marker": "o", "line_width": 0.78, "line_alpha": 0.86, "polygon_alpha": 0.32, "polygon_line_width": 0.46},
+    "usgs_wbd_huc12_subwatersheds": {"color": "#FFD400", "marker": "o", "line_width": 1.04, "line_alpha": 0.9, "polygon_alpha": 0.08, "polygon_line_width": 0.86},
     "local_utility_infrastructure": {"color": "#7B2CBF", "marker": "s"},
     "mdot_transportation_context": {"color": "#0057FF", "marker": "o"},
 }

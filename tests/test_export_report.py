@@ -310,6 +310,8 @@ def test_docx_export_title_front_matter_and_outline_follow_matrix(tmp_path: Path
 
     manifest = export_report(project_dir, output_format="docx")
     text = docx_text(manifest["docx_path"])
+    queue_ids = {item["id"] for item in load_review_queue(project_dir)["items"]}
+    natural_heading = next(item for item in manifest["included_items"] if item["id"] == "natural-and-ecological-resources")
 
     assert "Test Project" in text
     assert "Project ID: test_project" in text
@@ -321,13 +323,18 @@ def test_docx_export_title_front_matter_and_outline_follow_matrix(tmp_path: Path
     assert "Descriptions of Wetlands and Waterbodies Present within the Project Area" in text
     assert "List of Attachments" in text
     assert text.index("Attachment A") < text.index("Attachment B") < text.index("Attachment C")
+    assert "natural-and-ecological-resources" not in queue_ids
+    assert natural_heading["type"] == "structural_heading"
+    assert natural_heading["status"] == "not_review_required"
+    assert natural_heading["content"] == ""
+    assert text.index("3.1 Natural and Ecological Resources") < text.index("3.1.1 Wetlands and Waterbodies")
 
     expected_outline = [
         "Executive Summary",
         "Introduction",
         "Methodology",
         "Environmental Constraints Inventory",
-        "Natural and Ecological Resources",
+        "3.1 Natural and Ecological Resources",
         "Community Resources",
         "Utility and Infrastructure Considerations",
         "Contamination Risks",
@@ -922,6 +929,47 @@ def test_docx_export_front_matter_lists_included_figures_tables_and_attachments(
     assert "Descriptions of Wetlands and Waterbodies Present within the Project Area" in text
     assert "List of Attachments" in text
     assert "Attachment A: Project Maps." in text
+
+
+def test_preview_export_front_matter_lists_use_included_table_and_figure_labels(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+
+    manifest = export_report(project_dir, include_draft=True, output_format="markdown")
+    markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+    figure_list = markdown.split("### List of Figures", 1)[1].split("### List of Tables", 1)[0]
+    table_list = markdown.split("### List of Tables", 1)[1].split("### List of Attachments", 1)[0]
+
+    assert "- Figure 1. Wetlands and Waterbodies in and near the Project Area" in figure_list
+    assert "- Figure 2. FEMA Flood Zones in and near the Project Area" in figure_list
+    assert "- Table 1. Descriptions of Wetlands and Waterbodies Present within the Project Area" in table_list
+    assert "- Table 2. FEMA Flood Zones within the Project Area" in table_list
+    assert "The figure list reflects matrix-backed figure items in matrix order." not in figure_list
+    assert "The table list reflects matrix-backed table items in matrix order." not in table_list
+    assert "`figure-wetlands-waterbodies`" not in figure_list
+    assert "`table-wetlands-waterbodies`" not in table_list
+
+
+def test_reviewed_export_front_matter_lists_only_export_eligible_reviewed_artifacts(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    set_only_reviewed_items(
+        project_dir,
+        {
+            "list-of-figures": "accepted",
+            "list-of-tables": "accepted",
+            "figure-streams-impaired-waters": "accepted",
+            "table-fema-flood-zones": "accepted",
+        },
+    )
+
+    manifest = export_report(project_dir, output_format="markdown")
+    markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+
+    assert "- Figure 3. Streams and 303(d) Impaired Waters within Project-Area Subwatersheds" in markdown
+    assert "- Figure 1. Wetlands and Waterbodies in and near the Project Area" not in markdown
+    assert "- Table 2. FEMA Flood Zones within the Project Area" in markdown
+    assert "- Table 1. Descriptions of Wetlands and Waterbodies Present within the Project Area" not in markdown
 
 
 def test_export_format_both_writes_markdown_and_docx(tmp_path: Path) -> None:

@@ -159,6 +159,14 @@ def test_deliverable_matrix_extent_policy_keeps_key_scope_assignments_stable() -
     assert section_scope("hazardous-materials-sites") == NEARBY_CONTEXT_EXTENT
     assert section_scope("oil-wells") == DIRECT_INTERSECTION_EXTENT
     assert section_scope("demographic-characteristics") == COUNTY_OR_REGIONAL_CONTEXT_EXTENT
+    floodplain_metadata = target_extent_metadata(
+        target_id="floodplains-and-floodways",
+        target_type=sections["floodplains-and-floodways"].target_type,
+        resource_category=sections["floodplains-and-floodways"].resource_category,
+        source_categories=sections["floodplains-and-floodways"].source_categories,
+    )
+    assert floodplain_metadata["interpretation_scope_label"] == "within the project area"
+    assert "project area or comparison-unit screening geometry" not in floodplain_metadata["interpretation_scope_label"]
 
     assert figure_scope("figure-wetlands-waterbodies") == DIRECT_INTERSECTION_EXTENT
     assert figure_scope("figure-streams-impaired-waters") == WATERSHED_CONTEXT_EXTENT
