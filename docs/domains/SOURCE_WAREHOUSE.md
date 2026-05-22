@@ -44,8 +44,9 @@ Manual, restricted, and reviewer-supplied material remains outside the automated
 ## Current Seeded Groups
 
 - Environmental and regulated facilities: FEMA NFHL flood hazard, EPA FRS, MARIS brownfields, NPDES, landfills, Superfund, TRI, USTs, and Mississippi oil/gas wells.
-- Hydrology: specific NHD flowlines, waterbodies, other areas, and MDEQ/MARIS November 2024 public water supply wells. The existing live-download rollup `usgs_nhd_hydrography` remains available as a downloader path, not a seeded physical source folder.
-- Water quality: MDEQ 2024 303(d) impaired waters and TMDL-complete line/polygon layers. Watershed context is not derived from these layers; pair them with HUC/NHD layers when hydrologic context is needed.
+- Hydrology: specific NHD flowlines, waterbodies, other areas, USGS WBD HUC-12 Mississippi subwatersheds, and MDEQ/MARIS November 2024 public water supply wells. The existing live-download rollup `usgs_nhd_hydrography` remains available as a downloader path, not a seeded physical source folder.
+- Water quality: MDEQ 2024 303(d) impaired waters and TMDL-complete line/polygon layers, paired with materialized HUC-12/NHD context where available. Missing HUC-12 context remains an explicit limitation; it is not faked from project-area bounds.
+- Transportation/utilities: MDOT/rail transportation context, FAA airport and aeronautical facility points, public water supply wells, and local utility infrastructure. The Airports report item uses `faa_airports` when materialized; other transportation/utility sources do not satisfy that airport-specific source need.
 - Conservation/public lands: national wildlife refuges, NRCS easements, and MARIS conservation/recreation lands.
 - Existing baseline sources: NWI wetlands, Critical Habitat, SSURGO soils, MDOT/rail, public cultural context, community facilities, utility infrastructure, boundaries, and MARIS/NAIP basemap provenance.
 

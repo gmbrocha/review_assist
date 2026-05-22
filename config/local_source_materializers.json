@@ -1034,6 +1034,48 @@
       ]
     },
     {
+      "source_id": "faa_airports",
+      "output_name": "faa_airports",
+      "warehouse_source_ids": [
+        "faa_airports"
+      ],
+      "normalization": {
+        "label_fields": [
+          "NAME"
+        ],
+        "feature_type_fields": [
+          "TYPE_CODE"
+        ],
+        "feature_subtype_fields": [
+          "OPERSTATUS",
+          "PRIVATEUSE",
+          "MIL_CODE"
+        ],
+        "original_id_fields": [
+          "IDENT",
+          "ICAO_ID",
+          "GLOBAL_ID",
+          "OBJECTID"
+        ],
+        "quality_flag_fields": [
+          "OPERSTATUS",
+          "AIRANAL"
+        ],
+        "source_citation_fields": [
+          "IDENT",
+          "NAME"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/transportation/faa_airports/raw/Airports.shp",
+          "source_layer_id": "Airports",
+          "source_layer_name": "FAA Airport and Aeronautical Facility Context",
+          "warehouse_source_id": "faa_airports"
+        }
+      ]
+    },
+    {
       "source_id": "mdeq_303d_impaired_waters",
       "output_name": "mdeq_303d_impaired_waters",
       "warehouse_source_ids": [
@@ -1112,6 +1154,52 @@
           "source_layer_id": "TMDL_Complete_p",
           "source_layer_name": "MDEQ 2024 TMDL Complete Waters Polygons",
           "warehouse_source_id": "mdeq_303d_impaired_waters"
+        }
+      ]
+    },
+    {
+      "source_id": "usgs_wbd_huc12_subwatersheds",
+      "output_name": "usgs_wbd_huc12_subwatersheds",
+      "warehouse_source_ids": [
+        "usgs_wbd_huc12_subwatersheds"
+      ],
+      "clip_strategy": "intersecting_features",
+      "normalization": {
+        "label_fields": [
+          "name",
+          "NAME"
+        ],
+        "feature_type_fields": [
+          "huc12",
+          "HUC12"
+        ],
+        "feature_subtype_fields": [
+          "tohuc",
+          "TOHUC",
+          "states",
+          "STATES"
+        ],
+        "original_id_fields": [
+          "huc12",
+          "HUC12",
+          "globalid",
+          "GLOBALID"
+        ],
+        "quality_flag_fields": [
+          "states",
+          "STATES"
+        ],
+        "source_citation_fields": [
+          "huc12",
+          "HUC12"
+        ]
+      },
+      "layers": [
+        {
+          "path": "sources/hydrology/usgs_wbd_huc12_subwatersheds/raw/HU12.shp",
+          "source_layer_id": "HU12",
+          "source_layer_name": "USGS WBD HUC-12 Subwatersheds Mississippi",
+          "warehouse_source_id": "usgs_wbd_huc12_subwatersheds"
         }
       ]
     },

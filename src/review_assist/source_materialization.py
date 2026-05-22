@@ -56,6 +56,7 @@ class LocalSourceMaterializerDefinition:
     layers: list[MaterializerLayer]
     normalization: dict[str, list[str]] = field(default_factory=dict)
     warehouse_source_ids: list[str] = field(default_factory=list)
+    clip_strategy: str = "clip"
 
 
 def materialize_local_source(
@@ -136,6 +137,7 @@ def load_local_source_materializers(config_path: Path | None = None) -> list[Loc
         layers = [_materializer_layer(item, source_id=source_id) for item in raw_layers]
         normalization = _normalization_config(raw_source.get("normalization", {}), source_id=source_id)
         warehouse_source_ids = _warehouse_source_ids(raw_source.get("warehouse_source_ids", []), source_id=source_id)
+        clip_strategy = _clip_strategy(raw_source.get("clip_strategy", "clip"), source_id=source_id)
         definitions.append(
             LocalSourceMaterializerDefinition(
                 source_id=source_id,
@@ -143,6 +145,7 @@ def load_local_source_materializers(config_path: Path | None = None) -> list[Loc
                 layers=layers,
                 normalization=normalization,
                 warehouse_source_ids=warehouse_source_ids,
+                clip_strategy=clip_strategy,
             )
         )
     return definitions
@@ -308,6 +311,7 @@ def _materialize_one(
         "status": "materialized",
         "data_authenticity": "real",
         "access_method": "local_warehouse_materialization",
+        "clip_strategy": definition.clip_strategy,
         "output_path": str(output_path),
         "feature_count": feature_count,
         "checksum_sha256": checksum,
@@ -341,7 +345,7 @@ def _materialize_layer(
     else:
         raw = _make_valid(raw)
         projected = raw.to_crs(analysis_bounds.crs)
-        clipped = _clip_to_bounds(projected, analysis_bounds)
+        clipped = _select_project_features(projected, analysis_bounds, clip_strategy=definition.clip_strategy)
         clipped = clipped[~clipped.geometry.isna()]
         clipped = clipped[~clipped.geometry.is_empty]
         clipped = _add_normalized_fields(
@@ -476,6 +480,16 @@ def _add_source_specific_fields(gdf: gpd.GeoDataFrame, source_id: str) -> None:
     elif source_id == "maris_boundary_context":
         gdf["review_assist_county_name"] = gdf.apply(lambda row: _first_value(row, ["CONAME", "County", "COUNTY_NAME"]), axis=1)
         gdf["review_assist_county_seat"] = gdf.apply(lambda row: _first_value(row, ["CO_SEAT", "county_seat"]), axis=1)
+    elif source_id == "usgs_wbd_huc12_subwatersheds":
+        gdf["review_assist_huc12"] = gdf.apply(lambda row: _first_value(row, ["huc12", "HUC12"]), axis=1)
+        gdf["review_assist_subwatershed_name"] = gdf.apply(lambda row: _first_value(row, ["name", "NAME"]), axis=1)
+        gdf["review_assist_downstream_huc"] = gdf.apply(lambda row: _first_value(row, ["tohuc", "TOHUC"]), axis=1)
+    elif source_id == "faa_airports":
+        gdf["review_assist_airport_id"] = gdf.apply(lambda row: _first_value(row, ["IDENT", "ICAO_ID", "GLOBAL_ID"]), axis=1)
+        gdf["review_assist_airport_name"] = gdf.apply(lambda row: _first_value(row, ["NAME"]), axis=1)
+        gdf["review_assist_airport_type"] = gdf.apply(lambda row: _first_value(row, ["TYPE_CODE"]), axis=1)
+        gdf["review_assist_airport_status"] = gdf.apply(lambda row: _first_value(row, ["OPERSTATUS"]), axis=1)
+        gdf["review_assist_airport_city"] = gdf.apply(lambda row: _first_value(row, ["SERVCITY"]), axis=1)
 
 
 def _first_value(row: Any, fields: list[str]) -> str:
@@ -543,6 +557,15 @@ def _warehouse_source_ids(raw_value: Any, *, source_id: str) -> list[str]:
     return values
 
 
+def _clip_strategy(raw_value: Any, *, source_id: str) -> str:
+    value = str(raw_value or "clip").strip()
+    if value not in {"clip", "intersecting_features"}:
+        raise SourceMaterializationError(
+            f"Local source materializer '{source_id}' clip_strategy must be 'clip' or 'intersecting_features'."
+        )
+    return value
+
+
 def _normalization_config(raw_normalization: Any, *, source_id: str) -> dict[str, list[str]]:
     if raw_normalization in (None, {}):
         return {}
@@ -606,6 +629,13 @@ def _clip_to_bounds(gdf: gpd.GeoDataFrame, bounds_gdf: gpd.GeoDataFrame) -> gpd.
         clipped = intersecting.copy()
         clipped["geometry"] = clipped.geometry.intersection(bounds_union)
         return clipped
+
+
+def _select_project_features(gdf: gpd.GeoDataFrame, bounds_gdf: gpd.GeoDataFrame, *, clip_strategy: str) -> gpd.GeoDataFrame:
+    if clip_strategy == "intersecting_features":
+        bounds_union = bounds_gdf.geometry.union_all()
+        return gdf[gdf.geometry.intersects(bounds_union)].copy()
+    return _clip_to_bounds(gdf, bounds_gdf)
 
 
 def _make_valid(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:

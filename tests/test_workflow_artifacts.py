@@ -510,6 +510,59 @@ def test_source_status_writes_section_source_needs_from_policy(tmp_path: Path) -
     assert restricted_context["source_need_class"] == "restricted_authorized_reviewer_supplied"
 
 
+def test_section_source_needs_preserve_deferred_truth_with_available_sibling_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("review_assist.source_status.maybe_load_seed_source_manifest", lambda source_id: None)
+    project_dir = write_project(tmp_path)
+    write_layer(project_dir / "flowlines.geojson")
+    write_layer(project_dir / "waterbodies.geojson")
+    write_layer(project_dir / "other_areas.geojson")
+    write_registry_sources(
+        project_dir,
+        [
+            ("usgs_nhd_flowlines", "flowlines.geojson", True, "local_materialized"),
+            ("usgs_nhd_waterbodies", "waterbodies.geojson", True, "local_materialized"),
+            ("usgs_nhd_other_areas", "other_areas.geojson", True, "local_materialized"),
+        ],
+    )
+
+    status_set = resolve_source_status_set(project_dir)
+    needs_by_section = {
+        str(item["section_id"]): item
+        for item in status_set["section_source_needs"]  # type: ignore[index]
+    }
+
+    wetlands = needs_by_section["wetlands-and-waterbodies"]
+    assert wetlands["section_need_status"] == "partially_satisfied"  # type: ignore[index]
+    assert "available_materialized" in wetlands["source_need_classes"]  # type: ignore[operator]
+    assert any(
+        need["source_need_class"] in {"acquisition_candidate", "deferred", "warehouse_available_not_materialized"}
+        for need in wetlands["source_needs"]  # type: ignore[index]
+    )
+
+    water_quality = needs_by_section["water-quality"]
+    assert water_quality["activation_condition"] == "deferred_source"  # type: ignore[index]
+    assert water_quality["section_need_status"] == "satisfied_with_deferred"  # type: ignore[index]
+    assert "deferred_source" in water_quality["section_need_reason"]  # type: ignore[operator]
+    assert "available_materialized" in water_quality["source_need_classes"]  # type: ignore[operator]
+
+    cultural = needs_by_section["cultural-and-historic-resources"]
+    assert cultural["section_need_status"] == "restricted_review_needed"  # type: ignore[index]
+    restricted_context = next(
+        need
+        for need in cultural["source_needs"]  # type: ignore[index]
+        if need["source_id"] == "mdah_restricted_archaeology"
+    )
+    assert restricted_context["source_need_class"] == "restricted_authorized_reviewer_supplied"
+    assert restricted_context["status"] == "restricted"
+
+    local_businesses = needs_by_section["local-businesses-and-economic-nodes"]
+    assert local_businesses["section_need_status"] == "manual_review_needed"  # type: ignore[index]
+    assert "manual_reviewer_supplied" in local_businesses["source_need_classes"]  # type: ignore[operator]
+
+
 def test_source_status_marks_missing_local_source_needs_review(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     write_registry(project_dir, "usfws_nwi_wetlands", "missing.geojson")

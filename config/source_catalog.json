@@ -79,7 +79,7 @@
       "publisher": "Reviewer-supplied agency correspondence",
       "category": "attachments",
       "tier": "tier_2_manual_or_semi_automated",
-      "priority": "manual_placeholder",
+      "priority": "first_pass_medium",
       "access_methods": [
         "manual_document",
         "reviewer_supplied"
@@ -560,6 +560,30 @@
       "notes": "Seeded from the newest usable MDEQ REST service found for this pass. The service contains active 303(d) line/polygon layers and TMDL-complete line/polygon layers from the 2024 Active 303(d) list.",
       "warehouse_source_ids": [
         "mdeq_303d_impaired_waters"
+      ]
+    },
+    {
+      "source_id": "usgs_wbd_huc12_subwatersheds",
+      "name": "USGS Watershed Boundary Dataset HUC-12 Subwatersheds Mississippi",
+      "publisher": "U.S. Geological Survey / Natural Resources Conservation Service",
+      "category": "water_quality",
+      "tier": "tier_2_manual_or_semi_automated",
+      "priority": "first_pass_medium",
+      "access_methods": [
+        "local_file",
+        "manual_download"
+      ],
+      "public_or_restricted": "public",
+      "geometry_type": "polygon",
+      "url": "https://www.usgs.gov/national-hydrography/watershed-boundary-dataset",
+      "spatial_relationships": [
+        "intersects",
+        "watershed_context"
+      ],
+      "known_limitations": "HUC-12 subwatershed polygons provide watershed/subwatershed screening context. They do not establish direct project impacts and require reviewer interpretation with NHD and water-quality source layers.",
+      "notes": "Manually downloaded Mississippi HUC-12 WBD shapefile bundle. Materialization selects subwatersheds intersecting project analysis bounds and preserves selected watershed polygons for context rendering.",
+      "warehouse_source_ids": [
+        "usgs_wbd_huc12_subwatersheds"
       ]
     },
     {
@@ -1249,7 +1273,10 @@
         "within_buffer"
       ],
       "known_limitations": "Airport proximity context requires current FAA/local source review and does not establish aviation clearance or project approval.",
-      "notes": "Manual/stubbed source for airports until a repeatable source is validated."
+      "notes": "Seeded from manually downloaded FAA airport/aeronautical facility point data. Missing or stale airport context remains a reviewer/source-gap item and should not be inferred from unrelated transportation or utility layers.",
+      "warehouse_source_ids": [
+        "faa_airports"
+      ]
     },
     {
       "source_id": "local_utility_infrastructure",

@@ -1,0 +1,28 @@
+{
+  "source_id": "usgs_wbd_huc12_subwatersheds",
+  "display_name": "USGS Watershed Boundary Dataset HUC-12 Subwatersheds Mississippi",
+  "category": "water_quality",
+  "authority": "USGS / NRCS",
+  "warehouse_group": "hydrology",
+  "version": "manual Mississippi HUC-12 download",
+  "raw_paths": [
+    "raw"
+  ],
+  "expected_geometry_type": "polygon",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide HUC-12 subwatershed polygons",
+  "source_date": "",
+  "access_date": "2026-05-21",
+  "source_url": "https://www.usgs.gov/national-hydrography/watershed-boundary-dataset",
+  "acquisition_method": "manual_seed",
+  "known_limitations": [
+    "HUC-12 polygons provide watershed/subwatershed screening context and do not establish direct project impacts.",
+    "Materialization selects subwatersheds intersecting the project analysis bounds and preserves the selected watershed polygons for context rendering.",
+    "Hydrologic context still requires reviewer interpretation and does not replace field or agency review."
+  ],
+  "notes": "Manually downloaded Mississippi HUC-12 shapefile bundle. Raw agency files are preserved under raw/ and remain local/ignored.",
+  "app_targets": [
+    "usgs_wbd_huc12_subwatersheds"
+  ]
+}

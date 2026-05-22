@@ -16,6 +16,7 @@ from review_assist.deliverable_figures import generate_deliverable_figures
 from review_assist.deliverable_items import generate_deliverable_items
 from review_assist.deliverable_tables import generate_deliverable_tables
 from review_assist.evidence_package import build_evidence_package
+from review_assist.findings import generate_draft_findings
 from review_assist.populate_for_review import populate_for_review
 from review_assist.project_context import generate_project_context
 from review_assist.report_sections import generate_report_sections
@@ -386,6 +387,148 @@ def test_new_mdeq_water_sources_materialize_and_report_project_local_status(tmp_
     assert impaired_detail["status"] == "local_materialized"
     assert water_quality["status"] == "provided_locally"
     assert water_quality["report_caveat_flags"] == []
+
+
+def test_huc12_subwatersheds_materialize_as_preserved_watershed_context(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    huc_path = write_layer(
+        tmp_path / "huc12.shp",
+        [{"huc12": "080302010407", "name": "Test Creek", "tohuc": "080302010408", "states": "MS"}],
+        [
+            Polygon(
+                [
+                    (-90.1, 31.9),
+                    (-89.9, 31.9),
+                    (-89.9, 32.1),
+                    (-90.1, 32.1),
+                    (-90.1, 31.9),
+                ]
+            )
+        ],
+    )
+    config_path = write_config(
+        tmp_path / "materializers.json",
+        [
+            {
+                "source_id": "usgs_wbd_huc12_subwatersheds",
+                "output_name": "usgs_wbd_huc12_subwatersheds",
+                "warehouse_source_ids": ["usgs_wbd_huc12_subwatersheds"],
+                "clip_strategy": "intersecting_features",
+                "normalization": {
+                    "label_fields": ["name"],
+                    "feature_type_fields": ["huc12"],
+                    "feature_subtype_fields": ["tohuc", "states"],
+                    "original_id_fields": ["huc12"],
+                },
+                "layers": [
+                    {
+                        "path": str(huc_path),
+                        "source_layer_id": "HU12",
+                        "source_layer_name": "HUC-12 Subwatersheds",
+                        "warehouse_source_id": "usgs_wbd_huc12_subwatersheds",
+                    }
+                ],
+            }
+        ],
+    )
+
+    result = materialize_local_source(project_dir, "usgs_wbd_huc12_subwatersheds", config_path=config_path)
+    source_status = resolve_source_status_set(project_dir)
+    output = project_dir / "layers" / "usgs_wbd_huc12_subwatersheds" / "usgs_wbd_huc12_subwatersheds.geojson"
+    materialized = gpd.read_file(output)
+    water_quality = next(status for status in source_status["statuses"] if status["category"] == "water_quality")
+    huc_detail = next(detail for detail in water_quality["source_details"] if detail["source_id"] == "usgs_wbd_huc12_subwatersheds")
+
+    assert result["materialized_count"] == 1
+    assert result["sources"][0]["clip_strategy"] == "intersecting_features"
+    assert output.exists()
+    assert len(materialized) == 1
+    assert materialized.iloc[0]["review_assist_huc12"] == "080302010407"
+    assert float(materialized.total_bounds[0]) < -90.05
+    assert huc_detail["status"] == "local_materialized"
+    assert water_quality["status"] == "provided_locally"
+
+
+def test_faa_airports_materialize_and_unblock_airports_section(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    airports_path = write_layer(
+        tmp_path / "Airports.shp",
+        [
+            {
+                "IDENT": "TST",
+                "NAME": "Test Airport",
+                "TYPE_CODE": "AD",
+                "SERVCITY": "TESTVILLE",
+                "STATE": "MS",
+                "OPERSTATUS": "OPERATIONAL",
+                "PRIVATEUSE": "0",
+                "ICAO_ID": "KTST",
+                "MIL_CODE": "CIVIL",
+                "AIRANAL": "NO OBJECTION",
+            }
+        ],
+        [Point(-90.0, 32.0)],
+    )
+    config_path = write_config(
+        tmp_path / "materializers.json",
+        [
+            {
+                "source_id": "faa_airports",
+                "output_name": "faa_airports",
+                "warehouse_source_ids": ["faa_airports"],
+                "normalization": {
+                    "label_fields": ["NAME"],
+                    "feature_type_fields": ["TYPE_CODE"],
+                    "feature_subtype_fields": ["OPERSTATUS", "PRIVATEUSE", "MIL_CODE"],
+                    "original_id_fields": ["IDENT", "ICAO_ID"],
+                },
+                "layers": [
+                    {
+                        "path": str(airports_path),
+                        "source_layer_id": "Airports",
+                        "source_layer_name": "FAA Airports",
+                        "warehouse_source_id": "faa_airports",
+                    }
+                ],
+            }
+        ],
+    )
+
+    result = materialize_local_source(project_dir, "faa_airports", config_path=config_path)
+    source_status = resolve_source_status_set(project_dir)
+    generate_project_context(project_dir)
+    analyze_constraints(project_dir)
+    analyze_comparison_unit_constraints(project_dir)
+    generate_draft_findings(project_dir)
+    generate_comparison_tables(project_dir)
+    generate_deliverable_tables(project_dir)
+    generate_deliverable_figures(project_dir)
+    evidence = build_evidence_package(project_dir)
+    items = generate_deliverable_items(project_dir, gpt_drafting=False)
+    queue = generate_review_queue(project_dir)
+
+    output = project_dir / "layers" / "faa_airports" / "faa_airports.geojson"
+    materialized = gpd.read_file(output)
+    transportation = next(status for status in source_status["statuses"] if status["category"] == "transportation_utilities")
+    airport_detail = next(detail for detail in transportation["source_details"] if detail["source_id"] == "faa_airports")
+    airport_needs = next(item for item in source_status["section_source_needs"] if item["section_id"] == "airports")
+    airport_item = next(item for item in items["items"] if item["deliverable_item_id"] == "airports")
+    airport_queue = next(item for item in queue["items"] if item["id"] == "airports")
+
+    assert result["materialized_count"] == 1
+    assert output.exists()
+    assert len(materialized) == 1
+    assert materialized.iloc[0]["review_assist_airport_id"] == "TST"
+    assert materialized.iloc[0]["review_assist_airport_name"] == "Test Airport"
+    assert airport_detail["status"] == "local_materialized"
+    assert airport_needs["section_need_status"] == "satisfied_with_deferred"
+    assert "faa_airports" in json.dumps(evidence["section_evidence"])
+    assert airport_item["render_decision"] == "include_body"
+    assert airport_item["report_body_eligible"] is True
+    assert airport_item["manual_material"]["material_status"] == "source_backed_generated"
+    assert "faa_airports" in airport_item["source_refs"]
+    assert "faa_airports" in airport_queue["source_refs"]
+    assert "blocked_missing_source" not in json.dumps({"item": airport_item, "queue": airport_queue})
 
 
 def test_boundary_materialization_adds_county_names_to_context_and_sections(tmp_path: Path) -> None:

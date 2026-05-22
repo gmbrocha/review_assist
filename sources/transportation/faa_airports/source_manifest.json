@@ -1,0 +1,41 @@
+{
+  "source_id": "faa_airports",
+  "display_name": "FAA Airport and Aeronautical Facility Context",
+  "category": "transportation_utilities",
+  "authority": "Federal Aviation Administration",
+  "warehouse_group": "transportation",
+  "version": "manual airport shapefile download",
+  "raw_paths": [
+    "raw"
+  ],
+  "expected_geometry_type": "point",
+  "source_crs": "EPSG:4269",
+  "analysis_ready": true,
+  "renderable": true,
+  "coverage": "Mississippi statewide airport and aeronautical facility points",
+  "source_date": "",
+  "access_date": "2026-05-21",
+  "source_url": "https://www.faa.gov/data/aero_data",
+  "acquisition_method": "manual_seed",
+  "key_fields": [
+    "IDENT",
+    "NAME",
+    "TYPE_CODE",
+    "SERVCITY",
+    "STATE",
+    "OPERSTATUS",
+    "PRIVATEUSE",
+    "ICAO_ID",
+    "MIL_CODE",
+    "AIRANAL"
+  ],
+  "known_limitations": [
+    "Airport and aeronautical facility points provide screening context and do not establish airspace clearance, obstruction review outcomes, or project approval.",
+    "Facility status, type, and operational details require reviewer confirmation against current FAA/local aviation sources before external reporting.",
+    "Materialization clips facility points to the project analysis bounds used by the current local materializer; broader aviation coordination context may require reviewer judgment."
+  ],
+  "notes": "Manually downloaded airport shapefile bundle. Raw files are preserved under raw/ and remain local/ignored.",
+  "app_targets": [
+    "faa_airports"
+  ]
+}

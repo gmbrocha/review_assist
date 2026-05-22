@@ -40,6 +40,16 @@ SOURCE_NEED_CLASSES = {
     "deferred",
     "deprecated_legacy",
 }
+AVAILABLE_SOURCE_NEED_CLASSES = {
+    "available_materialized",
+    "optional",
+    "public_coarse_screening_context",
+}
+ACTION_SOURCE_NEED_CLASSES = {
+    "warehouse_available_not_materialized",
+    "acquisition_candidate",
+    "deferred",
+}
 PUBLIC_COARSE_SCREENING_SOURCE_IDS = {
     "google_earth_visual_context",
     "maris_public_cultural_context",
@@ -655,16 +665,15 @@ def _section_source_needs(
     optional_categories = set(report_profile.optional_categories)
     records: list[dict[str, Any]] = []
     for policy in policy_config.section_policies:
+        if policy.section_role == "structural_heading":
+            continue
         source_categories = _dedupe(policy.allowed_source_categories)
         explicit_source_refs = _dedupe(policy.allowed_source_refs)
-        source_ids = _dedupe(
+        source_ids = explicit_source_refs or _dedupe(
             [
-                *[
-                    source.source_id
-                    for category in source_categories
-                    for source in sources_by_category.get(category, [])
-                ],
-                *explicit_source_refs,
+                source.source_id
+                for category in source_categories
+                for source in sources_by_category.get(category, [])
             ]
         )
         needs = [
@@ -769,27 +778,65 @@ def _requirement_for_category(category: str, required_categories: set[str], opti
 
 def _section_need_status(activation_condition: str, needs: list[dict[str, Any]]) -> str:
     classes = {str(need.get("source_need_class") or "") for need in needs}
+    has_available = bool(classes.intersection(AVAILABLE_SOURCE_NEED_CLASSES))
+    has_action_needed = bool(classes.intersection(ACTION_SOURCE_NEED_CLASSES))
     if activation_condition in {"manual_reviewer_supplied", "reviewer_supplied_parent_study"}:
         return "manual_reviewer_supplied"
     if not needs:
+        if activation_condition == "deferred_source":
+            return "deferred_source"
         return "not_source_backed"
+    if activation_condition == "deferred_source" and has_available:
+        return "satisfied_with_deferred"
     if classes.intersection({"restricted_authorized_reviewer_supplied"}):
         return "restricted_review_needed"
     if classes.intersection({"manual_reviewer_supplied"}):
         return "manual_review_needed"
+    if activation_condition == "deferred_source":
+        return "deferred_source"
+    if has_available and has_action_needed:
+        return "partially_satisfied"
     if classes.intersection({"deferred"}):
         return "deferred_source"
     if classes.intersection({"warehouse_available_not_materialized", "acquisition_candidate"}):
         return "source_action_needed"
-    return "source_backed_or_optional"
+    return "fully_satisfied"
 
 
 def _section_need_reason(activation_condition: str, needs: list[dict[str, Any]]) -> str:
     if activation_condition in {"manual_reviewer_supplied", "reviewer_supplied_parent_study"}:
         return "Section activates only from reviewer-supplied or manual context."
     if not needs:
+        if activation_condition == "deferred_source":
+            return "Section policy activation remains deferred_source with no current source-backed needs declared."
         return "Section does not declare source-backed policy needs."
     classes = _dedupe([str(need.get("source_need_class") or "") for need in needs if need.get("source_need_class")])
+    status = _section_need_status(activation_condition, needs)
+    if activation_condition == "deferred_source":
+        return (
+            "Section policy activation remains deferred_source; current source evidence may be usable for "
+            f"screening/status context, but the deferred policy need remains active. Resolved source need classes: "
+            + ", ".join(classes)
+            + "."
+        )
+    if status == "partially_satisfied":
+        return (
+            "Section has current usable source material and unresolved source needs. Resolved source need classes: "
+            + ", ".join(classes)
+            + "."
+        )
+    if status == "manual_review_needed":
+        return (
+            "Section still requires manual or reviewer-supplied source material. Resolved source need classes: "
+            + ", ".join(classes)
+            + "."
+        )
+    if status == "restricted_review_needed":
+        return (
+            "Section still requires restricted or authorized-reviewer source material. Resolved source need classes: "
+            + ", ".join(classes)
+            + "."
+        )
     return "Resolved source need classes: " + ", ".join(classes) + "."
 
 

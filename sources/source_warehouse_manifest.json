@@ -2,7 +2,7 @@
   "warehouse_version": "0.1",
   "root": "sources",
   "acquisition_method": "manual_seed",
-  "source_count": 26,
+  "source_count": 28,
   "sources": [
     {
       "source_id": "epa_frs_facilities_ms",
@@ -181,6 +181,17 @@
       ]
     },
     {
+      "source_id": "usgs_wbd_huc12_subwatersheds",
+      "category": "water_quality",
+      "warehouse_group": "hydrology",
+      "manifest_path": "hydrology/usgs_wbd_huc12_subwatersheds/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "usgs_wbd_huc12_subwatersheds"
+      ]
+    },
+    {
       "source_id": "mdot_transportation_context",
       "category": "transportation_utilities",
       "warehouse_group": "transportation",
@@ -189,6 +200,17 @@
       "renderable": true,
       "app_targets": [
         "mdot_transportation_context"
+      ]
+    },
+    {
+      "source_id": "faa_airports",
+      "category": "transportation_utilities",
+      "warehouse_group": "transportation",
+      "manifest_path": "transportation/faa_airports/source_manifest.json",
+      "analysis_ready": true,
+      "renderable": true,
+      "app_targets": [
+        "faa_airports"
       ]
     },
     {

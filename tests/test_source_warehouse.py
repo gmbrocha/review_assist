@@ -17,6 +17,7 @@ from review_assist.source_warehouse import (
 
 EXPECTED_STABLE_SOURCE_IDS = {
     "epa_frs_facilities_ms",
+    "faa_airports",
     "fema_nfhl_flood_hazard",
     "maris_brownfields",
     "maris_npdes_facilities",
@@ -30,6 +31,7 @@ EXPECTED_STABLE_SOURCE_IDS = {
     "usgs_nhd_flowlines",
     "usgs_nhd_other_areas",
     "usgs_nhd_waterbodies",
+    "usgs_wbd_huc12_subwatersheds",
     "usfws_national_wildlife_refuges",
     "usda_nrcs_easements",
     "usfws_nwi_wetlands",

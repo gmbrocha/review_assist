@@ -453,6 +453,40 @@
         "review_notes": "Filtered from the November 2024 statewide MDEQ/MARIS water wells layer to Public Water Supply records. The source metadata says the data is a timestamp and should not be considered up-to-date or the most accurate. Public water supply well context requires reviewer/source-agency confirmation before external reporting.",
         "data_authenticity": "real"
       }
+    },
+    {
+      "source_id": "usgs_wbd_huc12_subwatersheds",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/usgs_wbd_huc12_subwatersheds/usgs_wbd_huc12_subwatersheds.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "USGS Watershed Boundary Dataset HUC-12 Subwatersheds Mississippi",
+        "attribution": "U.S. Geological Survey / Natural Resources Conservation Service",
+        "source_url": "https://www.usgs.gov/national-hydrography/watershed-boundary-dataset",
+        "review_notes": "HUC-12 subwatershed polygons provide watershed/subwatershed screening context. They do not establish direct project impacts and require reviewer interpretation with NHD and water-quality source layers.",
+        "data_authenticity": "real"
+      }
+    },
+    {
+      "source_id": "faa_airports",
+      "enabled": true,
+      "access_method": "local_file",
+      "path": "layers/faa_airports/faa_airports.geojson",
+      "role": "constraint_screening",
+      "buffer_feet": null,
+      "notes": "Materialized from local source warehouse.",
+      "status": "local_materialized",
+      "metadata": {
+        "citation": "Airport and Aeronautical Facility Context",
+        "attribution": "Federal Aviation Administration or local aviation authorities",
+        "source_url": "https://www.faa.gov/data/aero_data",
+        "review_notes": "Airport proximity context requires current FAA/local source review and does not establish aviation clearance or project approval.",
+        "data_authenticity": "real"
+      }
     }
   ]
 }
