@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from review_assist.export_report import export_report
+from review_assist.figure_style_model import FIGURE_STYLE_OVERRIDES_PATH, active_style_override
 from review_assist.gpt_interpretive_assist import draft_section_candidates
 from review_assist.populate_for_review import populate_for_review
 from review_assist.projects import load_project_manifest
@@ -32,6 +33,13 @@ def _select_project(client) -> None:
 def _populated_project(tmp_path: Path) -> Path:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
+    return project_dir
+
+
+def _project_with_figure_layers(tmp_path: Path) -> Path:
+    project_dir = write_project(tmp_path)
+    add_supported_real_source_inputs(project_dir)
+    populate_for_review(project_dir, prepare_sources=True, gpt_drafting=False)
     return project_dir
 
 
@@ -493,6 +501,7 @@ def test_figure_review_detail_uses_figure_specific_form(tmp_path: Path) -> None:
     assert "Edited Caption" in text
     assert "Upload New Figure" in text
     assert "Accept Final" in text
+    assert "Open Figure Style Editor" in text
     assert "Edited content" not in text
     assert "Replacement content" not in text
     assert "Export eligible when unable to verify" not in text
@@ -522,6 +531,117 @@ def test_non_figure_review_detail_keeps_generic_review_form(tmp_path: Path) -> N
     assert "Edited content" in text
     assert "Replacement content" in text
     assert "Upload New Figure" not in text
+    assert "Open Figure Style Editor" not in text
+
+
+def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
+    _project_with_figure_layers(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/figure-wetlands-waterbodies/figure-style")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Figure Style Editor" in text
+    assert "Current Figure Preview" in text
+    assert "Layer Styling" in text
+    assert "Comparison units" in text
+    assert "National Wetlands Inventory" in text
+    assert "name=\"layer_0_visible\"" in text
+    assert "name=\"layer_0_z_index\"" in text
+    assert "name=\"layer_0_display_name\"" in text
+    assert "name=\"layer_0_fill_color\"" in text
+    assert "name=\"layer_0_fill_opacity\"" in text
+    assert "name=\"layer_0_stroke_color\"" in text
+    assert "name=\"layer_0_stroke_width\"" in text
+    assert "name=\"layer_0_point_size\"" in text
+    assert "name=\"layer_0_label_visible\"" in text
+    assert "name=\"layer_0_label_field\"" in text
+    assert "Save and Regenerate Figure" in text
+    assert "Approve Figure" in text
+    assert "disabled" in text
+    assert "geometry editing" not in text.lower()
+
+
+def test_figure_style_editor_rejects_non_figure_items(tmp_path: Path) -> None:
+    _populated_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/wetlands-and-waterbodies/figure-style")
+
+    assert response.status_code == 404
+
+
+def test_figure_style_editor_save_draft_creates_sparse_override(tmp_path: Path) -> None:
+    project_dir = _project_with_figure_layers(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    queue_before = (project_dir / "review_queue" / "review_queue.json").read_bytes()
+    figures_before = (project_dir / "deliverable" / "figures.json").read_bytes()
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies/figure-style",
+        data={
+            "style_action": "save_draft",
+            "layer_id": ["comparison_units", "source:usfws_nwi_wetlands", "basemap_provenance:1"],
+            "layer_0_visible": "true",
+            "layer_0_z_index": "0",
+            "layer_0_display_name": "Comparison units",
+            "layer_1_visible": "true",
+            "layer_1_z_index": "1",
+            "layer_1_display_name": "National Wetlands Inventory",
+            "layer_1_stroke_color": "#00AAFF",
+            "layer_2_visible": "true",
+            "layer_2_z_index": "2",
+            "layer_2_display_name": "USDA NAIP Project Basemap",
+        },
+        follow_redirects=True,
+    )
+    artifact = json.loads((project_dir / FIGURE_STYLE_OVERRIDES_PATH).read_text(encoding="utf-8"))
+    active = active_style_override(artifact, "figure-wetlands-waterbodies")
+
+    assert response.status_code == 200
+    assert "Draft figure style saved" in response.data.decode()
+    assert active is not None
+    assert active["overrides"] == [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"}]
+    assert (project_dir / "review_queue" / "review_queue.json").read_bytes() == queue_before
+    assert (project_dir / "deliverable" / "figures.json").read_bytes() == figures_before
+
+
+def test_figure_style_editor_reset_marks_active_override_reset(tmp_path: Path) -> None:
+    project_dir = _project_with_figure_layers(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    client.post(
+        "/review/figure-wetlands-waterbodies/figure-style",
+        data={
+            "style_action": "save_draft",
+            "layer_id": ["source:usfws_nwi_wetlands"],
+            "layer_0_visible": "true",
+            "layer_0_z_index": "1",
+            "layer_0_display_name": "National Wetlands Inventory",
+            "layer_0_stroke_color": "#00AAFF",
+        },
+        follow_redirects=True,
+    )
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies/figure-style",
+        data={"style_action": "reset_default"},
+        follow_redirects=True,
+    )
+    artifact = json.loads((project_dir / FIGURE_STYLE_OVERRIDES_PATH).read_text(encoding="utf-8"))
+
+    assert response.status_code == 200
+    assert "Figure style reset to default" in response.data.decode()
+    assert active_style_override(artifact, "figure-wetlands-waterbodies") is None
+    assert artifact["overrides"][0]["status"] == "reset"
 
 
 def test_review_detail_displays_gpt_assist_provenance(tmp_path: Path) -> None:

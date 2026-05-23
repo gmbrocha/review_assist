@@ -21,12 +21,27 @@ from werkzeug.utils import secure_filename
 from review_assist.comparison_units import COMPARISON_UNITS_METADATA_PATH
 from review_assist.deliverable import DEMO_DELIVERABLE_MANIFEST_PATH
 from review_assist.deliverable_items import DELIVERABLE_ITEMS_PATH, RENDER_POLICY_FIELDS
+from review_assist.deliverable_figures import DeliverableFigureError, load_deliverable_figures
 from review_assist.export_report import (
     EXPORT_MANIFEST_PATH,
     ExportGateError,
     ExportQAError,
     ExportReportError,
     export_report,
+)
+from review_assist.figure_style_model import (
+    FIGURE_RECIPES_PATH,
+    FIGURE_RENDER_JOBS_PATH,
+    FIGURE_STYLE_OVERRIDES_PATH,
+    FIGURE_VERSIONS_PATH,
+    FigureStyleModelError,
+    active_style_override,
+    build_analysis_snapshot,
+    build_figure_recipe,
+    figure_recipe_for,
+    load_figure_style_artifacts,
+    reset_project_style_override,
+    save_project_style_override,
 )
 from review_assist.gpt_interpretive_assist import (
     GptInterpretiveAssistError,
@@ -824,6 +839,104 @@ def review_item_detail(project_dir: Path, item_id: str) -> dict[str, Any]:
     }
 
 
+def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, Any]:
+    """Return presentation-only figure style editor context for one figure item."""
+
+    project_dir = project_dir.resolve()
+    queue = _load_standard_queue(project_dir)
+    item = _find_review_item(queue, item_id)
+    if not _is_figure_item(item):
+        raise WebAdapterError("Figure style editor is only available for figure review items.")
+    figure_id = str(item.get("figure_id") or item_id)
+    try:
+        figures_artifact = load_deliverable_figures(project_dir)
+    except DeliverableFigureError as exc:
+        raise WebAdapterError(str(exc)) from exc
+    figure = _find_deliverable_figure(figures_artifact, figure_id)
+    artifacts = load_figure_style_artifacts(project_dir)
+    recipes_artifact = artifacts.get("recipes", {}) if isinstance(artifacts.get("recipes"), dict) else {}
+    model_initialized = bool(recipes_artifact.get("recipes"))
+    if model_initialized:
+        try:
+            recipe = figure_recipe_for(recipes_artifact, figure_id)
+        except FigureStyleModelError as exc:
+            raise WebAdapterError(str(exc)) from exc
+    else:
+        snapshot = build_analysis_snapshot(project_dir, figures_artifact)
+        recipe = build_figure_recipe(
+            project_dir,
+            figure,
+            snapshot["analysis_snapshot_id"],
+            project_id=str(figures_artifact.get("project_id") or ""),
+        )
+    overrides_artifact = artifacts.get("style_overrides", {}) if isinstance(artifacts.get("style_overrides"), dict) else {}
+    active_override = active_style_override(overrides_artifact, figure_id) if overrides_artifact else None
+    versions = [
+        version
+        for version in _dict_list((artifacts.get("versions") or {}).get("versions", []) if isinstance(artifacts.get("versions"), dict) else [])
+        if str(version.get("figure_id") or "") == figure_id
+    ]
+    render_jobs = [
+        job
+        for job in _dict_list((artifacts.get("render_jobs") or {}).get("render_jobs", []) if isinstance(artifacts.get("render_jobs"), dict) else [])
+        if str(job.get("figure_id") or "") == figure_id
+    ]
+    assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
+    image_path = _effective_figure_image_path(item, assumptions)
+    return {
+        "item_id": item_id,
+        "figure_id": figure_id,
+        "title": str(item.get("title") or figure.get("title") or figure_id),
+        "status": str(item.get("status") or ""),
+        "preview": {
+            "image_path": _project_relative_path(project_dir, image_path),
+            "artifact_link_path": _artifact_link_path(project_dir, image_path),
+        },
+        "model_initialized": model_initialized,
+        "style_model_paths": _figure_style_model_paths(project_dir),
+        "recipe": recipe,
+        "layers": _style_editor_layers(recipe, active_override),
+        "active_override": active_override or {},
+        "version_summary": {
+            "version_count": len(versions),
+            "latest_version": _latest_by_timestamp(versions),
+            "approved_version": next((version for version in versions if str(version.get("approval_state") or "") == "approved"), None),
+        },
+        "render_job_summary": {
+            "render_job_count": len(render_jobs),
+            "latest_render_job": _latest_by_timestamp(render_jobs),
+        },
+        "deferred_actions": {
+            "save_and_regenerate": "Deferred to Sprint 6.5.",
+            "approve_figure": "Deferred to Sprint 6.6.",
+        },
+    }
+
+
+def save_figure_style_form(project_dir: Path, item_id: str, form: Any) -> dict[str, Any]:
+    """Persist a sparse draft figure style override from the editor form."""
+
+    queue = _load_standard_queue(project_dir)
+    item = _find_review_item(queue, item_id)
+    if not _is_figure_item(item):
+        raise WebAdapterError("Figure style editor actions can only be used for figure review items.")
+    figure_id = str(item.get("figure_id") or item_id)
+    action = str(form.get("style_action") or "").strip()
+    try:
+        if action == "reset_default":
+            return reset_project_style_override(project_dir, figure_id, actor="local_reviewer")
+        if action == "save_draft":
+            return save_project_style_override(
+                project_dir,
+                figure_id,
+                _style_layers_from_form(form),
+                actor="local_reviewer",
+            )
+    except FigureStyleModelError as exc:
+        raise WebAdapterError(str(exc)) from exc
+    raise WebAdapterError("Unsupported figure style action.")
+
+
 def save_review_action(
     project_dir: Path,
     item_id: str,
@@ -1550,6 +1663,113 @@ def _manual_material_fields(item: dict[str, Any]) -> dict[str, Any]:
         "source_refs": _string_list(item.get("source_refs", [])) or _string_list(record.get("source_refs", [])),
         "source_categories": _string_list(record.get("source_categories", [])),
         "internal_note_only": bool(record.get("internal_note_only", False)),
+    }
+
+
+def _find_deliverable_figure(figures_artifact: dict[str, Any], figure_id: str) -> dict[str, Any]:
+    for figure in [*_dict_list(figures_artifact.get("figures", [])), *_dict_list(figures_artifact.get("attachment_supporting_figures", []))]:
+        if str(figure.get("figure_id") or "") == figure_id:
+            return figure
+    raise WebAdapterError(f"Figure artifact is not available for '{figure_id}'.")
+
+
+def _style_editor_layers(recipe: dict[str, Any], active_override: dict[str, Any] | None) -> list[dict[str, Any]]:
+    override_by_layer = {
+        str(layer.get("layer_id") or ""): layer
+        for layer in _dict_list((active_override or {}).get("overrides", []))
+    }
+    rows: list[dict[str, Any]] = []
+    for index, layer in enumerate(_dict_list(recipe.get("layers", []))):
+        layer_id = str(layer.get("layer_id") or "")
+        override = override_by_layer.get(layer_id, {})
+        default_style = layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {}
+        label_fields = _string_list(layer.get("allowed_label_fields", [])) or _string_list(layer.get("label_fields", []))
+        rows.append(
+            {
+                "index": index,
+                "layer_id": layer_id,
+                "layer_type": str(layer.get("layer_type") or ""),
+                "source_id": str(layer.get("source_id") or ""),
+                "feature_count": _int_value(layer.get("feature_count")),
+                "geometry_type_counts": layer.get("geometry_type_counts") if isinstance(layer.get("geometry_type_counts"), dict) else {},
+                "label_fields": label_fields,
+                "defaults": {
+                    "visible": bool(layer.get("default_visible", True)),
+                    "z_index": _int_value(layer.get("default_z_index"), index),
+                    "display_name": str(layer.get("default_display_name") or layer_id),
+                    "fill_color": str(default_style.get("fill_color") or ""),
+                    "fill_opacity": default_style.get("fill_opacity") if default_style.get("fill_opacity") is not None else "",
+                    "stroke_color": str(default_style.get("stroke_color") or ""),
+                    "stroke_width": default_style.get("stroke_width") if default_style.get("stroke_width") is not None else "",
+                    "point_size": default_style.get("point_size") if default_style.get("point_size") is not None else "",
+                    "label_visible": False,
+                    "label_field": "",
+                },
+                "current": {
+                    "visible": override.get("visible", bool(layer.get("default_visible", True))),
+                    "z_index": override.get("z_index", _int_value(layer.get("default_z_index"), index)),
+                    "display_name": override.get("display_name", str(layer.get("default_display_name") or layer_id)),
+                    "fill_color": override.get("fill_color", str(default_style.get("fill_color") or "")),
+                    "fill_opacity": override.get("fill_opacity", default_style.get("fill_opacity") if default_style.get("fill_opacity") is not None else ""),
+                    "stroke_color": override.get("stroke_color", str(default_style.get("stroke_color") or "")),
+                    "stroke_width": override.get("stroke_width", default_style.get("stroke_width") if default_style.get("stroke_width") is not None else ""),
+                    "point_size": override.get("point_size", default_style.get("point_size") if default_style.get("point_size") is not None else ""),
+                    "label_visible": override.get("label_visible", False),
+                    "label_field": override.get("label_field", ""),
+                },
+                "override": override,
+            }
+        )
+    return rows
+
+
+def _style_layers_from_form(form: Any) -> list[dict[str, Any]]:
+    layers: list[dict[str, Any]] = []
+    layer_ids = [str(value) for value in form.getlist("layer_id") if str(value).strip()]
+    fields = (
+        "visible",
+        "z_index",
+        "display_name",
+        "fill_color",
+        "fill_opacity",
+        "stroke_color",
+        "stroke_width",
+        "point_size",
+        "label_visible",
+        "label_field",
+    )
+    for index, layer_id in enumerate(layer_ids):
+        layer: dict[str, Any] = {"layer_id": layer_id}
+        for field in fields:
+            key = f"layer_{index}_{field}"
+            if key not in form:
+                continue
+            layer[field] = str(form.get(key) or "").strip()
+        layers.append(layer)
+    return layers
+
+
+def _latest_by_timestamp(records: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not records:
+        return None
+    return sorted(records, key=lambda item: str(item.get("updated_at") or item.get("completed_at") or item.get("created_at") or ""))[-1]
+
+
+def _figure_style_model_paths(project_dir: Path) -> dict[str, dict[str, Any]]:
+    return {
+        "recipes": _style_model_path_row(project_dir, FIGURE_RECIPES_PATH),
+        "style_overrides": _style_model_path_row(project_dir, FIGURE_STYLE_OVERRIDES_PATH),
+        "versions": _style_model_path_row(project_dir, FIGURE_VERSIONS_PATH),
+        "render_jobs": _style_model_path_row(project_dir, FIGURE_RENDER_JOBS_PATH),
+    }
+
+
+def _style_model_path_row(project_dir: Path, relative_path: Path) -> dict[str, Any]:
+    path = project_dir / relative_path
+    return {
+        "relative_path": relative_path.as_posix(),
+        "exists": path.exists(),
+        "modified_at": _modified_at(path) if path.exists() else "",
     }
 
 

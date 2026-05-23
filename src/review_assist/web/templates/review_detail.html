@@ -83,6 +83,9 @@
     <dt>Source Note</dt><dd>{{ item.figure.source_note or 'Not recorded' }}</dd>
     <dt>Method Note</dt><dd>{{ item.figure.method_note or 'Not recorded' }}</dd>
   </dl>
+  <div class="form-actions">
+    <a class="button" href="{{ url_for('figure_style_editor', item_id=item.id) }}">Open Figure Style Editor</a>
+  </div>
 </section>
 {% endif %}
 

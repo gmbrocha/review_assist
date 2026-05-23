@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Figure Style Editor - {{ editor.title }}{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <h1>Figure Style Editor</h1>
+  <p>{{ editor.title }} | {{ editor.figure_id }} | {{ editor.status }}</p>
+</section>
+
+<section class="summary-grid">
+  <div class="metric"><span>Style Model</span><strong>{{ 'ready' if editor.model_initialized else 'preview' }}</strong></div>
+  <div class="metric"><span>Layers</span><strong>{{ editor.layers|length }}</strong></div>
+  <div class="metric"><span>Versions</span><strong>{{ editor.version_summary.version_count }}</strong></div>
+  <div class="metric"><span>Render Jobs</span><strong>{{ editor.render_job_summary.render_job_count }}</strong></div>
+</section>
+
+<section class="panel">
+  <div class="section-title-row">
+    <h2>Current Figure Preview</h2>
+    <a class="button" href="{{ url_for('review_detail', item_id=editor.item_id) }}">Back to Review Item</a>
+  </div>
+  {% if editor.preview.artifact_link_path %}
+    <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=editor.preview.artifact_link_path) }}" alt="{{ editor.figure_id }}">
+  {% else %}
+    <p class="empty">No renderable figure image is currently available.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Style Model Status</h2>
+  <p class="muted">Figure style overrides are presentation metadata only. They do not edit sources, geometries, metrics, evidence, review status, or exports.</p>
+  <dl class="details">
+    <dt>Recipe</dt><dd>{{ editor.recipe.recipe_id }}</dd>
+    <dt>Analysis Snapshot</dt><dd>{{ editor.recipe.analysis_snapshot_id }}</dd>
+    <dt>Active Override</dt><dd>{{ editor.active_override.override_id if editor.active_override.override_id else 'None' }}</dd>
+    <dt>Latest Version</dt><dd>{{ editor.version_summary.latest_version.version_id if editor.version_summary.latest_version else 'None recorded' }}</dd>
+    <dt>Approved Version</dt><dd>{{ editor.version_summary.approved_version.version_id if editor.version_summary.approved_version else 'Deferred' }}</dd>
+    <dt>Latest Render Job</dt><dd>{{ editor.render_job_summary.latest_render_job.render_job_id if editor.render_job_summary.latest_render_job else 'None recorded' }}</dd>
+  </dl>
+</section>
+
+<form method="post" class="figure-style-form">
+  <section class="panel">
+    <div class="section-title-row">
+      <h2>Layer Styling</h2>
+      <button class="primary" type="submit" name="style_action" value="save_draft">Save Draft Style</button>
+    </div>
+    <p class="muted">Only changed values are saved. Blank style fields fall back to generated defaults.</p>
+
+    <div class="figure-editor-grid">
+      <aside class="layer-list" aria-label="Figure layers">
+        {% for layer in editor.layers %}
+        <a href="#layer-{{ layer.index }}">
+          <strong>{{ layer.current.display_name }}</strong>
+          <span>{{ layer.layer_type }}{% if layer.source_id %} | {{ layer.source_id }}{% endif %}</span>
+        </a>
+        {% endfor %}
+      </aside>
+
+      <div class="layer-controls">
+        {% for layer in editor.layers %}
+        <fieldset id="layer-{{ layer.index }}" class="layer-editor">
+          <legend>{{ layer.current.display_name }}</legend>
+          <input type="hidden" name="layer_id" value="{{ layer.layer_id }}">
+          <dl class="details compact">
+            <dt>Layer ID</dt><dd><code>{{ layer.layer_id }}</code></dd>
+            <dt>Features</dt><dd>{{ layer.feature_count }}</dd>
+            <dt>Geometry</dt><dd>{{ layer.geometry_type_counts }}</dd>
+          </dl>
+          <div class="style-control-grid">
+            <label>Visibility
+              <select name="layer_{{ layer.index }}_visible">
+                <option value="true" {% if layer.current.visible %}selected{% endif %}>visible</option>
+                <option value="false" {% if not layer.current.visible %}selected{% endif %}>hidden</option>
+              </select>
+            </label>
+            <label>Layer Order
+              <input type="number" min="0" max="999" name="layer_{{ layer.index }}_z_index" value="{{ layer.current.z_index }}">
+            </label>
+            <label>Display Name
+              <input type="text" maxlength="120" name="layer_{{ layer.index }}_display_name" value="{{ layer.current.display_name }}">
+            </label>
+            <label>Fill Color
+              <input type="text" name="layer_{{ layer.index }}_fill_color" value="{{ layer.current.fill_color }}" placeholder="#1A2B3C" pattern="#[0-9A-Fa-f]{6}">
+            </label>
+            <label>Fill Opacity
+              <input type="number" min="0" max="1" step="0.05" name="layer_{{ layer.index }}_fill_opacity" value="{{ layer.current.fill_opacity }}">
+            </label>
+            <label>Stroke Color
+              <input type="text" name="layer_{{ layer.index }}_stroke_color" value="{{ layer.current.stroke_color }}" placeholder="#1A2B3C" pattern="#[0-9A-Fa-f]{6}">
+            </label>
+            <label>Stroke Width
+              <input type="number" min="0" max="10" step="0.1" name="layer_{{ layer.index }}_stroke_width" value="{{ layer.current.stroke_width }}">
+            </label>
+            <label>Point Size
+              <input type="number" min="1" max="80" step="1" name="layer_{{ layer.index }}_point_size" value="{{ layer.current.point_size }}">
+            </label>
+            <label>Labels
+              <select name="layer_{{ layer.index }}_label_visible">
+                <option value="false" {% if not layer.current.label_visible %}selected{% endif %}>hidden</option>
+                <option value="true" {% if layer.current.label_visible %}selected{% endif %}>visible</option>
+              </select>
+            </label>
+            <label>Label Field
+              <select name="layer_{{ layer.index }}_label_field" {% if not layer.label_fields %}disabled{% endif %}>
+                <option value="">none</option>
+                {% for field in layer.label_fields %}
+                <option value="{{ field }}" {% if layer.current.label_field == field %}selected{% endif %}>{{ field }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+        </fieldset>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Figure Actions</h2>
+    <div class="form-actions">
+      <button type="submit" name="style_action" value="reset_default">Reset to Default</button>
+      <button class="primary" type="submit" name="style_action" value="save_draft">Save Draft Style</button>
+      <button type="button" disabled title="{{ editor.deferred_actions.save_and_regenerate }}">Save and Regenerate Figure</button>
+      <button type="button" disabled title="{{ editor.deferred_actions.approve_figure }}">Approve Figure</button>
+    </div>
+    <p class="muted">Regeneration and version approval are visible here for workflow continuity but remain deferred to later Sprint 6 subunits.</p>
+  </section>
+</form>
+{% endblock %}

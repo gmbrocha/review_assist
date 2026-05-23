@@ -350,6 +350,81 @@ code {
   display: flex;
 }
 
+.figure-style-form {
+  display: grid;
+  gap: 0;
+}
+
+.figure-editor-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.layer-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0;
+  max-height: 68vh;
+  overflow: auto;
+}
+
+.layer-list a {
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+
+.layer-list a:last-child {
+  border-bottom: 0;
+}
+
+.layer-list a:hover {
+  background: #eef5f8;
+}
+
+.layer-list span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.layer-controls {
+  display: grid;
+  gap: 14px;
+}
+
+.layer-editor {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 0;
+  padding: 14px;
+}
+
+.layer-editor legend {
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+.details.compact {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.style-control-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.style-control-grid label {
+  display: grid;
+  gap: 6px;
+}
+
 textarea,
 select,
 input[type="text"],
@@ -390,5 +465,9 @@ input:not([type]) {
 
   .content {
     padding: 18px;
+  }
+
+  .figure-editor-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -13,10 +13,13 @@ from review_assist.figure_style_model import (
     FIGURE_STYLE_OVERRIDES_PATH,
     FIGURE_VERSIONS_PATH,
     FigureStyleModelError,
+    active_style_override,
     initialize_figure_style_model,
     make_render_job,
     make_sparse_style_override,
+    reset_project_style_override,
     reset_style_override,
+    save_project_style_override,
 )
 
 
@@ -82,8 +85,9 @@ def test_sparse_override_serialization_and_reset() -> None:
 
     artifact = {"override_count": 1, "overrides": [override]}
     reset = reset_style_override(artifact, "figure-wetlands-waterbodies")
-    assert reset["override_count"] == 0
-    assert reset["overrides"] == []
+    assert reset["override_count"] == 1
+    assert reset["overrides"][0]["status"] == "reset"
+    assert active_style_override(reset, "figure-wetlands-waterbodies") is None
 
 
 def test_sparse_override_rejects_unsupported_fields() -> None:
@@ -132,6 +136,117 @@ def test_cli_initializer_writes_metadata_without_mutating_analysis_artifacts(tmp
     assert figures_path.read_text(encoding="utf-8") == before
     assert not (project_dir / "review_queue" / "review_queue.json").exists()
     assert not (project_dir / "exports" / "export_manifest.json").exists()
+
+
+def test_save_project_style_override_is_sparse_and_auditable(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+
+    result = save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [
+            {
+                "layer_id": "source:usfws_nwi_wetlands",
+                "visible": "true",
+                "display_name": "National Wetlands Inventory",
+                "stroke_color": "#00aaff",
+                "fill_opacity": "0.42",
+            }
+        ],
+    )
+
+    artifact = read_json(project_dir / FIGURE_STYLE_OVERRIDES_PATH)
+    override = active_style_override(artifact, "figure-wetlands-waterbodies")
+
+    assert result["override_saved"] is True
+    assert result["model_initialized"] is True
+    assert override is not None
+    assert override["status"] == "active"
+    assert override["created_by"] == "local_reviewer"
+    assert override["updated_by"] == "local_reviewer"
+    assert override["overrides"] == [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"}]
+
+
+def test_saving_defaults_supersedes_active_override_without_new_active_record(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"}],
+    )
+
+    result = save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#FFE500"}],
+    )
+    artifact = read_json(project_dir / FIGURE_STYLE_OVERRIDES_PATH)
+
+    assert result["override_saved"] is False
+    assert active_style_override(artifact, "figure-wetlands-waterbodies") is None
+    assert artifact["overrides"][0]["status"] == "superseded"
+
+
+def test_reset_project_style_override_preserves_audit_history(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"}],
+    )
+
+    result = reset_project_style_override(project_dir, "figure-wetlands-waterbodies")
+    artifact = read_json(project_dir / FIGURE_STYLE_OVERRIDES_PATH)
+
+    assert result["reset_count"] == 1
+    assert artifact["override_count"] == 1
+    assert artifact["overrides"][0]["status"] == "reset"
+    assert artifact["overrides"][0]["reset_at"]
+    assert active_style_override(artifact, "figure-wetlands-waterbodies") is None
+
+
+@pytest.mark.parametrize(
+    ("layer", "message"),
+    [
+        ({"layer_id": "source:usfws_nwi_wetlands", "fill_color": "red"}, "fill_color must be"),
+        ({"layer_id": "source:usfws_nwi_wetlands", "fill_opacity": "1.5"}, "fill_opacity must be between"),
+        ({"layer_id": "source:usfws_nwi_wetlands", "stroke_width": "11"}, "stroke_width must be between"),
+        ({"layer_id": "source:usfws_nwi_wetlands", "point_size": "0"}, "point_size must be between"),
+        ({"layer_id": "source:usfws_nwi_wetlands", "z_index": "1000"}, "z_index must be between"),
+        ({"layer_id": "source:usfws_nwi_wetlands", "label_field": "NOT_A_FIELD"}, "label_field"),
+        ({"layer_id": "unknown", "stroke_color": "#00AAFF"}, "Unknown style override layer id"),
+        ({"layer_id": "source:usfws_nwi_wetlands", "buffer_distance": 50}, "Unsupported style override fields"),
+    ],
+)
+def test_project_style_override_validation_rejects_bad_values(tmp_path: Path, layer: dict[str, object], message: str) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+
+    with pytest.raises(FigureStyleModelError, match=message):
+        save_project_style_override(project_dir, "figure-wetlands-waterbodies", [layer])
+
+
+def test_style_save_and_reset_do_not_mutate_analysis_or_review_artifacts(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    watched_paths = [
+        project_dir / "deliverable" / "figures.json",
+        project_dir / "source_status" / "source_status_set.json",
+        project_dir / "context" / "project_area.json",
+        project_dir / "intermediate" / "comparison_units.json",
+        project_dir / "intermediate" / "comparison_units.geojson",
+        project_dir / "constraints" / "comparison_unit_constraints.json",
+        project_dir / "maps" / "figure_extent_plan.json",
+    ]
+    before = {path: path.read_bytes() for path in watched_paths}
+
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"}],
+    )
+    reset_project_style_override(project_dir, "figure-wetlands-waterbodies")
+
+    assert {path: path.read_bytes() for path in watched_paths} == before
+    assert not (project_dir / "review_queue" / "review_queue.json").exists()
 
 
 def write_project_with_figures(tmp_path: Path) -> Path:

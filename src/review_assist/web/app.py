@@ -218,6 +218,30 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             abort(404, str(exc))
         return render_template("review_detail.html", active_page="review", item=item)
 
+    @app.get("/review/<item_id>/figure-style")
+    def figure_style_editor(item_id: str) -> str:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            editor = adapter.figure_style_editor_context(project_dir, item_id)
+        except adapter.WebAdapterError as exc:
+            abort(404, str(exc))
+        return render_template("figure_style_editor.html", active_page="review", editor=editor)
+
+    @app.post("/review/<item_id>/figure-style")
+    def figure_style_update(item_id: str) -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            result = adapter.save_figure_style_form(project_dir, item_id, request.form)
+            if str(request.form.get("style_action") or "") == "reset_default":
+                flash(f"Figure style reset to default. {result.get('reset_count', 0)} active draft override(s) reset.", "success")
+            elif result.get("override_saved"):
+                flash("Draft figure style saved.", "success")
+            else:
+                flash("No draft style changes were saved; submitted values match defaults.", "success")
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("figure_style_editor", item_id=item_id))
+
     @app.post("/review/<item_id>")
     def review_update(item_id: str) -> Any:
         project_dir = _selected_project_dir_or_abort(app)

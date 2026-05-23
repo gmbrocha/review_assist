@@ -33,3 +33,7 @@ Current archived planning records include:
 - `docs/archive/sprints/SPRINT_5_9_END_TO_END_TRIAL_DOCS_AND_VERIFICATION.md`
 - `docs/archive/sprints/SPRINT_5_REPORT_INTELLIGENCE_SOURCE_TRUTH_AND_DISCERNMENT.md`
 - `docs/archive/sprints/SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md`
+- `docs/archive/sprints/SPRINT_6_1_EXISTING_FIGURE_FLOW_AUDIT.md`
+- `docs/archive/sprints/SPRINT_6_2_FIGURE_RECIPE_AND_OVERRIDE_MODEL.md`
+- `docs/archive/sprints/SPRINT_6_3_REVIEWER_FIGURE_EDITOR_UI.md`
+- `docs/archive/sprints/SPRINT_6_4_STYLE_OVERRIDE_SAVE_LOGIC.md`
