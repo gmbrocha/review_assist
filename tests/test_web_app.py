@@ -591,6 +591,11 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "Saved style drafts are project-local presentation metadata" in text
     assert "Export Eligible" in text
     assert "Layer Styling" in text
+    assert "figure_style_editor.js" in text
+    assert "data-color-control" in text
+    assert "color-swatch" in text
+    assert "Color preview" in text
+    assert "Use #RRGGBB or leave blank for default." in text
     assert "Comparison units" in text
     assert "National Wetlands Inventory" in text
     assert "name=\"layer_0_visible\"" in text

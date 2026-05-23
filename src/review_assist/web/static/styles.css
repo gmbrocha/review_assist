@@ -484,6 +484,76 @@ code {
   gap: 6px;
 }
 
+.style-field {
+  display: grid;
+  gap: 6px;
+}
+
+.style-label {
+  display: block;
+}
+
+.color-control {
+  align-items: center;
+  display: grid;
+  gap: 6px 8px;
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+
+.color-control input,
+.color-control .color-hint {
+  grid-column: 1 / -1;
+}
+
+.color-summary {
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.color-control.invalid .color-hint {
+  color: var(--danger);
+}
+
+.color-swatch {
+  background:
+    linear-gradient(45deg, #d0d5dd 25%, transparent 25%),
+    linear-gradient(-45deg, #d0d5dd 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #d0d5dd 75%),
+    linear-gradient(-45deg, transparent 75%, #d0d5dd 75%);
+  background-color: #fff;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+  border: 1px solid #98a2b3;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  display: inline-block;
+  height: 24px;
+  width: 24px;
+}
+
+.color-swatch.empty {
+  background-color: #fff;
+}
+
+.color-swatch.invalid {
+  background: repeating-linear-gradient(
+    45deg,
+    #f2f4f7,
+    #f2f4f7 4px,
+    #fee4e2 4px,
+    #fee4e2 8px
+  );
+  border-color: var(--danger);
+}
+
 textarea,
 select,
 input[type="text"],
