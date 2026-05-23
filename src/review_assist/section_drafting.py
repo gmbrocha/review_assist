@@ -53,7 +53,11 @@ PROHIBITED_PATTERNS = {
     "ranking": r"\brank(?:ed|ing)?\b",
     "score": r"\bscor(?:e|ed|ing)\b",
     "reject": r"\breject(?:ed|s|ing)?\b",
-    "select": r"\bselect(?:ed|s|ing)?\b",
+    "select": (
+        r"\bselect(?:ed|s|ing)?\s+(?:an?\s+)?(?:preferred\s+)?(?:alternative|option|route|alignment|corridor)\b"
+        r"|\b(?:alternative|option|route|alignment|corridor)\s+(?:is|was|were|be|been\s+)?select(?:ed|s|ing)?\b"
+        r"|\balternative selection\b"
+    ),
     "final determination": r"\bfinal (determination|finding|conclusion)\b",
     "final impact conclusion": r"\bfinal (?:impact|effect)s? (?:determination|finding|conclusion)\b",
     "no effect determination": r"\bno (?:adverse )?effect\b|\bnot likely to adversely affect\b|\blikely to adversely affect\b",
@@ -384,9 +388,38 @@ def _request_payload(request: SectionDraftRequest) -> dict[str, Any]:
             "Keep source_selection_reason and other pipeline/provenance details out of draft_content unless they are necessary as a short limitation.",
             "Use style_context only for tone and structure. Do not cite it, treat it as evidence, or copy example-report facts or assumptions.",
             "Return required caveat IDs in the caveats array when section_policy supplies required_caveats.",
+            *_section_specific_constraints(request),
         ],
     }
     return _bounded_payload(payload)
+
+
+def _section_specific_constraints(request: SectionDraftRequest) -> list[str]:
+    prompt_key = request.prompt_key or str(request.prompt.get("prompt_key", ""))
+    if prompt_key == "wetlands-and-waterbodies":
+        return [
+            "Drafting mode: section_rollup.",
+            "Write as a screening-level environmental report section, not as an evidence manifest.",
+            "Introduce wetlands, streams, ponds, and mapped waterbody resources as a report topic across the project area and comparison units.",
+            "Mention Table 1 and Figure 1 naturally when they are available; counts should support the prose rather than replace it.",
+            "Discuss planning relevance broadly: alignment refinement, drainage structure needs, avoidance/minimization, low-lying areas, hydrologic connectivity, field verification, and agency coordination where supported by the supplied evidence.",
+            "Do not use internal evidence or artifact phrases such as mapped-source evidence, evidence package, source-backed mapped relationships, bounded rows, artifact limitations, comparison-unit evidence, this review item, GPT-assisted, source refs, evidence refs, validation summary, or review queue artifact.",
+            "Do not discuss basemap rendering, sidecar files, MrSID, or internal source-selection limitations in report prose unless the wetland or hydrography source itself is unavailable.",
+            "Include NWI/NHD desktop-screening limitation language in normal report prose: these data support early screening but do not define jurisdictional wetland or waterbody limits; site-specific delineation and agency coordination would be needed before final design or permitting decisions.",
+        ]
+    if prompt_key == "wetlands-waterbodies-alternative-detail":
+        return [
+            "Drafting mode: comparison_unit_narrative.",
+            "Write as a screening-level environmental report subsection for the named comparison unit, not as an evidence manifest.",
+            "Lead with the corridor/resource relationship and mapped wetland/waterbody context for this comparison unit; do not lead with evidence-package or source-manifest language.",
+            "Use available Table 1 counts and feature types as support, then interpret planning relevance for stream crossings, drainage features, wetlands, ponds, low-lying areas, avoidance/minimization, design refinement, and hydrologic connectivity.",
+            "Mention Figure 1 naturally when it helps orient the reader.",
+            "Do not invent right-of-way, railroad, disturbed-corridor, aerial-imagery disturbance, or low-lying-area facts unless they are present in the supplied project context or evidence.",
+            "Do not use internal evidence or artifact phrases such as mapped-source evidence, evidence package, source-backed mapped relationships, bounded rows, artifact limitations, comparison-unit evidence, this review item, GPT-assisted, source refs, evidence refs, validation summary, or review queue artifact.",
+            "Do not discuss basemap rendering, sidecar files, MrSID, or internal source-selection limitations in report prose unless the wetland or hydrography source itself is unavailable.",
+            "Include NWI/NHD desktop-screening limitation language in normal report prose without making jurisdictional, impact, permitting, or agency conclusions.",
+        ]
+    return []
 
 
 def _system_prompt() -> str:

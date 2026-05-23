@@ -180,23 +180,23 @@
       "prompt_key": "wetlands-and-waterbodies",
       "target_ids": ["wetlands-and-waterbodies"],
       "system_prompt": "Follow the global environmental constraints report drafting rules.",
-      "section_instruction": "Use wetland and waterbody summaries, stream crossing counts, Table 1, and Figure 1 without making jurisdictional determinations.",
+      "section_instruction": "Draft a section_rollup for Wetlands and Waterbodies. Write as a screening-level environmental report section, not as an evidence manifest. Introduce the desktop source basis for wetlands, streams, ponds, and other mapped waterbody features; summarize overall mapped resource context across the project area and comparison units; reference Table 1 and Figure 1 naturally when available; interpret planning and design relevance for drainage crossings, wetlands, ponds, low-lying areas, avoidance/minimization, field verification, and agency coordination. Counts should support the prose, not replace it. Do not make jurisdictional, impact, permitting, or agency conclusions.",
       "allowed_inputs": ["comparison_unit_summaries", "generated_tables", "generated_figures", "source_status", "source_provenance"],
       "required_stub_text": "Empty stub for future implements whenever source data is accessible.",
       "prohibited_claims": ["inherit_global"],
       "citation_policy": {"allowed_refs": ["table_ids", "figure_ids", "source_ids", "comparison_unit_names"], "unknown_refs": "prohibited"},
-      "output_style": {"tone": "resource findings narrative", "length": "concise", "status": "pre_review"}
+      "output_style": {"tone": "interpretive environmental screening report prose", "length": "three to four concise paragraphs", "status": "pre_review", "drafting_mode": "section_rollup", "avoid_phrases": ["mapped-source evidence", "evidence package", "source-backed mapped relationships", "bounded rows", "artifact limitations", "comparison-unit evidence", "this review item", "GPT-assisted", "source refs", "evidence refs", "validation summary", "review queue artifact"]}
     },
     {
       "prompt_key": "wetlands-waterbodies-alternative-detail",
       "target_ids": ["wetlands-waterbodies-alternative-detail"],
       "system_prompt": "Follow the global environmental constraints report drafting rules.",
-      "section_instruction": "Draft one concise wetlands/waterbodies paragraph for the named comparison unit using only that unit's evidence.",
+      "section_instruction": "Draft a comparison_unit_narrative for the named comparison unit using only that unit's evidence. Lead with the corridor/resource relationship and mapped wetland/waterbody context; use supported Table 1 counts and feature types as evidence; interpret planning relevance for stream crossings, drainage features, wetlands, ponds, low-lying areas, avoidance/minimization, design refinement, hydrologic connectivity, field verification, and agency coordination. Do not lead with evidence-package language, do not invent right-of-way or disturbed-corridor context, and do not make jurisdictional, impact, permitting, or agency conclusions.",
       "allowed_inputs": ["comparison_unit_summaries", "generated_tables", "generated_figures", "source_provenance"],
       "required_stub_text": "Empty stub for future implements whenever source data is accessible.",
       "prohibited_claims": ["inherit_global"],
       "citation_policy": {"allowed_refs": ["table_ids", "figure_ids", "source_ids", "comparison_unit_names"], "unknown_refs": "prohibited"},
-      "output_style": {"tone": "alternative detail narrative", "length": "brief", "status": "pre_review"}
+      "output_style": {"tone": "interpretive comparison-unit environmental screening prose", "length": "two to three concise paragraphs", "status": "pre_review", "drafting_mode": "comparison_unit_narrative", "avoid_phrases": ["mapped-source evidence", "evidence package", "source-backed mapped relationships", "bounded rows", "artifact limitations", "comparison-unit evidence", "this review item", "GPT-assisted", "source refs", "evidence refs", "validation summary", "review queue artifact"]}
     },
     {
       "prompt_key": "floodplains-and-floodways",

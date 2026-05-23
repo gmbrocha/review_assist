@@ -12,7 +12,7 @@ This subunit is planning/documentation only unless a tiny documentation correcti
 
 ## Inputs
 
-- Extracted policy package under `pro_review_assist_policy_package_sprint_5/`
+- Extracted policy package now archived under `docs/archive/packages/pro_review_assist_policy_package_sprint_5/`
 - Current root Sprint 5 planning docs
 - Current app policy/config docs
 - `docs/STABILIZATION_PASS_BEFORE_NEXT_SPRINT.md`

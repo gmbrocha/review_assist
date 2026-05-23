@@ -1509,8 +1509,10 @@ def _source_note(
             labels.append(f"{label} rendered from sidecar")
         elif shown.get("renderability_status") == "materialization_failed":
             labels.append(f"{label} materialization failed; vector-only fallback used")
+        elif shown.get("renderability_status") == "render_asset_missing":
+            labels.append(f"{label} render asset missing; vector-only fallback used")
         else:
-            labels.append(f"{label} provenance only; no visual basemap sidecar")
+            labels.append(f"{label} not rendered; vector-only fallback used")
     if basemap:
         for failure in _dict_list(basemap.get("materialization_failures", [])):
             label = str(failure.get("label") or "USDA NAIP Project Basemap")

@@ -10,7 +10,7 @@ The policy is a contract layer. It does not download sources, change query dista
 
 ## Package Reconciliation Workflow
 
-Sprint 5 used `docs/archive/sprints/SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` to route proposals mined from `pro_review_assist_policy_package_sprint_5/`. The package policy and docs remain requirements evidence, not replacement runtime config.
+Sprint 5 used `docs/archive/sprints/SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` to route proposals mined from `docs/archive/packages/pro_review_assist_policy_package_sprint_5/`. The package policy and docs remain archived requirements evidence, not replacement runtime config.
 
 Reusable package proposals were mapped to current app IDs and classified as adopted, rejected, already covered, or deferred before product behavior consumed them. Example-specific, PEL-specific, trail/corridor-specific, unsupported, incomplete, or unsafe package content must remain out of generic Review Assist behavior unless reviewer-supplied project context supports it.
 

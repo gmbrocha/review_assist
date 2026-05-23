@@ -168,7 +168,7 @@ def test_naip_index_sees_local_county_folders_when_available() -> None:
     assert all("county_name" in record for record in records)
 
 
-def test_sid_only_county_imagery_returns_selected_not_renderable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sid_only_county_imagery_reports_missing_render_asset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_dir = write_project(tmp_path)
     basemap_root = tmp_path / "naip"
     sid_dir = write_naip_county(basemap_root)
@@ -177,10 +177,11 @@ def test_sid_only_county_imagery_returns_selected_not_renderable(tmp_path: Path,
     result = build_project_area(project_dir)
 
     assert result["county_names"] == ["Test County"]
-    assert result["basemap_rendering_status"] == "selected_not_renderable"
-    assert result["selected_basemap_paths"] == [str(sid_dir / "Test_NAIP_2025.sid")]
+    assert result["basemap_rendering_status"] == "render_asset_missing"
+    assert result["selected_basemap_paths"] == []
+    assert result["unsupported_basemap_source_paths"] == [str(sid_dir / "Test_NAIP_2025.sid")]
     assert result["renderable_basemap_paths"] == []
-    assert any(warning["code"] == "aerial_basemap_selected_not_renderable" for warning in result["warnings"])  # type: ignore[index]
+    assert any(warning["code"] == "basemap_render_asset_missing" for warning in result["warnings"])  # type: ignore[index]
 
 
 def test_county_source_disagreement_warning_is_actionable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -197,7 +198,8 @@ def test_county_source_disagreement_warning_is_actionable(tmp_path: Path, monkey
 
     assert result["county_names"] == ["Test County"]
     assert result["county_detection_method"] == "maris_boundary_context"
-    assert result["selected_basemap_paths"] == [str(test_sid_dir / "Test_NAIP_2025.sid")]
+    assert result["selected_basemap_paths"] == []
+    assert result["unsupported_basemap_source_paths"] == [str(test_sid_dir / "Test_NAIP_2025.sid")]
     assert details["selected_counties"] == ["Test County"]
     assert details["final_county_list"] == ["Test County"]
     assert details["preferred_source"] == "maris_boundary_context"
@@ -248,4 +250,4 @@ def test_cli_build_project_area_json_output(
     assert main(["build-project-area", str(project_dir), "--json"]) == 0
 
     captured = capsys.readouterr()
-    assert json.loads(captured.out)["basemap_rendering_status"] == "selected_not_renderable"
+    assert json.loads(captured.out)["basemap_rendering_status"] == "render_asset_missing"

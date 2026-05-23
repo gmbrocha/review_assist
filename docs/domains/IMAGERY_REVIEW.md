@@ -2,7 +2,7 @@
 
 This document defines the future philosophy for aerial imagery, basemaps, and visual observations.
 
-No computer vision or production imagery-observation workflow is implemented yet. The current backend can index local MARIS/NAIP 2025 county folders through `src/review_assist/basemaps.py`, select matching source paths for project counties, record whether selected imagery has renderable sidecars in `context/project_area.json`, expose `maris_naip_2025_imagery` source status detail, and use selected renderable sidecars in matrix-backed deliverable figures when metadata is sufficient. An explicit `materialize-naip-basemap` command can also create project-local renderable NAIP GeoTIFF sidecars from public Microsoft Planetary Computer COG assets by project analysis bounds.
+No computer vision or production imagery-observation workflow is implemented yet. The current backend can index local MARIS/NAIP 2025 county folders through `src/review_assist/basemaps.py`, record unsupported legacy source metadata separately from renderable project assets in `context/project_area.json`, expose `maris_naip_2025_imagery` and `usda_naip_imagery` source status detail, and use project-local renderable NAIP GeoTIFF assets in matrix-backed deliverable figures when metadata is sufficient. `materialize-naip-basemap` can create project-local renderable NAIP GeoTIFF assets from public Microsoft Planetary Computer COG assets by project analysis bounds or planned figure extents.
 
 ## Purpose
 
@@ -63,12 +63,12 @@ Current implemented selection context:
 
 - `build-project-area` checks materialized MARIS boundary context, existing project context, and NAIP/MARIS metadata extents to identify county names.
 - Matching county folders under `sources/aerial_base_maps/maris_naip_2025` are recorded as basemap candidates.
-- `.sid` files are stored as selected source/provenance paths, while `.tif`, `.tiff`, and `.png` sidecars are tracked as renderable paths.
-- `.sid`-only selections are marked `selected_not_renderable` with validation/status warnings rather than decoded or silently treated as renderable.
+- `.sid` files are stored as unsupported source metadata, not selected visual basemaps, while `.tif`, `.tiff`, and `.png` assets are tracked as renderable paths.
+- `.sid`-only source metadata produces `render_asset_missing` warnings when no project-local NAIP/aerial render asset exists.
 - `materialize-naip-basemap` queries NAIP STAC by project analysis bounds, reads only bounded COG windows, writes `projects/<project_id>/basemaps/naip/<year>/naip_project_basemap.tif`, and records adjacent JSON provenance.
-- `populate-for-review --materialize-naip-basemap` is optional and failure-tolerant; plain populate does not acquire imagery.
+- Web Create Review Queue enables failure-tolerant NAIP materialization before figure rendering; CLI/scripted `populate-for-review` runs opt in with `--materialize-naip-basemap`.
 - `generate-deliverable-figures` may render selected `.png`, `.tif`, or `.tiff` sidecars into draft/pre-review figures. GeoTIFF support uses optional `rasterio` lazily; PNG support requires usable project-area metadata/georeference.
-- If a sidecar is unavailable, unreadable, unreferenced, or unsupported, the figure artifact records `basemap_selected_not_renderable` or `basemap_render_failed` and falls back to vector-only rendering or an explicit stub.
+- If a render asset is unavailable, unreadable, unreferenced, or unsupported, the figure artifact records `basemap_render_asset_missing`, `naip_basemap_materialization_failed`, or `basemap_render_failed` and falls back to vector-only rendering or an explicit stub.
 - This does not create imagery observations or authoritative source corrections.
 
 ## Imagery vs. Authoritative Layers

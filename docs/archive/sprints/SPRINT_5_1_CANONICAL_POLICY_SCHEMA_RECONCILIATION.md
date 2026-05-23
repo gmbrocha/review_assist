@@ -24,7 +24,7 @@ This subunit may update:
 
 ## Required Package Diff Pass
 
-Before changing policy behavior, compare `pro_review_assist_policy_package_sprint_5/` against the current app contract:
+Before changing policy behavior, compare `docs/archive/packages/pro_review_assist_policy_package_sprint_5/` against the current app contract:
 
 - proposed `config/review_assist_report_policy.json`
 - package report-policy and GPT-style docs

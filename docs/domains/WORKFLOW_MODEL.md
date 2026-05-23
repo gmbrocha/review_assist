@@ -130,12 +130,12 @@ Suggested statuses:
 - `manual`: source requires manual lookup, download, document attachment, or reviewer-supplied material.
 - `unimplemented`: source appears feasible but no downloader/materializer is implemented yet.
 - `stubbed`: a placeholder exists so reports can include a review requirement or caveat.
-- `selected_not_renderable`: a context source is selected as provenance but cannot be rendered by the current pipeline.
+- `render_asset_missing`: a project-local renderable basemap asset is expected but has not been produced or found.
 - `missing`: expected source material is not available.
 - `optional`: useful context but not required for the selected report profile.
 - `needs_review`: source status or fitness for use needs reviewer confirmation.
 
-Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed datasets should generate placeholders, uncertainty flags, and review requirements rather than causing the workflow to fail. The goal is useful pre-review report generation, not perfect data completeness.
+Missing, failed, gated/restricted, manual, unimplemented, missing-render-asset, and stubbed datasets should generate placeholders, uncertainty flags, and review requirements rather than causing the workflow to fail. The goal is useful pre-review report generation, not perfect data completeness.
 
 ## Populate for Review
 

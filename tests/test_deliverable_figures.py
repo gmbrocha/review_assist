@@ -357,7 +357,7 @@ def test_deliverable_figures_write_15_matrix_records_and_missing_source_stubs(
     assert "figure_created_as_stub" in issue_codes(census)
 
 
-def test_sid_only_basemap_warns_and_vector_figure_still_renders(
+def test_sid_only_basemap_reports_missing_render_asset_and_vector_figure_still_renders(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -377,15 +377,17 @@ def test_sid_only_basemap_warns_and_vector_figure_still_renders(
 
     assert wetlands["is_stub"] is False
     assert Path(str(wetlands["image_path"])).exists()
-    assert "basemap_selected_not_renderable" in issue_codes(wetlands)
+    assert "basemap_render_asset_missing" in issue_codes(wetlands)
     issue_text = json.dumps(wetlands["validation_issues"])
-    assert "only MrSID source files are available" in issue_text
-    assert "Provide GeoTIFF/PNG sidecar" in issue_text
+    assert "Expected project-local asset" in issue_text
+    assert "MrSID" not in issue_text
     shown_basemaps = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap_provenance"]  # type: ignore[index]
     assert shown_basemaps
-    assert shown_basemaps[0]["renderability_status"] == "selected_not_renderable"
-    assert shown_basemaps[0]["visual_use"] == "provenance_only"
-    assert "maris_naip_2025_imagery" in wetlands["source_refs"]  # type: ignore[operator]
+    assert shown_basemaps[0]["renderability_status"] == "render_asset_missing"
+    assert shown_basemaps[0]["visual_use"] == "missing_not_rendered"
+    assert shown_basemaps[0]["unsupported_source_paths"]
+    assert "usda_naip_imagery" in wetlands["source_refs"]  # type: ignore[operator]
+    assert "maris_naip_2025_imagery" not in wetlands["source_refs"]  # type: ignore[operator]
 
 
 def test_sid_only_basemap_keeps_naip_materialization_failure_visible(
@@ -421,11 +423,11 @@ def test_sid_only_basemap_keeps_naip_materialization_failure_visible(
     result = generate_deliverable_figures(project_dir)
     wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
 
-    assert "basemap_selected_not_renderable" in issue_codes(wetlands)
+    assert "basemap_render_asset_missing" in issue_codes(wetlands)
     assert "naip_basemap_materialization_failed" in issue_codes(wetlands)
-    assert "maris_naip_2025_imagery" in wetlands["source_refs"]  # type: ignore[operator]
+    assert "maris_naip_2025_imagery" not in wetlands["source_refs"]  # type: ignore[operator]
     assert "usda_naip_imagery" in wetlands["source_refs"]  # type: ignore[operator]
-    assert "MARIS/NAIP 2025 Imagery provenance only; no visual basemap sidecar" in wetlands["source_note"]  # type: ignore[operator]
+    assert "USDA NAIP Project Basemap render asset missing; vector-only fallback used" in wetlands["source_note"]  # type: ignore[operator]
     assert "USDA NAIP Project Basemap materialization failed; vector-only fallback used" in wetlands["source_note"]  # type: ignore[operator]
 
 
@@ -449,7 +451,7 @@ def test_renderable_png_sidecar_is_selected_when_metadata_is_available(
     wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
 
     assert wetlands["is_stub"] is False
-    assert "basemap_selected_not_renderable" not in issue_codes(wetlands)
+    assert "basemap_render_asset_missing" not in issue_codes(wetlands)
     shown_basemaps = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap"]  # type: ignore[index]
     assert shown_basemaps
     assert shown_basemaps[0]["renderability_status"] == "rendered"

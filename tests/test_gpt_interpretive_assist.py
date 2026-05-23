@@ -106,6 +106,24 @@ def _style_context_citation_response(*, model: str, payload: dict[str, Any], sch
     }
 
 
+def _benign_selected_source_response(*, model: str, payload: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "draft_content": (
+            "The selected NWI and NHD source datasets support early desktop screening for mapped wetlands, "
+            "streams, ponds, and drainage features. Table 1 and Figure 1 should be used to compare planning "
+            "constraints while recognizing that these data do not define jurisdictional wetland or waterbody "
+            "limits. Site-specific delineation and agency coordination would be needed before final design or "
+            "permitting decisions."
+        ),
+        "cited_finding_ids": [],
+        "cited_table_ids": payload["related_ids"]["table_ids"][:1],
+        "cited_figure_ids": payload["related_ids"]["figure_ids"][:1],
+        "cited_source_refs": payload["related_ids"]["source_refs"][:2],
+        "caveats": payload["section_policy"]["required_caveats"],
+        "usage": {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
+    }
+
+
 def test_style_context_loads_as_non_evidence() -> None:
     context = load_report_style_context()
 
@@ -234,8 +252,33 @@ def test_gpt_draft_updates_review_queue_as_unaccepted_candidate_and_caches(tmp_p
     assert captured["payload"]["section_policy"]["section_id"] == "wetlands-and-waterbodies"
     assert captured["payload"]["style_context"]["not_project_evidence"] is True
     assert captured["payload"]["style_context"]["must_not_be_cited"] is True
+    assert "Drafting mode: section_rollup." in captured["payload"]["constraints"]
+    assert any("not as an evidence manifest" in item for item in captured["payload"]["constraints"])
     assert "source_not_downloaded" not in json.dumps(captured["payload"])
     assert "source_download_failed" not in json.dumps(captured["payload"])
+
+
+def test_wetlands_comparison_unit_payload_uses_comparison_unit_narrative_mode(tmp_path: Path) -> None:
+    project_dir = _source_backed_project(tmp_path)
+    captured: dict[str, Any] = {}
+
+    def capture_response(*, model: str, payload: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+        captured["payload"] = payload
+        return _safe_gpt_response(model=model, payload=payload, schema=schema)
+
+    result = draft_section_candidates(
+        project_dir,
+        sections=["wetlands-waterbodies-comparison-unit-00001"],
+        max_calls=1,
+        response_create=capture_response,
+    )
+
+    payload = captured["payload"]
+    assert result["accepted_gpt_draft_count"] == 1
+    assert payload["section_policy"]["section_id"] == "wetlands-waterbodies-alternative-detail"
+    assert payload["prompt_contract"]["section_prompt"]["output_style"]["drafting_mode"] == "comparison_unit_narrative"
+    assert "Drafting mode: comparison_unit_narrative." in payload["constraints"]
+    assert any("Do not invent right-of-way" in item for item in payload["constraints"])
 
 
 def test_gpt_items_remain_export_gated_until_human_review(tmp_path: Path) -> None:
@@ -360,9 +403,33 @@ def test_rejected_gpt_output_does_not_replace_deterministic_candidate(tmp_path: 
     assert result["rejected_gpt_draft_count"] == 1
     assert result["deterministic_fallback_count"] == 1
     assert item["generated_content"] == original
+    fallback = item["provenance"]["gpt_interpretive_assist_fallback"]
+    assert fallback["attempted"] is True
+    assert fallback["deterministic_content_retained"] is True
+    assert fallback["reason_code"] == "gpt_output_rejected"
+    assert "style_context_cited_as_evidence" in {issue["code"] for issue in fallback["validation_issues"]}
+    assert "gpt_interpretive_assist_fallback" in item["uncertainty_flags"]
     assert "style_context_cited_as_evidence" in {
         issue["code"] for issue in result["sections_rejected"][0]["validation_issues"]
     }
+
+
+def test_benign_selected_source_wording_is_not_rejected_as_alternative_selection(tmp_path: Path) -> None:
+    project_dir = _source_backed_project(tmp_path)
+
+    result = draft_section_candidates(
+        project_dir,
+        sections=["wetlands-and-waterbodies"],
+        max_calls=1,
+        response_create=_benign_selected_source_response,
+    )
+    item = next(item for item in load_review_queue(project_dir)["items"] if item["id"] == "wetlands-and-waterbodies")
+
+    assert result["accepted_gpt_draft_count"] == 1
+    assert result["rejected_gpt_draft_count"] == 0
+    assert "The selected NWI and NHD source datasets" in item["generated_content"]
+    assert "gpt_interpretive_assist" in item["provenance"]
+    assert "gpt_interpretive_assist_fallback" not in item["provenance"]
 
 
 def test_rejected_gpt_output_does_not_overwrite_accepted_cache_entry(tmp_path: Path) -> None:

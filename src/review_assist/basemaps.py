@@ -102,7 +102,8 @@ def select_project_basemaps(project_dir: Path) -> dict[str, Any]:
         [dict(candidate) for candidate in candidates if isinstance(candidate, dict)] if isinstance(candidates, list) else [],
     )
     project_local_basemaps = _project_local_basemaps_from_area(project_area, project_area_path.parent.parent)
-    selected_paths = flatten_paths(selected_candidates, "sid_paths")
+    selected_paths: list[str] = []
+    unsupported_source_paths = flatten_paths(selected_candidates, "sid_paths")
     renderable_paths = _dedupe_paths(
         [
             *[record["path"] for record in project_local_basemaps if record.get("path")],
@@ -118,6 +119,7 @@ def select_project_basemaps(project_dir: Path) -> dict[str, Any]:
         "project_local_basemaps": project_local_basemaps,
         "selected_candidates": selected_candidates,
         "selected_basemap_paths": selected_paths,
+        "unsupported_basemap_source_paths": unsupported_source_paths,
         "renderable_basemap_paths": renderable_paths,
         "basemap_rendering_status": basemap_rendering_status(selected_candidates, selected_paths, renderable_paths),
         "validation_issues": [],
@@ -156,10 +158,8 @@ def basemap_rendering_status(
 ) -> str:
     if renderable_basemap_paths:
         return "renderable_sidecar_available"
-    if selected_basemap_paths:
-        return "selected_not_renderable"
     if selected_candidates:
-        return "not_available"
+        return "render_asset_missing"
     return "not_available"
 
 
@@ -394,7 +394,7 @@ def _candidate_status(sid_paths: list[Path], renderable_paths: list[Path], metad
     if renderable_paths:
         return "renderable_sidecar_available"
     if sid_paths:
-        return "selected_not_renderable"
+        return "unsupported_source_format"
     if metadata_paths:
         return "metadata_only"
     return "empty"

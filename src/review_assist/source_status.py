@@ -228,14 +228,14 @@ def _category_status(
         status = "present_not_materialized"
         flags = ["source_present_not_materialized"]
         notes = "Local source warehouse data is present but not yet configured for analysis-ready materialization."
+    elif any(detail["status"] in {"render_asset_missing", "selected_not_renderable"} for detail in source_details):
+        status = "render_asset_missing"
+        flags = ["basemap_render_asset_missing", "renderable_basemap_missing", "source_format_unsupported"]
+        notes = "A renderable project-local basemap asset is expected but has not been produced."
     elif requirement == "optional":
         status = "optional"
         flags = []
         notes = "Optional source category is not required for this profile."
-    elif any(detail["status"] == "selected_not_renderable" for detail in source_details):
-        status = "selected_not_renderable"
-        flags = ["source_selected_not_renderable", "renderable_sidecar_missing"]
-        notes = "A basemap source is selected as provenance, but no renderable sidecar is available."
     elif any(detail["status"] == "downloadable" for detail in source_details):
         status = "downloadable"
         flags = ["source_not_downloaded"]
@@ -845,14 +845,15 @@ def _basemap_detail_status(basemap_selection: dict[str, Any] | None) -> tuple[st
         return "missing", "Basemap selection has not been resolved.", ["source_unavailable"]
     status = str(basemap_selection.get("basemap_rendering_status") or "not_available")
     if status == "renderable_sidecar_available":
-        return "registered_local", "Selected MARIS/NAIP imagery has at least one renderable sidecar.", []
-    if status == "selected_not_renderable":
-        return "selected_not_renderable", (
-            "County MARIS/NAIP imagery was selected as provenance, but only MrSID source files are available. "
-            "Provide a GeoTIFF or georeferenced PNG sidecar for visual basemap rendering."
+        return "registered_local", "Selected basemap metadata has at least one renderable project-local or supported raster asset.", []
+    if status in {"render_asset_missing", "selected_not_renderable"}:
+        return "render_asset_missing", (
+            "Legacy MARIS/NAIP source files are unsupported for active rendering, and no project-local renderable "
+            "NAIP/aerial basemap asset is available. Rebuild the queue with NAIP basemap materialization enabled."
         ), [
-            "source_selected_not_renderable",
-            "renderable_sidecar_missing",
+            "basemap_render_asset_missing",
+            "renderable_basemap_missing",
+            "source_format_unsupported",
         ]
     issues = basemap_selection.get("validation_issues", [])
     flags = ["source_unavailable"]
@@ -871,9 +872,9 @@ def _project_naip_detail_status(project_dir: Path) -> tuple[str, str, list[str]]
             "basemap_materialization_failed",
             "vector_only_no_basemap",
         ]
-    return "unimplemented", "NAIP basemap materialization is available as an explicit optional command but has not been run.", [
+    return "unimplemented", "NAIP basemap materialization can create a project-local renderable basemap asset but has not been run.", [
         "source_unimplemented",
-        "renderable_sidecar_missing",
+        "renderable_basemap_missing",
     ]
 
 

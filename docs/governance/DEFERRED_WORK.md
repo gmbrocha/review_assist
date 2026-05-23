@@ -105,11 +105,11 @@ Each deferred item should include:
 
 ### Basemap And Imagery Rendering Decisions
 
-- `Deferred item`: Decide whether to support MrSID conversion/decoding, additional basemap providers, and production imagery dependencies beyond optional NAIP GeoTIFF sidecars.
-- `Why postponed`: The current workflow treats MrSID as provenance only and keeps NAIP sidecar materialization explicit and optional.
+- `Deferred item`: Add additional basemap providers and harden production imagery dependencies beyond project-local NAIP GeoTIFF assets.
+- `Why postponed`: MrSID support is intentionally out of scope. The current workflow uses durable project-local NAIP render assets when materialization succeeds and treats legacy `.sid` files as unsupported source metadata only.
 - `Affected sections/workflows`: Project area, source status, figure rendering, map generation, source warehouse, web status display.
-- `Risk if forgotten`: Reviewers may overread MrSID provenance as a rendered basemap, or local imagery sidecars may remain inconsistent across workspaces.
-- `Temporary simplification`: Figures render vector-only or use `.tif`, `.tiff`, or `.png` sidecars when present; no MrSID decoding dependency is required.
+- `Risk if forgotten`: Local imagery render assets may remain inconsistent across workspaces, or production runs may lack a reliable non-NAIP fallback provider.
+- `Temporary simplification`: Figures render vector-only or use project-local `.tif`, `.tiff`, or `.png` assets when present; no MrSID decoding dependency is allowed.
 - `Target sprint/subunit`: Future cartography/basemap dependency decision.
 - `Status`: open.
 
@@ -167,7 +167,7 @@ Each deferred item should include:
 
 ### Sprint 5 Package Proposal Routing
 
-- `Deferred item`: Reusable proposals mined from `pro_review_assist_policy_package_sprint_5/` required Sprint 5 routing before product behavior changes.
+- `Deferred item`: Reusable proposals mined from `docs/archive/packages/pro_review_assist_policy_package_sprint_5/` required Sprint 5 routing before product behavior changes.
 - `Resolution`: Sprint 5.1 through Sprint 5.9 created and closed the package reconciliation ledger, adopted safe policy/source/render/manual/export QA changes, rejected example-specific or count-changing proposals, and carried remaining product gaps into durable deferred-work records.
 - `Remaining limitation`: Future work remains open for source acquisition/query expansion, manual document workflows, reviewer override governance, source warehouse cleanup, cartography, and production review-state handling.
 - `Target sprint/subunit`: Sprint 5.9.
@@ -248,7 +248,7 @@ Each deferred item should include:
 ### Raster-Backed NAIP Figure Rendering
 
 - `Deferred item`: Render NAIP/MARIS basemaps into deliverable figures only when renderable sidecars are available.
-- `Resolution`: Sprint 2.3 deliverable figures can render selected `.png`, `.tif`, or `.tiff` sidecars when project-area metadata/georeference is usable. `.sid` files remain provenance only, and failures are preserved through `basemap_selected_not_renderable` or `basemap_render_failed`.
-- `Remaining limitation`: No MrSID decoding, paid basemap API, or hard `rasterio` dependency. The current local NAIP warehouse may be `.sid`-only, so normal local runs may remain vector-only.
+- `Resolution`: Sprint 2.3 deliverable figures can render selected `.png`, `.tif`, or `.tiff` assets when project-area metadata/georeference is usable. Legacy `.sid` files are unsupported source metadata only, and failures are preserved through `basemap_render_asset_missing`, `naip_basemap_materialization_failed`, or `basemap_render_failed`.
+- `Remaining limitation`: No MrSID decoding, paid basemap API, or hard `rasterio` dependency. NAIP materialization can still fail because of dependency, network, coverage, tile, pixel, or timeout limits, so vector-only fallback remains necessary.
 - `Target sprint/subunit`: Sprint 2.3.
 - `Status`: resolved.

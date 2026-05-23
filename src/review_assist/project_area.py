@@ -85,7 +85,8 @@ def build_project_area(project_dir: Path) -> dict[str, Any]:
     validation_issues.extend(county_issues)
 
     selected_candidates = _selected_basemap_candidates(county_names, basemap_candidates)
-    selected_basemap_paths = _flatten_paths(selected_candidates, "sid_paths")
+    selected_basemap_paths: list[str] = []
+    unsupported_source_paths = _flatten_paths(selected_candidates, "sid_paths")
     project_local_basemaps = discover_project_local_naip_basemaps(project_dir)
     renderable_basemap_paths = _dedupe_strings(
         [
@@ -109,16 +110,17 @@ def build_project_area(project_dir: Path) -> dict[str, Any]:
         )
 
     warnings = [issue for issue in validation_issues if issue.get("severity") == "warning"]
-    if basemap_rendering_status == "selected_not_renderable":
+    if basemap_rendering_status == "render_asset_missing":
+        expected_path = str(project_dir / "basemaps" / "naip" / "<extent_class>" / "<year>" / "naip_project_basemap.tif")
         warnings.append(
             _issue(
                 "warning",
-                "aerial_basemap_selected_not_renderable",
+                "basemap_render_asset_missing",
                 (
-                    "County MARIS/NAIP imagery was selected as provenance, but only MrSID source files are available. "
-                    "Provide a GeoTIFF or georeferenced PNG sidecar for visual basemap rendering."
+                    "A renderable NAIP/aerial basemap was expected but was not found in project render assets. "
+                    f"Run populate-for-review with --materialize-naip-basemap or create {expected_path} before figure rendering."
                 ),
-                str(basemap_root),
+                expected_path,
             )
         )
 
@@ -140,6 +142,7 @@ def build_project_area(project_dir: Path) -> dict[str, Any]:
         "aerial_basemap_candidates": basemap_candidates,
         "project_local_basemaps": project_local_basemaps,
         "selected_basemap_paths": selected_basemap_paths,
+        "unsupported_basemap_source_paths": unsupported_source_paths,
         "renderable_basemap_paths": renderable_basemap_paths,
         "basemap_rendering_status": basemap_rendering_status,
         "warnings": _dedupe_issues(warnings),

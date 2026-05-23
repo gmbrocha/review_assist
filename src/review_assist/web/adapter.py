@@ -335,7 +335,12 @@ def run_populate(project_dir: Path) -> dict[str, Any]:
 
     _write_run_status(project_dir, action="populate_for_review", status="started", message="Create Review Queue started.")
     try:
-        result = populate_for_review(project_dir, materialize_local_sources=True, gpt_drafting=False)
+        result = populate_for_review(
+            project_dir,
+            materialize_local_sources=True,
+            materialize_naip_basemap=True,
+            gpt_drafting=False,
+        )
     except PopulateForReviewError as exc:
         _write_run_status(
             project_dir,
@@ -1561,6 +1566,12 @@ def _provenance_summary(value: Any) -> dict[str, Any]:
         return {}
     gpt = value.get("gpt_interpretive_assist", {}) if isinstance(value.get("gpt_interpretive_assist"), dict) else {}
     fingerprint = gpt.get("fingerprint", {}) if isinstance(gpt.get("fingerprint"), dict) else {}
+    fallback = (
+        value.get("gpt_interpretive_assist_fallback", {})
+        if isinstance(value.get("gpt_interpretive_assist_fallback"), dict)
+        else {}
+    )
+    fallback_fingerprint = fallback.get("fingerprint", {}) if isinstance(fallback.get("fingerprint"), dict) else {}
     return {
         "artifact": value.get("artifact"),
         "artifact_path": value.get("artifact_path"),
@@ -1583,6 +1594,26 @@ def _provenance_summary(value: Any) -> dict[str, Any]:
             "section_policy_hash": str(fingerprint.get("section_policy_hash", ""))[:12],
             "prompt_contract_hash": str(fingerprint.get("prompt_contract_hash", ""))[:12],
             "style_context_hash": str(fingerprint.get("style_context_hash", ""))[:12],
+        },
+        "gpt_interpretive_assist_fallback": {
+            "enabled": bool(fallback),
+            "reason": str(fallback.get("reason", "")),
+            "reason_code": str(fallback.get("reason_code", "")),
+            "draft_provider": str(fallback.get("draft_provider", "")),
+            "model": str(fallback.get("model", "")),
+            "prompt_version": str(fallback.get("prompt_version", "")),
+            "generated_at": str(fallback.get("generated_at", "")),
+            "review_before_export": bool(fallback.get("review_before_export", False)),
+            "deterministic_content_retained": bool(fallback.get("deterministic_content_retained", False)),
+            "source_refs_used": _string_list(fallback.get("source_refs_used", [])),
+            "table_refs_used": _string_list(fallback.get("table_refs_used", [])),
+            "figure_refs_used": _string_list(fallback.get("figure_refs_used", [])),
+            "token_usage": _token_usage_summary(fallback.get("token_usage", {})),
+            "evidence_payload_hash": str(fallback_fingerprint.get("evidence_payload_hash", ""))[:12],
+            "section_policy_hash": str(fallback_fingerprint.get("section_policy_hash", ""))[:12],
+            "prompt_contract_hash": str(fallback_fingerprint.get("prompt_contract_hash", ""))[:12],
+            "style_context_hash": str(fallback_fingerprint.get("style_context_hash", ""))[:12],
+            "validation_issues": _dict_list(fallback.get("validation_issues", [])),
         },
     }
 

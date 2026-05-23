@@ -34,6 +34,7 @@ MISSING_SOURCE_STATUSES = {
     "restricted",
     "unsupported_download",
     "needs_review",
+    "render_asset_missing",
     "selected_not_renderable",
     "warehouse_available",
     "present_not_materialized",

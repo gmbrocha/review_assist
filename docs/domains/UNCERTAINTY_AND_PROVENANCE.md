@@ -152,8 +152,8 @@ Suggested flags:
 - `source_unavailable`
 - `source_unimplemented`
 - `source_download_failed`
-- `source_selected_not_renderable`
-- `renderable_sidecar_missing`
+- `basemap_render_asset_missing`
+- `renderable_basemap_missing`
 - `missing_census_api_key`
 - `restricted_source_required`
 - `geometry_uncertain`
@@ -180,12 +180,12 @@ Suggested source statuses:
 - `manual`
 - `unimplemented`
 - `stubbed`
-- `selected_not_renderable`
+- `render_asset_missing`
 - `missing`
 - `optional`
 - `needs_review`
 
-Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default. Source status artifacts and source inventory records include per-source detail status, source need class, source need reason, and detail notes so a mixed category can remain stable at the category level while still exposing the exact unavailable, restricted, manual, warehouse-present, public/coarse, or nonrenderable source.
+Missing, failed, gated/restricted, manual, unimplemented, missing-render-asset, and stubbed source categories should create reviewable placeholders and caveat items rather than causing the workflow to fail by default. Source status artifacts and source inventory records include per-source detail status, source need class, source need reason, and detail notes so a mixed category can remain stable at the category level while still exposing the exact unavailable, restricted, manual, warehouse-present, public/coarse, or missing render asset source.
 
 Sprint 5.3 source need classes are report-facing provenance labels, not confidence scores. `available_materialized` means current project-local/downloaded/materialized source truth can support report-facing caveat suppression. `warehouse_available_not_materialized`, `acquisition_candidate`, and `deferred` mean the source need remains visible for reviewer or future workflow action. `manual_reviewer_supplied` and `restricted_authorized_reviewer_supplied` preserve human/restricted-source boundaries. `public_coarse_screening_context` marks public cultural or visual context that can support screening context but must not substitute for restricted records, field verification, or reviewer-supplied authority.
 
@@ -228,7 +228,7 @@ Section evidence uses only these classes:
 
 The evidence package is not a final report. It exists to keep deterministic hard data separate from narrative drafting while preserving traceability.
 
-Deliverable figures add validation issue codes such as `figure_source_missing`, `figure_source_unimplemented`, `basemap_selected_not_renderable`, `basemap_render_failed`, `restricted_source_not_mapped`, `figure_created_as_stub`, and `panel_map_generation_skipped`. These issues are evidence for reviewer attention, not conclusions.
+Deliverable figures add validation issue codes such as `figure_source_missing`, `figure_source_unimplemented`, `basemap_render_asset_missing`, `naip_basemap_materialization_failed`, `basemap_render_failed`, `restricted_source_not_mapped`, `figure_created_as_stub`, and `panel_map_generation_skipped`. These issues are evidence for reviewer attention, not conclusions.
 
 ## GPT Drafting Provenance
 

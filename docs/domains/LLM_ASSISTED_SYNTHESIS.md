@@ -84,6 +84,12 @@ The implementation validates GPT output for:
 - `section_source_needs` statuses that require manual or restricted reviewer material before a source-backed GPT candidate can be planned.
 
 Rejected GPT output keeps the deterministic baseline content and records validation issues plus GPT provenance.
+For explicit GPT Interpretive Assist runs, rejected or failed GPT attempts also record item-level fallback provenance in the review queue so the review UI can show why deterministic source-backed content was retained.
+
+Wetlands and waterbodies drafting uses two prompt modes:
+
+- `section_rollup` for the `Wetlands and Waterbodies` subsection. It introduces the resource topic, summarizes source-backed NWI/NHD/table/figure context across comparison units, discusses screening-level planning relevance, and includes jurisdictional/delineation limitations as report prose.
+- `comparison_unit_narrative` for dynamic wetland/waterbody comparison-unit children. It focuses on one comparison unit, uses supported counts as evidence, and interprets stream crossings, drainage features, wetlands, ponds, low-lying areas, avoidance/minimization, design refinement, hydrologic connectivity, field verification, and agency coordination without making final regulatory or impact conclusions.
 
 ## Caching And Review Boundary
 

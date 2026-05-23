@@ -619,7 +619,7 @@
       "geometry_type": "raster",
       "url": "https://maris.mississippi.edu/",
       "spatial_relationships": [],
-      "known_limitations": "Local MARIS/NAIP 2025 county imagery is basemap and visual context only. MrSID .sid files are source/provenance files and are not rendered unless a preconverted .tif, .tiff, or .png sidecar exists.",
+      "known_limitations": "Local MARIS/NAIP 2025 county imagery is basemap and visual context only. Legacy .sid files are unsupported for active Review Assist rendering and are retained only as source metadata/provenance; active figures use project-local renderable NAIP/aerial assets when available.",
       "notes": "Indexed from sources/aerial_base_maps/maris_naip_2025. Imagery observations are reviewer context, not authoritative findings.",
       "warehouse_source_ids": [
         "maris_naip_2025_imagery"
@@ -661,8 +661,8 @@
       "geometry_type": "raster",
       "url": "https://catalog.data.gov/dataset/national-agriculture-imagery-program-naip-imagery",
       "spatial_relationships": [],
-      "known_limitations": "Imagery observations remain review items and require capture date/attribution tracking. Project-local NAIP materialization is optional, bounded by AOI/tile/size limits, and does not replace authoritative source layers.",
-      "notes": "Basemap, visual QC, and cropped imagery context. The explicit materialize-naip-basemap command can create project-local renderable GeoTIFF sidecars from public NAIP COG assets."
+      "known_limitations": "Imagery observations remain review items and require capture date/attribution tracking. Project-local NAIP materialization is bounded by AOI/tile/size limits and does not replace authoritative source layers.",
+      "notes": "Basemap, visual QC, and cropped imagery context. Review queue generation can create project-local renderable GeoTIFF assets from public NAIP COG assets when materialization is enabled."
     },
     {
       "source_id": "maris_conservation_recreation_lands",

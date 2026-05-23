@@ -18,7 +18,7 @@ The package derived from the example Environmental Constraints Report is a requi
 
 Sprint 5 must begin with an explicit package-to-current-policy reconciliation ledger, not a direct copy of the extracted package.
 
-Sprint 5.1 must create `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` as the active routing ledger for the rest of Sprint 5. The ledger compares `pro_review_assist_policy_package_sprint_5/` against the current app contract, especially `config/report_section_policy.json`, `config/deliverable_section_matrix.json`, `config/report_profiles.json`, `config/source_catalog.json`, the existing extent/GPT validators, and current report-policy docs.
+Sprint 5.1 must create `SPRINT_5_POLICY_PACKAGE_RECONCILIATION_LEDGER.md` as the active routing ledger for the rest of Sprint 5. The ledger compares `docs/archive/packages/pro_review_assist_policy_package_sprint_5/` against the current app contract, especially `config/report_section_policy.json`, `config/deliverable_section_matrix.json`, `config/report_profiles.json`, `config/source_catalog.json`, the existing extent/GPT validators, and current report-policy docs.
 
 Every reusable package proposal must receive a disposition:
 

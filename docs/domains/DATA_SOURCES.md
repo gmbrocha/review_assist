@@ -62,14 +62,14 @@ Suggested statuses:
 - `manual`: source requires manual lookup, manual download, a document attachment, or reviewer-supplied material.
 - `unimplemented`: a public or repeatable source is identified, but no downloader/materializer is implemented yet.
 - `stubbed`: a placeholder exists so report sections can include a review requirement or caveat.
-- `selected_not_renderable`: a basemap/context source is selected as provenance but cannot be rendered without a preconverted sidecar.
+- `render_asset_missing`: a renderable project-local basemap asset is expected but has not been produced or cannot be found.
 - `warehouse_available`: local warehouse data is present but has not yet been clipped and registered for the project.
 - `present_not_materialized`: local warehouse/source material is present but not yet configured as analysis-ready materialization.
 - `missing`: expected source material is not available.
 - `optional`: useful context but not required for the selected report profile.
 - `needs_review`: source status or fitness for use requires reviewer confirmation.
 
-Missing, failed, gated/restricted, manual, unimplemented, selected-not-renderable, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, manual-material status, and report caveats so the reviewer can decide how to proceed.
+Missing, failed, gated/restricted, manual, unimplemented, missing-render-asset, and stubbed categories should not fail the workflow by default. They should create review queue items, uncertainty flags, manual-material status, and report caveats so the reviewer can decide how to proceed.
 
 ## Phase 2A/2B Source Priority
 
@@ -211,7 +211,7 @@ Commands:
 
 All-source materialization treats missing warehouse files as nonfatal manifest warnings. Single-source materialization fails clearly when the requested warehouse source cannot be read. Existing reviewer-supplied local sources are preserved unless `--replace` is explicitly used. Source status can report local warehouse data as present but not yet materialized, so seeded public sources do not silently appear missing. Materialization runs before public source downloads when both `--materialize-local-sources` and `--prepare-sources` are used, so local warehouse data can satisfy source gaps before the app attempts live downloads.
 
-NAIP basemap materialization is separate from local source materialization because it produces visual basemap sidecars, not project-ready vector layers for deterministic constraint checks. `materialize-naip-basemap` queries Microsoft Planetary Computer NAIP STAC by project analysis bounds, selects intersecting COG tiles deterministically, reads only the project-relevant window, and writes `projects/<project_id>/basemaps/naip/<year>/naip_project_basemap.tif` plus JSON provenance. The command reuses an existing sidecar unless `--refresh` or `--force` is supplied. It enforces tile, pixel, and timeout limits and records controlled failure status when optional imagery dependencies, network access, or source coverage are unavailable. `populate-for-review --materialize-naip-basemap` is opt-in and failure-tolerant; plain populate does not acquire imagery.
+NAIP basemap materialization is separate from local source materialization because it produces visual basemap assets, not project-ready vector layers for deterministic constraint checks. `materialize-naip-basemap` queries Microsoft Planetary Computer NAIP STAC by project analysis bounds or planned figure extents, selects intersecting COG tiles deterministically, reads only the project-relevant window, and writes `projects/<project_id>/basemaps/naip/.../naip_project_basemap.tif` plus JSON provenance. The command reuses an existing asset unless `--refresh` or `--force` is supplied. It enforces tile, pixel, and timeout limits and records controlled failure status when optional imagery dependencies, network access, or source coverage are unavailable. Web Create Review Queue enables failure-tolerant NAIP materialization before figure rendering; CLI/scripted `populate-for-review` runs opt in with `--materialize-naip-basemap`.
 
 Materialized GeoJSON preserves original source attributes and adds normalized `review_assist_*` fields for source id/name/category, source layer, feature label/type/subtype/original id/date/quality/citation, and data authenticity. GPT drafting still receives only bounded evidence summaries; raw warehouse paths, full features, raw geometries, and root `sources/` paths are withheld from GPT payloads.
 
@@ -446,7 +446,7 @@ Potential findings:
 Important caveat:
 
 - Imagery observations are review items, not authoritative facts.
-- The current basemap service indexes local MARIS/NAIP 2025 county folders under `sources/aerial_base_maps/maris_naip_2025`, records matching county source paths and renderability status in `project_area.json`, exposes source status detail under `maris_naip_2025_imagery`, and treats `.sid` files as source/provenance unless a renderable `.tif`, `.tiff`, or `.png` sidecar exists.
+- The current basemap service indexes local MARIS/NAIP 2025 county folders under `sources/aerial_base_maps/maris_naip_2025`, records matching county source metadata and renderability status in `project_area.json`, exposes source status detail under `maris_naip_2025_imagery`, and treats `.sid` files as unsupported source metadata rather than active visual basemaps.
 - This indexing does not perform MrSID decoding, raster rendering, imagery interpretation, source-layer materialization, or map generation.
 
 Reference:
@@ -890,8 +890,8 @@ Important limitations:
 
 - Imagery observations should remain review items, not authoritative facts.
 - Source, capture date, tile/service, attribution, and licensing constraints must be tracked where available.
-- The current local MARIS/NAIP workflow records selected `.sid` paths separately from renderable sidecars and marks `.sid`-only selections as `selected_not_renderable`.
-- Project-local NAIP sidecars created by `materialize-naip-basemap` are recorded under `basemaps/naip/`, discovered by `project_area.json`, and preferred by deliverable figures when present.
+- The current local MARIS/NAIP workflow records `.sid` paths as `unsupported_basemap_source_paths` and marks missing project-local imagery as `render_asset_missing`.
+- Project-local NAIP assets created by `materialize-naip-basemap` are recorded under `basemaps/naip/`, discovered by `project_area.json`, and preferred by deliverable figures when present.
 - Do not implement Google API usage without explicit approval because Maps Static API requires API keys and billing.
 - Google imagery requires visible attribution to Google Earth and third-party imagery providers when used.
 

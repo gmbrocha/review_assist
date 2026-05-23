@@ -24,57 +24,38 @@ def load_basemap(
     required_bounds_crs: str | None = None,
     extent_class: str | None = None,
 ) -> dict[str, Any]:
-    selected_paths = _string_list(project_area.get("selected_basemap_paths", []))
+    raw_selected_paths = _string_list(project_area.get("selected_basemap_paths", []))
+    selected_paths = [path for path in raw_selected_paths if Path(path).suffix.lower() in RENDERABLE_BASEMAP_SUFFIXES]
+    unsupported_paths = _dedupe_strings(
+        [
+            *_string_list(project_area.get("unsupported_basemap_source_paths", [])),
+            *[path for path in raw_selected_paths if Path(path).suffix.lower() not in RENDERABLE_BASEMAP_SUFFIXES],
+        ]
+    )
     project_local_basemaps = _dict_list(project_area.get("project_local_basemaps", []))
     renderable_records = _renderable_basemap_records(project_local_basemaps, project_area, extent_class=extent_class)
     renderable_paths = [str(record["path"]) for record in renderable_records]
     failed_materialization = _latest_naip_materialization_failure(project_area)
-    if not selected_paths and not renderable_paths:
-        if failed_materialization is not None:
-            message = str(failed_materialization.get("message") or "NAIP basemap materialization failed; vector-only fallback remains available.")
-            return {
-                "layer": None,
-                "issues": [
-                    _issue(
-                        "warning",
-                        "naip_basemap_materialization_failed",
-                        message,
-                        str(failed_materialization.get("path") or project_area.get("output_path") or ""),
-                        source_id=USDA_NAIP_SOURCE_ID,
-                    )
-                ],
-                "flags": ["basemap_materialization_failed", "vector_only_no_basemap"],
-                "shown_layer": {
-                    "layer_type": "basemap_provenance",
-                    "source_id": USDA_NAIP_SOURCE_ID,
-                    "label": USDA_NAIP_SOURCE_NAME,
-                    "renderable": False,
-                    "renderability_status": "materialization_failed",
-                    "visual_use": "failed_not_rendered",
-                    "message": message,
-                },
-                "source_ref": USDA_NAIP_SOURCE_ID,
-                "source_refs": [USDA_NAIP_SOURCE_ID],
-                "selected_paths": selected_paths,
-                "renderable_paths": renderable_paths,
-            }
-        return {"layer": None, "issues": [], "flags": ["vector_only_no_basemap"], "shown_layer": None, "source_ref": None}
-    if selected_paths and not renderable_paths:
-        issues = [
-            _issue(
-                "warning",
-                "basemap_selected_not_renderable",
-                (
-                    "County NAIP imagery was selected as provenance, but only MrSID source files are available. "
-                    "Provide GeoTIFF/PNG sidecar for visual basemap rendering."
-                ),
-                str(project_area.get("output_path") or ""),
-                source_id=MARIS_NAIP_SOURCE_ID,
-            )
-        ]
-        flags = ["source_selected_not_renderable", "renderable_sidecar_missing", "vector_only_no_basemap"]
-        source_refs = [MARIS_NAIP_SOURCE_ID]
+    if not renderable_paths and (unsupported_paths or failed_materialization is not None):
+        expected_path = _expected_project_naip_asset_path(project_area, extent_class)
+        issues = []
+        flags = ["vector_only_no_basemap"]
+        source_refs = [USDA_NAIP_SOURCE_ID]
         materialization_failures: list[dict[str, str]] = []
+        if unsupported_paths:
+            issues.append(
+                _issue(
+                    "warning",
+                    "basemap_render_asset_missing",
+                    (
+                        "A renderable NAIP/aerial basemap was expected but was not found in project render assets. "
+                        f"Expected project-local asset: {expected_path}. Rebuild with populate-for-review --materialize-naip-basemap."
+                    ),
+                    expected_path,
+                    source_id=USDA_NAIP_SOURCE_ID,
+                )
+            )
+            flags.append("basemap_render_asset_missing")
         if failed_materialization is not None:
             message = str(failed_materialization.get("message") or "NAIP basemap materialization failed; vector-only fallback remains available.")
             issues.append(
@@ -87,7 +68,6 @@ def load_basemap(
                 )
             )
             flags.append("basemap_materialization_failed")
-            source_refs.append(USDA_NAIP_SOURCE_ID)
             materialization_failures.append(
                 {
                     "source_id": USDA_NAIP_SOURCE_ID,
@@ -95,26 +75,37 @@ def load_basemap(
                     "message": message,
                 }
             )
+        renderability_status = "render_asset_missing" if unsupported_paths else "materialization_failed"
+        visual_use = "missing_not_rendered" if unsupported_paths else "failed_not_rendered"
+        shown_message = (
+            "Renderable project-local NAIP basemap asset is missing; unsupported source formats are not selected for rendering."
+            if unsupported_paths
+            else "NAIP basemap materialization failed; vector-only fallback used."
+        )
         return {
             "layer": None,
             "issues": issues,
             "flags": flags,
             "shown_layer": {
                 "layer_type": "basemap_provenance",
-                "source_id": MARIS_NAIP_SOURCE_ID,
-                "label": MARIS_NAIP_SOURCE_NAME,
-                "selected_paths": selected_paths,
+                "source_id": USDA_NAIP_SOURCE_ID,
+                "label": USDA_NAIP_SOURCE_NAME,
+                "unsupported_source_paths": unsupported_paths,
+                "expected_renderable_path": expected_path,
                 "renderable": False,
-                "renderability_status": "selected_not_renderable",
-                "visual_use": "provenance_only",
-                "message": "County NAIP imagery selected as provenance only; renderable GeoTIFF/PNG sidecar is not available.",
+                "renderability_status": renderability_status,
+                "visual_use": visual_use,
+                "message": shown_message,
             },
-            "source_ref": MARIS_NAIP_SOURCE_ID,
+            "source_ref": USDA_NAIP_SOURCE_ID,
             "source_refs": _dedupe_strings(source_refs),
             "materialization_failures": materialization_failures,
             "selected_paths": selected_paths,
+            "unsupported_source_paths": unsupported_paths,
             "renderable_paths": renderable_paths,
         }
+    if not selected_paths and not renderable_paths:
+        return {"layer": None, "issues": [], "flags": ["vector_only_no_basemap"], "shown_layer": None, "source_ref": None}
     insufficient_issues: list[dict[str, Any]] = []
     for record in renderable_records:
         path_text = str(record.get("path") or "")
@@ -156,6 +147,7 @@ def load_basemap(
                 "source_ref": source_id,
                 "source_refs": [source_id],
                 "selected_paths": selected_paths,
+                "unsupported_source_paths": unsupported_paths,
                 "renderable_paths": renderable_paths,
             }
         if issue is not None:
@@ -177,6 +169,7 @@ def load_basemap(
                 "source_ref": source_id,
                 "source_refs": [source_id],
                 "selected_paths": selected_paths,
+                "unsupported_source_paths": unsupported_paths,
                 "renderable_paths": renderable_paths,
             }
     if insufficient_issues:
@@ -199,6 +192,7 @@ def load_basemap(
             "source_ref": USDA_NAIP_SOURCE_ID,
             "source_refs": [USDA_NAIP_SOURCE_ID],
             "selected_paths": selected_paths,
+            "unsupported_source_paths": unsupported_paths,
             "renderable_paths": renderable_paths,
         }
     return {
@@ -217,6 +211,7 @@ def load_basemap(
         "source_ref": MARIS_NAIP_SOURCE_ID,
         "source_refs": [MARIS_NAIP_SOURCE_ID],
         "selected_paths": selected_paths,
+        "unsupported_source_paths": unsupported_paths,
         "renderable_paths": renderable_paths,
     }
 
@@ -427,6 +422,13 @@ def _latest_naip_materialization_failure(project_area: dict[str, Any]) -> dict[s
     if isinstance(manifest, dict) and manifest.get("status") == "failed":
         return {"path": str(manifest_path), "message": manifest.get("message")}
     return None
+
+
+def _expected_project_naip_asset_path(project_area: dict[str, Any], extent_class: str | None) -> str:
+    output_path = str(project_area.get("output_path") or "").strip()
+    project_dir = Path(output_path).parent.parent if output_path else Path("projects/<project_id>")
+    group = extent_class or "<extent_class>"
+    return str(project_dir / "basemaps" / "naip" / group / "<year>" / "naip_project_basemap.tif")
 
 
 def _basemap_record_for_path(path: Path, project_area: dict[str, Any]) -> dict[str, Any]:

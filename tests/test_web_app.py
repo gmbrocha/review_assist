@@ -47,6 +47,18 @@ def _safe_gpt_ui_response(*, model: str, payload: dict, schema: dict) -> dict:
     }
 
 
+def _rejected_gpt_ui_response(*, model: str, payload: dict, schema: dict) -> dict:
+    return {
+        "draft_content": "According to the style context, this section is supported by example report evidence.",
+        "cited_finding_ids": [],
+        "cited_table_ids": [],
+        "cited_figure_ids": [],
+        "cited_source_refs": ["style_context"],
+        "caveats": payload["section_policy"]["required_caveats"],
+        "usage": {"input_tokens": 9, "output_tokens": 4, "total_tokens": 13},
+    }
+
+
 def _valid_kmz_upload() -> io.BytesIO:
     kml = kml_document(
         """
@@ -538,6 +550,32 @@ def test_review_detail_displays_gpt_assist_provenance(tmp_path: Path) -> None:
     assert "Evidence Hash" in text
 
 
+def test_review_detail_displays_gpt_assist_fallback_reason(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    add_supported_real_source_inputs(project_dir)
+    populate_for_review(project_dir, prepare_sources=True, gpt_drafting=False)
+    draft_section_candidates(
+        project_dir,
+        model="gpt-test",
+        sections=["wetlands-and-waterbodies"],
+        max_calls=1,
+        response_create=_rejected_gpt_ui_response,
+    )
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/wetlands-and-waterbodies")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "GPT Assist Fallback" in text
+    assert "deterministic source-backed content was retained" in text
+    assert "gpt_output_rejected" in text
+    assert "style_context_cited_as_evidence" in text
+    assert "13 total" in text
+
+
 def test_section_review_detail_displays_related_table_figure_and_evidence_refs(tmp_path: Path) -> None:
     _populated_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)
@@ -879,6 +917,7 @@ def test_create_review_queue_ui_requests_local_source_materialization(monkeypatc
     assert response.status_code == 200
     assert called["path"] == project_dir.resolve()
     assert called["materialize_local_sources"] is True
+    assert called["materialize_naip_basemap"] is True
     assert called["gpt_drafting"] is False
 
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Completed Sprint 5 routing ledger. Created in Sprint 5.1 from `pro_review_assist_policy_package_sprint_5/` as requirements-mining evidence. Sprint 5.1 through Sprint 5.9 dispositions are recorded here. The current app keeps `config/report_section_policy.json` as canonical unless a later approved migration changes that contract.
+Completed Sprint 5 routing ledger. Created in Sprint 5.1 from `docs/archive/packages/pro_review_assist_policy_package_sprint_5/` as requirements-mining evidence. Sprint 5.1 through Sprint 5.9 dispositions are recorded here. The current app keeps `config/report_section_policy.json` as canonical unless a later approved migration changes that contract.
 
 ## Scope Rule
 

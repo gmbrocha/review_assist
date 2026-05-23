@@ -322,6 +322,12 @@ def draft_section_candidates(
             )
             drafted.append(_result_row(record, status="drafted"))
         else:
+            _record_gpt_fallback_on_queue_item(
+                record["item"],
+                provenance=result.provenance,
+                validation_issues=result.validation_issues,
+                fingerprint=fingerprint,
+            )
             rejected.append(_result_row(record, status="rejected", validation_issues=result.validation_issues))
             fallbacks.append(_result_row(record, status="deterministic_fallback"))
 
@@ -685,6 +691,62 @@ def _apply_gpt_result_to_queue_item(
         "generated_at": provenance.get("generated_at", now),
         "review_before_export": True,
     }
+    item["provenance"].pop("gpt_interpretive_assist_fallback", None)
+
+
+def _record_gpt_fallback_on_queue_item(
+    item: dict[str, Any],
+    *,
+    provenance: dict[str, Any],
+    validation_issues: list[dict[str, Any]],
+    fingerprint: dict[str, str],
+) -> None:
+    now = _utc_now()
+    issues = _dict_list(validation_issues)
+    reason = _fallback_reason(issues)
+    item["updated_at"] = now
+    item["export_eligible"] = False
+    item["uncertainty_flags"] = _dedupe(
+        [*_string_list(item.get("uncertainty_flags", [])), "gpt_interpretive_assist_fallback"]
+    )
+    item["validation_issues"] = _dedupe_issues([*_dict_list(item.get("validation_issues", [])), *issues])
+    item.setdefault("provenance", {})
+    if not isinstance(item["provenance"], dict):
+        item["provenance"] = {}
+    item["provenance"]["gpt_interpretive_assist_fallback"] = {
+        "attempted": True,
+        "reason": reason,
+        "reason_code": _fallback_reason_code(issues),
+        "draft_provider": provenance.get("draft_provider", "openai_responses"),
+        "model": provenance.get("model", fingerprint["model"]),
+        "prompt_version": provenance.get("prompt_version", PROMPT_VERSION),
+        "generated_at": provenance.get("generated_at", now),
+        "review_before_export": True,
+        "deterministic_content_retained": True,
+        "gpt_output_accepted": False,
+        "fingerprint": fingerprint,
+        "source_refs_used": provenance.get("source_refs_used", []),
+        "table_refs_used": provenance.get("table_refs_used", []),
+        "figure_refs_used": provenance.get("figure_refs_used", []),
+        "token_usage": _token_usage_from_provenance(provenance),
+        "validation_issues": issues,
+    }
+
+
+def _fallback_reason(issues: list[dict[str, Any]]) -> str:
+    for issue in issues:
+        message = str(issue.get("message") or "").strip()
+        if message:
+            return message
+    return "GPT output was not accepted; deterministic content was retained."
+
+
+def _fallback_reason_code(issues: list[dict[str, Any]]) -> str:
+    for issue in issues:
+        code = str(issue.get("code") or "").strip()
+        if code:
+            return code
+    return "gpt_fallback"
 
 
 def _cache_entry(
