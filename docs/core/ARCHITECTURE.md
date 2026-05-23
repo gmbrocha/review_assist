@@ -36,7 +36,7 @@ Sprint 1.2 added explicit input package and project area artifacts before deeper
 - No final PDF export.
 - No ranking, scoring, preferred-alternative logic, approval, clearance, or final determinations.
 - No restricted-source automation without explicit approval.
-- No MrSID decoding, paid basemap APIs, restricted-source automation, or final cartographic export. Deliverable figures may use selected renderable MARIS/NAIP sidecars when available; otherwise they preserve the limitation as provenance, warning, or stub status.
+- No MrSID decoding, paid basemap APIs, restricted-source automation, or final cartographic export. Deliverable figures may use selected renderable MARIS/NAIP sidecars or project-local NAIP render assets when available; otherwise they preserve the limitation as provenance, warning, or stub status.
 
 ## Deeper Domain Docs
 

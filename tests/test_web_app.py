@@ -204,6 +204,17 @@ def test_upload_staging_saves_inside_project_and_rejects_traversal(tmp_path: Pat
     assert b"path separators" in traversal.data
     assert not (tmp_path / "escape.kmz").exists()
 
+    sid_upload = client.post(
+        "/setup/upload",
+        data={"files": (io.BytesIO(b"sid"), "county_naip.sid")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    assert sid_upload.status_code == 200
+    assert b"Unsupported upload type" in sid_upload.data
+    assert b".sid" in sid_upload.data
+    assert not (tmp_path / "fresh_project" / "staging" / "uploads" / "county_naip.sid").exists()
+
 
 def test_duplicate_upload_behavior_is_explicit(tmp_path: Path) -> None:
     app = create_app(project_root=tmp_path, testing=True)
@@ -576,7 +587,7 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "Evidence Refs" in text
     assert "Basemap And Render Status" in text
     assert "Validation Warnings" in text
-    assert "basemap_render_asset_missing" in text
+    assert "No validation warnings recorded for this figure." in text
     assert "Saved style drafts are project-local presentation metadata" in text
     assert "Export Eligible" in text
     assert "Layer Styling" in text
@@ -621,20 +632,17 @@ def test_figure_style_editor_save_draft_creates_sparse_override(tmp_path: Path) 
         "/review/figure-wetlands-waterbodies/figure-style",
         data={
             "style_action": "save_draft",
-            "layer_id": ["comparison_units", "source:usfws_nwi_wetlands", "basemap_provenance:1"],
-            "layer_0_visible": "true",
-            "layer_0_z_index": "0",
-            "layer_0_display_name": "Comparison units",
-            "layer_1_visible": "true",
-            "layer_1_z_index": "1",
-            "layer_1_display_name": "National Wetlands Inventory",
-            "layer_1_stroke_color": "#00AAFF",
-            "layer_2_visible": "true",
-            "layer_2_z_index": "2",
-            "layer_2_display_name": "USDA NAIP Project Basemap",
-        },
-        follow_redirects=True,
-    )
+                "layer_id": ["comparison_units", "source:usfws_nwi_wetlands"],
+                "layer_0_visible": "true",
+                "layer_0_z_index": "0",
+                "layer_0_display_name": "Comparison units",
+                "layer_1_visible": "true",
+                "layer_1_z_index": "1",
+                "layer_1_display_name": "National Wetlands Inventory",
+                "layer_1_stroke_color": "#00AAFF",
+            },
+            follow_redirects=True,
+        )
     artifact = json.loads((project_dir / FIGURE_STYLE_OVERRIDES_PATH).read_text(encoding="utf-8"))
     active = active_style_override(artifact, "figure-wetlands-waterbodies")
 

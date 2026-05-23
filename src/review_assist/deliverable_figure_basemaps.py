@@ -36,13 +36,14 @@ def load_basemap(
     renderable_records = _renderable_basemap_records(project_local_basemaps, project_area, extent_class=extent_class)
     renderable_paths = [str(record["path"]) for record in renderable_records]
     failed_materialization = _latest_naip_materialization_failure(project_area)
-    if not renderable_paths and (unsupported_paths or failed_materialization is not None):
+    render_asset_expected = str(project_area.get("basemap_rendering_status") or "") == "render_asset_missing"
+    if not renderable_paths and (unsupported_paths or failed_materialization is not None or render_asset_expected):
         expected_path = _expected_project_naip_asset_path(project_area, extent_class)
         issues = []
         flags = ["vector_only_no_basemap"]
         source_refs = [USDA_NAIP_SOURCE_ID]
         materialization_failures: list[dict[str, str]] = []
-        if unsupported_paths:
+        if unsupported_paths or render_asset_expected:
             issues.append(
                 _issue(
                     "warning",
@@ -75,11 +76,11 @@ def load_basemap(
                     "message": message,
                 }
             )
-        renderability_status = "render_asset_missing" if unsupported_paths else "materialization_failed"
-        visual_use = "missing_not_rendered" if unsupported_paths else "failed_not_rendered"
+        renderability_status = "render_asset_missing" if unsupported_paths or render_asset_expected else "materialization_failed"
+        visual_use = "missing_not_rendered" if unsupported_paths or render_asset_expected else "failed_not_rendered"
         shown_message = (
             "Renderable project-local NAIP basemap asset is missing; unsupported source formats are not selected for rendering."
-            if unsupported_paths
+            if unsupported_paths or render_asset_expected
             else "NAIP basemap materialization failed; vector-only fallback used."
         )
         return {

@@ -64,16 +64,18 @@
   </dl>
 </section>
 
-{% if editor.review_context.validation_issues %}
 <section class="panel">
   <h2>Validation Warnings</h2>
-  <ul class="issue-list">
-    {% for issue in editor.review_context.validation_issues %}
-      <li>{{ issue.code }}: {{ issue.message }}</li>
-    {% endfor %}
-  </ul>
+  {% if editor.review_context.validation_issues %}
+    <ul class="issue-list">
+      {% for issue in editor.review_context.validation_issues %}
+        <li>{{ issue.code }}: {{ issue.message }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No validation warnings recorded for this figure.</p>
+  {% endif %}
 </section>
-{% endif %}
 
 <section class="panel">
   <h2>Style Model Status</h2>

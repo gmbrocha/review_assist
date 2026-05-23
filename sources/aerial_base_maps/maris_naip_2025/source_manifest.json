@@ -8,16 +8,16 @@
   "raw_paths": [
     "."
   ],
-  "expected_geometry_type": "raster_mrsid",
+  "expected_geometry_type": "imagery_metadata",
   "analysis_ready": false,
   "renderable": false,
-  "coverage": "Mississippi statewide county tiles where locally seeded",
+  "coverage": "Mississippi statewide county metadata where locally seeded",
   "source_date": "2025",
   "acquisition_method": "manual_seed",
   "known_limitations": [
-    "MrSID .sid source files are provenance only unless a preconverted GeoTIFF or PNG sidecar exists. Imagery observations are reviewer context, not authoritative facts."
+    "Real MrSID .sid/.sdw payloads are not retained as active Review Assist assets. County metadata may remain for provenance/context, while active rendering uses project-local GeoTIFF, PNG, JPEG, or similar renderable NAIP/aerial assets. Imagery observations are reviewer context, not authoritative facts."
   ],
-  "notes": "Raw agency/download folder names are preserved for provenance; paths are relative to this source manifest directory.",
+  "notes": "Raw agency/download folder names may be preserved for provenance when metadata is locally present; paths are relative to this source manifest directory.",
   "app_targets": [
     "maris_naip_2025_imagery"
   ]

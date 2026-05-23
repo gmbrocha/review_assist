@@ -619,8 +619,8 @@
       "geometry_type": "raster",
       "url": "https://maris.mississippi.edu/",
       "spatial_relationships": [],
-      "known_limitations": "Local MARIS/NAIP 2025 county imagery is basemap and visual context only. Legacy .sid files are unsupported for active Review Assist rendering and are retained only as source metadata/provenance; active figures use project-local renderable NAIP/aerial assets when available.",
-      "notes": "Indexed from sources/aerial_base_maps/maris_naip_2025. Imagery observations are reviewer context, not authoritative findings.",
+      "known_limitations": "Local MARIS/NAIP 2025 county imagery is basemap and visual context only. Real MrSID .sid/.sdw payloads are not retained as active Review Assist assets and are unsupported for rendering; active figures use project-local renderable NAIP/aerial assets when available.",
+      "notes": "Indexed from sources/aerial_base_maps/maris_naip_2025 metadata/source manifests when present. Imagery observations are reviewer context, not authoritative findings.",
       "warehouse_source_ids": [
         "maris_naip_2025_imagery"
       ]

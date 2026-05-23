@@ -390,6 +390,35 @@ def test_sid_only_basemap_reports_missing_render_asset_and_vector_figure_still_r
     assert "maris_naip_2025_imagery" not in wetlands["source_refs"]  # type: ignore[operator]
 
 
+def test_metadata_only_basemap_reports_missing_render_asset_without_sid_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path)
+    basemap_root = tmp_path / "naip"
+    imagery_dir = write_naip_county(basemap_root)
+    (imagery_dir / "Test_NAIP_2025.sid").unlink()
+    monkeypatch.setattr(project_area_module, "AERIAL_BASEMAP_ROOT", basemap_root)
+    write_layer(
+        project_dir / "wetlands.geojson",
+        [Polygon([(-90.001, 31.999), (-89.998, 31.999), (-89.998, 32.001), (-90.001, 32.001), (-90.001, 31.999)])],
+        [{"ATTRIBUTE": "Freshwater Emergent Wetland", "OBJECTID": "wetland-1"}],
+    )
+    write_registry(project_dir, [("usfws_nwi_wetlands", "wetlands.geojson")])
+
+    result = generate_deliverable_figures(project_dir)
+    wetlands = figure_by_id(result, "figure-wetlands-waterbodies")
+
+    assert wetlands["is_stub"] is False
+    assert "basemap_render_asset_missing" in issue_codes(wetlands)
+    shown_basemaps = [layer for layer in wetlands["shown_layers"] if layer["layer_type"] == "basemap_provenance"]  # type: ignore[index]
+    assert shown_basemaps
+    assert shown_basemaps[0]["renderability_status"] == "render_asset_missing"
+    assert shown_basemaps[0]["unsupported_source_paths"] == []
+    assert "usda_naip_imagery" in wetlands["source_refs"]  # type: ignore[operator]
+    assert "maris_naip_2025_imagery" not in wetlands["source_refs"]  # type: ignore[operator]
+
+
 def test_sid_only_basemap_keeps_naip_materialization_failure_visible(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

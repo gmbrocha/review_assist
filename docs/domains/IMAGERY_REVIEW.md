@@ -62,9 +62,9 @@ Selection should consider:
 Current implemented selection context:
 
 - `build-project-area` checks materialized MARIS boundary context, existing project context, and NAIP/MARIS metadata extents to identify county names.
-- Matching county folders under `sources/aerial_base_maps/maris_naip_2025` are recorded as basemap candidates.
-- `.sid` files are stored as unsupported source metadata, not selected visual basemaps, while `.tif`, `.tiff`, and `.png` assets are tracked as renderable paths.
-- `.sid`-only source metadata produces `render_asset_missing` warnings when no project-local NAIP/aerial render asset exists.
+- Matching county metadata under `sources/aerial_base_maps/maris_naip_2025` may be recorded as basemap provenance.
+- Real MrSID `.sid`/`.sdw` payloads are not retained as active Review Assist assets. Legacy MrSID references are unsupported/stale provenance only, while `.tif`, `.tiff`, `.png`, `.jpg`, and `.jpeg` assets are tracked as renderable paths.
+- Metadata-only or legacy MrSID-only provenance produces `render_asset_missing` warnings when no project-local NAIP/aerial render asset exists.
 - `materialize-naip-basemap` queries NAIP STAC by project analysis bounds, reads only bounded COG windows, writes `projects/<project_id>/basemaps/naip/<year>/naip_project_basemap.tif`, and records adjacent JSON provenance.
 - Web Create Review Queue enables failure-tolerant NAIP materialization before figure rendering; CLI/scripted `populate-for-review` runs opt in with `--materialize-naip-basemap`.
 - `generate-deliverable-figures` may render selected `.png`, `.tif`, or `.tiff` sidecars into draft/pre-review figures. GeoTIFF support uses optional `rasterio` lazily; PNG support requires usable project-area metadata/georeference.

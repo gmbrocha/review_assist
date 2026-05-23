@@ -1,6 +1,6 @@
 # Map Generation
 
-This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented for legacy audit/context maps, and Sprint 2.3 adds matrix-backed deliverable figure artifacts. Project area generation records NAIP/MARIS basemap source-path provenance and renderability status; deliverable figures can use project-local NAIP GeoTIFF render assets and supported `.png`, `.tif`, or `.tiff` rasters, while `.sid` files are unsupported source metadata only. Production cartography, paid/proprietary basemap APIs, PDF/SVG map sheets, and final cartographic styling remain future work.
+This document captures current and future map and figure generation workflows. A vector-only draft map baseline is implemented for legacy audit/context maps, and Sprint 2.3 adds matrix-backed deliverable figure artifacts. Project area generation records NAIP/MARIS basemap provenance and renderability status; deliverable figures can use project-local NAIP GeoTIFF render assets and supported `.png`, `.jpg`, `.jpeg`, `.tif`, or `.tiff` rasters, while real MrSID `.sid`/`.sdw` payloads are not retained as active Review Assist assets. Production cartography, paid/proprietary basemap APIs, PDF/SVG map sheets, and final cartographic styling remain future work.
 
 ## Purpose
 
@@ -72,7 +72,7 @@ Current limits:
 
 - No Google/ArcGIS basemap calls, proprietary basemap captures, or paid basemap APIs.
 - NAIP COG materialization is durable and project-local. Web Create Review Queue enables `populate-for-review` with NAIP basemap materialization so figure rendering can use `projects/<project_id>/basemaps/naip/.../naip_project_basemap.tif`; CLI/scripted runs still opt in with `populate-for-review --materialize-naip-basemap`.
-- No MrSID decoding or MrSID active visual selection. `.sid` files stay as unsupported source metadata only; diagnostics point to missing project-local render assets or NAIP materialization failures.
+- No MrSID decoding or MrSID active visual selection. Real `.sid`/`.sdw` payloads are removed from active project/test resources; diagnostics point to missing project-local render assets or NAIP materialization failures. Tests may create tiny runtime dummy `.sid` fixtures only to verify unsupported-source behavior.
 - GeoTIFF sidecar rendering depends on optional `rasterio`; if unavailable or rendering fails, figures fall back to vector-only output or explicit stubs with validation issues.
 - PNG sidecars require usable project-area metadata/georeference; otherwise they warn and fall back.
 - Panel maps are simple capped long-axis slices for Attachment A support, not final map sheets.

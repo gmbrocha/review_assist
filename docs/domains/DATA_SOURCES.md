@@ -446,7 +446,7 @@ Potential findings:
 Important caveat:
 
 - Imagery observations are review items, not authoritative facts.
-- The current basemap service indexes local MARIS/NAIP 2025 county folders under `sources/aerial_base_maps/maris_naip_2025`, records matching county source metadata and renderability status in `project_area.json`, exposes source status detail under `maris_naip_2025_imagery`, and treats `.sid` files as unsupported source metadata rather than active visual basemaps.
+- The current basemap service can index local MARIS/NAIP 2025 county metadata under `sources/aerial_base_maps/maris_naip_2025`, records matching source metadata and renderability status in `project_area.json`, exposes source status detail under `maris_naip_2025_imagery`, and treats any legacy `.sid` references as unsupported/stale provenance rather than active visual basemaps.
 - This indexing does not perform MrSID decoding, raster rendering, imagery interpretation, source-layer materialization, or map generation.
 
 Reference:
@@ -890,7 +890,7 @@ Important limitations:
 
 - Imagery observations should remain review items, not authoritative facts.
 - Source, capture date, tile/service, attribution, and licensing constraints must be tracked where available.
-- The current local MARIS/NAIP workflow records `.sid` paths as `unsupported_basemap_source_paths` and marks missing project-local imagery as `render_asset_missing`.
+- The current local MARIS/NAIP workflow does not retain real MrSID `.sid`/`.sdw` payloads as active assets. If legacy MrSID metadata is encountered, it is recorded as unsupported/stale provenance; missing project-local imagery is marked as `render_asset_missing`.
 - Project-local NAIP assets created by `materialize-naip-basemap` are recorded under `basemaps/naip/`, discovered by `project_area.json`, and preferred by deliverable figures when present.
 - Do not implement Google API usage without explicit approval because Maps Static API requires API keys and billing.
 - Google imagery requires visible attribution to Google Earth and third-party imagery providers when used.

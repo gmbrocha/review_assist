@@ -15,7 +15,7 @@ INPUT_PACKAGE_PATH = Path("context/input_package.json")
 PROJECT_GEOMETRY_EXTENSIONS = {".kml", ".kmz"}
 SOURCE_LAYER_EXTENSIONS = {".geojson", ".gpkg", ".shp", ".zip"}
 DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt"}
-IMAGERY_EXTENSIONS = {".sid", ".tif", ".tiff", ".png", ".jpg", ".jpeg"}
+IMAGERY_EXTENSIONS = {".tif", ".tiff", ".png", ".jpg", ".jpeg"}
 
 PROJECT_GEOMETRY_ROLE_TERMS = {
     "alternative",

@@ -17,7 +17,7 @@ sources/
   ecology/<source_id>/raw/<agency_download_folder>/
 ```
 
-Existing MARIS/NAIP county imagery remains under `sources/aerial_base_maps/maris_naip_2025/` because the basemap indexer already uses that county-folder convention. Its manifest marks legacy `.sid` files as unsupported source metadata, not deterministic analysis input or active visual basemaps.
+The MARIS/NAIP source manifest remains under `sources/aerial_base_maps/maris_naip_2025/` because the basemap indexer already uses that source ID and county-folder convention when metadata is locally seeded. Real MrSID `.sid`/`.sdw` payloads are not retained as active Review Assist assets. Legacy MrSID references may appear only as unsupported/stale provenance or tiny runtime test fixtures; active figure rendering uses project-local renderable NAIP/aerial assets.
 
 ## Materialization Contract
 
