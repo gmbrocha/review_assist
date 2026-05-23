@@ -127,7 +127,6 @@ WEB_RUN_STATUS_PATH = Path("web_runs/latest_run.json")
 ALLOWED_UPLOAD_EXTENSIONS = PROJECT_GEOMETRY_EXTENSIONS | SOURCE_LAYER_EXTENSIONS | DOCUMENT_EXTENSIONS | IMAGERY_EXTENSIONS
 FIGURE_REPLACEMENTS_DIR = Path("review_queue/figure_replacements")
 FIGURE_REPLACEMENT_EXTENSIONS = {".png", ".jpg", ".jpeg"}
-REVIEW_PREVIEW_TEXT_LIMIT = 1200
 REVIEW_TABLE_PREVIEW_LIMIT = 5
 
 
@@ -807,7 +806,7 @@ def review_item_detail(project_dir: Path, item_id: str) -> dict[str, Any]:
     return {
         **_queue_row(item),
         "is_figure": _is_figure_item(item),
-        "generated_content": _trim_body_text(item.get("generated_content")),
+        "generated_content": _review_body_text(item.get("generated_content")),
         "edited_content": str(item.get("edited_content") or ""),
         "replacement_content": str(item.get("replacement_content") or ""),
         "table_preview": {
@@ -1847,11 +1846,8 @@ def _token_usage_summary(value: Any) -> dict[str, int]:
     }
 
 
-def _trim_body_text(value: Any) -> str:
-    text = str(value or "").strip()
-    if len(text) <= REVIEW_PREVIEW_TEXT_LIMIT:
-        return text
-    return text[:REVIEW_PREVIEW_TEXT_LIMIT].rstrip() + "\n\n[Preview limited in web UI; full reviewed content remains in the review queue artifact.]"
+def _review_body_text(value: Any) -> str:
+    return str(value or "").strip()
 
 
 def _load_json(path: Path) -> dict[str, Any]:

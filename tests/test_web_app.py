@@ -467,6 +467,31 @@ def test_review_detail_reads_canonical_queue_source_refs(tmp_path: Path) -> None
     assert "usgs_nhd_hydrography" not in text
 
 
+def test_review_detail_shows_full_generated_content_without_preview_truncation(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    queue_path = project_dir / "review_queue" / "review_queue.json"
+    queue = load_review_queue(project_dir)
+    long_content = (
+        "Wetlands and Waterbodies section rollup.\n\n"
+        + "Planning considerations for mapped wetlands and waterbodies remain reviewable in the web UI. " * 35
+        + "\n\nFinal sentence remains visible for reviewer acceptance."
+    )
+    item = next(item for item in queue["items"] if item["id"] == "wetlands-and-waterbodies")
+    item["generated_content"] = long_content
+    queue_path.write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.get("/review/wetlands-and-waterbodies")
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Wetlands and Waterbodies section rollup." in text
+    assert "Final sentence remains visible for reviewer acceptance." in text
+    assert "Preview limited in web UI" not in text
+
+
 def test_review_action_persists_through_backend_update(tmp_path: Path) -> None:
     project_dir = _populated_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)
