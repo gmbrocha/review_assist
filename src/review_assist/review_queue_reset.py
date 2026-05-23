@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .deliverable import DEMO_DELIVERABLE_MANIFEST_PATH
 from .deliverable_figures import DELIVERABLE_FIGURES_PATH
@@ -58,6 +58,7 @@ def reset_review_queue(
     dry_run: bool = False,
     include_evidence: bool = False,
     include_exports: bool = False,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Remove generated review candidates and optionally rebuild review artifacts.
 
@@ -101,16 +102,20 @@ def reset_review_queue(
         result["process_language"]["after"] = _process_language_summary(project_dir)
         return result
 
+    _emit_progress(progress_callback, "refresh_started", delete_count=len(existing_targets), regenerate=regenerate)
     deleted: list[dict[str, str]] = []
     for record in existing_targets:
         relative_path = Path(record["relative_path"])
+        _emit_progress(progress_callback, "delete_artifact", artifact=relative_path.as_posix())
         target = project_dir / relative_path
         _delete_target(target)
         deleted.append(record)
     result["deleted"] = deleted
+    _emit_progress(progress_callback, "refresh_completed", deleted_count=len(deleted))
 
     regenerated: list[dict[str, Any]] = []
     if regenerate:
+        _emit_progress(progress_callback, "rebuild_started")
         try:
             populate = populate_for_review(
                 project_dir,
@@ -119,13 +124,16 @@ def reset_review_queue(
                 materialize_local_sources=False,
                 materialize_naip_basemap=False,
                 gpt_drafting=False,
+                progress_callback=progress_callback,
             )
             regenerated.extend(_populate_regenerated_records(populate))
         except PopulateForReviewError as exc:
+            _emit_progress(progress_callback, "rebuild_failed", error=str(exc))
             raise ReviewQueueResetError(str(exc)) from exc
     result["regenerated"] = regenerated
     result["after"] = _artifact_counts(project_dir)
     result["process_language"]["after"] = _process_language_summary(project_dir)
+    _emit_progress(progress_callback, "rebuild_completed", review_items=result["after"].get("review_queue_item_count", 0))
     return result
 
 
@@ -134,6 +142,15 @@ def _delete_target(target: Path) -> None:
         shutil.rmtree(target)
     elif target.exists():
         target.unlink()
+
+
+def _emit_progress(callback: Callable[[dict[str, Any]], None] | None, event: str, **payload: Any) -> None:
+    if callback is None:
+        return
+    try:
+        callback({"event": event, **payload})
+    except Exception:
+        return
 
 
 def _path_record(project_dir: Path, relative_path: Path) -> dict[str, str]:

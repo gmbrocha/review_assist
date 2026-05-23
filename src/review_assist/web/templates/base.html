@@ -39,5 +39,16 @@
         {% block content %}{% endblock %}
       </main>
     </div>
+    <section class="process-log-panel" aria-label="Background process log">
+      <details open>
+        <summary>
+          <span>Process Log</span>
+          <span id="process-log-state" class="process-log-state">idle</span>
+          <button id="process-log-refresh" type="button">Refresh</button>
+        </summary>
+        <pre id="process-log-lines" class="process-log-lines">No process log entries yet.</pre>
+      </details>
+    </section>
+    <script src="{{ url_for('static', filename='process_log.js') }}"></script>
   </body>
 </html>

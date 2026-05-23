@@ -107,7 +107,7 @@ button:disabled {
 
 .content {
   min-width: 0;
-  padding: 28px;
+  padding: 28px 28px 210px;
 }
 
 .page-heading {
@@ -163,6 +163,65 @@ button:disabled {
 
 .metric small {
   color: var(--muted);
+}
+
+.process-log-panel {
+  bottom: 0;
+  left: 240px;
+  position: fixed;
+  right: 0;
+  z-index: 20;
+}
+
+.process-log-panel details {
+  background: #101828;
+  border-top: 1px solid #344054;
+  color: #e4e7ec;
+}
+
+.process-log-panel summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  min-height: 34px;
+  padding: 6px 14px;
+}
+
+.process-log-panel summary span:first-child {
+  font-weight: 600;
+}
+
+.process-log-state {
+  color: #98a2b3;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.process-log-state.running {
+  color: #73e2a3;
+}
+
+.process-log-panel button {
+  background: #1d2939;
+  border-color: #475467;
+  color: #f2f4f7;
+  margin-left: auto;
+  min-height: 26px;
+}
+
+.process-log-lines {
+  background: #0b1220;
+  border-top: 1px solid #344054;
+  color: #d0d5dd;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+  max-height: 150px;
+  overflow: auto;
+  padding: 10px 14px;
+  white-space: pre-wrap;
 }
 
 .section-title-row {
@@ -464,7 +523,11 @@ input:not([type]) {
   }
 
   .content {
-    padding: 18px;
+    padding: 18px 18px 210px;
+  }
+
+  .process-log-panel {
+    left: 0;
   }
 
   .figure-editor-grid {

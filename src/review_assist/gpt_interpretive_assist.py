@@ -199,6 +199,7 @@ def draft_section_candidates(
     force_refresh: bool = False,
     style_context_path: Path | None = None,
     response_create: Callable[..., Any] | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Generate explicit GPT review candidates and keep all items unaccepted."""
 
@@ -213,6 +214,12 @@ def draft_section_candidates(
         skip_existing=False if force_refresh else skip_existing,
         source_backed_only=source_backed_only,
         style_context_path=style_context_path,
+    )
+    _emit_progress(
+        progress_callback,
+        "planned",
+        planned_call_count=plan.get("planned_call_count", 0),
+        eligible_count=len(plan.get("eligible_sections", [])),
     )
     if dry_run:
         result = {
@@ -236,6 +243,7 @@ def draft_section_candidates(
             "output_path": str(project_dir / GPT_INTERPRETIVE_RUN_PATH),
         }
         _write_json(project_dir / GPT_INTERPRETIVE_RUN_PATH, result)
+        _emit_progress(progress_callback, "dry_run_completed", planned_call_count=result["planned_call_count"])
         return result
 
     if not gpt_drafting_enabled() and response_create is None:
@@ -255,6 +263,7 @@ def draft_section_candidates(
         source_backed_only=source_backed_only,
     )
     selected = [record for record in records if record["eligible"]][:_bounded_max_calls(max_calls)]
+    _emit_progress(progress_callback, "drafting_started", planned_call_count=len(selected))
     provider_instance = OpenAISectionDraftProvider(
         model=bundle["model"],
         response_create=response_create,
@@ -272,6 +281,7 @@ def draft_section_candidates(
     for record in selected:
         request: SectionDraftRequest = record["request"]
         fingerprint = record["fingerprint"]
+        _emit_progress(progress_callback, "item_started", target_id=request.target_id)
         cached = _cache_entry_for(cache, request.target_id, fingerprint)
         if cached and not force_refresh:
             _apply_gpt_result_to_queue_item(
@@ -284,11 +294,13 @@ def draft_section_candidates(
             )
             cache_hits.append(_result_row(record, status="cache_hit"))
             _add_token_usage(cached_token_usage, _token_usage_from_provenance(cached.get("provenance", {})))
+            _emit_progress(progress_callback, "item_completed", target_id=request.target_id, status="cache_hit")
             continue
 
         try:
             result = provider_instance.draft(request)
         except SectionDraftingError as exc:
+            _emit_progress(progress_callback, "item_warning", target_id=request.target_id, reason="gpt_call_failed")
             result = SectionDraftResult(
                 content=request.deterministic_content,
                 provenance={
@@ -321,6 +333,7 @@ def draft_section_candidates(
                 cached=False,
             )
             drafted.append(_result_row(record, status="drafted"))
+            _emit_progress(progress_callback, "item_completed", target_id=request.target_id, status="success")
         else:
             _record_gpt_fallback_on_queue_item(
                 record["item"],
@@ -330,6 +343,8 @@ def draft_section_candidates(
             )
             rejected.append(_result_row(record, status="rejected", validation_issues=result.validation_issues))
             fallbacks.append(_result_row(record, status="deterministic_fallback"))
+            reason = _first_issue_code(result.validation_issues) or "gpt_output_rejected"
+            _emit_progress(progress_callback, "item_completed", target_id=request.target_id, status="fallback", reason=reason)
 
     _write_cache(project_dir, cache)
     _write_queue(project_dir, queue)
@@ -364,6 +379,13 @@ def draft_section_candidates(
         "output_path": str(project_dir / GPT_INTERPRETIVE_RUN_PATH),
     }
     _write_json(project_dir / GPT_INTERPRETIVE_RUN_PATH, result)
+    _emit_progress(
+        progress_callback,
+        "drafting_completed",
+        accepted=result["accepted_gpt_draft_count"],
+        rejected=result["rejected_gpt_draft_count"],
+        cache_hits=result["cache_hit_count"],
+    )
     return result
 
 
@@ -390,6 +412,22 @@ def _load_planning_bundle(project_dir: Path, *, model: str | None, style_context
         "model": resolve_gpt_model(model),
         "style_context": load_report_style_context(style_context_path),
     }
+
+
+def _emit_progress(callback: Callable[[dict[str, Any]], None] | None, event: str, **payload: Any) -> None:
+    if callback is None:
+        return
+    try:
+        callback({"event": event, **payload})
+    except Exception:
+        return
+
+
+def _first_issue_code(issues: list[dict[str, Any]]) -> str:
+    for issue in issues:
+        if isinstance(issue, dict) and issue.get("code"):
+            return str(issue["code"])
+    return ""
 
 
 def _candidate_records(

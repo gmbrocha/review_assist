@@ -64,6 +64,7 @@ from review_assist.projects import MANIFEST_PATH, ProjectInput, ProjectManifest,
 from review_assist.review_queue import REVIEW_QUEUE_PATH, ReviewQueueError, load_review_queue, update_review_item
 from review_assist.review_queue_reset import ReviewQueueResetError, reset_review_queue
 from review_assist.source_status import SOURCE_STATUS_PATH
+from review_assist.web.process_log import append_process_log, process_log
 
 
 RAW_LEGACY_ITEM_TYPES = {
@@ -347,15 +348,20 @@ def project_summary(project_dir: Path) -> dict[str, Any]:
 def run_populate(project_dir: Path) -> dict[str, Any]:
     """Run the existing populate-for-review service with conservative defaults."""
 
+    project_label = project_dir.name
+    process_log.start("create_queue", "started", project=project_label)
     _write_run_status(project_dir, action="populate_for_review", status="started", message="Create Review Queue started.")
     try:
+        append_process_log("create_queue", "loading source and project artifacts", project=project_label)
         result = populate_for_review(
             project_dir,
             materialize_local_sources=True,
             materialize_naip_basemap=True,
             gpt_drafting=False,
+            progress_callback=lambda event: _log_populate_progress("create_queue", project_label, event),
         )
     except PopulateForReviewError as exc:
+        process_log.finish("create_queue", "failed", project=project_label, error=str(exc))
         _write_run_status(
             project_dir,
             action="populate_for_review",
@@ -364,6 +370,11 @@ def run_populate(project_dir: Path) -> dict[str, Any]:
             error=str(exc),
         )
         raise WebAdapterError(str(exc)) from exc
+    except Exception as exc:
+        process_log.finish("create_queue", "failed", project=project_label, error=str(exc))
+        raise
+    _log_populate_summary("create_queue", project_label, result)
+    process_log.finish("create_queue", "complete", project=project_label, review_items=result.get("review_queue_item_count", 0))
     _write_run_status(
         project_dir,
         action="populate_for_review",
@@ -382,6 +393,8 @@ def reset_generated_review_queue(
 ) -> dict[str, Any]:
     """Run the developer/test refresh for generated review artifacts."""
 
+    project_label = project_dir.name
+    process_log.start("refresh_artifacts", "started", project=project_label)
     _write_run_status(project_dir, action="reset_review_queue", status="started", message="Review artifact refresh started.")
     try:
         result = reset_review_queue(
@@ -390,8 +403,10 @@ def reset_generated_review_queue(
             dry_run=False,
             include_evidence=include_evidence,
             include_exports=include_exports,
+            progress_callback=lambda event: _log_reset_progress(project_label, event),
         )
     except ReviewQueueResetError as exc:
+        process_log.finish("refresh_artifacts", "failed", project=project_label, error=str(exc))
         _write_run_status(
             project_dir,
             action="reset_review_queue",
@@ -400,7 +415,12 @@ def reset_generated_review_queue(
             error=str(exc),
         )
         raise WebAdapterError(str(exc)) from exc
+    except Exception as exc:
+        process_log.finish("refresh_artifacts", "failed", project=project_label, error=str(exc))
+        raise
     after = result.get("after", {}) if isinstance(result.get("after"), dict) else {}
+    process_log.finish("refresh_artifacts", "complete", project=project_label)
+    append_process_log("rebuild_queue", "complete", project=project_label, review_items=after.get("review_queue_item_count", 0))
     _write_run_status(
         project_dir,
         action="reset_review_queue",
@@ -423,6 +443,15 @@ def run_gpt_interpretive_assist(
 ) -> dict[str, Any]:
     """Run the explicit GPT Interpretive Assist service from the Overview UI."""
 
+    project_label = project_dir.name
+    process_log.start(
+        "generate_gpt_drafts",
+        "started",
+        project=project_label,
+        scope=",".join(sections or []) if sections else "planned",
+        max_calls=max_calls,
+        dry_run=dry_run,
+    )
     _write_run_status(project_dir, action="gpt_interpretive_assist", status="started", message="GPT Interpretive Assist started.")
     try:
         result = draft_section_candidates(
@@ -433,8 +462,10 @@ def run_gpt_interpretive_assist(
             skip_existing=skip_existing,
             source_backed_only=source_backed_only,
             force_refresh=force_refresh,
+            progress_callback=lambda event: _log_gpt_progress(project_label, event),
         )
     except GptInterpretiveAssistError as exc:
+        process_log.finish("generate_gpt_drafts", "failed", project=project_label, error=str(exc))
         _write_run_status(
             project_dir,
             action="gpt_interpretive_assist",
@@ -443,6 +474,17 @@ def run_gpt_interpretive_assist(
             error=str(exc),
         )
         raise WebAdapterError(str(exc)) from exc
+    except Exception as exc:
+        process_log.finish("generate_gpt_drafts", "failed", project=project_label, error=str(exc))
+        raise
+    _log_gpt_summary(project_label, result)
+    process_log.finish(
+        "generate_gpt_drafts",
+        "complete",
+        project=project_label,
+        accepted=result.get("accepted_gpt_draft_count", 0),
+        rejected=result.get("rejected_gpt_draft_count", 0),
+    )
     _write_run_status(
         project_dir,
         action="gpt_interpretive_assist",
@@ -454,6 +496,111 @@ def run_gpt_interpretive_assist(
         artifact_path=str(result.get("output_path") or ""),
     )
     return result
+
+
+def process_log_tail(tail: int = 50) -> dict[str, Any]:
+    """Return recent web process log lines."""
+
+    return process_log.tail(tail)
+
+
+def _log_populate_progress(event_name: str, project_label: str, event: dict[str, Any]) -> None:
+    kind = str(event.get("event") or "")
+    step = str(event.get("step") or "")
+    if kind == "step_started":
+        append_process_log(event_name, f"{step} started", project=project_label)
+    elif kind == "step_completed":
+        metadata = {"project": project_label}
+        if event.get("count") is not None:
+            metadata["count"] = event.get("count")
+        if event.get("status"):
+            metadata["status"] = event.get("status")
+        append_process_log(event_name, f"{step} complete", **metadata)
+    elif kind == "step_failed":
+        append_process_log(event_name, f"{step} failed", project=project_label, error=event.get("message"))
+
+
+def _log_populate_summary(event_name: str, project_label: str, result: dict[str, Any]) -> None:
+    warnings = result.get("warnings", [])
+    if isinstance(warnings, list) and warnings:
+        append_process_log(event_name, "warnings recorded", project=project_label, count=len(warnings))
+        for warning in warnings[:5]:
+            if isinstance(warning, dict):
+                append_process_log(
+                    "warning",
+                    str(warning.get("code") or "validation_warning"),
+                    project=project_label,
+                    stage=warning.get("stage"),
+                )
+    append_process_log(
+        event_name,
+        "generated review queue",
+        project=project_label,
+        review_items=result.get("review_queue_item_count", 0),
+        deliverable_items=result.get("deliverable_item_count", 0),
+    )
+
+
+def _log_reset_progress(project_label: str, event: dict[str, Any]) -> None:
+    kind = str(event.get("event") or "")
+    if kind == "refresh_started":
+        append_process_log("refresh_artifacts", "delete generated artifacts", project=project_label, count=event.get("delete_count"))
+    elif kind == "delete_artifact":
+        append_process_log("refresh_artifacts", "deleted artifact", project=project_label, artifact=event.get("artifact"))
+    elif kind == "refresh_completed":
+        append_process_log("refresh_artifacts", "deleted artifacts complete", project=project_label, count=event.get("deleted_count"))
+    elif kind == "rebuild_started":
+        append_process_log("rebuild_queue", "started", project=project_label)
+    elif kind == "rebuild_completed":
+        append_process_log("rebuild_queue", "generated review queue", project=project_label, review_items=event.get("review_items"))
+    elif kind == "rebuild_failed":
+        append_process_log("rebuild_queue", "failed", project=project_label, error=event.get("error"))
+    else:
+        _log_populate_progress("rebuild_queue", project_label, event)
+
+
+def _log_gpt_progress(project_label: str, event: dict[str, Any]) -> None:
+    kind = str(event.get("event") or "")
+    if kind == "planned":
+        append_process_log(
+            "generate_gpt_drafts",
+            "planned calls",
+            project=project_label,
+            planned=event.get("planned_call_count"),
+            eligible=event.get("eligible_count"),
+        )
+    elif kind == "dry_run_completed":
+        append_process_log("generate_gpt_drafts", "dry run complete", project=project_label, planned=event.get("planned_call_count"))
+    elif kind == "drafting_started":
+        append_process_log("generate_gpt_drafts", "drafting started", project=project_label, planned=event.get("planned_call_count"))
+    elif kind == "item_started":
+        append_process_log("generate_gpt_drafts", "item started", project=project_label, item=event.get("target_id"))
+    elif kind == "item_warning":
+        append_process_log("generate_gpt_drafts", "item warning", project=project_label, item=event.get("target_id"), reason=event.get("reason"))
+    elif kind == "item_completed":
+        append_process_log(
+            "generate_gpt_drafts",
+            "item complete",
+            project=project_label,
+            item=event.get("target_id"),
+            status=event.get("status"),
+            reason=event.get("reason"),
+        )
+    elif kind == "drafting_completed":
+        append_process_log(
+            "generate_gpt_drafts",
+            "drafting complete",
+            project=project_label,
+            accepted=event.get("accepted"),
+            rejected=event.get("rejected"),
+            cache_hits=event.get("cache_hits"),
+        )
+
+
+def _log_gpt_summary(project_label: str, result: dict[str, Any]) -> None:
+    skipped = result.get("skipped_sections", [])
+    if isinstance(skipped, list) and skipped:
+        append_process_log("generate_gpt_drafts", "skipped sections", project=project_label, count=len(skipped))
 
 
 def setup_status(project_dir: Path) -> dict[str, Any]:

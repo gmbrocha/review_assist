@@ -64,7 +64,7 @@
 <section class="panel">
   <div class="section-title-row">
     <h2>Create Review Queue</h2>
-    <form method="post" action="{{ url_for('populate') }}">
+    <form method="post" action="{{ url_for('populate') }}" data-process-form data-process-action="create_queue">
       <button class="primary" type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Create Review Queue</button>
     </form>
   </div>
@@ -98,7 +98,7 @@
     <dt>Cache Hits</dt><dd>{{ gpt.cache_hit_count }}</dd>
     <dt>Token Usage</dt><dd>{% if gpt.last_run.token_usage %}{{ gpt.last_run.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
   </dl>
-  <form method="post" action="{{ url_for('generate_gpt_interpretive_assist') }}">
+  <form method="post" action="{{ url_for('generate_gpt_interpretive_assist') }}" data-process-form data-process-action="generate_gpt_drafts">
     {% if not gpt.ui_enabled %}
       <p class="empty">GPT controls are off.</p>
     {% endif %}
@@ -142,7 +142,7 @@
 <section class="panel">
   <h2>Developer Testing Reset</h2>
   <p class="muted">Local/dev action: refreshes deterministic review artifacts, then rebuilds the standard queue. It reruns local artifact generation from current inputs and registered source layers, without source acquisition, NAIP acquisition, source materialization, or GPT drafting.</p>
-  <form method="post" action="{{ url_for('reset_review_queue') }}">
+  <form method="post" action="{{ url_for('reset_review_queue') }}" data-process-form data-process-action="refresh_artifacts">
     <label>
       <input type="checkbox" name="confirm_reset" value="yes" required>
       I understand this overwrites generated review artifacts and rebuilds the queue from current local inputs and registered source layers.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .comparison_units import ComparisonUnitError, build_comparison_units
 from .constraints import ConstraintAnalysisError, analyze_constraints
@@ -46,6 +46,7 @@ def populate_for_review(
     materialize_naip_basemap: bool = False,
     gpt_drafting: bool | None = False,
     gpt_model: str | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     started_at = _utc_now()
@@ -76,57 +77,84 @@ def populate_for_review(
     use_gpt_drafting = bool(gpt_drafting)
 
     try:
+        _emit_progress(progress_callback, "step_started", step="input_package")
         input_package = classify_input_package(project_dir)
         steps.append(_step("input_package", "completed", artifact_path=input_package.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="input_package")
         warnings.extend(_issue_warnings("input_package", input_package.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="project_geometry")
         project_geometry = build_project_geometry(project_dir)
         steps.append(_step("project_geometry", "completed", artifact_path=project_geometry.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="project_geometry")
 
+        _emit_progress(progress_callback, "step_started", step="project_area")
         project_area = build_project_area(project_dir)
         steps.append(_step("project_area", "completed", artifact_path=project_area.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="project_area", status=project_area.get("basemap_rendering_status"))
         warnings.extend(_issue_warnings("project_area", project_area.get("validation_issues", [])))
         warnings.extend(_issue_warnings("project_area", project_area.get("warnings", [])))
 
+        _emit_progress(progress_callback, "step_started", step="comparison_units")
         comparison_units = build_comparison_units(project_dir)
         steps.append(_step("comparison_units", "completed", artifact_path=comparison_units.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="comparison_units", count=comparison_units.get("comparison_unit_count"))
         warnings.extend(_issue_warnings("comparison_units", comparison_units.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="project_context")
         context = generate_project_context(project_dir)
         steps.append(_step("project_context", "completed", artifact_path=context.get("context_path")))
+        _emit_progress(progress_callback, "step_completed", step="project_context")
 
         if materialize_local_sources:
+            _emit_progress(progress_callback, "step_started", step="source_materialization")
             source_materialization = materialize_project_local_sources(project_dir)
             steps.append(_step("source_materialization", "completed", artifact_path=source_materialization.get("output_path")))
+            _emit_progress(progress_callback, "step_completed", step="source_materialization", count=source_materialization.get("materialized_count"))
             warnings.extend(_issue_warnings("source_materialization", source_materialization.get("validation_issues", [])))
             context = generate_project_context(project_dir)
             steps.append(_step("project_context_refresh", "completed", artifact_path=context.get("context_path")))
 
         if prepare_sources:
+            _emit_progress(progress_callback, "step_started", step="source_acquisition")
             source_acquisition = prepare_project_sources(
                 project_dir,
                 include_optional_sources=include_optional_sources,
             )
             steps.append(_step("source_acquisition", "completed", artifact_path=source_acquisition.get("output_path")))
+            _emit_progress(progress_callback, "step_completed", step="source_acquisition", count=source_acquisition.get("download_count"))
             warnings.extend(_issue_warnings("source_acquisition", source_acquisition.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="source_status")
         source_status = resolve_source_status_set(project_dir)
         steps.append(_step("source_status", "completed", artifact_path=source_status.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="source_status")
         warnings.extend(_issue_warnings("source_status", source_status.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="source_inventory")
         source_inventory = generate_source_inventory(project_dir)
         steps.append(_step("source_inventory", "completed", artifact_path=source_inventory.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="source_inventory", count=source_inventory.get("record_count"))
         warnings.extend(_issue_warnings("source_inventory", source_inventory.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="constraint_analysis")
         constraints = analyze_constraints(project_dir, tolerate_source_errors=True)
         steps.append(_step("constraint_analysis", "completed", artifact_path=constraints.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="constraint_analysis", count=constraints.get("constraint_count"))
         warnings.extend(_issue_warnings("constraint_analysis", constraints.get("validation_issues", [])))
         for source in constraints.get("sources", []):
             if isinstance(source, dict):
                 warnings.extend(_issue_warnings("constraint_analysis", source.get("validation_issues", []), source_id=source.get("source_id")))
 
+        _emit_progress(progress_callback, "step_started", step="comparison_unit_constraints")
         comparison_unit_constraints = analyze_comparison_unit_constraints(project_dir, tolerate_source_errors=True)
         steps.append(_step("comparison_unit_constraints", "completed", artifact_path=comparison_unit_constraints.get("output_path")))
+        _emit_progress(
+            progress_callback,
+            "step_completed",
+            step="comparison_unit_constraints",
+            count=comparison_unit_constraints.get("constraint_count"),
+        )
         warnings.extend(_issue_warnings("comparison_unit_constraints", comparison_unit_constraints.get("validation_issues", [])))
         for source in comparison_unit_constraints.get("sources", []):
             if isinstance(source, dict):
@@ -134,19 +162,26 @@ def populate_for_review(
                     _issue_warnings("comparison_unit_constraints", source.get("validation_issues", []), source_id=source.get("source_id"))
                 )
 
+        _emit_progress(progress_callback, "step_started", step="draft_findings")
         draft_findings = generate_draft_findings(project_dir)
         steps.append(_step("draft_findings", "completed", artifact_path=draft_findings.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="draft_findings", count=draft_findings.get("finding_count"))
         warnings.extend(_issue_warnings("draft_findings", draft_findings.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="comparison_tables")
         comparison_tables = generate_comparison_tables(project_dir)
         steps.append(_step("comparison_tables", "completed", artifact_path=comparison_tables.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="comparison_tables", count=comparison_tables.get("table_count"))
         warnings.extend(_issue_warnings("comparison_tables", comparison_tables.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="deliverable_tables")
         deliverable_tables = generate_deliverable_tables(project_dir)
         steps.append(_step("deliverable_tables", "completed", artifact_path=deliverable_tables.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="deliverable_tables", count=deliverable_tables.get("table_count"))
         warnings.extend(_issue_warnings("deliverable_tables", deliverable_tables.get("validation_issues", [])))
 
         if materialize_naip_basemap:
+            _emit_progress(progress_callback, "step_started", step="naip_basemap_materialization")
             naip_basemap_materialization = materialize_project_naip_basemap(project_dir, for_figure_extents=True)
             step_status = "completed" if naip_basemap_materialization.get("success") else "warning"
             steps.append(
@@ -157,22 +192,29 @@ def populate_for_review(
                     message=str(naip_basemap_materialization.get("message") or ""),
                 )
             )
+            _emit_progress(progress_callback, "step_completed", step="naip_basemap_materialization", status=step_status)
             warnings.extend(_issue_warnings("naip_basemap_materialization", naip_basemap_materialization.get("validation_issues", [])))
             if naip_basemap_materialization.get("success"):
                 project_area = build_project_area(project_dir)
                 source_status = resolve_source_status_set(project_dir)
                 steps.append(_step("source_status_refresh_after_naip", "completed", artifact_path=source_status.get("output_path")))
 
+        _emit_progress(progress_callback, "step_started", step="deliverable_figures")
         deliverable_figures = generate_deliverable_figures(project_dir)
         steps.append(_step("deliverable_figures", "completed", artifact_path=deliverable_figures.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="deliverable_figures", count=deliverable_figures.get("figure_count"))
         warnings.extend(_issue_warnings("deliverable_figures", deliverable_figures.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="map_generation")
         map_manifest = generate_maps(project_dir)
         steps.append(_step("map_generation", "completed", artifact_path=map_manifest.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="map_generation", count=map_manifest.get("figure_count"))
         warnings.extend(_issue_warnings("map_generation", map_manifest.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="evidence_package")
         evidence_package = build_evidence_package(project_dir)
         steps.append(_step("evidence_package", "completed", artifact_path=evidence_package.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="evidence_package", count=evidence_package.get("evidence_record_count"))
         warnings.extend(
             _issue_warnings(
                 "evidence_package",
@@ -181,16 +223,22 @@ def populate_for_review(
             )
         )
 
+        _emit_progress(progress_callback, "step_started", step="report_sections")
         report_sections = generate_report_sections(project_dir, gpt_drafting=use_gpt_drafting, gpt_model=gpt_model)
         steps.append(_step("report_sections", "completed", artifact_path=report_sections.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="report_sections", count=report_sections.get("section_count"))
         warnings.extend(_issue_warnings("report_sections", report_sections.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="deliverable_items")
         deliverable_items = generate_deliverable_items(project_dir, gpt_drafting=use_gpt_drafting, gpt_model=gpt_model)
         steps.append(_step("deliverable_items", "completed", artifact_path=deliverable_items.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="deliverable_items", count=deliverable_items.get("item_count"))
         warnings.extend(_issue_warnings("deliverable_items", deliverable_items.get("validation_issues", [])))
 
+        _emit_progress(progress_callback, "step_started", step="review_queue")
         review_queue = generate_review_queue(project_dir)
         steps.append(_step("review_queue", "completed", artifact_path=review_queue.get("output_path")))
+        _emit_progress(progress_callback, "step_completed", step="review_queue", count=review_queue.get("item_count"))
     except (
         InputPackageError,
         ComparisonUnitError,
@@ -244,6 +292,7 @@ def populate_for_review(
                 message=critical_error,
             )
         )
+        _emit_progress(progress_callback, "step_failed", step=steps[-1]["name"], message=critical_error)
 
     manifest = {
         "project_id": _first_value(
@@ -363,6 +412,15 @@ def _step(name: str, status: str, *, artifact_path: Any = None, message: str = "
         "artifact_path": artifact_path,
         "message": message,
     }
+
+
+def _emit_progress(callback: Callable[[dict[str, Any]], None] | None, event: str, **payload: Any) -> None:
+    if callback is None:
+        return
+    try:
+        callback({"event": event, **payload})
+    except Exception:
+        return
 
 
 def _issue_warnings(

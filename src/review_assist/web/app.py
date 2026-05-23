@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
+from flask import Flask, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 
 from review_assist.web import adapter
 
@@ -305,6 +305,10 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
         if project_dir is None:
             return render_template("empty_project.html", active_page="outputs", title="Package Outputs")
         return render_template("outputs.html", active_page="outputs", outputs=adapter.package_outputs(project_dir))
+
+    @app.get("/api/logs")
+    def process_logs() -> Any:
+        return jsonify(adapter.process_log_tail(_form_int(request.args.get("tail"), default=50)))
 
     @app.get("/artifact")
     def artifact() -> Any:

@@ -1080,6 +1080,39 @@ def test_create_review_queue_ui_requests_local_source_materialization(monkeypatc
     assert called["materialize_local_sources"] is True
     assert called["materialize_naip_basemap"] is True
     assert called["gpt_drafting"] is False
+    assert callable(called["progress_callback"])
+
+
+def test_process_log_panel_and_api_capture_create_queue(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    def fake_populate(path: Path, **kwargs: object) -> dict[str, object]:
+        progress = kwargs.get("progress_callback")
+        assert callable(progress)
+        progress({"event": "step_started", "step": "review_queue"})
+        progress({"event": "step_completed", "step": "review_queue", "count": 1})
+        return {"review_queue_item_count": 1, "deliverable_item_count": 1, "warnings": [], "output_path": ""}
+
+    monkeypatch.setattr(adapter, "populate_for_review", fake_populate)
+
+    overview = client.get("/overview")
+    response = client.post("/overview/populate", follow_redirects=True)
+    logs = client.get("/api/logs?tail=50")
+    payload = logs.get_json()
+    lines = "\n".join(payload["lines"])
+
+    assert overview.status_code == 200
+    assert b"Process Log" in overview.data
+    assert b"process_log.js" in overview.data
+    assert response.status_code == 200
+    assert logs.status_code == 200
+    assert payload["tail"] == 50
+    assert "create_queue started" in lines
+    assert "create_queue review_queue complete" in lines
+    assert "create_queue complete" in lines
 
 
 def test_overview_exposes_dev_review_queue_reset_with_confirmation(tmp_path: Path) -> None:
@@ -1123,6 +1156,31 @@ def test_overview_dev_review_queue_reset_calls_adapter(monkeypatch: pytest.Monke
     assert called["path"] == project_dir.resolve()
     assert called["include_exports"] is False
     assert b"Review artifacts refreshed and queue rebuilt with 42 review items" in response.data
+
+
+def test_process_log_captures_refresh_and_rebuild(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    def fake_reset(path: Path, **kwargs: object) -> dict[str, object]:
+        progress = kwargs.get("progress_callback")
+        assert callable(progress)
+        progress({"event": "refresh_started", "delete_count": 2})
+        progress({"event": "delete_artifact", "artifact": "review_queue/review_queue.json"})
+        progress({"event": "rebuild_started"})
+        progress({"event": "rebuild_completed", "review_items": 42})
+        return {"after": {"review_queue_item_count": 42}}
+
+    monkeypatch.setattr(adapter, "reset_review_queue", fake_reset)
+
+    adapter.reset_generated_review_queue(project_dir)
+    payload = adapter.process_log_tail(50)
+    lines = "\n".join(payload["lines"])
+
+    assert "refresh_artifacts started" in lines
+    assert "refresh_artifacts deleted artifact" in lines
+    assert "rebuild_queue started" in lines
+    assert "rebuild_queue generated review queue" in lines
+    assert "refresh_artifacts complete" in lines
 
 
 def test_overview_dev_review_queue_reset_can_include_exports(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -1289,3 +1347,28 @@ def test_gpt_interpretive_assist_explicit_submit_calls_adapter(monkeypatch: pyte
     assert called["skip_existing"] is True
     assert called["source_backed_only"] is True
     assert b"GPT dry run planned 1 section draft call" in response.data
+
+
+def test_process_log_captures_gpt_draft_items(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+
+    def fake_draft(path: Path, **kwargs: object) -> dict[str, object]:
+        progress = kwargs.get("progress_callback")
+        assert callable(progress)
+        progress({"event": "planned", "planned_call_count": 1, "eligible_count": 1})
+        progress({"event": "item_started", "target_id": "wetlands-and-waterbodies"})
+        progress({"event": "item_completed", "target_id": "wetlands-and-waterbodies", "status": "success"})
+        progress({"event": "drafting_completed", "accepted": 1, "rejected": 0, "cache_hits": 0})
+        return {"accepted_gpt_draft_count": 1, "rejected_gpt_draft_count": 0, "output_path": ""}
+
+    monkeypatch.setattr(adapter, "draft_section_candidates", fake_draft)
+
+    adapter.run_gpt_interpretive_assist(project_dir, sections=["wetlands-and-waterbodies"], max_calls=1)
+    payload = adapter.process_log_tail(50)
+    lines = "\n".join(payload["lines"])
+
+    assert "generate_gpt_drafts started" in lines
+    assert "generate_gpt_drafts item complete" in lines
+    assert "item=wetlands-and-waterbodies" in lines
+    assert "status=success" in lines
+    assert "generate_gpt_drafts complete" in lines
