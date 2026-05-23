@@ -882,11 +882,34 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
     ]
     assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
     image_path = _effective_figure_image_path(item, assumptions)
+    layers = _style_editor_layers(recipe, active_override)
+    validation_issues = _dict_list(item.get("validation_issues", []))
+    render_policy = _render_policy_fields(item)
     return {
         "item_id": item_id,
         "figure_id": figure_id,
         "title": str(item.get("title") or figure.get("title") or figure_id),
         "status": str(item.get("status") or ""),
+        "export_eligible": bool(item.get("export_eligible", False)),
+        "review_context": {
+            "review_item_id": item_id,
+            "review_status": str(item.get("status") or ""),
+            "export_eligible": bool(item.get("export_eligible", False)),
+            "report_role_label": render_policy["report_role_label"],
+            "source_refs": _string_list(item.get("source_refs", [])),
+            "evidence_refs": _string_list(item.get("evidence_refs", [])),
+            "related_table_ids": _string_list(item.get("related_table_ids", [])),
+            "related_figure_ids": _string_list(item.get("related_figure_ids", [])),
+            "validation_issues": validation_issues,
+            "validation_issue_count": len(validation_issues),
+        },
+        "figure_metadata": {
+            "caption": _effective_figure_caption(item, assumptions),
+            "caption_source": _figure_caption_source(item),
+            "image_source": _figure_image_source(item),
+            "source_note": str(item.get("source_note") or assumptions.get("source_note") or ""),
+            "method_note": str(item.get("method_note") or assumptions.get("method_note") or ""),
+        },
         "preview": {
             "image_path": _project_relative_path(project_dir, image_path),
             "artifact_link_path": _artifact_link_path(project_dir, image_path),
@@ -894,8 +917,13 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
         "model_initialized": model_initialized,
         "style_model_paths": _figure_style_model_paths(project_dir),
         "recipe": recipe,
-        "layers": _style_editor_layers(recipe, active_override),
+        "layers": layers,
+        "basemap_status": _figure_editor_basemap_status(layers),
         "active_override": active_override or {},
+        "draft_export_notice": (
+            "Saved style drafts are project-local presentation metadata. They are not export-active until a later "
+            "regeneration/version approval step creates a reviewed figure version."
+        ),
         "version_summary": {
             "version_count": len(versions),
             "latest_version": _latest_by_timestamp(versions),
@@ -1691,6 +1719,10 @@ def _style_editor_layers(recipe: dict[str, Any], active_override: dict[str, Any]
                 "source_id": str(layer.get("source_id") or ""),
                 "feature_count": _int_value(layer.get("feature_count")),
                 "geometry_type_counts": layer.get("geometry_type_counts") if isinstance(layer.get("geometry_type_counts"), dict) else {},
+                "renderability_status": str(layer.get("renderability_status") or ""),
+                "message": str(layer.get("message") or ""),
+                "path": str(layer.get("path") or ""),
+                "expected_renderable_path": str(layer.get("expected_renderable_path") or ""),
                 "label_fields": label_fields,
                 "defaults": {
                     "visible": bool(layer.get("default_visible", True)),
@@ -1720,6 +1752,35 @@ def _style_editor_layers(recipe: dict[str, Any], active_override: dict[str, Any]
             }
         )
     return rows
+
+
+def _figure_editor_basemap_status(layers: list[dict[str, Any]]) -> dict[str, Any]:
+    basemap_layers = [layer for layer in layers if str(layer.get("layer_type") or "").startswith("basemap")]
+    if not basemap_layers:
+        return {
+            "status": "not_selected",
+            "label": "No visual basemap layer selected",
+            "message": "This figure is currently vector-only or has no basemap provenance layer.",
+            "path": "",
+            "expected_renderable_path": "",
+        }
+    layer = basemap_layers[-1]
+    override = layer.get("override") if isinstance(layer.get("override"), dict) else {}
+    current = layer.get("current") if isinstance(layer.get("current"), dict) else {}
+    defaults = layer.get("defaults") if isinstance(layer.get("defaults"), dict) else {}
+    status = str(override.get("renderability_status") or layer.get("renderability_status") or "")
+    if not status:
+        if str(layer.get("layer_type") or "") == "basemap":
+            status = "rendered"
+        else:
+            status = "provenance_only"
+    return {
+        "status": status,
+        "label": str(current.get("display_name") or defaults.get("display_name") or layer.get("layer_id") or "Basemap"),
+        "message": str(override.get("message") or layer.get("message") or ""),
+        "path": str(override.get("path") or layer.get("path") or ""),
+        "expected_renderable_path": str(override.get("expected_renderable_path") or layer.get("expected_renderable_path") or ""),
+    }
 
 
 def _style_layers_from_form(form: Any) -> list[dict[str, Any]]:

@@ -10,6 +10,8 @@
 
 <section class="summary-grid">
   <div class="metric"><span>Style Model</span><strong>{{ 'ready' if editor.model_initialized else 'preview' }}</strong></div>
+  <div class="metric"><span>Review Status</span><strong>{{ editor.review_context.review_status }}</strong></div>
+  <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if editor.review_context.export_eligible else 'no' }}</strong></div>
   <div class="metric"><span>Layers</span><strong>{{ editor.layers|length }}</strong></div>
   <div class="metric"><span>Versions</span><strong>{{ editor.version_summary.version_count }}</strong></div>
   <div class="metric"><span>Render Jobs</span><strong>{{ editor.render_job_summary.render_job_count }}</strong></div>
@@ -26,6 +28,52 @@
     <p class="empty">No renderable figure image is currently available.</p>
   {% endif %}
 </section>
+
+<section class="panel">
+  <h2>Review Context</h2>
+  <p class="muted">{{ editor.draft_export_notice }}</p>
+  <dl class="details">
+    <dt>Review Item</dt><dd>{{ editor.review_context.review_item_id }}</dd>
+    <dt>Report Role</dt><dd>{{ editor.review_context.report_role_label }}</dd>
+    <dt>Source Refs</dt><dd>{{ editor.review_context.source_refs|join(', ') if editor.review_context.source_refs else 'None recorded' }}</dd>
+    <dt>Evidence Refs</dt><dd>{{ editor.review_context.evidence_refs|join(', ') if editor.review_context.evidence_refs else 'None recorded' }}</dd>
+    <dt>Related Tables</dt><dd>{{ editor.review_context.related_table_ids|join(', ') if editor.review_context.related_table_ids else 'None recorded' }}</dd>
+    <dt>Related Figures</dt><dd>{{ editor.review_context.related_figure_ids|join(', ') if editor.review_context.related_figure_ids else 'None recorded' }}</dd>
+  </dl>
+</section>
+
+<section class="panel">
+  <h2>Figure Metadata</h2>
+  <dl class="details">
+    <dt>Caption</dt><dd>{{ editor.figure_metadata.caption or 'Not recorded' }}</dd>
+    <dt>Caption Source</dt><dd>{{ editor.figure_metadata.caption_source }}</dd>
+    <dt>Image Source</dt><dd>{{ editor.figure_metadata.image_source }}</dd>
+    <dt>Source Note</dt><dd>{{ editor.figure_metadata.source_note or 'Not recorded' }}</dd>
+    <dt>Method Note</dt><dd>{{ editor.figure_metadata.method_note or 'Not recorded' }}</dd>
+  </dl>
+</section>
+
+<section class="panel">
+  <h2>Basemap And Render Status</h2>
+  <dl class="details">
+    <dt>Status</dt><dd>{{ editor.basemap_status.status }}</dd>
+    <dt>Layer</dt><dd>{{ editor.basemap_status.label }}</dd>
+    <dt>Path</dt><dd>{{ editor.basemap_status.path or 'None recorded' }}</dd>
+    <dt>Expected Path</dt><dd>{{ editor.basemap_status.expected_renderable_path or 'None recorded' }}</dd>
+    <dt>Message</dt><dd>{{ editor.basemap_status.message or 'None recorded' }}</dd>
+  </dl>
+</section>
+
+{% if editor.review_context.validation_issues %}
+<section class="panel">
+  <h2>Validation Warnings</h2>
+  <ul class="issue-list">
+    {% for issue in editor.review_context.validation_issues %}
+      <li>{{ issue.code }}: {{ issue.message }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 <section class="panel">
   <h2>Style Model Status</h2>

@@ -571,6 +571,14 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "Figure Style Editor" in text
     assert "Current Figure Preview" in text
+    assert "Review Context" in text
+    assert "Source Refs" in text
+    assert "Evidence Refs" in text
+    assert "Basemap And Render Status" in text
+    assert "Validation Warnings" in text
+    assert "basemap_render_asset_missing" in text
+    assert "Saved style drafts are project-local presentation metadata" in text
+    assert "Export Eligible" in text
     assert "Layer Styling" in text
     assert "Comparison units" in text
     assert "National Wetlands Inventory" in text
