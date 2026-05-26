@@ -262,14 +262,44 @@ def write_project_with_figures(tmp_path: Path) -> Path:
 
     write_tiny_png(project_dir / "maps" / "figures" / "figure-wetlands-waterbodies.png")
     (project_dir / "layers" / "usfws_nwi_wetlands" / "usfws_nwi_wetlands.geojson").write_text(
-        '{"type":"FeatureCollection","features":[]}\n',
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"name": "wetland"},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[-90.001, 31.999], [-89.999, 31.999], [-89.999, 32.001], [-90.001, 32.001], [-90.001, 31.999]]],
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (project_dir / "intermediate" / "comparison_units.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"comparison_unit_id": "unit-1", "comparison_unit_name": "Alternative 1"},
+                        "geometry": {"type": "LineString", "coordinates": [[-90.002, 32.0], [-89.998, 32.0]]},
+                    }
+                ],
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     for path in [
         project_dir / "source_status" / "source_status_set.json",
         project_dir / "context" / "project_area.json",
         project_dir / "intermediate" / "comparison_units.json",
-        project_dir / "intermediate" / "comparison_units.geojson",
         project_dir / "constraints" / "comparison_unit_constraints.json",
         project_dir / "maps" / "figure_extent_plan.json",
     ]:

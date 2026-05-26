@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked draft for review. Do not implement until style override saving is implemented and tested.
+Completed and archived after Sprint 6.5 implementation. Regenerated outputs are review-only; approval and export integration remain deferred to later Sprint 6 subunits.
 
 ## Purpose
 
@@ -29,7 +29,7 @@ When a reviewer saves and regenerates a figure:
 3. Render the figure using frozen analysis/source inputs.
 4. Apply style overrides during rendering.
 5. Store the regenerated output as a new figure version.
-6. Make the regenerated figure available for review/export.
+6. Make the regenerated figure available for reviewer inspection, but do not make it export-active until a later approval/export integration subunit.
 
 ## Output Formats
 

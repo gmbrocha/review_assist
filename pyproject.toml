@@ -37,7 +37,7 @@ review-assist = "review_assist.cli:main"
 review-assist-web = "review_assist.web.app:main"
 
 [tool.setuptools.package-data]
-review_assist = ["web/templates/*.html", "web/static/*.css"]
+review_assist = ["web/templates/*.html", "web/static/*.css", "web/static/*.js"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -29,6 +29,19 @@
   {% endif %}
 </section>
 
+{% if editor.regenerated_preview.available %}
+<section class="panel">
+  <h2>Latest Regenerated Version</h2>
+  <p class="muted">This regenerated PNG is review-only. Export continues to use the reviewed/generated figure path until version approval and export integration are implemented.</p>
+  <dl class="details">
+    <dt>Version</dt><dd>{{ editor.regenerated_preview.version.version_id }}</dd>
+    <dt>Approval State</dt><dd>{{ editor.regenerated_preview.version.approval_state }}</dd>
+    <dt>Output Path</dt><dd>{{ editor.regenerated_preview.image_path }}</dd>
+  </dl>
+  <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=editor.regenerated_preview.artifact_link_path) }}" alt="{{ editor.figure_id }} regenerated version">
+</section>
+{% endif %}
+
 <section class="panel">
   <h2>Review Context</h2>
   <p class="muted">{{ editor.draft_export_notice }}</p>
@@ -85,6 +98,7 @@
     <dt>Analysis Snapshot</dt><dd>{{ editor.recipe.analysis_snapshot_id }}</dd>
     <dt>Active Override</dt><dd>{{ editor.active_override.override_id if editor.active_override.override_id else 'None' }}</dd>
     <dt>Latest Version</dt><dd>{{ editor.version_summary.latest_version.version_id if editor.version_summary.latest_version else 'None recorded' }}</dd>
+    <dt>Latest Regenerated Version</dt><dd>{{ editor.version_summary.latest_regenerated_version.version_id if editor.version_summary.latest_regenerated_version else 'None recorded' }}</dd>
     <dt>Approved Version</dt><dd>{{ editor.version_summary.approved_version.version_id if editor.version_summary.approved_version else 'Deferred' }}</dd>
     <dt>Latest Render Job</dt><dd>{{ editor.render_job_summary.latest_render_job.render_job_id if editor.render_job_summary.latest_render_job else 'None recorded' }}</dd>
   </dl>
@@ -200,10 +214,10 @@
     <div class="form-actions">
       <button type="submit" name="style_action" value="reset_default">Reset to Default</button>
       <button class="primary" type="submit" name="style_action" value="save_draft">Save Draft Style</button>
-      <button type="button" disabled title="{{ editor.deferred_actions.save_and_regenerate }}">Save and Regenerate Figure</button>
+      <button class="primary" type="submit" name="style_action" value="save_and_regenerate">Save and Regenerate Figure</button>
       <button type="button" disabled title="{{ editor.deferred_actions.approve_figure }}">Approve Figure</button>
     </div>
-    <p class="muted">Regeneration and version approval are visible here for workflow continuity but remain deferred to later Sprint 6 subunits.</p>
+    <p class="muted">Regeneration creates a review-only figure version. Approval and export integration remain deferred to later Sprint 6 subunits.</p>
   </section>
 </form>
 <script src="{{ url_for('static', filename='figure_style_editor.js') }}"></script>

@@ -4,7 +4,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- Sprint 6.5 Regeneration Job: `SPRINT_6_5_REGENERATION_JOB.md`
+- Sprint 6.6 Figure Versioning And Approval: `SPRINT_6_6_FIGURE_VERSIONING_AND_APPROVAL.md`
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -12,7 +12,6 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 - Roadmap reference: `docs/sprints/ROADMAP.md`
 - Sprint 6 root plan: `SPRINT_6_REVIEWER_FIGURE_STYLING_AND_REGENERATION.md`
-- Sprint 6.5 Regeneration Job: `SPRINT_6_5_REGENERATION_JOB.md`
 - Sprint 6.6 Figure Versioning And Approval: `SPRINT_6_6_FIGURE_VERSIONING_AND_APPROVAL.md`
 - Sprint 6.7 Export Integration: `SPRINT_6_7_EXPORT_INTEGRATION.md`
 - Sprint 6.8 QA And Scope-Control Pass: `SPRINT_6_8_QA_AND_SCOPE_CONTROL_PASS.md`
@@ -75,6 +74,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Added a figure-only review detail link and editor page showing the current preview, style model status, layer controls, active draft override summary, version summary, render-job summary, and disabled deferred regenerate/approve controls.
 - Sprint 6.4 Style Override Save Logic: `docs/archive/sprints/SPRINT_6_4_STYLE_OVERRIDE_SAVE_LOGIC.md`
   - Added validated sparse style override save/reset behavior with audit-preserving superseded/reset statuses while leaving rendering, review queue state, export eligibility, and figure images unchanged.
+- Sprint 6.5 Regeneration Job: `docs/archive/sprints/SPRINT_6_5_REGENERATION_JOB.md`
+  - Added synchronous review-only PNG regeneration from saved/default figure style metadata with auditable render jobs and version records while preserving source, analysis, review queue, deliverable figure, and export artifacts.
 
 ## Deferred Work Linked To Sprints
 

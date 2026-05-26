@@ -43,6 +43,7 @@ from review_assist.figure_style_model import (
     reset_project_style_override,
     save_project_style_override,
 )
+from review_assist.figure_regeneration import FigureRegenerationError, regenerate_figure_version
 from review_assist.gpt_interpretive_assist import (
     GptInterpretiveAssistError,
     draft_section_candidates,
@@ -1027,6 +1028,9 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
         for job in _dict_list((artifacts.get("render_jobs") or {}).get("render_jobs", []) if isinstance(artifacts.get("render_jobs"), dict) else [])
         if str(job.get("figure_id") or "") == figure_id
     ]
+    latest_regenerated_version = _latest_by_timestamp(
+        [version for version in versions if str(version.get("approval_state") or "") == "regenerated"]
+    )
     assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
     image_path = _effective_figure_image_path(item, assumptions)
     layers = _style_editor_layers(recipe, active_override)
@@ -1068,20 +1072,21 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
         "basemap_status": _figure_editor_basemap_status(layers),
         "active_override": active_override or {},
         "draft_export_notice": (
-            "Saved style drafts are project-local presentation metadata. They are not export-active until a later "
-            "regeneration/version approval step creates a reviewed figure version."
+            "Saved style drafts and regenerated versions are project-local presentation metadata. They remain "
+            "review-only and are not export-active until a later version approval/export integration step."
         ),
         "version_summary": {
             "version_count": len(versions),
             "latest_version": _latest_by_timestamp(versions),
+            "latest_regenerated_version": latest_regenerated_version,
             "approved_version": next((version for version in versions if str(version.get("approval_state") or "") == "approved"), None),
         },
+        "regenerated_preview": _version_preview(project_dir, latest_regenerated_version),
         "render_job_summary": {
             "render_job_count": len(render_jobs),
             "latest_render_job": _latest_by_timestamp(render_jobs),
         },
         "deferred_actions": {
-            "save_and_regenerate": "Deferred to Sprint 6.5.",
             "approve_figure": "Deferred to Sprint 6.6.",
         },
     }
@@ -1106,7 +1111,21 @@ def save_figure_style_form(project_dir: Path, item_id: str, form: Any) -> dict[s
                 _style_layers_from_form(form),
                 actor="local_reviewer",
             )
-    except FigureStyleModelError as exc:
+        if action == "save_and_regenerate":
+            save_result = save_project_style_override(
+                project_dir,
+                figure_id,
+                _style_layers_from_form(form),
+                actor="local_reviewer",
+            )
+            regeneration = regenerate_figure_version(project_dir, figure_id, actor="local_reviewer")
+            return {
+                **save_result,
+                "regeneration": regeneration,
+                "regenerated": True,
+                "override_saved": bool(save_result.get("override_saved", False)),
+            }
+    except (FigureStyleModelError, FigureRegenerationError) as exc:
         raise WebAdapterError(str(exc)) from exc
     raise WebAdapterError("Unsupported figure style action.")
 
@@ -1960,6 +1979,18 @@ def _latest_by_timestamp(records: list[dict[str, Any]]) -> dict[str, Any] | None
     if not records:
         return None
     return sorted(records, key=lambda item: str(item.get("updated_at") or item.get("completed_at") or item.get("created_at") or ""))[-1]
+
+
+def _version_preview(project_dir: Path, version: dict[str, Any] | None) -> dict[str, Any]:
+    if not version:
+        return {"available": False, "image_path": "", "artifact_link_path": "", "version": None}
+    path = str(version.get("output_artifact_path") or "")
+    return {
+        "available": bool(path and (project_dir / path).exists()),
+        "image_path": _project_relative_path(project_dir, path),
+        "artifact_link_path": _artifact_link_path(project_dir, path),
+        "version": version,
+    }
 
 
 def _figure_style_model_paths(project_dir: Path) -> dict[str, dict[str, Any]]:

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from review_assist.export_report import export_report
-from review_assist.figure_style_model import FIGURE_STYLE_OVERRIDES_PATH, active_style_override
+from review_assist.figure_style_model import FIGURE_STYLE_OVERRIDES_PATH, FIGURE_VERSIONS_PATH, active_style_override
 from review_assist.gpt_interpretive_assist import draft_section_candidates
 from review_assist.populate_for_review import populate_for_review
 from review_assist.projects import load_project_manifest
@@ -88,6 +88,12 @@ def test_app_loads_with_no_selected_project_empty_state(app_client) -> None:
     assert response.status_code == 200
     assert b"Select an existing project workspace" in response.data
     assert b"Go to Projects" in response.data
+
+
+def test_package_data_includes_web_javascript_assets() -> None:
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+
+    assert '"web/static/*.js"' in pyproject
 
 
 def test_project_list_and_select(tmp_path: Path) -> None:
@@ -588,7 +594,7 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "Basemap And Render Status" in text
     assert "Validation Warnings" in text
     assert "No validation warnings recorded for this figure." in text
-    assert "Saved style drafts are project-local presentation metadata" in text
+    assert "Saved style drafts and regenerated versions are project-local presentation metadata" in text
     assert "Export Eligible" in text
     assert "Layer Styling" in text
     assert "figure_style_editor.js" in text
@@ -609,6 +615,7 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "name=\"layer_0_label_visible\"" in text
     assert "name=\"layer_0_label_field\"" in text
     assert "Save and Regenerate Figure" in text
+    assert 'name="style_action" value="save_and_regenerate"' in text
     assert "Approve Figure" in text
     assert "disabled" in text
     assert "geometry editing" not in text.lower()
@@ -688,6 +695,43 @@ def test_figure_style_editor_reset_marks_active_override_reset(tmp_path: Path) -
     assert "Figure style reset to default" in response.data.decode()
     assert active_style_override(artifact, "figure-wetlands-waterbodies") is None
     assert artifact["overrides"][0]["status"] == "reset"
+
+
+def test_figure_style_editor_save_and_regenerate_creates_review_only_version(tmp_path: Path) -> None:
+    project_dir = _project_with_figure_layers(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    queue_before = (project_dir / "review_queue" / "review_queue.json").read_bytes()
+    figures_before = (project_dir / "deliverable" / "figures.json").read_bytes()
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies/figure-style",
+        data={
+            "style_action": "save_and_regenerate",
+            "layer_id": ["comparison_units", "source:usfws_nwi_wetlands"],
+            "layer_0_visible": "true",
+            "layer_0_z_index": "0",
+            "layer_0_display_name": "Comparison units",
+            "layer_1_visible": "true",
+            "layer_1_z_index": "8",
+            "layer_1_display_name": "Wetland Overlay",
+            "layer_1_stroke_color": "#00AAFF",
+        },
+        follow_redirects=True,
+    )
+    versions = json.loads((project_dir / FIGURE_VERSIONS_PATH).read_text(encoding="utf-8"))
+    latest = versions["versions"][-1]
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Review-only regenerated figure version created" in text
+    assert "Latest Regenerated Version" in text
+    assert latest["approval_state"] == "regenerated"
+    assert latest["export_active"] is False
+    assert (project_dir / latest["output_artifact_path"]).exists()
+    assert (project_dir / "review_queue" / "review_queue.json").read_bytes() == queue_before
+    assert (project_dir / "deliverable" / "figures.json").read_bytes() == figures_before
 
 
 def test_review_detail_displays_gpt_assist_provenance(tmp_path: Path) -> None:

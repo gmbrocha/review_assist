@@ -160,6 +160,7 @@ def render_map(
     focus_bounds: Any | None = None,
     render_layout: dict[str, Any] | None = None,
     embed_title: bool = False,
+    comparison_layer_style: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     layout = render_layout or plan_render_layout_for_map(unit_gdf=unit_gdf, source_layers=source_layers, focus_bounds=focus_bounds)
     layout = dict(layout)
@@ -186,7 +187,7 @@ def render_map(
             if not gdf.empty:
                 plotted.append(gdf)
 
-        unit_handles = _plot_comparison_units(ax, unit_gdf)
+        unit_handles = _plot_comparison_units(ax, unit_gdf, style_override=comparison_layer_style)
         handles.extend(unit_handles)
         handles.extend(source_handles)
         plotted.append(unit_gdf)
@@ -412,11 +413,12 @@ def comparison_unit_style_records(gdf: gpd.GeoDataFrame) -> list[dict[str, Any]]
     return records
 
 
-def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame) -> list[Any]:
+def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame, *, style_override: dict[str, Any] | None = None) -> list[Any]:
     if gdf.empty:
         return []
     handles: list[Any] = []
     styles = comparison_unit_style_records(gdf)
+    override = style_override or {}
     for index, (_, row) in enumerate(gdf.iterrows()):
         geometry = row.geometry
         if geometry is None or geometry.is_empty:
@@ -426,15 +428,19 @@ def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame) -> list[Any]:
         properties = row.drop(labels=[geometry_column]).to_dict() if geometry_column in row.index else row.to_dict()
         properties.pop("geometry", None)
         one = gpd.GeoDataFrame([properties], geometry=[geometry], crs=gdf.crs)
-        label = str(style["label"])
-        color = str(style["color"])
+        label = str(override.get("label") or style["label"])
+        color = str(override.get("stroke_color") or override.get("fill_color") or style["color"])
+        fill_color = str(override.get("fill_color") or color)
+        stroke_color = str(override.get("stroke_color") or color)
+        zorder = float(override.get("z_index", 7))
         geom_type = geometry.geom_type
         if "Polygon" in geom_type:
-            one.plot(ax=ax, facecolor=color, edgecolor="white", linewidth=1.45, alpha=0.18, zorder=6)
-            one.plot(ax=ax, facecolor=color, edgecolor=color, linewidth=0.75, alpha=0.16, zorder=6.2)
-            handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.12, label=label))
+            alpha = float(override.get("fill_opacity", 0.18))
+            width = float(override.get("stroke_width", 0.75))
+            one.plot(ax=ax, facecolor=fill_color, edgecolor=stroke_color, linewidth=width, alpha=alpha, zorder=zorder)
+            handles.append(Patch(facecolor=fill_color, edgecolor=stroke_color, alpha=min(alpha, 0.28), label=label))
         elif "LineString" in geom_type:
-            width = float(style["line_width"])
+            width = float(override.get("stroke_width", style["line_width"]))
             halo_width = float(style.get("line_halo_width", 0.0))
             halo_alpha = float(style.get("line_halo_alpha", 0.0))
             if halo_width > 0 and halo_alpha > 0:
@@ -443,14 +449,15 @@ def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame) -> list[Any]:
                     color=str(style.get("line_halo_color") or COMPARISON_UNIT_LINE_HALO_COLOR),
                     linewidth=width + halo_width,
                     alpha=halo_alpha,
-                    zorder=6.8,
+                    zorder=zorder - 0.2,
                 )
-            one.plot(ax=ax, color=color, linewidth=width, alpha=0.96, zorder=7)
-            handles.append(Line2D([0], [0], color=color, lw=width, label=label))
+            one.plot(ax=ax, color=stroke_color, linewidth=width, alpha=0.96, zorder=zorder)
+            handles.append(Line2D([0], [0], color=stroke_color, lw=width, label=label))
         elif "Point" in geom_type:
-            one.plot(ax=ax, color="white", markersize=26, alpha=0.88, zorder=7.8)
-            one.plot(ax=ax, color=color, markersize=18, alpha=0.92, zorder=8)
-            handles.append(Line2D([0], [0], marker="o", color="none", markerfacecolor=color, markersize=4.8, label=label))
+            size = float(override.get("point_size", 18))
+            one.plot(ax=ax, color="white", markersize=size + 8, alpha=0.88, zorder=zorder - 0.2)
+            one.plot(ax=ax, color=fill_color, markersize=size, alpha=0.92, zorder=zorder)
+            handles.append(Line2D([0], [0], marker="o", color="none", markerfacecolor=fill_color, markersize=4.8, label=label))
     return handles
 
 
@@ -472,10 +479,12 @@ def source_layer_style_record(layer: dict[str, Any], index: int) -> dict[str, An
     marker = str(override.get("marker") or _source_marker(index))
     feature_count = _feature_count(layer.get("gdf"))
     marker_size = float(override.get("marker_size") or (12 if feature_count <= 50 else 10 if feature_count <= 200 else 8))
-    return {
+    style = {
         "source_id": source_id,
         "label": legend_label_for_layer(layer),
         "color": color,
+        "fill_color": color,
+        "stroke_color": color,
         "marker": marker,
         "line_width": float(override.get("line_width") or 0.52),
         "line_alpha": float(override.get("line_alpha") or 0.52),
@@ -490,6 +499,28 @@ def source_layer_style_record(layer: dict[str, Any], index: int) -> dict[str, An
         "point_alpha": float(override.get("point_alpha") or 0.68),
         "style_source": style_source,
     }
+    reviewer_override = layer.get("style_override") if isinstance(layer.get("style_override"), dict) else {}
+    if reviewer_override:
+        if reviewer_override.get("label"):
+            style["label"] = str(reviewer_override["label"])
+        if reviewer_override.get("fill_color"):
+            style["fill_color"] = str(reviewer_override["fill_color"])
+            style["color"] = str(reviewer_override["fill_color"])
+        if reviewer_override.get("stroke_color"):
+            style["stroke_color"] = str(reviewer_override["stroke_color"])
+            style["color"] = str(reviewer_override["stroke_color"])
+        if reviewer_override.get("fill_opacity") is not None:
+            style["polygon_alpha"] = float(reviewer_override["fill_opacity"])
+            style["point_alpha"] = float(reviewer_override["fill_opacity"])
+        if reviewer_override.get("stroke_width") is not None:
+            style["line_width"] = float(reviewer_override["stroke_width"])
+            style["polygon_line_width"] = float(reviewer_override["stroke_width"])
+        if reviewer_override.get("point_size") is not None:
+            style["marker_size"] = float(reviewer_override["point_size"])
+        if reviewer_override.get("z_index") is not None:
+            style["z_index"] = float(reviewer_override["z_index"])
+        style["style_source"] = "reviewer_style_override"
+    return style
 
 
 def legend_label_for_layer(layer: dict[str, Any]) -> str:
@@ -508,30 +539,33 @@ def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, style: dict[str, Any], is_proje
         return []
     handles: list[Any] = []
     color = str(style.get("color") or THEMATIC_FALLBACK_COLORS[0])
+    fill_color = str(style.get("fill_color") or color)
+    stroke_color = str(style.get("stroke_color") or color)
     label = str(style.get("label") or "Source layer")
     marker = str(style.get("marker") or "o")
+    zorder = float(style.get("z_index", 5 if is_project else 4))
     polygon_gdf = gdf[gdf.geometry.geom_type.str.contains("Polygon", na=False)]
     line_gdf = gdf[gdf.geometry.geom_type.str.contains("LineString", na=False)]
     point_gdf = gdf[gdf.geometry.geom_type.str.contains("Point", na=False)]
     if not polygon_gdf.empty:
         if is_project:
-            polygon_gdf.plot(ax=ax, facecolor="none", edgecolor=color, linewidth=1.15, zorder=5)
-            handles.append(Patch(facecolor="none", edgecolor=color, label=label))
+            polygon_gdf.plot(ax=ax, facecolor="none", edgecolor=stroke_color, linewidth=1.15, zorder=zorder)
+            handles.append(Patch(facecolor="none", edgecolor=stroke_color, label=label))
         else:
             polygon_gdf.plot(
                 ax=ax,
-                facecolor=color,
-                edgecolor=color,
+                facecolor=fill_color,
+                edgecolor=stroke_color,
                 linewidth=float(style.get("polygon_line_width", 0.35)),
                 alpha=float(style.get("polygon_alpha", 0.18)),
-                zorder=3,
+                zorder=zorder,
             )
-            handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.2, label=label))
+            handles.append(Patch(facecolor=fill_color, edgecolor=stroke_color, alpha=0.2, label=label))
     if not line_gdf.empty:
         width = 1.45 if is_project else float(style.get("line_width", 0.52))
         alpha = 0.9 if is_project else float(style.get("line_alpha", 0.52))
-        line_gdf.plot(ax=ax, color=color, linewidth=width, alpha=alpha, zorder=6 if is_project else 4)
-        handles.append(Line2D([0], [0], color=color, lw=width, label=label))
+        line_gdf.plot(ax=ax, color=stroke_color, linewidth=width, alpha=alpha, zorder=zorder)
+        handles.append(Line2D([0], [0], color=stroke_color, lw=width, label=label))
     if not point_gdf.empty:
         size = 26 if is_project else float(style.get("marker_size", 15))
         if not is_project:
@@ -546,12 +580,12 @@ def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, style: dict[str, Any], is_proje
         point_gdf.plot(
             ax=ax,
             marker=marker,
-            color=color,
-            edgecolor=str(style.get("marker_edge_color") or "#111827"),
+            color=fill_color,
+            edgecolor=stroke_color or str(style.get("marker_edge_color") or "#111827"),
             linewidth=float(style.get("marker_edge_width", 0.45)),
             markersize=size,
             alpha=0.9 if is_project else float(style.get("point_alpha", 0.74)),
-            zorder=7 if is_project else 5,
+            zorder=zorder,
         )
         handles.append(
             Line2D(
@@ -559,8 +593,8 @@ def _plot_gdf(ax: Any, gdf: gpd.GeoDataFrame, *, style: dict[str, Any], is_proje
                 [0],
                 marker=marker,
                 color="none",
-                markerfacecolor=color,
-                markeredgecolor=str(style.get("marker_edge_color") or "#111827"),
+                markerfacecolor=fill_color,
+                markeredgecolor=stroke_color or str(style.get("marker_edge_color") or "#111827"),
                 markeredgewidth=float(style.get("marker_edge_width", 0.45)),
                 markersize=4.8,
                 label=label,

@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked draft for review. Do not implement until the Sprint 6 plan is accepted and the current stabilization/code checkpoint is clean enough to build on.
+Accepted Sprint 6 implementation sequence. Sprints 6.1 through 6.5 are complete; Sprint 6.6 is the next active subunit.
 
 This file and the linked subunit files are root-level planning notes for human review. They intentionally follow the Sprint 5 root-doc convention.
 
@@ -328,11 +328,11 @@ Do not implement:
 
 ## Subunits
 
-- Sprint 6.1: [Existing Figure Flow Audit](SPRINT_6_1_EXISTING_FIGURE_FLOW_AUDIT.md)
-- Sprint 6.2: [Figure Recipe And Override Model](SPRINT_6_2_FIGURE_RECIPE_AND_OVERRIDE_MODEL.md)
-- Sprint 6.3: [Reviewer Figure Editor UI](SPRINT_6_3_REVIEWER_FIGURE_EDITOR_UI.md)
-- Sprint 6.4: [Style Override Save Logic](SPRINT_6_4_STYLE_OVERRIDE_SAVE_LOGIC.md)
-- Sprint 6.5: [Regeneration Job](SPRINT_6_5_REGENERATION_JOB.md)
+- Sprint 6.1: [Existing Figure Flow Audit](docs/archive/sprints/SPRINT_6_1_EXISTING_FIGURE_FLOW_AUDIT.md)
+- Sprint 6.2: [Figure Recipe And Override Model](docs/archive/sprints/SPRINT_6_2_FIGURE_RECIPE_AND_OVERRIDE_MODEL.md)
+- Sprint 6.3: [Reviewer Figure Editor UI](docs/archive/sprints/SPRINT_6_3_REVIEWER_FIGURE_EDITOR_UI.md)
+- Sprint 6.4: [Style Override Save Logic](docs/archive/sprints/SPRINT_6_4_STYLE_OVERRIDE_SAVE_LOGIC.md)
+- Sprint 6.5: [Regeneration Job](docs/archive/sprints/SPRINT_6_5_REGENERATION_JOB.md)
 - Sprint 6.6: [Figure Versioning And Approval](SPRINT_6_6_FIGURE_VERSIONING_AND_APPROVAL.md)
 - Sprint 6.7: [Export Integration](SPRINT_6_7_EXPORT_INTEGRATION.md)
 - Sprint 6.8: [QA And Scope-Control Pass](SPRINT_6_8_QA_AND_SCOPE_CONTROL_PASS.md)
