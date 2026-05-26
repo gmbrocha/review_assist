@@ -40,13 +40,29 @@ Canonical generated artifacts use nested project paths, including `source_status
 
 ## Directory Notes
 
-- `projects/`: active project workspaces.
+- `projects/`: active project workspaces. The local web UI defaults to this root unless `REVIEW_ASSIST_PROJECT_ROOT` is explicitly set.
 - `archive/`: general project archive for retained but inactive files.
 - `docs/archive/`: archive for superseded or historical documentation.
 - `outputs/`: generated outputs; ignored except for `.gitkeep`.
 - `sources/`: local bulk data warehouse for Mississippi-wide source downloads; bulk raw data is ignored by Git, while `source_warehouse_manifest.json` and per-source `source_manifest.json` files describe the expected stable layout. Raw source files are never sent directly to GPT.
 
+Note: a stale root-level `test_project/` workspace from an earlier mis-rooted local run was removed on 2026-05-26. New local test workspaces should be created under `projects/<project_id>/`.
+
 ## Local Setup
+
+### Python Environment Rule
+
+Review Assist uses the repo-local `.venv` as the only valid app environment. Global or system Python is not valid for checks, imports, tests, scripts, migrations, or app startup.
+
+On Windows/PowerShell, run Python through `.\\.venv\\Scripts\\python.exe`:
+
+```powershell
+.\\.venv\\Scripts\\python.exe -c "import sys; print(sys.executable)"
+.\\.venv\\Scripts\\python.exe -m pytest
+.\\.venv\\Scripts\\python.exe -m pip list
+```
+
+Dependency, import, or test failures must be reproduced with `.\\.venv\\Scripts\\python.exe` before being treated as real code failures. Verify `sys.executable` before reporting dependency problems. If `.venv` is missing or broken, stop and set up the repo-local environment instead of installing packages globally.
 
 Install the package and development dependencies into the local virtual environment:
 

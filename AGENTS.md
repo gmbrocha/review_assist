@@ -56,6 +56,19 @@ For each sprint subunit unless the user changes the protocol:
 
 Any behavior-changing code needs a documentation review. Update only the docs that own the affected subsystem; use `docs/domains/README.md` to route domain docs.
 
+## Python Environment Rule
+
+Review Assist uses the repo-local `.venv` as the only valid app environment. Global or system Python is not valid for checks, imports, tests, scripts, migrations, or app startup.
+
+On Windows/PowerShell, run Python through `.\\.venv\\Scripts\\python.exe`, for example:
+
+```powershell
+.\\.venv\\Scripts\\python.exe -c "import sys; print(sys.executable)"
+.\\.venv\\Scripts\\python.exe -m pytest
+```
+
+Dependency, import, or test failures must be reproduced with `.\\.venv\\Scripts\\python.exe` before being treated as real code failures. Verify `sys.executable` before reporting dependency problems. If `.venv` is missing or broken, stop and report that the repo-local environment needs setup instead of installing packages globally.
+
 Run relevant tests before committing code changes when the local environment is available. If tests cannot be run, state why and record residual risk.
 
 ## Post-Implementation Generated Artifact Rule

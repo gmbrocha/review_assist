@@ -39,7 +39,7 @@ The system is not a recommendation engine, final environmental review, regulator
 Implemented baseline:
 
 - CLI/service-oriented backend plus a local-first Sprint 4 Flask/Jinja web UI shell.
-- Project workspaces under `projects/<project_id>/`.
+- Project workspaces under `projects/<project_id>/`. The local web UI defaults to this workspace root unless `REVIEW_ASSIST_PROJECT_ROOT` is explicitly set. A stale root-level `test_project/` workspace from an earlier mis-rooted local run was removed on 2026-05-26; new local test projects should live under `projects/<project_id>/`.
 - Input package classification, KMZ/KML inspection, normalized project geometry artifacts, and project area artifacts.
 - Project context, comparison units, source status, source acquisition, local source materialization, source inventory, constraint analysis, findings, tables, vector-only maps, evidence packages, draft report sections, JSON review queue, Markdown/DOCX exports, demo/MVP package commands, populate-for-review orchestration.
 - Static Sprint 1.1 deliverable matrix and report prompt contract validation.
