@@ -32,6 +32,13 @@ PROCESS_LANGUAGE = [
     "reviewer verification",
     "reviewer focus",
     "related table status",
+    "evidence package",
+    "mapped-source evidence",
+    "bounded row",
+    "artifact limitations",
+    "related figure artifact",
+    "source refs",
+    "render decision",
 ]
 
 
@@ -168,7 +175,7 @@ def test_deliverable_items_write_matrix_contract_and_dynamic_children(
     assert pel["manual_material"]["material_type"] == "manual_text"
     assert pel["manual_material"]["material_status"] == "manual_required"
     assert pel["manual_material"]["export_behavior"] == "body_replacement_when_reviewed"
-    assert "Render decision: needs_reviewer_decision." in pel["generated_content"]
+    assert "needs reviewer attention" in pel["generated_content"]
 
     floodplains = item_by_id(result, "floodplains-and-floodways")
     assert floodplains["policy_comparison_unit_expansion"] == "conditional"
@@ -200,7 +207,7 @@ def test_deliverable_items_preserve_table_figure_attachment_refs_and_stubs(
     assert table["is_stub"] is True
     assert table["stub_text"] == REQUIRED_STUB_TEXT
     assert "explicit source/data stub" in table["generated_content"]
-    assert "Expected source refs" in table["generated_content"]
+    assert "Expected sources" in table["generated_content"]
     assert figure["review_item_type"] == "figure"
     assert figure["figure_id"] == "figure-wetlands-waterbodies"
     assert figure["is_stub"] is True
@@ -455,7 +462,7 @@ def test_source_backed_wetlands_section_candidate_is_report_style_prose() -> Non
     assert "U.S. Fish and Wildlife Service National Wetlands Inventory" in content
     assert "Table 1" in content
     assert "Figure 1" in content
-    assert "Table 1" in content and "2 bounded row(s)" in content
+    assert "Table 1" in content and "2 screening row(s)" in content
     assert "NWI and hydrography data are suitable for early screening" in content
     assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
     assert "Empty stub" not in content
@@ -509,7 +516,7 @@ def test_source_backed_floodplains_candidate_uses_fema_table_and_figure_support(
     assert "FEMA National Flood Hazard Layer" in content
     assert "Table 2" in content
     assert "Figure 2" in content
-    assert "3 bounded row(s)" in content
+    assert "3 screening row(s)" in content
     assert "FEMA NFHL/DFIRM flood hazard data support screening-level review only" in content
     assert "do not replace official floodplain administration" in content
     assert "Policy keeps this topic in table/figure artifacts" not in content
@@ -535,7 +542,7 @@ def test_dynamic_wetlands_comparison_unit_candidate_mentions_unit_and_remains_co
 
     lowered = content.lower()
     assert "Alternative B" in content
-    assert "comparison unit Alternative B" in content
+    assert "focuses on Alternative B" in content
     assert "U.S. Fish and Wildlife Service National Wetlands Inventory" in content
     assert all(phrase not in lowered for phrase in PROCESS_LANGUAGE)
     assert len(content) < 1400
@@ -582,7 +589,7 @@ def test_broad_source_backed_section_prefers_available_evidence_and_limitations(
     assert "EPA Facility Registry Service facilities" in content
     assert "MARIS brownfields" in content
     assert "Mississippi Oil and Gas Board wells" in content
-    assert "1 compact source-backed mapped relationship" in content
+    assert "Desktop screening identified 1 mapped relationship" in content
     assert "Unavailable or deferred source categories remain limitations" in content
     assert "hazardous_materials_report=manual" in content
     assert "do not establish contamination extent" in content
@@ -674,7 +681,8 @@ def test_section_content_excludes_raw_rows_coordinates_geojson_and_source_paths(
     assert "geojson" not in serialized
     assert "featurecollection" not in serialized
     assert "raw.shp" not in serialized
-    assert "sources" not in serialized
+    assert "sources\\" not in serialized
+    assert "sources/" not in serialized
 
 
 def test_generated_table_candidate_summarizes_rows_without_dumping_raw_rows(tmp_path: Path) -> None:
@@ -706,9 +714,9 @@ def test_generated_table_candidate_summarizes_rows_without_dumping_raw_rows(tmp_
 
     item = _table_item(target, {"output_path": "deliverable/tables.json", "tables": [table]}, "test", tmp_path / "deliverable_items.json")
 
-    assert "7 bounded row(s)" in item["generated_content"]
+    assert "7 screening row(s)" in item["generated_content"]
     assert "Body preview is limited to 5 row(s)" in item["generated_content"]
-    assert "usfws_nwi_wetlands" in item["generated_content"]
+    assert "U.S. Fish and Wildlife Service National Wetlands Inventory" in item["generated_content"]
     assert "Alternative 7" not in item["generated_content"]
     assert item["assumptions"]["table_policy"]["table_id"] == target.target_id
     assert item["assumptions"]["max_body_preview_rows"] == 5

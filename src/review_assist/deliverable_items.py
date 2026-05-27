@@ -1575,18 +1575,18 @@ def _render_policy_status_content(
     validation_issues: list[dict[str, Any]],
 ) -> str:
     lines = [_title_line(target)]
-    lines.append(f"Render decision: {render_policy['render_decision']}.")
-    lines.append(str(render_policy.get("render_decision_reason") or "Policy requires reviewer attention before report-body rendering."))
+    lines.append("This item needs reviewer attention before it can appear as normal report-body text.")
+    lines.append(str(render_policy.get("render_decision_reason") or "Current policy requires reviewer attention before report-body rendering."))
     if source_gap_status:
         lines.append("Current source status: " + _source_gap_summary(source_gap_status) + ".")
     if related_tables:
-        lines.append("Related table artifact(s): " + _artifact_stub_summary(related_tables, "table_id") + ".")
+        lines.append("Related table support: " + _artifact_stub_summary(related_tables, "table_id") + ".")
     if related_figures:
-        lines.append("Related figure artifact(s): " + _artifact_stub_summary(related_figures, "figure_id") + ".")
+        lines.append("Related figure support: " + _artifact_stub_summary(related_figures, "figure_id") + ".")
     reason = _issue_summary(validation_issues)
     if reason:
         lines.append("Review issue summary: " + reason + ".")
-    lines.append("A reviewer may provide edited or replacement content when this section should appear in the reviewed report body.")
+    lines.append("Provide reviewer-approved edited or replacement content if this item should appear in the reviewed report body.")
     lines.append("This policy status text does not rank alternatives or make determinations.")
     return "\n".join(line for line in lines if line)
 
@@ -1653,9 +1653,9 @@ def _stub_table_content(target: TableTarget, table: dict[str, Any]) -> str:
     source_refs = _string_list(table.get("source_refs", []))
     flags = _string_list(table.get("uncertainty_flags", []))
     lines = [str(table.get("title") or target.title)]
-    lines.append("This required deliverable table is an explicit source/data stub because no bounded table rows could be generated from the currently registered sources.")
+    lines.append("This required deliverable table is an explicit source/data stub because no table rows could be generated from the currently registered sources.")
     if source_refs:
-        lines.append("Expected source refs: " + ", ".join(source_refs) + ".")
+        lines.append("Expected sources: " + ", ".join(_source_display_name(ref) for ref in source_refs) + ".")
     if flags:
         lines.append("Source/data flags: " + ", ".join(flags) + ".")
     lines.append(_stub_reviewer_action(target.source_categories, source_refs))
@@ -1670,20 +1670,20 @@ def _generated_table_content(target: TableTarget, table: dict[str, Any]) -> str:
     rows_preview = _dict_list(table.get("rows", []))[:preview_limit]
     columns = _string_list(table.get("columns", []))
     lines = [str(table.get("title") or target.title)]
-    lines.append(f"This table summarizes {row_count} bounded row(s) from the available screening artifacts.")
+    lines.append(f"This table summarizes {row_count} screening row(s) from the available source data.")
     if columns:
         lines.append("Columns: " + ", ".join(columns[:8]) + ".")
     source_refs = _string_list(table.get("source_refs", []))
     if source_refs:
-        lines.append("Source refs: " + ", ".join(source_refs) + ".")
+        lines.append("Sources: " + ", ".join(_source_display_name(ref) for ref in source_refs) + ".")
     comparison_unit_ids = _string_list(table.get("comparison_unit_ids", []))
     if comparison_unit_ids:
         lines.append("Comparison units represented: " + _limited_join(comparison_unit_ids, limit=6) + ".")
     if rows_preview:
         lines.append(
-            f"Body preview is limited to {len(rows_preview)} row(s); full bounded table rows remain in deliverable/tables.json."
+            f"Body preview is limited to {len(rows_preview)} row(s); the complete table remains available in the project table output."
         )
-    lines.append("Source attribution, row classifications, and caveats are recorded in the table artifact.")
+    lines.append("Source attribution, row classifications, and caveats remain available for reviewer audit.")
     lines.append("This table summary does not rank alternatives or make determinations.")
     return "\n".join(lines)
 
@@ -1711,7 +1711,7 @@ def _stub_figure_content(target: FigureTarget, figure: dict[str, Any]) -> str:
     lines = [str(figure.get("title") or target.title)]
     lines.append("This required deliverable figure could not be generated because the source layer or rendering path is not available.")
     if source_refs:
-        lines.append("Expected source refs: " + ", ".join(source_refs) + ".")
+        lines.append("Expected sources: " + ", ".join(_source_display_name(ref) for ref in source_refs) + ".")
     reason = _issue_summary(issues)
     if reason:
         lines.append("Blocking issue summary: " + reason + ".")
@@ -1734,7 +1734,7 @@ def _generated_figure_content(target: FigureTarget, figure: dict[str, Any]) -> s
         lines.append("Caption: " + caption)
     source_refs = _string_list(figure.get("source_refs", []))
     if source_refs:
-        lines.append("Source refs: " + ", ".join(source_refs) + ".")
+        lines.append("Sources: " + ", ".join(_source_display_name(ref) for ref in source_refs) + ".")
     if source_note:
         lines.append("Source note: " + source_note)
     if method_note:
@@ -1794,7 +1794,7 @@ def _source_refs_from_status(source_gap_status: list[dict[str, Any]]) -> list[st
 def _artifact_stub_summary(records: list[dict[str, Any]], id_field: str) -> str:
     parts = []
     for record in records:
-        artifact_id = str(record.get(id_field, "artifact"))
+        label = _artifact_label(record, id_field, "Table" if id_field == "table_id" else "Figure")
         if record.get("is_stub"):
             status = "stub"
         elif id_field == "table_id":
@@ -1803,7 +1803,7 @@ def _artifact_stub_summary(records: list[dict[str, Any]], id_field: str) -> str:
             status = "generated image" if record.get("image_path") else "generated"
         else:
             status = "generated"
-        parts.append(f"{artifact_id}={status}")
+        parts.append(f"{label}: {status}")
     return ", ".join(parts)
 
 
@@ -1916,7 +1916,7 @@ def _umbrella_section_content(
     if child_labels:
         lines.append("The relevant subsections address " + _limited_join(child_labels, limit=8) + " where applicable.")
     lines.append(
-        "Subsections summarize available screening evidence, and supporting tables, figures, and Appendix A maps are provided where current artifacts support them."
+        "Subsections summarize available screening evidence, and supporting tables, figures, and Appendix A maps are provided where current source outputs support them."
     )
     if _umbrella_artifact_status_sentence(related_tables, related_figures):
         lines.append(_umbrella_artifact_status_sentence(related_tables, related_figures))
@@ -1945,10 +1945,10 @@ def _umbrella_artifact_status_sentence(related_tables: list[dict[str, Any]], rel
         figure_word = "figure" if len(generated_figures) == 1 else "figures"
         parts.append(f"{len(generated_figures)} generated {figure_word}")
     if stubbed_tables or stubbed_figures:
-        parts.append(f"{len(stubbed_tables) + len(stubbed_figures)} stubbed support artifact(s)")
+        parts.append(f"{len(stubbed_tables) + len(stubbed_figures)} stubbed support item(s)")
     if not parts:
         return ""
-    return "Current support artifacts include " + ", ".join(parts) + "; detailed artifact status remains on the specific review items."
+    return "Current support outputs include " + ", ".join(parts) + "; detailed status remains on the specific review items."
 
 
 def _section_lead_sentence(target: SectionTarget, comparison_unit: dict[str, Any] | None, extent_metadata: dict[str, Any] | None = None) -> str:
@@ -1984,7 +1984,7 @@ def _source_reference_sentence(source_refs: list[str]) -> str:
     narrative_refs = [ref for ref in _dedupe(source_refs) if not _context_only_source_ref(ref)]
     if not narrative_refs:
         return ""
-    return "Mapped-source evidence for this section comes from " + _limited_join([_source_display_name(ref) for ref in narrative_refs], limit=6) + "."
+    return "Available desktop screening sources for this section include " + _limited_join([_source_display_name(ref) for ref in narrative_refs], limit=6) + "."
 
 
 def _context_only_source_ref(source_ref: str) -> bool:
@@ -1999,8 +1999,6 @@ def _artifact_label(record: dict[str, Any], id_field: str, kind: str) -> str:
     title = str(record.get("title", "")).strip()
     if number:
         label = f"{kind} {number}"
-    elif artifact_id:
-        label = f"{kind} {artifact_id}"
     else:
         label = kind
     if title and title != label:
@@ -2026,7 +2024,7 @@ def _artifact_reference_sentence(related_tables: list[dict[str, Any]], related_f
 def _constraint_summary_sentence(evidence: dict[str, Any], comparison_unit: dict[str, Any] | None, extent_metadata: dict[str, Any] | None = None) -> str:
     constraints = _dict_list(evidence.get("constraint_summaries", []))
     if not constraints:
-        return "The current evidence package does not include a compact mapped-overlap summary for this section."
+        return "The current screening summary does not identify mapped-overlap relationships for this section."
     unit_name = str((comparison_unit or {}).get("comparison_unit_name") or "").strip()
     if not unit_name:
         names = [str(item.get("comparison_unit_name", "")).strip() for item in constraints if item.get("comparison_unit_name")]
@@ -2036,8 +2034,8 @@ def _constraint_summary_sentence(evidence: dict[str, Any], comparison_unit: dict
     relationships = _relationship_counts(constraints)
     relationship_word = "relationship" if len(constraints) == 1 else "relationships"
     if relationships:
-        return f"The evidence package includes {len(constraints)} compact source-backed mapped {relationship_word}{unit_phrase}: {relationships}."
-    return f"The evidence package includes {len(constraints)} compact source-backed mapped {relationship_word}{unit_phrase}."
+        return f"Desktop screening identified {len(constraints)} mapped {relationship_word}{unit_phrase}: {relationships}."
+    return f"Desktop screening identified {len(constraints)} mapped {relationship_word}{unit_phrase}."
 
 
 def _relationship_counts(constraints: list[dict[str, Any]]) -> str:
@@ -2057,7 +2055,7 @@ def _table_row_sentence(related_tables: list[dict[str, Any]]) -> str:
     for table in generated[:3]:
         label = _artifact_label(table, "table_id", "Table")
         row_count = int(table.get("row_count") or 0)
-        parts.append(f"{label} contains {row_count} bounded row(s)")
+        parts.append(f"{label} summarizes {row_count} screening row(s)")
     return "; ".join(parts) + "."
 
 
@@ -2065,16 +2063,16 @@ def _comparison_unit_sentence(evidence: dict[str, Any], comparison_unit: dict[st
     if comparison_unit:
         unit_id = str(comparison_unit.get("comparison_unit_id", "")).strip()
         unit_name = str(comparison_unit.get("comparison_unit_name", "")).strip() or unit_id
-        return f"This subsection addresses comparison unit {unit_name}."
+        return f"This subsection focuses on {unit_name}."
     summaries = _dict_list(evidence.get("comparison_unit_summaries", []))
     unit_names = _dedupe([str(item.get("comparison_unit_name", "")).strip() for item in summaries if item.get("comparison_unit_name")])
     if unit_names:
-        return "The summarized evidence is organized for " + _limited_join(unit_names, limit=6) + "."
+        return "The comparison discussion is organized for " + _limited_join(unit_names, limit=6) + "."
     unit_ids = _dedupe([*_string_list(evidence.get("comparison_unit_ids", [])), *[str(item.get("comparison_unit_id")) for item in summaries if item.get("comparison_unit_id")]])
     if not unit_ids:
         return ""
     unit_word = "comparison unit" if len(unit_ids) == 1 else "comparison units"
-    return f"The summarized evidence is organized by {len(unit_ids)} {unit_word}."
+    return f"The comparison discussion covers {len(unit_ids)} {unit_word}."
 
 
 def _source_limitation_sentence(
@@ -2122,7 +2120,7 @@ def _source_limitation_sentence(
         ]
     )
     if artifact_issues:
-        limitations.append("Artifact limitations include: " + artifact_issues + ".")
+        limitations.append("Current table or figure limitations include: " + artifact_issues + ".")
     return " ".join(_dedupe(limitations))
 
 

@@ -1527,6 +1527,7 @@ def _markdown_report(
         lines.extend(
             [
                 "> INTERNAL PREVIEW EXPORT: this file includes draft or unaccepted review queue items and is not ready for external use.",
+                f"> Preview status: {len(included)} items are shown for inspection; {_queue_unreviewed_count(queue)} review queue item(s) still require reviewer action before reviewed export.",
                 "",
             ]
         )
@@ -1539,7 +1540,7 @@ def _markdown_report(
         )
     if validation_issues:
         lines.append("## Export Caveats")
-        lines.extend(f"- {issue.get('code')}: {issue.get('message')}" for issue in validation_issues)
+        lines.extend(f"- {issue.get('message') or issue.get('code')}" for issue in validation_issues)
         lines.append("")
     lines.extend(_markdown_data_lineage(data_lineage))
     if not included:
@@ -1577,7 +1578,6 @@ def _markdown_report(
                 all_included_items=included,
             )
         )
-    lines.extend(_markdown_package_contents(queue, figure_assets=figure_assets))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -1624,14 +1624,10 @@ def _markdown_item(
         lines.extend(_markdown_embedded_figure(item))
     if item.get("type") in {"comparison_table", "table"}:
         details = []
-        if item.get("table_id"):
-            details.append(f"table id `{item['table_id']}`")
         if item.get("row_count") is not None:
             details.append(f"{item['row_count']} row(s)")
-        if item.get("artifact_path"):
-            details.append(f"artifact `{item['artifact_path']}`")
         if details:
-            lines.extend([f"Table reference: {', '.join(details)}.", ""])
+            lines.extend([f"Table summary: {', '.join(details)} are available for reviewer inspection.", ""])
     if not _is_front_matter_item(item):
         visual_slots = _string_list(item.get("visual_slots", []))
         related_figures = _string_list(item.get("related_figure_ids", []))
@@ -1643,10 +1639,9 @@ def _markdown_item(
         missing_tables = table_slots if table_slots and not related_tables else []
         if missing_tables:
             lines.extend(["Table needed:", *[f"- {slot}" for slot in missing_tables], ""])
-    if item.get("source_refs"):
-        lines.extend([f"Source refs: {', '.join(item['source_refs'])}.", ""])
     if item.get("uncertainty_flags"):
-        lines.extend([f"Uncertainty flags: {', '.join(item['uncertainty_flags'])}.", ""])
+        limitations = [_reviewer_flag_label(flag) for flag in _string_list(item.get("uncertainty_flags", []))]
+        lines.extend(["Review limitations: " + ", ".join(limitations) + ".", ""])
     return lines
 
 
@@ -1663,21 +1658,27 @@ def _markdown_inline_evidence(
     lines: list[str] = []
     for table_id in _string_list(item.get("related_table_ids", [])):
         if table_id not in included_table_ids:
-            lines.extend([f"Table placeholder: referenced table `{table_id}` was not included in this export.", ""])
+            lines.extend(["Table placeholder: a referenced support table was not included in this export.", ""])
             continue
         table = table_lookup.get(table_id)
         if table is None:
-            lines.extend([f"Table placeholder: source table artifact was not available for `{table_id}`.", ""])
+            lines.extend(["Table placeholder: a referenced support table was not available for export.", ""])
+            continue
+        if table_id in rendered_table_ids:
+            lines.extend([f"Table reference: {_support_artifact_label(table, 'table_id', 'Table')} is provided above.", ""])
             continue
         lines.extend(_markdown_embedded_table(table))
         rendered_table_ids.add(table_id)
     for figure_id in _string_list(item.get("related_figure_ids", [])):
         if figure_id not in included_figure_ids:
-            lines.extend([f"Figure placeholder: referenced figure `{figure_id}` was not included in this export.", ""])
+            lines.extend(["Figure placeholder: a referenced support figure was not included in this export.", ""])
             continue
         figure = figure_lookup.get(figure_id)
         if figure is None:
-            lines.extend([f"Figure placeholder: source figure artifact was not available for `{figure_id}`.", ""])
+            lines.extend(["Figure placeholder: a referenced support figure was not available for export.", ""])
+            continue
+        if figure_id in rendered_figure_ids:
+            lines.extend([f"Figure reference: {_support_artifact_label(figure, 'figure_id', 'Figure')} is provided above.", ""])
             continue
         lines.extend(_markdown_embedded_figure(figure))
         rendered_figure_ids.add(figure_id)
@@ -1693,7 +1694,7 @@ def _markdown_embedded_table(table: dict[str, Any]) -> list[str]:
     total_rows = row_count if row_count is not None else len(rows)
     if not columns:
         columns = sorted({str(key) for row in rows for key in row})
-    lines = [f"Table: {title} (`{table_id}`)", ""]
+    lines = [f"Table: {_support_artifact_label(table, 'table_id', 'Table')}", ""]
     if not columns:
         lines.extend(["Table placeholder: no columns were available for this table.", ""])
         return lines
@@ -1716,7 +1717,7 @@ def _markdown_embedded_figure(figure: dict[str, Any]) -> list[str]:
     title = str(figure.get("title") or figure_id)
     image_path = _markdown_figure_path(figure)
     if image_path:
-        lines = [f"Figure: {title} (`{figure_id}`)", "", f"![{_markdown_alt_text(title)}]({image_path})", "", f"Map file: `{image_path}`", ""]
+        lines = [f"Figure: {_support_artifact_label(figure, 'figure_id', 'Figure')}", "", f"![{_markdown_alt_text(title)}]({image_path})", ""]
         caption = str(figure.get("caption") or "").strip()
         source_note = str(figure.get("source_note") or "").strip()
         method_note = str(figure.get("method_note") or "").strip()
@@ -1727,7 +1728,29 @@ def _markdown_embedded_figure(figure: dict[str, Any]) -> list[str]:
         if method_note:
             lines.extend([f"Method note: {method_note}", ""])
         return lines
-    return [f"Figure placeholder: source figure artifact had no image path for `{figure_id}`.", ""]
+    return ["Figure placeholder: the selected figure image was not available for export.", ""]
+
+
+def _support_artifact_label(record: dict[str, Any], id_field: str, kind: str) -> str:
+    number_field = "table_number" if id_field == "table_id" else "figure_number"
+    number = record.get(number_field)
+    title = str(record.get("title") or "").strip()
+    if number:
+        prefix = f"{kind} {number}"
+        return f"{prefix}. {title}" if title else prefix
+    return title or f"the referenced {kind.lower()}"
+
+
+def _reviewer_flag_label(flag: str) -> str:
+    return flag.replace("_", " ").replace("-", " ")
+
+
+def _queue_unreviewed_count(queue: dict[str, Any]) -> int:
+    return sum(
+        1
+        for item in _dict_list(queue.get("items", []))
+        if str(item.get("status") or "") not in TERMINAL_REVIEW_STATUSES | GATE_INCLUDED_NONTERMINAL_STATUSES
+    )
 
 
 def _markdown_figure_path(figure: dict[str, Any]) -> str:
@@ -1901,7 +1924,7 @@ def _write_docx_report(
     if validation_issues:
         document.add_heading("Export Caveats", level=1)
         for issue in validation_issues:
-            document.add_paragraph(f"{issue.get('code')}: {issue.get('message')}", style="List Bullet")
+            document.add_paragraph(str(issue.get("message") or issue.get("code")), style="List Bullet")
 
     _add_docx_data_lineage(document, data_lineage)
 
@@ -1937,7 +1960,6 @@ def _write_docx_report(
                 all_included_items=included,
             )
 
-    _add_docx_package_contents(document, queue, output_paths, figure_assets=figure_assets)
     docx_path.parent.mkdir(parents=True, exist_ok=True)
     document.save(docx_path)
 
@@ -2103,6 +2125,9 @@ def _add_docx_title_page(document: Any, project_dir: Path, queue: dict[str, Any]
         document.add_paragraph(
             "This package includes draft or unaccepted review queue items. It is for internal preview only and is not ready for external use."
         )
+        document.add_paragraph(
+            f"Preview status: {_queue_unreviewed_count(queue)} review queue item(s) still require reviewer action before reviewed export."
+        )
     else:
         document.add_paragraph(
             "Reviewed-content export: this package includes only accepted, edited, or explicitly export-eligible reviewed items."
@@ -2201,10 +2226,12 @@ def _add_docx_item(
         if not _is_front_matter_item(item):
             _add_docx_missing_slots(document, item)
 
-    if item.get("source_refs"):
-        document.add_paragraph(f"Source refs: {', '.join(_string_list(item.get('source_refs', [])))}.")
     if item.get("uncertainty_flags"):
-        document.add_paragraph(f"Uncertainty flags: {', '.join(_string_list(item.get('uncertainty_flags', [])))}.")
+        document.add_paragraph(
+            "Review limitations: "
+            + ", ".join(_reviewer_flag_label(flag) for flag in _string_list(item.get("uncertainty_flags", [])))
+            + "."
+        )
 
 
 def _add_docx_inline_evidence(
@@ -2222,23 +2249,29 @@ def _add_docx_inline_evidence(
 ) -> None:
     for table_id in _string_list(item.get("related_table_ids", [])):
         if table_id not in included_table_ids:
-            document.add_paragraph(f"Table placeholder: referenced table '{table_id}' was not included in this export.")
+            document.add_paragraph("Table placeholder: a referenced support table was not included in this export.")
             continue
         table = table_lookup.get(table_id)
         if table is None:
-            document.add_paragraph(f"Table placeholder: source table artifact was not available for table id '{table_id}'.")
+            document.add_paragraph("Table placeholder: a referenced support table was not available for export.")
+            continue
+        if table_id in rendered_table_ids:
+            document.add_paragraph(f"Table reference: {_support_artifact_label(table, 'table_id', 'Table')} is provided above.")
             continue
         _add_docx_comparison_table(document, {"table_id": table_id}, table_lookup)
         rendered_table_ids.add(table_id)
     for figure_id in _string_list(item.get("related_figure_ids", [])):
         if figure_id not in included_figure_ids:
-            document.add_paragraph(f"Figure placeholder: referenced figure '{figure_id}' was not included in this export.")
+            document.add_paragraph("Figure placeholder: a referenced support figure was not included in this export.")
             continue
         figure = figure_lookup.get(figure_id)
         if figure is None:
-            document.add_paragraph(f"Figure placeholder: source figure artifact was not available for figure id '{figure_id}'.")
+            document.add_paragraph("Figure placeholder: a referenced support figure was not available for export.")
             continue
-        document.add_paragraph(f"Figure: {figure.get('title') or figure_id} ({figure_id})", style="Caption")
+        if figure_id in rendered_figure_ids:
+            document.add_paragraph(f"Figure reference: {_support_artifact_label(figure, 'figure_id', 'Figure')} is provided above.")
+            continue
+        document.add_paragraph(f"Figure: {_support_artifact_label(figure, 'figure_id', 'Figure')}", style="Caption")
         _add_docx_map_figure(document, figure, project_dir, image_width)
         rendered_figure_ids.add(figure_id)
 
@@ -2316,11 +2349,10 @@ def _add_docx_comparison_table(
     table_id = str(item.get("table_id") or "")
     source_table = table_lookup.get(table_id)
     if source_table is None:
-        document.add_paragraph(f"Table placeholder: source table artifact was not available for table id '{table_id}'.")
+        document.add_paragraph("Table placeholder: a referenced support table was not available for export.")
         return
 
-    title = str(source_table.get("title") or table_id)
-    document.add_paragraph(f"Table: {title} ({table_id})", style="Caption")
+    document.add_paragraph(f"Table: {_support_artifact_label(source_table, 'table_id', 'Table')}", style="Caption")
     columns = _string_list(source_table.get("columns", []))
     rows = _dict_list(source_table.get("rows", []))
     row_count = _optional_int(source_table.get("row_count"))
@@ -2359,16 +2391,15 @@ def _add_docx_map_figure(document: Any, item: dict[str, Any], project_dir: Path,
     if not image_path.is_absolute():
         image_path = project_dir / image_path
     if not image_path.exists():
-        document.add_paragraph(f"Figure placeholder: figure file was not available at {image_path}.")
+        document.add_paragraph("Figure placeholder: the selected figure image was not available for export.")
         _add_docx_figure_notes(document, item)
         return
     try:
         document.add_picture(str(image_path), width=image_width)
     except Exception as exc:  # pragma: no cover - image backend errors vary by file.
-        document.add_paragraph(f"Figure placeholder: figure could not be embedded from {image_path}: {exc}.")
+        document.add_paragraph(f"Figure placeholder: the selected figure image could not be embedded: {exc}.")
         _add_docx_figure_notes(document, item)
         return
-    document.add_paragraph(f"Figure file: {image_path}")
     _add_docx_figure_notes(document, item)
 
 

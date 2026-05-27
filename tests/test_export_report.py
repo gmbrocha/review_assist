@@ -46,14 +46,18 @@ def kmz_bytes(kml: bytes) -> bytes:
     return buffer.getvalue()
 
 
-def write_project(tmp_path: Path) -> Path:
+def write_project(tmp_path: Path, *, alternatives: int = 1) -> Path:
     project_dir = tmp_path / "project"
     (project_dir / "config").mkdir(parents=True)
     (project_dir / "inputs").mkdir()
+    placemarks = "\n".join(
+        f"""
+        <Placemark><name>Route {chr(65 + index)}</name><LineString><coordinates>-90.0000,{32.0000 + index * 0.0020:.4f},0 -89.9900,{32.0000 + index * 0.0020:.4f},0</coordinates></LineString></Placemark>
+        """
+        for index in range(alternatives)
+    )
     kml = kml_document(
-        """
-        <Placemark><name>Route A</name><LineString><coordinates>-90.0000,32.0000,0 -89.9900,32.0000,0</coordinates></LineString></Placemark>
-        """
+        placemarks
     )
     (project_dir / "inputs" / "routes.kmz").write_bytes(kmz_bytes(kml))
     (project_dir / "config" / "project.json").write_text(
@@ -764,8 +768,9 @@ def test_reviewed_export_uses_approved_style_version_and_records_metadata(tmp_pa
     assert Path(asset["source_image_path"]) == approved_path
     assert asset["selected_figure_version_id"] == "figure-wetlands-waterbodies:v2"
     assert asset["export_asset_path"] == "assets/figures/figure-wetlands-waterbodies.png"
-    assert "Map file: `assets/figures/figure-wetlands-waterbodies.png`" in markdown
-    assert "figure-wetlands-waterbodies.png" in docx
+    assert "Map file:" not in markdown
+    assert "![Wetlands and Waterbodies" in markdown
+    assert "figure-wetlands-waterbodies.png" not in docx
     assert exported["caption"] == "Reviewed wetlands and waterbodies caption."
 
 
@@ -850,7 +855,8 @@ def test_export_figure_uses_replacement_image_and_edited_caption(tmp_path: Path)
     assert Path(asset["source_image_path"]) == replacement_path
     assert asset["export_asset_path"] == "assets/figures/figure-wetlands-waterbodies.png"
     assert "Caption: Replacement wetlands figure caption." in markdown
-    assert "Map file: `assets/figures/figure-wetlands-waterbodies.png`" in markdown
+    assert "Map file:" not in markdown
+    assert "![Wetlands and Waterbodies" in markdown
     assert "Internal reviewer note only" not in markdown
 
 
@@ -1154,6 +1160,13 @@ def test_export_preview_includes_drafts_and_marks_markdown(tmp_path: Path) -> No
     assert manifest["included_count"] > 0
     assert "study-area" in included_ids(manifest)
     assert "INTERNAL PREVIEW EXPORT" in markdown
+    assert "Preview status:" in markdown
+    assert "Generated Package Contents" not in markdown
+    assert str(project_dir) not in markdown
+    assert "review_queue.json" not in markdown
+    assert "evidence_package.json" not in markdown
+    assert "Source refs:" not in markdown
+    assert "Uncertainty flags:" not in markdown
 
 
 def test_export_docx_preview_includes_drafts_and_marks_output(tmp_path: Path) -> None:
@@ -1174,7 +1187,8 @@ def test_export_docx_preview_includes_drafts_and_marks_output(tmp_path: Path) ->
     assert manifest["data_lineage"]["counts"]["missing_stub"] > 0
     assert any(issue["code"] == "no_real_source_layers" for issue in manifest["validation_issues"])
     assert "Study Area" in text
-    assert "Generated Package Contents" in text
+    assert "Generated Package Contents" not in text
+    assert "Preview status:" in text
 
 
 def test_export_strips_duplicate_report_section_headings(tmp_path: Path) -> None:
@@ -1273,7 +1287,7 @@ def test_docx_export_embeds_table_content_and_missing_figure_placeholder(tmp_pat
 
     assert "Descriptions of Wetlands and Waterbodies Present within the Project Area" in text
     assert "Table placeholder: this table currently has no rows." in text
-    assert "Figure placeholder: figure file was not available" in text
+    assert "Figure placeholder: the selected figure image was not available for export." in text
     assert any(issue["code"] == "missing_export_figure_asset" for issue in manifest["validation_issues"])
     assert manifest["mvp_quality"]["missing_figure_asset_warning_count"] >= 1
 
@@ -1304,8 +1318,9 @@ def test_export_with_nwi_backed_constraints_includes_accepted_findings_tables_an
     assert "table-wetlands-waterbodies" in included_ids(manifest)
     assert map_id in included_ids(manifest)
     assert manifest["data_lineage"]["counts"]["test_or_mock"] > 0
-    assert "table-wetlands-waterbodies" in markdown
-    assert "Map file:" in markdown
+    assert "table-wetlands-waterbodies" not in markdown
+    assert "Map file:" not in markdown
+    assert "Figure: Wetlands and Waterbodies" in markdown
     assert "Caption:" in markdown
     assert "Source note:" in markdown
     assert manifest["export_figure_assets"]
@@ -1338,13 +1353,14 @@ def test_docx_export_with_nwi_backed_constraints_includes_accepted_evidence(
     assert finding_id in included_ids(manifest)
     assert "Wetlands and Waterbodies" in text
     assert "Descriptions of Wetlands and Waterbodies" in text
-    assert "Figure file:" in text
+    assert "Figure file:" not in text
+    assert "Figure: Wetlands and Waterbodies" in text
     assert "Caption:" in text
     assert "Source note:" in text
     assert manifest["mvp_quality"]["inline_rendered_table_count"] > 0
     assert manifest["mvp_quality"]["inline_rendered_figure_count"] > 0
     assert manifest["mvp_quality"]["copied_figure_asset_count"] == 1
-    assert text.count("Figure file:") == 1
+    assert text.count("Figure: Wetlands and Waterbodies") == 1
 
 
 def test_report_sections_render_related_table_and_figure_inline_without_standalone_duplicates(
@@ -1369,11 +1385,42 @@ def test_report_sections_render_related_table_and_figure_inline_without_standalo
     text = docx_text(manifest["docx_path"])
 
     assert "Table: Descriptions of Wetlands and Waterbodies" in text
-    assert "Figure file:" in text
+    assert "Figure file:" not in text
+    assert "Figure: Wetlands and Waterbodies" in text
     assert "Generated deliverable figure" not in text
     assert manifest["mvp_quality"]["inline_rendered_table_ids"] == ["table-wetlands-waterbodies"]
     assert manifest["mvp_quality"]["inline_rendered_figure_count"] == 1
     assert manifest["mvp_quality"]["copied_figure_asset_ids"] == ["figure-wetlands-waterbodies"]
+
+
+def test_repeated_wetlands_child_sections_reference_shared_support_without_duplicate_embeds(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = write_project(tmp_path, alternatives=5)
+    monkeypatch.setattr(source_acquisition, "_fetch_json", fake_nwi_fetch)
+    populate_for_review(project_dir, prepare_sources=True)
+    reviewed_items = {
+        "wetlands-and-waterbodies": "accepted",
+        "table-wetlands-waterbodies": "accepted",
+        "figure-wetlands-waterbodies": "accepted",
+        **{f"wetlands-waterbodies-comparison-unit-{index:05d}": "accepted" for index in range(1, 6)},
+    }
+    set_only_reviewed_items(project_dir, reviewed_items)
+
+    manifest = export_report(project_dir, output_format="both")
+    markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+    docx = docx_text(manifest["docx_path"])
+
+    for label in ["Route A", "Route B", "Route C", "Route D", "Route E"]:
+        assert label in markdown
+        assert label in docx
+    assert markdown.count("Table: Descriptions of Wetlands and Waterbodies Present within the Project Area") == 1
+    assert markdown.count("Figure: Wetlands and Waterbodies in and near the Project Area") == 1
+    assert docx.count("Table: Descriptions of Wetlands and Waterbodies Present within the Project Area") == 1
+    assert docx.count("Figure: Wetlands and Waterbodies in and near the Project Area") == 1
+    assert "Table reference: Descriptions of Wetlands and Waterbodies Present within the Project Area is provided above." in markdown
+    assert "Figure reference: Wetlands and Waterbodies in and near the Project Area is provided above." in markdown
 
 
 def test_export_warns_when_existing_map_manifest_cannot_be_loaded(tmp_path: Path) -> None:

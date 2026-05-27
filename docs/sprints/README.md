@@ -4,7 +4,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- None. Sprint 7 is complete through Sprint 7.7; the next sprint should be planned from the Sprint 7.7 reviewer-friction backlog.
+- None. Sprint 8.1 is complete; the next sprint should be planned from the remaining reviewer-friction backlog.
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -19,6 +19,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 - Sprint 7.5 is archived. Use `docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md` for historical end-to-end smoke notes.
 - Sprint 7.6 is archived. Use `docs/archive/sprints/SPRINT_7_6_OUTPUT_REVIEW_AND_REPORT_SHAPE_CHECK.md` for historical output assessment notes.
 - Sprint 7.7 is archived. Use `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md` for historical friction backlog notes.
+- Sprint 8.1 is archived. Use `docs/archive/sprints/SPRINT_8_1_REPORT_EXPORT_POLISH_BEFORE_REAL_RUNS.md` for historical report/export polish notes.
 
 ## Completed Sprint/Subunits
 
@@ -102,6 +103,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Reviewed the `projects/test_project_2` internal preview Markdown/DOCX/package shape and recorded compactness, figure, table, manual-gap, source-limitation, and export-shape findings without changing product code.
 - Sprint 7.7 Reviewer Friction Backlog: `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md`
   - Converted Sprint 7.4 through 7.6 findings into a prioritized backlog; no P0 blocker was found, and P1/P2 items now drive the next sprint planning cycle.
+- Sprint 8.1 Report Export Polish Before Real Runs: `docs/archive/sprints/SPRINT_8_1_REPORT_EXPORT_POLISH_BEFORE_REAL_RUNS.md`
+  - Cleaned default Markdown/DOCX report bodies, suppressed duplicate inline support table/figure rendering, kept wetlands/waterbodies child sections visible, and reworded deterministic prose away from evidence-manifest language.
 
 ## Deferred Work Linked To Sprints
 
