@@ -1078,7 +1078,8 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
         "active_override": active_override or {},
         "draft_export_notice": (
             "Saved style drafts, regenerated versions, and figure-version approvals are project-local presentation "
-            "metadata. They remain review-visible and are not export-active until Sprint 6.7 export integration."
+            "metadata. Reviewed exports use approved or latest regenerated versions only after the standard figure review "
+            "item is export-included; replacement images still take priority."
         ),
         "version_summary": {
             "version_count": len(versions),

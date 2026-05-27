@@ -153,6 +153,16 @@ Each deferred item should include:
 - `Target sprint/subunit`: Future cartography/export polish.
 - `Status`: open.
 
+### Advanced Figure Style Editor And Version Comparison
+
+- `Deferred item`: Add side-by-side version comparison, batch style operations, organization style templates, richer label controls, reusable symbology palettes, and more advanced figure QA views.
+- `Why postponed`: Sprint 6 intentionally stayed lightweight and presentation-only. The implemented editor supports sparse styling, regeneration, exact-version approval, and export resolution, but it is not a full GIS or cartographic production suite.
+- `Affected sections/workflows`: Figure style editor, figure recipe/style/version artifacts, map regeneration, review UI, reviewed export figure selection.
+- `Risk if forgotten`: Users may expect production cartography tooling or bulk styling in the current local editor, or future additions could accidentally expand beyond source-backed review boundaries.
+- `Temporary simplification`: Reviewers can adjust supported per-layer/per-comparison styles, regenerate PNG versions, approve exact versions, and export reviewed figures through the existing gate. Advanced comparison, templates, and production cartography remain future work.
+- `Target sprint/subunit`: Future approved figure-editor/cartography sprint.
+- `Status`: open.
+
 ### Web App Operations And Production Hardening
 
 - `Deferred item`: Add advanced audit views, background jobs, role correction UI, project archive flow, PDF export, authentication, deployment, and production security hardening.

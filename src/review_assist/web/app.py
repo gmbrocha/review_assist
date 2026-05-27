@@ -235,7 +235,7 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             if str(request.form.get("style_action") or "") == "reset_default":
                 flash(f"Figure style reset to default. {result.get('reset_count', 0)} active draft override(s) reset.", "success")
             elif result.get("approved"):
-                flash(f"Figure version approved: {result.get('version_id', 'selected version')}. Export integration remains deferred.", "success")
+                flash(f"Figure version approved: {result.get('version_id', 'selected version')}. Reviewed exports can use this approved version after the figure item is export-included.", "success")
             elif result.get("regenerated"):
                 version = result.get("regeneration", {}).get("version", {}) if isinstance(result.get("regeneration"), dict) else {}
                 flash(f"Review-only regenerated figure version created: {version.get('version_id', 'new version')}.", "success")

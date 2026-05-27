@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked draft for review. This is the final Sprint 6 subunit and should run after export integration.
+Completed and archived as the final Sprint 6 stabilization subunit.
 
 ## Purpose
 

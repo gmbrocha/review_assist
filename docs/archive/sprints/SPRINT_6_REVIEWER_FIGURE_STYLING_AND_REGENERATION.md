@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted Sprint 6 implementation sequence. Sprints 6.1 through 6.5 are complete; Sprint 6.6 is the next active subunit.
+Completed and archived after Sprint 6.8 QA and scope-control verification.
 
 This file and the linked subunit files are root-level planning notes for human review. They intentionally follow the Sprint 5 root-doc convention.
 

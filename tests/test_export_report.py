@@ -13,6 +13,16 @@ from review_assist.data_lineage import build_data_lineage
 from review_assist.deliverable import MvpDeliverableError, build_demo_deliverable, build_mvp_deliverable
 from review_assist.cli import main
 from review_assist.export_report import ExportGateError, ExportQAError, export_report
+from review_assist.figure_regeneration import regenerate_figure_version
+from review_assist.figure_style_model import (
+    FIGURE_STYLE_OVERRIDES_PATH,
+    FIGURE_VERSIONS_PATH,
+    active_style_override,
+    approve_figure_version,
+    approved_figure_version,
+    reset_project_style_override,
+    save_project_style_override,
+)
 from review_assist.populate_for_review import populate_for_review
 from review_assist.review_queue import load_review_queue, update_review_item
 
@@ -872,6 +882,106 @@ def test_reviewed_export_blocks_missing_selected_approved_version(tmp_path: Path
         export_report(project_dir)
 
     assert "selected_figure_version_asset_missing" in qa_codes(exc.value)
+
+
+def test_sprint_6_8_style_version_approval_export_workflow_preserves_source_truth(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    add_supported_real_source_inputs(project_dir)
+    populate_for_review(project_dir, prepare_sources=True)
+    immutable_paths = [
+        project_dir / "source_status" / "source_status_set.json",
+        project_dir / "context" / "project_area.json",
+        project_dir / "context" / "project_context.json",
+        project_dir / "intermediate" / "comparison_units.json",
+        project_dir / "intermediate" / "comparison_units.geojson",
+        project_dir / "constraints" / "constraint_results.json",
+        project_dir / "constraints" / "comparison_unit_constraints.json",
+        project_dir / "deliverable" / "tables.json",
+        project_dir / "deliverable" / "figures.json",
+        project_dir / "evidence" / "evidence_package.json",
+        project_dir / "review_queue" / "review_queue.json",
+    ]
+    before_style_workflow = {path: path.read_bytes() for path in immutable_paths if path.exists()}
+
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [
+            {
+                "layer_id": "source:usfws_nwi_wetlands",
+                "display_name": "Wetland QA Overlay",
+                "stroke_color": "#00AAFF",
+                "stroke_width": "1.25",
+                "fill_opacity": "0.42",
+            }
+        ],
+    )
+    regenerated = regenerate_figure_version(project_dir, "figure-wetlands-waterbodies")
+    approved = approve_figure_version(project_dir, "figure-wetlands-waterbodies", regenerated["version"]["version_id"])
+
+    assert approved["version_id"] == regenerated["version"]["version_id"]
+    assert {path: path.read_bytes() for path in before_style_workflow} == before_style_workflow
+    assert (project_dir / regenerated["version"]["output_artifact_path"]).exists()
+
+    set_review_states(
+        project_dir,
+        default_status="declined",
+        overrides={
+            "figure-wetlands-waterbodies": {
+                "status": "accepted",
+                "export_eligible": True,
+            }
+        },
+    )
+    after_review_state = {
+        path: path.read_bytes()
+        for path in immutable_paths
+        if path.exists() and path.name != "review_queue.json"
+    }
+
+    manifest = export_report(project_dir, output_format="both")
+    exported = next(item for item in manifest["included_items"] if item["id"] == "figure-wetlands-waterbodies")
+    asset = next(item for item in manifest["export_figure_assets"] if item["figure_id"] == "figure-wetlands-waterbodies")
+
+    assert exported["selected_figure_version_id"] == regenerated["version"]["version_id"]
+    assert exported["selected_figure_version_source"] == "approved_version"
+    assert exported["selected_figure_version_state"] == "approved"
+    assert exported["selected_figure_version_path"] == regenerated["version"]["output_artifact_path"]
+    assert Path(asset["source_image_path"]) == project_dir / regenerated["version"]["output_artifact_path"]
+    assert asset["selected_figure_version_id"] == regenerated["version"]["version_id"]
+    assert {
+        path: path.read_bytes()
+        for path in after_review_state
+    } == after_review_state
+
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [
+            {
+                "layer_id": "source:usfws_nwi_wetlands",
+                "display_name": "Wetland QA Overlay",
+                "stroke_color": "#22C55E",
+                "stroke_width": "1.25",
+                "fill_opacity": "0.42",
+            }
+        ],
+    )
+    later = regenerate_figure_version(project_dir, "figure-wetlands-waterbodies")
+    versions_after_later_regen = json.loads((project_dir / FIGURE_VERSIONS_PATH).read_text(encoding="utf-8"))
+    still_approved = approved_figure_version(versions_after_later_regen, "figure-wetlands-waterbodies")
+
+    assert later["version"]["version_id"] != regenerated["version"]["version_id"]
+    assert later["version"]["approval_state"] == "regenerated"
+    assert still_approved["version_id"] == regenerated["version"]["version_id"]
+    assert still_approved["approval_state"] == "approved"
+
+    reset_project_style_override(project_dir, "figure-wetlands-waterbodies")
+    overrides_after_reset = json.loads((project_dir / FIGURE_STYLE_OVERRIDES_PATH).read_text(encoding="utf-8"))
+    versions_after_reset = json.loads((project_dir / FIGURE_VERSIONS_PATH).read_text(encoding="utf-8"))
+
+    assert active_style_override(overrides_after_reset, "figure-wetlands-waterbodies") is None
+    assert approved_figure_version(versions_after_reset, "figure-wetlands-waterbodies")["version_id"] == regenerated["version"]["version_id"]
 
 
 def test_export_figure_replacement_uses_generated_caption_when_caption_is_not_edited(tmp_path: Path) -> None:

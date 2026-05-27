@@ -595,6 +595,8 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "Validation Warnings" in text
     assert "No validation warnings recorded for this figure." in text
     assert "Saved style drafts, regenerated versions, and figure-version approvals are project-local presentation metadata" in text
+    assert "Reviewed exports use approved or latest regenerated versions only after the standard figure review item is export-included" in text
+    assert "until Sprint 6.7" not in text
     assert "Export Eligible" in text
     assert "Version History" in text
     assert "Layer Styling" in text

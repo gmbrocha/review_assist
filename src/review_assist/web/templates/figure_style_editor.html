@@ -32,7 +32,7 @@
 {% if editor.regenerated_preview.available %}
 <section class="panel">
   <h2>Latest Regenerated Version</h2>
-  <p class="muted">This regenerated PNG is review-visible. Export continues to use the reviewed/generated figure path until Sprint 6.7 export integration.</p>
+  <p class="muted">This regenerated PNG is review-visible. Reviewed exports can use it after the figure item is export-included, unless a replacement image or approved version takes priority.</p>
   <dl class="details">
     <dt>Version</dt><dd>{{ editor.regenerated_preview.version.version_id }}</dd>
     <dt>Approval State</dt><dd>{{ editor.regenerated_preview.version.approval_state }}</dd>
@@ -45,7 +45,7 @@
 {% if editor.approved_preview.version %}
 <section class="panel">
   <h2>Approved Figure Version</h2>
-  <p class="muted">This approval records the exact figure version selected by the reviewer. Export image selection remains unchanged until Sprint 6.7.</p>
+  <p class="muted">This approval records the exact figure version selected by the reviewer. Reviewed exports can resolve to this version after the figure item passes the standard review gate.</p>
   <dl class="details">
     <dt>Version</dt><dd>{{ editor.approved_preview.version.version_id }}</dd>
     <dt>Approved By</dt><dd>{{ editor.approved_preview.version.approved_by or 'Not recorded' }}</dd>
@@ -296,7 +296,7 @@
         <button type="button" disabled>Approve Figure</button>
       {% endif %}
     </div>
-    <p class="muted">Approval records an exact figure version for the figure workflow. Export integration remains deferred to Sprint 6.7.</p>
+    <p class="muted">Approval records an exact figure version for the figure workflow. It does not change review status or export eligibility by itself.</p>
   </section>
 </form>
 <script src="{{ url_for('static', filename='figure_style_editor.js') }}"></script>
