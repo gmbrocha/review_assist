@@ -4,7 +4,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- None. Sprint 7.1 through 7.5 are complete; the next Sprint 7 subunit is Sprint 7.6 Output Review And Report Shape Check and requires planning/approval.
+- None. Sprint 7 is complete through Sprint 7.7; the next sprint should be planned from the Sprint 7.7 reviewer-friction backlog.
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -17,6 +17,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 - Sprint 7.3 is archived. Use `docs/archive/sprints/SPRINT_7_3_ADVANCED_AND_DEBUG_VIEW_SEPARATION.md` for historical advanced/debug scope.
 - Sprint 7.4 is archived. Use `docs/archive/sprints/SPRINT_7_4_FRESH_PROJECT_INTAKE_TRIAL.md` for historical fresh-project intake trial notes.
 - Sprint 7.5 is archived. Use `docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md` for historical end-to-end smoke notes.
+- Sprint 7.6 is archived. Use `docs/archive/sprints/SPRINT_7_6_OUTPUT_REVIEW_AND_REPORT_SHAPE_CHECK.md` for historical output assessment notes.
+- Sprint 7.7 is archived. Use `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md` for historical friction backlog notes.
 
 ## Completed Sprint/Subunits
 
@@ -96,6 +98,10 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Verified the real-ish `projects/test_project_2` intake path through project selection, setup, classification, populate, comparison units, tables, figures, evidence, and standard review queue generation without product code changes.
 - Sprint 7.5 Real Project End-To-End Smoke Test: `docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md`
   - Smoked the `projects/test_project_2` reviewer flow through review detail, figure editor, subset acceptance, and preview export; recorded expected review/QA blockers and Sprint 7.7 friction candidates.
+- Sprint 7.6 Output Review And Report Shape Check: `docs/archive/sprints/SPRINT_7_6_OUTPUT_REVIEW_AND_REPORT_SHAPE_CHECK.md`
+  - Reviewed the `projects/test_project_2` internal preview Markdown/DOCX/package shape and recorded compactness, figure, table, manual-gap, source-limitation, and export-shape findings without changing product code.
+- Sprint 7.7 Reviewer Friction Backlog: `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md`
+  - Converted Sprint 7.4 through 7.6 findings into a prioritized backlog; no P0 blocker was found, and P1/P2 items now drive the next sprint planning cycle.
 
 ## Deferred Work Linked To Sprints
 

@@ -44,3 +44,5 @@ Current archived sprint records include:
 - `docs/archive/sprints/SPRINT_7_3_ADVANCED_AND_DEBUG_VIEW_SEPARATION.md`
 - `docs/archive/sprints/SPRINT_7_4_FRESH_PROJECT_INTAKE_TRIAL.md`
 - `docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md`
+- `docs/archive/sprints/SPRINT_7_6_OUTPUT_REVIEW_AND_REPORT_SHAPE_CHECK.md`
+- `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md`
