@@ -39,3 +39,4 @@ Current archived planning records include:
 - `docs/archive/sprints/SPRINT_6_4_STYLE_OVERRIDE_SAVE_LOGIC.md`
 - `docs/archive/sprints/SPRINT_6_5_REGENERATION_JOB.md`
 - `docs/archive/sprints/SPRINT_6_6_FIGURE_VERSIONING_AND_APPROVAL.md`
+- `docs/archive/sprints/SPRINT_6_7_EXPORT_INTEGRATION.md`

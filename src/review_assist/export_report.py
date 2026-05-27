@@ -13,6 +13,7 @@ from typing import Any
 from .data_lineage import build_data_lineage
 from .deliverable_items import DeliverableItemsError, RENDER_POLICY_FIELDS, load_deliverable_items
 from .deliverable_matrix import DeliverableMatrixError, REQUIRED_STUB_TEXT, load_deliverable_matrix
+from .figure_style_model import FIGURE_VERSIONS_PATH, approved_figure_version
 from .maps import MAP_MANIFEST_PATH, MapGenerationError, load_map_manifest
 from .project_area import ProjectAreaError, load_project_area
 from .projects import ProjectManifestError, load_project_manifest
@@ -135,6 +136,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
     included, skipped = _partition_export_items(items, include_draft=include_draft)
     included = [*included, *_structural_heading_export_items(matrix, section_policy)]
     included = sorted(included, key=_export_sort_key)
+    figure_version_issues = _resolve_export_figure_versions(project_dir, included)
     data_lineage = build_data_lineage(project_dir, included_items=included)
     unresolved_required_sources = _unresolved_required_sources(source_status)
     validation_issues = _export_validation_issues(
@@ -148,6 +150,7 @@ def export_report(project_dir: Path, *, include_draft: bool = False, output_form
         validation_issues.extend(_dict_list(comparison_tables.get("validation_issues", [])))
     if map_manifest:
         validation_issues.extend(_dict_list(map_manifest.get("validation_issues", [])))
+    validation_issues.extend(figure_version_issues)
 
     mvp_quality = _mvp_quality_summary(
         included=included,
@@ -429,10 +432,143 @@ def _prepare_export_figure_assets(
             "source_image_path": str(source_path),
             "export_image_path": str(destination),
             "export_asset_path": relative_asset,
+            **_selected_figure_version_fields(figure),
         }
         assets.append(asset)
         _annotate_figure_asset(included, figure_lookup, figure_id, asset)
     return assets, issues
+
+
+def _resolve_export_figure_versions(project_dir: Path, included: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Apply approved/regenerated figure-version image selection to export items."""
+
+    versions_artifact = _load_optional_figure_versions(project_dir)
+    issues: list[dict[str, str]] = []
+    for item in included:
+        if item.get("type") not in {"map_figure", "figure"}:
+            continue
+        figure_id = _item_figure_id(item)
+        if not figure_id or bool(item.get("is_stub", False)):
+            continue
+        if str(item.get("image_source") or "") == "replacement_figure":
+            item.update(_implicit_figure_version_metadata("replacement_figure", str(item.get("image_path") or "")))
+            continue
+        selected = _select_export_figure_version(versions_artifact, figure_id)
+        if selected is None:
+            item.update(_implicit_figure_version_metadata("current_generated_image", str(item.get("image_path") or "")))
+            continue
+        path = str(selected.get("output_artifact_path") or "").strip()
+        source = _version_export_source(selected)
+        item.update(_version_export_metadata(selected, source))
+        if path:
+            item["image_path"] = path
+        if source in {"approved_version", "regenerated_version"}:
+            if not path:
+                issues.append(
+                    _qa_issue(
+                        "error",
+                        "selected_figure_version_path_missing",
+                        f"Selected {source.replace('_', ' ')} for figure '{figure_id}' has no output artifact path.",
+                        item_id=str(item.get("id") or ""),
+                        target_id=figure_id,
+                    )
+                )
+            elif not _resolve_project_path(project_dir, path).exists():
+                issues.append(
+                    _qa_issue(
+                        "error",
+                        "selected_figure_version_asset_missing",
+                        f"Selected {source.replace('_', ' ')} for figure '{figure_id}' is missing: {path}.",
+                        item_id=str(item.get("id") or ""),
+                        target_id=figure_id,
+                    )
+                )
+    return issues
+
+
+def _load_optional_figure_versions(project_dir: Path) -> dict[str, Any]:
+    path = project_dir / FIGURE_VERSIONS_PATH
+    if not path.exists():
+        return {"version_count": 0, "versions": []}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"version_count": 0, "versions": []}
+    return data if isinstance(data, dict) else {"version_count": 0, "versions": []}
+
+
+def _select_export_figure_version(versions_artifact: dict[str, Any], figure_id: str) -> dict[str, Any] | None:
+    approved = approved_figure_version(versions_artifact, figure_id)
+    if approved is not None:
+        return approved
+    versions = [
+        version
+        for version in _dict_list(versions_artifact.get("versions", []))
+        if str(version.get("figure_id") or "") == figure_id
+    ]
+    regenerated = [
+        version
+        for version in versions
+        if str(version.get("source_image_status") or "") == "regenerated_review_only"
+        or str(version.get("approval_state") or "") == "regenerated"
+    ]
+    if regenerated:
+        return sorted(regenerated, key=_figure_version_sort_key)[-1]
+    autogenerated = [version for version in versions if str(version.get("approval_state") or "") == "autogenerated"]
+    if autogenerated:
+        return sorted(autogenerated, key=_figure_version_sort_key)[-1]
+    return None
+
+
+def _version_export_metadata(version: dict[str, Any], source: str) -> dict[str, Any]:
+    return {
+        "selected_figure_version_id": str(version.get("version_id") or ""),
+        "selected_figure_version_number": version.get("version_number"),
+        "selected_figure_version_state": str(version.get("approval_state") or ""),
+        "selected_figure_version_source": source,
+        "selected_figure_version_path": str(version.get("output_artifact_path") or ""),
+    }
+
+
+def _implicit_figure_version_metadata(source: str, path: str) -> dict[str, Any]:
+    return {
+        "selected_figure_version_id": "",
+        "selected_figure_version_number": None,
+        "selected_figure_version_state": "",
+        "selected_figure_version_source": source,
+        "selected_figure_version_path": path,
+    }
+
+
+def _selected_figure_version_fields(figure: dict[str, Any]) -> dict[str, Any]:
+    keys = (
+        "selected_figure_version_id",
+        "selected_figure_version_number",
+        "selected_figure_version_state",
+        "selected_figure_version_source",
+        "selected_figure_version_path",
+    )
+    return {key: figure.get(key) for key in keys if key in figure}
+
+
+def _version_export_source(version: dict[str, Any]) -> str:
+    state = str(version.get("approval_state") or "")
+    if state == "approved":
+        return "approved_version"
+    if state == "regenerated" or str(version.get("source_image_status") or "") == "regenerated_review_only":
+        return "regenerated_version"
+    if state == "autogenerated":
+        return "autogenerated_version"
+    return "figure_version"
+
+
+def _figure_version_sort_key(version: dict[str, Any]) -> tuple[int, str, str]:
+    try:
+        number = int(version.get("version_number") or 0)
+    except (TypeError, ValueError):
+        number = 0
+    timestamp = str(version.get("updated_at") or version.get("completed_at") or version.get("created_at") or "")
+    return number, timestamp, str(version.get("version_id") or "")
 
 
 def _annotate_figure_asset(
@@ -2350,6 +2486,7 @@ def _figures_by_id(map_manifest: dict[str, Any] | None, included: list[dict[str,
             or figures.get(figure_id, {}).get("related_resource_categories", []),
             "export_image_path": item.get("export_image_path") or figures.get(figure_id, {}).get("export_image_path"),
             "export_asset_path": item.get("export_asset_path") or figures.get(figure_id, {}).get("export_asset_path"),
+            **_selected_figure_version_fields(item),
         }
     return figures
 

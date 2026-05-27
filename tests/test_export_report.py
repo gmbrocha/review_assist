@@ -231,6 +231,45 @@ def write_tiny_png(path: Path) -> None:
     )
 
 
+def write_figure_versions(project_dir: Path, versions: list[dict[str, Any]]) -> None:
+    path = project_dir / "maps" / "figure_versions" / "figure_versions.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "figure-style-model-v1",
+                "project_id": "test_project",
+                "version_count": len(versions),
+                "versions": versions,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def figure_version(
+    figure_id: str,
+    version_number: int,
+    *,
+    state: str,
+    path: str,
+    approved: bool = False,
+) -> dict[str, Any]:
+    return {
+        "version_id": f"{figure_id}:v{version_number}",
+        "figure_id": figure_id,
+        "version_number": version_number,
+        "created_at": f"2026-05-26T00:00:0{version_number}+00:00",
+        "output_artifact_path": path,
+        "file_format": "png",
+        "approval_state": state,
+        "approved_version": approved,
+        "source_image_status": "regenerated_review_only" if state in {"approved", "regenerated"} else "existing_generated_image",
+    }
+
+
 def set_review_states(
     project_dir: Path,
     *,
@@ -661,13 +700,14 @@ def test_export_figure_uses_edited_caption_with_generated_image(tmp_path: Path) 
     assert exported["caption"] == "Reviewed wetlands and waterbodies caption."
     assert exported["caption_source"] == "edited_caption"
     assert exported["image_source"] == "generated_figure"
+    assert exported["selected_figure_version_source"] == "current_generated_image"
     assert exported["content"] == ""
     assert "Caption: Reviewed wetlands and waterbodies caption." in markdown
     assert "reviewer verification" not in markdown.lower()
     assert "draft figure review" not in markdown.lower()
 
 
-def test_reviewed_export_ignores_approved_style_version_until_export_integration(tmp_path: Path) -> None:
+def test_reviewed_export_uses_approved_style_version_and_records_metadata(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
     generated_path = project_dir / "maps" / "figures" / "generated-figure.png"
@@ -686,45 +726,79 @@ def test_reviewed_export_ignores_approved_style_version_until_export_integration
         },
     )
     set_queue_item(project_dir, "figure-wetlands-waterbodies", image_path="maps/figures/generated-figure.png")
-    versions_path = project_dir / "maps" / "figure_versions" / "figure_versions.json"
-    versions_path.parent.mkdir(parents=True, exist_ok=True)
-    versions_path.write_text(
-        json.dumps(
-            {
-                "schema_version": "figure-style-model-v1",
-                "project_id": "test_project",
-                "version_count": 1,
-                "versions": [
-                    {
-                        "version_id": "figure-wetlands-waterbodies:v2",
-                        "figure_id": "figure-wetlands-waterbodies",
-                        "version_number": 2,
-                        "created_at": "2026-05-26T00:00:00+00:00",
-                        "output_artifact_path": "maps/figures/versions/figure-wetlands-waterbodies/v2.png",
-                        "approval_state": "approved",
-                        "approved_version": True,
-                    }
-                ],
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
+    write_figure_versions(
+        project_dir,
+        [
+            figure_version(
+                "figure-wetlands-waterbodies",
+                2,
+                state="approved",
+                path="maps/figures/versions/figure-wetlands-waterbodies/v2.png",
+                approved=True,
+            )
+        ],
+    )
+
+    manifest = export_report(project_dir, output_format="both")
+    markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
+    docx = docx_text(manifest["docx_path"])
+    exported = next(item for item in manifest["included_items"] if item["id"] == "figure-wetlands-waterbodies")
+    asset = next(item for item in manifest["export_figure_assets"] if item["figure_id"] == "figure-wetlands-waterbodies")
+
+    assert exported["image_path"] == "maps/figures/versions/figure-wetlands-waterbodies/v2.png"
+    assert exported["selected_figure_version_id"] == "figure-wetlands-waterbodies:v2"
+    assert exported["selected_figure_version_number"] == 2
+    assert exported["selected_figure_version_state"] == "approved"
+    assert exported["selected_figure_version_source"] == "approved_version"
+    assert exported["selected_figure_version_path"] == "maps/figures/versions/figure-wetlands-waterbodies/v2.png"
+    assert Path(asset["source_image_path"]) == approved_path
+    assert asset["selected_figure_version_id"] == "figure-wetlands-waterbodies:v2"
+    assert asset["export_asset_path"] == "assets/figures/figure-wetlands-waterbodies.png"
+    assert "Map file: `assets/figures/figure-wetlands-waterbodies.png`" in markdown
+    assert "figure-wetlands-waterbodies.png" in docx
+    assert exported["caption"] == "Reviewed wetlands and waterbodies caption."
+
+
+def test_reviewed_export_uses_latest_regenerated_version_without_approval(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    generated_path = project_dir / "maps" / "figures" / "generated-figure.png"
+    regen_v2 = project_dir / "maps" / "figures" / "versions" / "figure-wetlands-waterbodies" / "v2.png"
+    regen_v3 = project_dir / "maps" / "figures" / "versions" / "figure-wetlands-waterbodies" / "v3.png"
+    write_tiny_png(generated_path)
+    write_tiny_png(regen_v2)
+    write_tiny_png(regen_v3)
+    set_review_states(
+        project_dir,
+        default_status="declined",
+        overrides={"figure-wetlands-waterbodies": {"status": "accepted", "export_eligible": True}},
+    )
+    set_queue_item(project_dir, "figure-wetlands-waterbodies", image_path="maps/figures/generated-figure.png")
+    write_figure_versions(
+        project_dir,
+        [
+            figure_version("figure-wetlands-waterbodies", 2, state="regenerated", path="maps/figures/versions/figure-wetlands-waterbodies/v2.png"),
+            figure_version("figure-wetlands-waterbodies", 3, state="regenerated", path="maps/figures/versions/figure-wetlands-waterbodies/v3.png"),
+        ],
     )
 
     manifest = export_report(project_dir)
     exported = next(item for item in manifest["included_items"] if item["id"] == "figure-wetlands-waterbodies")
+    asset = next(item for item in manifest["export_figure_assets"] if item["figure_id"] == "figure-wetlands-waterbodies")
 
-    assert exported["image_path"] == "maps/figures/generated-figure.png"
-    assert exported["image_path"] != "maps/figures/versions/figure-wetlands-waterbodies/v2.png"
-    assert exported["image_source"] == "generated_figure"
+    assert exported["image_path"] == "maps/figures/versions/figure-wetlands-waterbodies/v3.png"
+    assert exported["selected_figure_version_id"] == "figure-wetlands-waterbodies:v3"
+    assert exported["selected_figure_version_source"] == "regenerated_version"
+    assert Path(asset["source_image_path"]) == regen_v3
 
 
 def test_export_figure_uses_replacement_image_and_edited_caption(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)
     replacement_path = project_dir / "review_queue" / "figure_replacements" / "figure-wetlands-waterbodies" / "replacement.png"
+    approved_path = project_dir / "maps" / "figures" / "versions" / "figure-wetlands-waterbodies" / "v2.png"
     write_tiny_png(replacement_path)
+    write_tiny_png(approved_path)
     replacement_rel = replacement_path.relative_to(project_dir).as_posix()
     set_review_states(
         project_dir,
@@ -739,6 +813,18 @@ def test_export_figure_uses_replacement_image_and_edited_caption(tmp_path: Path)
         },
     )
     set_queue_item(project_dir, "figure-wetlands-waterbodies", reviewer_notes=[{"created_at": "now", "note": "Internal reviewer note only."}])
+    write_figure_versions(
+        project_dir,
+        [
+            figure_version(
+                "figure-wetlands-waterbodies",
+                2,
+                state="approved",
+                path="maps/figures/versions/figure-wetlands-waterbodies/v2.png",
+                approved=True,
+            )
+        ],
+    )
 
     manifest = export_report(project_dir)
     markdown = Path(manifest["markdown_path"]).read_text(encoding="utf-8")
@@ -749,12 +835,43 @@ def test_export_figure_uses_replacement_image_and_edited_caption(tmp_path: Path)
     assert exported["image_path"] == replacement_rel
     assert exported["caption_source"] == "edited_caption"
     assert exported["image_source"] == "replacement_figure"
+    assert exported["selected_figure_version_source"] == "replacement_figure"
     assert exported["content_source"] == "replacement_figure"
     assert Path(asset["source_image_path"]) == replacement_path
     assert asset["export_asset_path"] == "assets/figures/figure-wetlands-waterbodies.png"
     assert "Caption: Replacement wetlands figure caption." in markdown
     assert "Map file: `assets/figures/figure-wetlands-waterbodies.png`" in markdown
     assert "Internal reviewer note only" not in markdown
+
+
+def test_reviewed_export_blocks_missing_selected_approved_version(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    generated_path = project_dir / "maps" / "figures" / "generated-figure.png"
+    write_tiny_png(generated_path)
+    set_review_states(
+        project_dir,
+        default_status="declined",
+        overrides={"figure-wetlands-waterbodies": {"status": "accepted", "export_eligible": True}},
+    )
+    set_queue_item(project_dir, "figure-wetlands-waterbodies", image_path="maps/figures/generated-figure.png")
+    write_figure_versions(
+        project_dir,
+        [
+            figure_version(
+                "figure-wetlands-waterbodies",
+                2,
+                state="approved",
+                path="maps/figures/versions/figure-wetlands-waterbodies/missing-v2.png",
+                approved=True,
+            )
+        ],
+    )
+
+    with pytest.raises(ExportQAError) as exc:
+        export_report(project_dir)
+
+    assert "selected_figure_version_asset_missing" in qa_codes(exc.value)
 
 
 def test_export_figure_replacement_uses_generated_caption_when_caption_is_not_edited(tmp_path: Path) -> None:
