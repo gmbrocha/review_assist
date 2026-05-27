@@ -763,6 +763,8 @@ def test_figure_style_editor_save_and_regenerate_creates_review_only_version(tmp
     assert latest["approval_state"] == "regenerated"
     assert latest["export_active"] is False
     assert (project_dir / latest["output_artifact_path"]).exists()
+    artifact_response = client.get(f"/artifact?project=project&path={latest['output_artifact_path']}")
+    assert artifact_response.status_code == 200
     assert (project_dir / "review_queue" / "review_queue.json").read_bytes() == queue_before
     assert (project_dir / "deliverable" / "figures.json").read_bytes() == figures_before
 

@@ -1870,6 +1870,21 @@ def _allowed_artifact_rows(project_dir: Path) -> list[dict[str, str]]:
                     "kind_label": "Figure image",
                 }
             )
+    versions_artifact = _load_json(project_dir / FIGURE_VERSIONS_PATH)
+    for version in _dict_list(versions_artifact.get("versions", []) if isinstance(versions_artifact, dict) else []):
+        path = str(version.get("output_artifact_path") or "")
+        rel = _artifact_link_path(project_dir, path)
+        if rel:
+            figure_id = str(version.get("figure_id") or "figure")
+            version_number = version.get("version_number") or ""
+            rows.append(
+                {
+                    "label": f"Figure version asset: {figure_id} v{version_number}",
+                    "relative_path": rel,
+                    "kind": "figure_version_image",
+                    "kind_label": "Figure version image",
+                }
+            )
     deduped: dict[str, dict[str, str]] = {}
     for row in rows:
         path = row["relative_path"]
