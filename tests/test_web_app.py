@@ -594,7 +594,7 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "Basemap And Render Status" in text
     assert "Validation Warnings" in text
     assert "No validation warnings recorded for this figure." in text
-    assert "Saved style drafts and regenerated versions are project-local presentation metadata" in text
+    assert "Saved style drafts, regenerated versions, and figure-version approvals are project-local presentation metadata" in text
     assert "Export Eligible" in text
     assert "Version History" in text
     assert "Layer Styling" in text
@@ -625,6 +625,14 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert 'name="style_action" value="save_and_regenerate"' in text
     assert "Approve Figure" in text
     assert "geometry editing" not in text.lower()
+
+
+def test_process_log_refresh_button_does_not_toggle_panel() -> None:
+    script = Path("src/review_assist/web/static/process_log.js").read_text(encoding="utf-8")
+
+    assert 'refreshButton.addEventListener("click", (event)' in script
+    assert "event.preventDefault();" in script
+    assert "event.stopPropagation();" in script
 
 
 def test_figure_style_editor_rejects_non_figure_items(tmp_path: Path) -> None:

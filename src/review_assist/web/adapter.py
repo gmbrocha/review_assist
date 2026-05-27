@@ -1077,8 +1077,8 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
         "basemap_status": _figure_editor_basemap_status(status_layers),
         "active_override": active_override or {},
         "draft_export_notice": (
-            "Saved style drafts and regenerated versions are project-local presentation metadata. They remain "
-            "review-only and are not export-active until a later version approval/export integration step."
+            "Saved style drafts, regenerated versions, and figure-version approvals are project-local presentation "
+            "metadata. They remain review-visible and are not export-active until Sprint 6.7 export integration."
         ),
         "version_summary": {
             "version_count": len(versions),
@@ -1094,7 +1094,6 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
             "render_job_count": len(render_jobs),
             "latest_render_job": _latest_by_timestamp(render_jobs),
         },
-        "deferred_actions": {},
     }
 
 

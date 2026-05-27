@@ -104,7 +104,11 @@
   }
 
   if (refreshButton) {
-    refreshButton.addEventListener("click", refreshLog);
+    refreshButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      refreshLog();
+    });
   }
   if (resizeHandle) {
     resizeHandle.setAttribute("aria-valuemin", "90");
