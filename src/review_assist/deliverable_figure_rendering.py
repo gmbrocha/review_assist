@@ -15,7 +15,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
+from matplotlib.patches import Patch, Rectangle
 from pyproj import CRS
 
 from .extent_policy import FIGURE_RENDER_EXTENT, PRESENTATION_ONLY_COLLAR_EXTENT
@@ -212,8 +212,6 @@ def render_map(
                 ncol=legend_kwargs["ncol"],
                 **_legend_style_kwargs(),
             )
-        _add_north_arrow(ax, layout)
-        _add_scale_bar(ax, analysis_crs, layout)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.subplots_adjust(left=0.015, right=0.985, top=0.985, bottom=0.015)
         if legend_artist is not None:
@@ -222,6 +220,9 @@ def render_map(
             layout["legend_actual_bbox_axes"] = actual_bbox
             layout["legend_fits_reserved_bbox"] = _bbox_contains(layout.get("legend_bbox_axes"), actual_bbox, tolerance=0.004)
             layout["legend_overlaps_core_bbox"] = _bboxes_overlap(actual_bbox, layout.get("core_bbox_axes"), tolerance=0.002)
+        scale_bar = _add_scale_bar(ax, analysis_crs, layout)
+        if scale_bar:
+            layout["scale_bar"] = scale_bar
         fig.savefig(output_path, bbox_inches="tight", pad_inches=0.035, facecolor="white")
         return layout
     finally:
@@ -1221,83 +1222,98 @@ def _set_bounds(ax: Any, bounds: Any, *, pad_fraction: float = 0.055) -> None:
     ax.set_aspect("equal", adjustable="box")
 
 
-def _add_north_arrow(ax: Any, layout: dict[str, Any]) -> None:
-    side = str(layout.get("legend_side") or "")
-    bbox = layout.get("legend_bbox_axes") if isinstance(layout.get("legend_bbox_axes"), list) else []
-    if len(bbox) == 4 and side in {"right", "left"}:
-        x0, y0, x1, y1 = [float(value) for value in bbox]
-        x = (x0 + x1) / 2
-        y_text, y_arrow = max(y0 + 0.28, 0.34), max(y0 + 0.39, 0.45)
-    elif len(bbox) == 4 and side in {"top", "bottom"}:
-        x0, y0, x1, y1 = [float(value) for value in bbox]
-        x = min(x1 - 0.05, 0.94)
-        y_text = (y0 + y1) / 2 - 0.035
-        y_arrow = (y0 + y1) / 2 + 0.075
-    elif side == "right":
-        x, y_text, y_arrow = 0.07, 0.78, 0.89
-    elif side == "top":
-        x, y_text, y_arrow = 0.94, 0.68, 0.79
-    else:
-        x, y_text, y_arrow = 0.94, 0.79, 0.90
-    ax.annotate(
-        "N",
-        xy=(x, y_arrow),
-        xytext=(x, y_text),
-        xycoords="axes fraction",
-        textcoords="axes fraction",
-        ha="center",
-        va="center",
-        fontsize=8,
-        fontweight="bold",
-        arrowprops={"arrowstyle": "-|>", "color": "#2B2B2B", "lw": 1.0},
-        bbox={"facecolor": "white", "edgecolor": "#BDBDBD", "alpha": 0.9, "pad": 1.5},
-    )
-
-
-def _add_scale_bar(ax: Any, analysis_crs: str, layout: dict[str, Any]) -> None:
+def _add_scale_bar(ax: Any, analysis_crs: str, layout: dict[str, Any]) -> dict[str, Any] | None:
     feet_per_unit = _feet_per_crs_unit(analysis_crs)
     if feet_per_unit is None:
-        return
+        return None
     x_min, x_max = ax.get_xlim()
     y_min, y_max = ax.get_ylim()
     width = abs(x_max - x_min)
     height = abs(y_max - y_min)
     if width <= 0 or height <= 0:
-        return
-    target_feet = width * feet_per_unit * 0.18
-    scale_feet = _nice_scale_feet(target_feet)
-    scale_units = scale_feet / feet_per_unit
+        return None
     side = str(layout.get("legend_side") or "")
-    bbox = layout.get("legend_bbox_axes") if isinstance(layout.get("legend_bbox_axes"), list) else []
-    if len(bbox) == 4 and side in {"right", "left"}:
-        x0, y0, x1, _y1 = [float(value) for value in bbox]
-        collar_width_fraction = max(x1 - x0, 0.04)
-        target_feet = width * feet_per_unit * min(collar_width_fraction * 0.62, 0.18)
-        scale_feet = _nice_scale_feet(target_feet)
-        scale_units = scale_feet / feet_per_unit
-        x_fraction = x0 + collar_width_fraction * 0.18
-        y_fraction = y0 + 0.07
-    elif len(bbox) == 4 and side in {"top", "bottom"}:
-        x0, y0, x1, y1 = [float(value) for value in bbox]
-        x_fraction = x0 + 0.04
-        y_fraction = y0 + 0.14 if side == "bottom" else max(y0 + 0.08, (y0 + y1) / 2 - 0.05)
+    bbox = _scale_bar_anchor_bbox(layout)
+    if bbox:
+        x0, y0, x1, _y1 = bbox
+        width_fraction = max(x1 - x0, 0.06)
+        x_fraction = x0
+        y_fraction = max(y0 - 0.035, 0.047)
+        placement = "below_legend"
     else:
         x_fraction = 0.58 if side in {"left", "bottom"} else 0.08
         y_fraction = 0.15 if side == "bottom" else 0.08
-    x0 = x_min + width * x_fraction
-    y0 = y_min + height * y_fraction
-    ax.plot([x0, x0 + scale_units], [y0, y0], color="#2B2B2B", linewidth=2.0, solid_capstyle="butt")
-    label = f"{scale_feet / 5280:g} mi" if scale_feet >= 5280 else f"{int(scale_feet):,} ft"
+        width_fraction = 0.18
+        placement = "map_frame"
+    segment_count = 4
+    segment_width = width_fraction / segment_count
+    bar_height = 0.008
+    segment_colors = ["#111827", "#FFFFFF", "#111827", "#FFFFFF"]
+    for index, color in enumerate(segment_colors):
+        ax.add_patch(
+            Rectangle(
+                (x_fraction + segment_width * index, y_fraction),
+                segment_width,
+                bar_height,
+                transform=ax.transAxes,
+                facecolor=color,
+                edgecolor="#111827",
+                linewidth=0.45,
+                clip_on=False,
+                zorder=20,
+            )
+        )
+    ax.add_patch(
+        Rectangle(
+            (x_fraction, y_fraction),
+            width_fraction,
+            bar_height,
+            transform=ax.transAxes,
+            fill=False,
+            edgecolor="#111827",
+            linewidth=0.65,
+            clip_on=False,
+            zorder=21,
+        )
+    )
+    scale_feet = width * width_fraction * feet_per_unit
+    label = _scale_label(scale_feet)
+    label_y = max(y_fraction - 0.018, 0.018)
     ax.text(
-        x0 + scale_units / 2,
-        y0 + height * 0.018,
+        x_fraction + width_fraction / 2,
+        label_y,
         label,
         ha="center",
-        va="bottom",
-        fontsize=5.8,
+        va="top",
+        fontsize=LEGEND_FONT_SIZE,
         color="#2B2B2B",
-        bbox={"facecolor": "white", "edgecolor": "#D0D0D0", "alpha": 0.9, "pad": 1.5},
+        transform=ax.transAxes,
+        bbox={"facecolor": "white", "edgecolor": "#D0D0D0", "alpha": 0.9, "pad": 0.9},
+        clip_on=False,
+        zorder=22,
     )
+    return {
+        "placement": placement,
+        "bbox_axes": [x_fraction, label_y, x_fraction + width_fraction, y_fraction + bar_height],
+        "width_fraction": width_fraction,
+        "legend_width_fraction": (bbox[2] - bbox[0]) if bbox else None,
+        "segment_count": segment_count,
+        "segment_colors": segment_colors,
+        "segment_width_fraction": segment_width,
+        "label": label,
+        "label_position": "below_bar",
+        "label_font_size": LEGEND_FONT_SIZE,
+    }
+
+
+def _scale_bar_anchor_bbox(layout: dict[str, Any]) -> list[float]:
+    for key in ("legend_actual_bbox_axes", "legend_bbox_axes"):
+        bbox = layout.get(key)
+        if isinstance(bbox, list) and len(bbox) == 4:
+            values = [float(value) for value in bbox]
+            if values[2] > values[0] and values[3] > values[1]:
+                return values
+    return []
 
 
 def _feet_per_crs_unit(analysis_crs: str) -> float | None:
@@ -1315,10 +1331,12 @@ def _feet_per_crs_unit(analysis_crs: str) -> float | None:
     return None
 
 
-def _nice_scale_feet(target_feet: float) -> float:
-    candidates = [100, 250, 500, 1000, 2000, 5280, 10000, 26400, 52800, 105600]
-    valid = [candidate for candidate in candidates if candidate <= target_feet]
-    return float(valid[-1] if valid else candidates[0])
+def _scale_label(scale_feet: float) -> str:
+    if scale_feet >= 5280:
+        miles = scale_feet / 5280
+        text = f"{miles:.1f}".rstrip("0").rstrip(".")
+        return f"{text} mi"
+    return f"{int(round(scale_feet)):,} ft"
 
 
 def _dedupe_handles(handles: list[Any]) -> list[Any]:

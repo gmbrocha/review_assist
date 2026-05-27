@@ -51,9 +51,13 @@
         <td><span class="status">{{ project.review_gate_status }}</span></td>
         <td>{{ project.modified_at }}</td>
         <td>
-          <form method="post" action="{{ url_for('select_project') }}">
+          <form method="post" action="{{ url_for('select_project') }}" class="inline-form">
             <input type="hidden" name="project_key" value="{{ project.project_key }}">
             <button type="submit">Select</button>
+          </form>
+          <form method="post" action="{{ url_for('delete_project') }}" class="inline-form">
+            <input type="hidden" name="project_key" value="{{ project.project_key }}">
+            <button type="submit" class="danger">Delete</button>
           </form>
         </td>
       </tr>

@@ -63,7 +63,7 @@ from .source_status import LOGICAL_ROLLUP_SATISFIERS, SOURCE_STATUS_PATH, Source
 
 DELIVERABLE_FIGURES_PATH = Path("deliverable/figures.json")
 FIGURE_EXTENT_PLAN_PATH = Path("maps/figure_extent_plan.json")
-DELIVERABLE_MAP_ELEMENT_BASELINE = ["legend", "north_arrow", "scale_bar"]
+DELIVERABLE_MAP_ELEMENT_BASELINE = ["legend", "scale_bar"]
 FIGURE_EXTENT_PLAN_VERSION = "figure-extent-plan-v1"
 SMALL_DIRECT_EXTENT_CLASS = "small_direct"
 MEDIUM_CONTEXT_EXTENT_CLASS = "medium_context"
@@ -755,18 +755,30 @@ def _map_furniture_estimates(layout: dict[str, Any]) -> dict[str, Any]:
     bbox = layout.get("legend_bbox_axes") if isinstance(layout.get("legend_bbox_axes"), list) else []
     collar = layout.get("collar_bounds") if isinstance(layout.get("collar_bounds"), list) else []
     in_collar = bool(collar and side in {"right", "left", "top", "bottom"})
+    scale_bar = layout.get("scale_bar") if isinstance(layout.get("scale_bar"), dict) else {}
+    scale_bar_record = {
+        "placement": str(scale_bar.get("placement") or ("below_legend" if bbox else ("presentation_collar" if in_collar else "map_frame"))),
+    }
+    for key in (
+        "bbox_axes",
+        "width_fraction",
+        "legend_width_fraction",
+        "segment_count",
+        "segment_colors",
+        "segment_width_fraction",
+        "label",
+        "label_position",
+        "label_font_size",
+    ):
+        if key in scale_bar:
+            scale_bar_record[key] = scale_bar[key]
     return {
         "legend": {
             "label_count": int(layout.get("legend_label_count") or 0),
             "bbox_axes": bbox,
             "placement": "presentation_collar" if in_collar else "map_frame",
         },
-        "north_arrow": {
-            "placement": "presentation_collar" if in_collar else "map_frame",
-        },
-        "scale_bar": {
-            "placement": "presentation_collar" if in_collar else "map_frame",
-        },
+        "scale_bar": scale_bar_record,
     }
 
 
@@ -1214,6 +1226,7 @@ def _deliverable_figure(
 ) -> dict[str, Any]:
     extent = _figure_extent(target, provenance)
     figure_policy = _figure_policy_summary(target)
+    render_layout = provenance.get("render_layout") if isinstance(provenance.get("render_layout"), dict) else {}
     return {
         "figure_id": target.target_id,
         "type": "deliverable_figure",
@@ -1227,6 +1240,7 @@ def _deliverable_figure(
         "source_note": source_note,
         "method_note": method_note,
         "map_elements": DELIVERABLE_MAP_ELEMENT_BASELINE,
+        "map_furniture": _map_furniture_estimates(render_layout),
         "figure_group": "deliverable_main",
         "related_resource_categories": list(target.source_categories),
         "shown_layers": shown_layers,
@@ -1308,6 +1322,7 @@ def _attachment_supporting_figures(
                 "source_note": _source_note(source_layers, basemap),
                 "method_note": _method_note(analysis_crs, include_basemap=bool(basemap.get("layer"))),
                 "map_elements": DELIVERABLE_MAP_ELEMENT_BASELINE,
+                "map_furniture": _map_furniture_estimates(render_layout),
                 "figure_group": "attachment_supporting_figures",
                 "shown_layers": [
                     _comparison_units_shown_layer(unit_gdf),

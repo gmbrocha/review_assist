@@ -169,6 +169,33 @@ def test_invalid_project_names_and_duplicates_are_rejected(tmp_path: Path) -> No
     assert b"already exists" in duplicate.data
 
 
+def test_delete_project_removes_draft_workspace_and_selected_session(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
+    project_dir = tmp_path / "fresh_project"
+
+    response = client.post("/projects/delete", data={"project_key": "fresh_project"}, follow_redirects=True)
+
+    assert response.status_code == 200
+    assert b"Deleted project workspace" in response.data
+    assert not project_dir.exists()
+    with client.session_transaction() as session:
+        assert "project_key" not in session
+
+
+def test_delete_project_removes_committed_workspace(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+
+    response = client.post("/projects/delete", data={"project_key": "project"}, follow_redirects=True)
+
+    assert response.status_code == 200
+    assert not project_dir.exists()
+    assert b"Test Project" not in response.data
+
+
 def test_project_selection_rejects_traversal(tmp_path: Path) -> None:
     write_project(tmp_path)
     app = create_app(project_root=tmp_path, testing=True)

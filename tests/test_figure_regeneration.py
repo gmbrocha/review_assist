@@ -72,6 +72,47 @@ def test_regeneration_applies_sparse_style_overrides_to_render_metadata(tmp_path
     assert source_layer["style"]["point_size"] == 20.0
 
 
+def test_regeneration_uses_compact_source_legend_label_by_default(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    captured: dict[str, object] = {}
+
+    def spy_renderer(**kwargs):
+        output_path = Path(kwargs["output_path"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"png")
+        captured.update(kwargs)
+        return {"layout": "spy"}
+
+    regenerate_figure_version(project_dir, "figure-wetlands-waterbodies", renderer=spy_renderer)
+    source_layer = captured["source_layers"][0]  # type: ignore[index]
+
+    assert "label" not in source_layer["style_override"]  # type: ignore[index]
+    assert source_layer_style_record(source_layer, 0)["label"] == "NWI Wetlands"  # type: ignore[arg-type]
+
+
+def test_regeneration_honors_explicit_source_display_name_override(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [{"layer_id": "source:usfws_nwi_wetlands", "display_name": "Wetland Overlay"}],
+    )
+    captured: dict[str, object] = {}
+
+    def spy_renderer(**kwargs):
+        output_path = Path(kwargs["output_path"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"png")
+        captured.update(kwargs)
+        return {"layout": "spy"}
+
+    regenerate_figure_version(project_dir, "figure-wetlands-waterbodies", renderer=spy_renderer)
+    source_layer = captured["source_layers"][0]  # type: ignore[index]
+
+    assert source_layer["style_override"]["label"] == "Wetland Overlay"  # type: ignore[index]
+    assert source_layer_style_record(source_layer, 0)["label"] == "Wetland Overlay"  # type: ignore[arg-type]
+
+
 def test_regeneration_hides_layers_and_orders_visible_layers(tmp_path: Path) -> None:
     project_dir = write_project_with_figures(tmp_path)
     save_project_style_override(

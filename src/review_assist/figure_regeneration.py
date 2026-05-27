@@ -208,7 +208,10 @@ def _style_plan(recipe: dict[str, Any], active_override: dict[str, Any] | None) 
                     **feature_style["style"],
                 }
         elif record["layer_type"] == "source_layer":
-            source_layers.append({"recipe_layer": layer, "style": {"label": current["display_name"], "z_index": current["z_index"], **current["style"]}})
+            style = {"z_index": current["z_index"], **current["style"]}
+            if "display_name" in overrides.get(layer_id, {}):
+                style["label"] = current["display_name"]
+            source_layers.append({"recipe_layer": layer, "style": style})
         elif record["layer_type"] == "basemap":
             basemap_requested = True
     rendered_layers.sort(key=lambda item: (int(item.get("z_index", 0)), str(item.get("layer_id") or "")))

@@ -473,7 +473,7 @@ def _figure_record(project_dir: Path, figure_id: str, *, stub: bool) -> dict[str
         "caption": "Wetlands and waterbodies in and near the project area.",
         "source_note": "Sources: National Wetlands Inventory.",
         "method_note": "Vector-only desktop screening map.",
-        "map_elements": [] if stub else ["legend", "north_arrow", "scale_bar"],
+        "map_elements": [] if stub else ["legend", "scale_bar"],
         "figure_group": "deliverable_main",
         "related_resource_categories": ["wetlands_waterbodies"],
         "shown_layers": [] if stub else _shown_layers(layer_path),

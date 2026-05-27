@@ -323,6 +323,23 @@ def create_draft_project(
     }
 
 
+def delete_project(project_root: str | Path | None, project_key: str) -> dict[str, Any]:
+    """Delete a local project workspace and its draft/manifest metadata."""
+
+    project_dir = resolve_project_dir(project_root, project_key)
+    root = project_root_path(project_root)
+    try:
+        shutil.rmtree(project_dir)
+    except OSError as exc:
+        raise WebAdapterError(f"Could not delete project workspace '{project_dir.name}': {exc}") from exc
+    append_process_log("project_delete", "deleted project workspace", project=_project_relative(root, project_dir))
+    return {
+        "project_key": project_dir.name,
+        "project_dir": str(project_dir),
+        "deleted": True,
+    }
+
+
 def validate_project_key(value: str) -> str:
     """Validate and return a project root child name."""
 

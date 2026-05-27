@@ -73,6 +73,19 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
         flash("Draft project workspace created. Upload and commit at least one input to create config/project.json.", "success")
         return redirect(url_for("setup"))
 
+    @app.post("/projects/delete")
+    def delete_project() -> Any:
+        project_key = request.form.get("project_key", "")
+        try:
+            result = adapter.delete_project(app.config["PROJECT_ROOT"], project_key)
+        except adapter.WebAdapterError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("projects"))
+        if session.get("project_key") == result["project_key"]:
+            session.pop("project_key", None)
+        flash(f"Deleted project workspace '{result['project_key']}'.", "success")
+        return redirect(url_for("projects"))
+
     @app.get("/setup")
     def setup() -> str:
         project_dir = _selected_project_dir_or_none(app)

@@ -17,6 +17,7 @@ from review_assist.deliverable_items import generate_deliverable_items
 from review_assist.evidence_package import build_evidence_package
 from review_assist.review_queue import generate_review_queue
 from review_assist.deliverable_figure_rendering import (
+    LEGEND_FONT_SIZE,
     LEGEND_MEASUREMENT_SAFETY_FACTOR,
     _thematic_color_is_allowed,
     choose_legend_collar_side,
@@ -377,6 +378,14 @@ def test_sid_only_basemap_reports_missing_render_asset_and_vector_figure_still_r
 
     assert wetlands["is_stub"] is False
     assert Path(str(wetlands["image_path"])).exists()
+    assert wetlands["map_elements"] == ["legend", "scale_bar"]
+    assert "north_arrow" not in wetlands["map_elements"]
+    assert "north_arrow" not in wetlands["map_furniture"]
+    assert wetlands["map_furniture"]["scale_bar"]["placement"] == "below_legend"
+    assert wetlands["map_furniture"]["scale_bar"]["segment_count"] == 4
+    assert wetlands["map_furniture"]["scale_bar"]["label_position"] == "below_bar"
+    assert wetlands["map_furniture"]["scale_bar"]["label_font_size"] == LEGEND_FONT_SIZE
+    assert "north_arrow" not in json.dumps(wetlands.get("provenance", {}).get("render_layout", {}))
     assert "basemap_render_asset_missing" in issue_codes(wetlands)
     issue_text = json.dumps(wetlands["validation_issues"])
     assert "Expected project-local asset" in issue_text
@@ -1208,6 +1217,14 @@ def test_render_map_measured_side_collar_contains_legend_without_core_overlap(tm
         layout["collar_bbox_axes"][2] - layout["collar_bbox_axes"][0]
     )
     assert layout["render_extent_is_presentation_only"] is True
+    scale_bar = layout["scale_bar"]
+    assert scale_bar["placement"] == "below_legend"
+    assert scale_bar["segment_count"] == 4
+    assert scale_bar["segment_colors"] == ["#111827", "#FFFFFF", "#111827", "#FFFFFF"]
+    assert scale_bar["label_position"] == "below_bar"
+    assert scale_bar["label_font_size"] == LEGEND_FONT_SIZE
+    assert scale_bar["width_fraction"] == pytest.approx(legend_bbox[2] - legend_bbox[0])
+    assert scale_bar["segment_width_fraction"] * scale_bar["segment_count"] == pytest.approx(scale_bar["width_fraction"])
 
 
 def test_render_map_keeps_report_text_out_of_image_canvas(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1584,6 +1601,8 @@ def test_figure_extent_plan_records_small_medium_and_deferred_watershed_classes(
     assert len(wetlands["full_render_bounds"]) == 4  # type: ignore[arg-type]
     assert wetlands["full_render_bounds"][2] > wetlands["core_bounds"][2]  # type: ignore[index]
     assert wetlands["map_furniture"]["legend"]["placement"] == "presentation_collar"  # type: ignore[index]
+    assert wetlands["map_furniture"]["scale_bar"]["placement"] == "below_legend"  # type: ignore[index]
+    assert "north_arrow" not in wetlands["map_furniture"]  # type: ignore[operator]
 
     assert fire["extent_class"] == "medium_context"
     assert fire["status"] == "planned_current_project_area_context"
