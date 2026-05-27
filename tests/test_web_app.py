@@ -435,7 +435,7 @@ def test_review_queue_default_uses_bounded_items_and_excludes_legacy_types(tmp_p
     assert response.status_code == 200
     assert "deliverable_items" not in text
     assert "deliverable_items" in advanced
-    assert "Show advanced details" in text
+    assert "Show advanced/debug details" in text
     assert "draft_finding" not in text
     assert "spatial_relationship" not in text
     assert "source_inventory_note" not in text
@@ -444,6 +444,80 @@ def test_review_queue_default_uses_bounded_items_and_excludes_legacy_types(tmp_p
     assert "Report body" in text
     assert ">Render<" not in text
     assert "include_body" not in text
+
+
+def test_review_queue_shows_separate_review_and_content_statuses(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    queue_path = project_dir / "review_queue" / "review_queue.json"
+    queue = load_review_queue(project_dir)
+    statuses = ["accepted", "edited", "replaced", "declined", "unable_to_verify"]
+    for status, item in zip(statuses, queue["items"], strict=False):
+        item["status"] = status
+        if status == "replaced":
+            item["replacement_content"] = "Replacement content."
+        if status == "unable_to_verify":
+            item["export_eligible"] = True
+    queue_path.write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    text = client.get("/review").data.decode()
+    advanced = client.get("/review?advanced=1").data.decode()
+
+    assert "Review Status" in text
+    assert "Content Status" in text
+    assert "Source-backed generated" in text
+    for label in ["Accepted", "Edited and accepted", "Replaced", "Declined", "Unable to verify"]:
+        assert label in text
+    assert "<code>accepted</code>" not in text
+    assert "<code>accepted</code>" in advanced
+
+
+def test_review_readiness_status_labels_cover_manual_missing_placeholder_and_rendering(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    queue_path = project_dir / "review_queue" / "review_queue.json"
+    queue = load_review_queue(project_dir)
+    rows = queue["items"][:5]
+    rows[0]["manual_material"] = {"material_status": "manual_required"}
+    rows[1]["manual_material"] = {"material_status": "restricted_reviewer_supplied_required"}
+    rows[2]["render_decision"] = "blocked_missing_source"
+    rows[3]["validation_issues"] = [{"code": "figure_render_asset_missing", "message": "Figure render asset missing."}]
+    rows[3]["source_refs"] = []
+    rows[3]["evidence_refs"] = []
+    rows[4]["stub_text"] = "Placeholder."
+    rows[4]["generated_content"] = ""
+    rows[4]["source_refs"] = []
+    rows[4]["evidence_refs"] = []
+    queue_path.write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    text = client.get("/review").data.decode()
+
+    for label in ["Manual required", "Restricted material required", "Missing source", "Rendering deferred", "Draft placeholder"]:
+        assert label in text
+
+
+def test_advanced_debug_mode_persists_and_does_not_mutate_review_queue(tmp_path: Path) -> None:
+    project_dir = _populated_project(tmp_path)
+    queue_path = project_dir / "review_queue" / "review_queue.json"
+    before = queue_path.read_bytes()
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    advanced_review = client.get("/review?advanced=1").data.decode()
+    advanced_detail = client.get("/review/item/0").data.decode()
+    default_again = client.get("/review?advanced=0").data.decode()
+
+    assert "Hide advanced/debug details" in advanced_review
+    assert "Advanced Debug Details" in advanced_detail
+    assert "Review Item ID" in advanced_detail
+    assert "Show advanced/debug details" in default_again
+    assert "Advanced Debug Details" not in default_again
+    assert queue_path.read_bytes() == before
 
 
 def test_review_page_rejects_legacy_audit_queue_by_default(tmp_path: Path) -> None:
@@ -628,8 +702,8 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "Evidence Refs" not in text
     assert "Source Refs" in advanced
     assert "Evidence Refs" in advanced
-    assert "Show advanced details" in text
-    assert "Hide advanced details" in advanced
+    assert "Show advanced/debug details" in text
+    assert "Hide advanced/debug details" in advanced
     assert "Basemap And Render Status" in text
     assert "Validation Warnings" in text
     assert "No validation warnings recorded for this figure." in text

@@ -26,7 +26,8 @@
           <th>Item</th>
           <th>Type</th>
           <th>Report Role</th>
-          <th>Status</th>
+          <th>Review Status</th>
+          <th>Content Status</th>
           <th>Support</th>
           <th></th>
         </tr>
@@ -44,7 +45,8 @@
             <span class="tag">{{ item.report_role_label }}</span>
             {% if not item.report_body_eligible %}<div class="muted">{{ item.output_destination_label }}</div>{% endif %}
           </td>
-          <td><span class="status">{{ item.status_label }}</span>{% if advanced_mode %}<div class="muted"><code>{{ item.status }}</code></div>{% endif %}</td>
+          <td><span class="status status-{{ item.workflow_status_tone }}">{{ item.workflow_status_label }}</span>{% if advanced_mode %}<div class="muted"><code>{{ item.status }}</code></div>{% endif %}</td>
+          <td><span class="status status-{{ item.readiness_status_tone }}">{{ item.readiness_status_label }}</span>{% if advanced_mode %}<div class="muted"><code>{{ item.readiness_status }}</code></div>{% endif %}</td>
           <td>
             {{ item.support_summary }}
             {% if advanced_mode %}

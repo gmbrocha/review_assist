@@ -390,7 +390,14 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
 
 
 def _advanced_mode() -> bool:
-    return request.args.get("advanced") == "1"
+    value = request.args.get("advanced")
+    if value == "1":
+        session["advanced_mode"] = True
+        return True
+    if value in {"0", "false", "no"}:
+        session["advanced_mode"] = False
+        return False
+    return bool(session.get("advanced_mode", False))
 
 
 def _advanced_toggle_url(enabled: bool) -> str:
@@ -401,7 +408,7 @@ def _advanced_toggle_url(enabled: bool) -> str:
         values: dict[str, Any] = dict(request.view_args or {})
         args = request.args.to_dict(flat=True)
         if enabled:
-            args.pop("advanced", None)
+            args["advanced"] = "0"
         else:
             args["advanced"] = "1"
         values.update(args)

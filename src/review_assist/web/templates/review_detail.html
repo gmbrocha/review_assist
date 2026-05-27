@@ -5,11 +5,13 @@
 {% block content %}
 <section class="page-heading">
   <h1>{{ item.title }}</h1>
-  <p>{{ item.type_label }} | {{ item.status_label }}{% if advanced_mode %} | {{ item.id }}{% endif %}</p>
+  <p>{{ item.type_label }} | {{ item.workflow_status_label }} | {{ item.readiness_status_label }}{% if advanced_mode %} | {{ item.id }}{% endif %}</p>
   {% include "advanced_toggle.html" %}
 </section>
 
 <section class="summary-grid">
+  <div class="metric"><span>Review Status</span><strong><span class="status status-{{ item.workflow_status_tone }}">{{ item.workflow_status_label }}</span></strong>{% if advanced_mode %}<small>{{ item.status }}</small>{% endif %}</div>
+  <div class="metric"><span>Content Status</span><strong><span class="status status-{{ item.readiness_status_tone }}">{{ item.readiness_status_label }}</span></strong>{% if advanced_mode %}<small>{{ item.readiness_status }}</small>{% endif %}</div>
   <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if item.export_eligible else 'no' }}</strong></div>
   <div class="metric"><span>Report Role</span><strong>{{ item.report_role_label }}</strong></div>
   <div class="metric"><span>Manual Status</span><strong>{{ item.manual_material.material_status_label }}</strong></div>
@@ -178,6 +180,27 @@
     {% endfor %}
   </ul>
   {% endif %}
+</section>
+{% endif %}
+
+{% if advanced_mode %}
+<section class="panel">
+  <h2>Advanced Debug Details</h2>
+  <p class="muted">Read-only internal diagnostics for audit and development.</p>
+  <dl class="details">
+    <dt>Review Item ID</dt><dd><code>{{ item.id }}</code></dd>
+    <dt>Canonical Status</dt><dd><code>{{ item.status }}</code></dd>
+    <dt>Workflow Status</dt><dd><code>{{ item.workflow_status }}</code></dd>
+    <dt>Content Status</dt><dd><code>{{ item.readiness_status }}</code></dd>
+    <dt>Type</dt><dd><code>{{ item.type }}</code></dd>
+    <dt>Deliverable Item ID</dt><dd><code>{{ item.deliverable_item_id or 'Not recorded' }}</code></dd>
+    <dt>Target ID</dt><dd><code>{{ item.target_id or 'Not recorded' }}</code></dd>
+    <dt>Source Refs</dt><dd>{{ item.source_refs|join(', ') if item.source_refs else 'None recorded' }}</dd>
+    <dt>Evidence Refs</dt><dd>{{ item.evidence_refs|join(', ') if item.evidence_refs else 'None recorded' }}</dd>
+    <dt>Artifact</dt><dd>{{ item.provenance.artifact_path or 'Not recorded' }}</dd>
+    <dt>Render Decision</dt><dd><code>{{ item.render_decision }}</code></dd>
+    <dt>Render Destination</dt><dd><code>{{ item.render_destination }}</code></dd>
+  </dl>
 </section>
 {% endif %}
 

@@ -110,6 +110,40 @@ REVIEW_STATUS_LABELS = {
     "declined": "Declined",
     "unable_to_verify": "Unable to verify",
 }
+REVIEW_WORKFLOW_STATUS_LABELS = {
+    "needs_review": "Needs review",
+    "accepted": "Accepted",
+    "edited": "Edited and accepted",
+    "replaced": "Replaced",
+    "declined": "Declined",
+    "unable_to_verify": "Unable to verify",
+}
+REVIEW_WORKFLOW_STATUS_TONES = {
+    "needs_review": "warning",
+    "accepted": "ready",
+    "edited": "ready",
+    "replaced": "ready",
+    "declined": "muted",
+    "unable_to_verify": "warning",
+}
+READINESS_STATUS_LABELS = {
+    "source_backed_generated": "Source-backed generated",
+    "review_candidate": "Review candidate",
+    "draft_placeholder": "Draft placeholder",
+    "missing_source": "Missing source",
+    "rendering_deferred": "Rendering deferred",
+    "manual_required": "Manual required",
+    "restricted_material_required": "Restricted material required",
+}
+READINESS_STATUS_TONES = {
+    "source_backed_generated": "ready",
+    "review_candidate": "neutral",
+    "draft_placeholder": "neutral",
+    "missing_source": "failed",
+    "rendering_deferred": "warning",
+    "manual_required": "warning",
+    "restricted_material_required": "failed",
+}
 ITEM_TYPE_LABELS = {
     "section_text": "Report section",
     "table": "Table",
@@ -1569,6 +1603,8 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
     related_attachment_ids = _string_list(item.get("related_attachment_ids", []))
     render_policy = _render_policy_fields(item)
     manual_material = _manual_material_fields(item)
+    workflow_status = _review_workflow_status(item)
+    readiness_status = _review_readiness_status(item, render_policy=render_policy, manual_material=manual_material)
     return {
         "id": str(item.get("id") or item.get("deliverable_item_id") or item.get("target_id") or ""),
         "deliverable_item_id": str(item.get("deliverable_item_id") or ""),
@@ -1578,6 +1614,12 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
         "type_label": _item_type_label(str(item.get("type") or "")),
         "status": _status(item),
         "status_label": _review_status_label(_status(item)),
+        "workflow_status": workflow_status,
+        "workflow_status_label": _review_workflow_status_label(workflow_status),
+        "workflow_status_tone": REVIEW_WORKFLOW_STATUS_TONES.get(workflow_status, "neutral"),
+        "readiness_status": readiness_status,
+        "readiness_status_label": _readiness_status_label(readiness_status),
+        "readiness_status_tone": READINESS_STATUS_TONES.get(readiness_status, "neutral"),
         "export_eligible": bool(item.get("export_eligible", False)),
         "export_eligible_label": "Export ready" if bool(item.get("export_eligible", False)) else "Not export ready",
         "section_order": item.get("section_order"),
@@ -1668,6 +1710,41 @@ def _is_terminal_or_export_includable(item: dict[str, Any]) -> bool:
 def _status(item: dict[str, Any]) -> str:
     status = str(item.get("status") or "").strip()
     return "declined" if status == "rejected" else status
+
+
+def _review_workflow_status(item: dict[str, Any]) -> str:
+    status = _status(item)
+    if status in {"accepted", "edited", "replaced", "declined", "unable_to_verify"}:
+        return status
+    return "needs_review"
+
+
+def _review_readiness_status(item: dict[str, Any], *, render_policy: dict[str, Any], manual_material: dict[str, Any]) -> str:
+    material_status = str(manual_material.get("material_status") or "")
+    render_decision = str(render_policy.get("render_decision") or "")
+    render_destination = str(render_policy.get("render_destination") or "")
+    validation_codes = {str(issue.get("code") or "") for issue in _dict_list(item.get("validation_issues", []))}
+    uncertainty_flags = set(_string_list(item.get("uncertainty_flags", [])))
+
+    if material_status == "restricted_reviewer_supplied_required":
+        return "restricted_material_required"
+    if material_status in {"manual_required", "reviewer_supplied_required"}:
+        return "manual_required"
+    if material_status == "deferred_source" or render_decision == "blocked_missing_source":
+        return "missing_source"
+    if item.get("is_stub") or str(item.get("stub_text") or "").strip():
+        return "draft_placeholder"
+    if "deferred" in render_decision or render_destination == "review_status":
+        return "rendering_deferred"
+    if any("render" in code and ("missing" in code or "deferred" in code or "failed" in code) for code in validation_codes):
+        return "rendering_deferred"
+    if any(flag in uncertainty_flags for flag in {"source_unavailable", "source_missing", "missing_source"}):
+        return "missing_source"
+    if material_status == "source_backed_generated":
+        return "source_backed_generated"
+    if _string_list(item.get("source_refs", [])) or _string_list(item.get("evidence_refs", [])):
+        return "source_backed_generated"
+    return "review_candidate"
 
 
 def _is_figure_item(item: dict[str, Any]) -> bool:
@@ -2070,6 +2147,14 @@ def _title_from_enum(value: str) -> str:
 
 def _review_status_label(value: str) -> str:
     return REVIEW_STATUS_LABELS.get(str(value or ""), _title_from_enum(value))
+
+
+def _review_workflow_status_label(value: str) -> str:
+    return REVIEW_WORKFLOW_STATUS_LABELS.get(str(value or ""), _title_from_enum(value))
+
+
+def _readiness_status_label(value: str) -> str:
+    return READINESS_STATUS_LABELS.get(str(value or ""), _title_from_enum(value))
 
 
 def _item_type_label(value: str) -> str:

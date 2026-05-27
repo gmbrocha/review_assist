@@ -43,3 +43,5 @@ Current archived planning records include:
 - `docs/archive/sprints/SPRINT_6_8_QA_AND_SCOPE_CONTROL_PASS.md`
 - `docs/archive/sprints/SPRINT_6_REVIEWER_FIGURE_STYLING_AND_REGENERATION.md`
 - `docs/archive/sprints/SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md`
+- `docs/archive/sprints/SPRINT_7_2_REVIEW_STATUS_AND_BADGE_CLEANUP.md`
+- `docs/archive/sprints/SPRINT_7_3_ADVANCED_AND_DEBUG_VIEW_SEPARATION.md`

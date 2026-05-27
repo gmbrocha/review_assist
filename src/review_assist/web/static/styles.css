@@ -407,6 +407,13 @@ code {
   border-color: var(--line);
 }
 
+.status-neutral,
+.status-muted {
+  background: #f4f6f8;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
 .issue {
   color: var(--danger);
 }
