@@ -8,7 +8,7 @@
     {% if run_status.completed_at %}<dt>Completed</dt><dd>{{ run_status.completed_at }}</dd>{% endif %}
     <dt>Message</dt><dd>{{ run_status.message }}</dd>
     {% if run_status.error %}<dt>Error</dt><dd class="issue">{{ run_status.error }}</dd>{% endif %}
-    {% if run_status.artifact_path %}<dt>Artifact</dt><dd><code>{{ run_status.artifact_path }}</code></dd>{% endif %}
+    {% if advanced_mode and run_status.artifact_path %}<dt>Artifact</dt><dd><code>{{ run_status.artifact_path }}</code></dd>{% endif %}
   </dl>
 </section>
 {% endif %}

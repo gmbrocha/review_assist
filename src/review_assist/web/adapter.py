@@ -99,6 +99,77 @@ OUTPUT_DESTINATION_LABELS = {
     "review_status": "Review/status item",
     "audit_evidence": "Audit evidence",
 }
+REVIEW_STATUS_LABELS = {
+    "draft": "Needs review",
+    "needs_review": "Needs review",
+    "needs_verification": "Needs verification",
+    "accepted": "Accepted",
+    "edited": "Edited and accepted",
+    "replaced": "Replaced",
+    "declined": "Declined",
+    "unable_to_verify": "Unable to verify",
+}
+ITEM_TYPE_LABELS = {
+    "section_text": "Report section",
+    "table": "Table",
+    "figure": "Figure",
+    "map_figure": "Figure",
+    "attachment": "Attachment",
+    "front_matter": "Front matter",
+    "caveat": "Caveat",
+    "source_status": "Source status",
+}
+MANUAL_STATUS_LABELS = {
+    "not_used": "Not needed",
+    "manual_required": "Manual material needed",
+    "reviewer_supplied": "Reviewer-supplied material",
+    "reviewer_supplied_required": "Reviewer-supplied material required",
+    "restricted_reviewer_supplied_required": "Restricted reviewer material required",
+    "optional_absent": "Optional material absent",
+    "unable_to_verify": "Unable to verify",
+    "deferred_source": "Deferred source work",
+    "source_backed_generated": "Source-backed draft",
+}
+SOURCE_STATUS_LABELS = {
+    "available": "Ready for review",
+    "ready": "Ready for review",
+    "provided_locally": "Ready for review",
+    "local_materialized": "Ready for review",
+    "logical_rollup_satisfied": "Source-backed draft",
+    "downloaded": "Ready for review",
+    "downloadable": "Can be downloaded",
+    "manual": "Manual material needed",
+    "manual_reviewer_supplied": "Manual material needed",
+    "restricted": "Restricted review needed",
+    "gated": "Restricted review needed",
+    "missing": "Source unavailable",
+    "source_unavailable": "Source unavailable",
+    "failed": "Source unavailable",
+    "unimplemented": "Not implemented",
+    "stubbed": "Placeholder needs review",
+    "render_asset_missing": "Basemap/image missing",
+    "optional": "Optional",
+    "not_run": "Not run",
+    "missing_artifact": "Not generated",
+}
+WORKFLOW_STATUS_LABELS = {
+    "ready": "Ready",
+    "blocked": "Action needed",
+    "missing": "Not generated",
+    "warning": "Needs attention",
+    "available": "Available",
+    "not_run": "Not run",
+    "completed": "Complete",
+    "failed": "Failed",
+    "started": "Running",
+    "running": "Running",
+    "passed": "Ready",
+}
+BLOCKER_REASON_LABELS = {
+    "replacement_content_missing": "Replacement content is missing.",
+    "unable_to_verify_not_export_eligible": "Unable-to-verify item has not been marked export eligible.",
+    "unable_to_verify_missing_content": "Unable-to-verify item has no usable reviewed content.",
+}
 TERMINAL_STATUSES = {"accepted", "edited", "replaced", "declined"}
 BLOCKING_STATUSES = {"draft", "needs_review", "needs_verification"}
 PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -309,27 +380,32 @@ def project_summary(project_dir: Path) -> dict[str, Any]:
         "manifest": manifest,
         "input_package": {
             "status": _artifact_status(input_package),
+            "status_label": _workflow_status_label(_artifact_status(input_package)),
             "input_count": len(_dict_list(input_package.get("inputs", []))),
             "validation_issue_count": len(_dict_list(input_package.get("validation_issues", []))),
         },
         "project_area": {
             "status": _artifact_status(project_area),
+            "status_label": _workflow_status_label(_artifact_status(project_area)),
             "county_names": _string_list(project_area.get("county_names", [])),
             "bbox": project_area.get("bbox") if isinstance(project_area, dict) else None,
             "basemap_rendering_status": project_area.get("basemap_rendering_status") if isinstance(project_area, dict) else None,
         },
         "comparison_units": {
             "status": _artifact_status(comparison_units),
+            "status_label": _workflow_status_label(_artifact_status(comparison_units)),
             "comparison_unit_count": comparison_units.get("comparison_unit_count", 0) if isinstance(comparison_units, dict) else 0,
             "expected_count_status": comparison_units.get("expected_count_status") if isinstance(comparison_units, dict) else None,
         },
         "source_status": {
             "status": _artifact_status(source_status),
+            "status_label": _workflow_status_label(_artifact_status(source_status)),
             "rows": source_rows,
             "status_counts": dict(Counter(row.get("status", "unknown") for row in source_rows)),
         },
         "populate": {
             "status": populate_manifest.get("status", "not_run") if isinstance(populate_manifest, dict) else "not_run",
+            "status_label": _workflow_status_label(populate_manifest.get("status", "not_run") if isinstance(populate_manifest, dict) else "not_run"),
             "started_at": populate_manifest.get("started_at") if isinstance(populate_manifest, dict) else None,
             "completed_at": populate_manifest.get("completed_at") if isinstance(populate_manifest, dict) else None,
             "review_queue_item_count": populate_manifest.get("review_queue_item_count", 0) if isinstance(populate_manifest, dict) else 0,
@@ -339,6 +415,7 @@ def project_summary(project_dir: Path) -> dict[str, Any]:
         },
         "context": {
             "status": _artifact_status(context),
+            "status_label": _workflow_status_label(_artifact_status(context)),
             "project_type": context.get("project_type") if isinstance(context, dict) else None,
             "report_profile": context.get("report_profile") if isinstance(context, dict) else None,
         },
@@ -926,7 +1003,11 @@ def review_queue_summary(project_dir: Path) -> dict[str, Any]:
     """Return bounded standard review queue rows for the Review page."""
 
     queue = _load_standard_queue(project_dir)
-    items = [_queue_row(item) for item in _dict_list(queue.get("items", [])) if str(item.get("type", "")) not in RAW_LEGACY_ITEM_TYPES]
+    items = [
+        {**_queue_row(item), "queue_index": index}
+        for index, item in enumerate(_dict_list(queue.get("items", [])))
+        if str(item.get("type", "")) not in RAW_LEGACY_ITEM_TYPES
+    ]
     status_counts = dict(Counter(item["status"] for item in items))
     type_counts = dict(Counter(item["type"] for item in items))
     return {
@@ -948,6 +1029,39 @@ def review_item_detail(project_dir: Path, item_id: str) -> dict[str, Any]:
 
     queue = _load_standard_queue(project_dir)
     item = _find_review_item(queue, item_id)
+    queue_index = _review_item_index(queue, item)
+    return _review_item_detail(project_dir, item, queue_index=queue_index)
+
+
+def review_item_detail_by_index(project_dir: Path, item_index: int) -> dict[str, Any]:
+    """Return one bounded review item by stable queue index for reviewer-facing links."""
+
+    queue = _load_standard_queue(project_dir)
+    items = _dict_list(queue.get("items", []))
+    if item_index < 0 or item_index >= len(items):
+        raise WebAdapterError("Review item does not exist.")
+    item = items[item_index]
+    if str(item.get("type", "")) in RAW_LEGACY_ITEM_TYPES:
+        raise WebAdapterError("Raw audit review items are not part of the standard UI workflow.")
+    return _review_item_detail(project_dir, item, queue_index=item_index)
+
+
+def review_item_id_at_index(project_dir: Path, item_index: int) -> str:
+    """Resolve a queue index to the canonical review item id."""
+
+    queue = _load_standard_queue(project_dir)
+    items = _dict_list(queue.get("items", []))
+    if item_index < 0 or item_index >= len(items):
+        raise WebAdapterError("Review item does not exist.")
+    item = items[item_index]
+    if str(item.get("type", "")) in RAW_LEGACY_ITEM_TYPES:
+        raise WebAdapterError("Raw audit review items are not part of the standard UI workflow.")
+    return str(item.get("id") or item.get("deliverable_item_id") or item.get("target_id") or "")
+
+
+def _review_item_detail(project_dir: Path, item: dict[str, Any], *, queue_index: int | None) -> dict[str, Any]:
+    """Return one bounded review item with previews and references only."""
+
     if str(item.get("type", "")) in RAW_LEGACY_ITEM_TYPES:
         raise WebAdapterError("Raw audit review items are not part of the standard UI workflow.")
     assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
@@ -957,6 +1071,7 @@ def review_item_detail(project_dir: Path, item_id: str) -> dict[str, Any]:
     caption = _effective_figure_caption(item, assumptions)
     return {
         **_queue_row(item),
+        "queue_index": queue_index,
         "is_figure": _is_figure_item(item),
         "generated_content": _review_body_text(item.get("generated_content")),
         "edited_content": str(item.get("edited_content") or ""),
@@ -1111,17 +1226,19 @@ def save_figure_style_form(project_dir: Path, item_id: str, form: Any) -> dict[s
         if action == "reset_default":
             return reset_project_style_override(project_dir, figure_id, actor="local_reviewer")
         if action == "save_draft":
+            layer_ids = _style_layer_ids_for_form(project_dir, figure_id)
             return save_project_style_override(
                 project_dir,
                 figure_id,
-                _style_layers_from_form(form),
+                _style_layers_from_form(form, layer_ids),
                 actor="local_reviewer",
             )
         if action == "save_and_regenerate":
+            layer_ids = _style_layer_ids_for_form(project_dir, figure_id)
             save_result = save_project_style_override(
                 project_dir,
                 figure_id,
-                _style_layers_from_form(form),
+                _style_layers_from_form(form, layer_ids),
                 actor="local_reviewer",
             )
             regeneration = regenerate_figure_version(project_dir, figure_id, actor="local_reviewer")
@@ -1258,6 +1375,7 @@ def export_readiness(project_dir: Path) -> dict[str, Any]:
     manifest = _load_json(project_dir / EXPORT_MANIFEST_PATH)
     return {
         "review_gate_status": "passed" if not blockers and standard_items else "blocked",
+        "review_gate_status_label": "Ready for reviewed export" if not blockers and standard_items else "Export blocked by review items",
         "message": "Reviewed export is ready." if not blockers and standard_items else "Reviewed export is blocked until standard review items are terminal or explicitly export-ready.",
         "queue_mode": queue.get("queue_mode"),
         "review_item_count": len(standard_items),
@@ -1271,6 +1389,7 @@ def export_readiness(project_dir: Path) -> dict[str, Any]:
         "final_verification": manifest.get("final_verification", {}) if isinstance(manifest, dict) else {},
         "export_qa": manifest.get("export_qa", {}) if isinstance(manifest, dict) else {},
         "export_qa_status": str(manifest.get("export_qa_status") or "not_run") if isinstance(manifest, dict) else "not_run",
+        "export_qa_status_label": _workflow_status_label(str(manifest.get("export_qa_status") or "not_run") if isinstance(manifest, dict) else "not_run"),
         "preview_mode": bool(manifest.get("preview_mode", False)) if isinstance(manifest, dict) else False,
         "last_export_manifest": _manifest_summary_row(project_dir, EXPORT_MANIFEST_PATH, manifest),
         "latest_run": latest_run_status(project_dir),
@@ -1339,6 +1458,7 @@ def package_outputs(project_dir: Path) -> dict[str, Any]:
         "final_verification": export_manifest.get("final_verification", {}) if isinstance(export_manifest, dict) else {},
         "export_qa": export_manifest.get("export_qa", {}) if isinstance(export_manifest, dict) else {},
         "export_qa_status": str(export_manifest.get("export_qa_status") or "not_run") if isinstance(export_manifest, dict) else "not_run",
+        "export_qa_status_label": _workflow_status_label(str(export_manifest.get("export_qa_status") or "not_run") if isinstance(export_manifest, dict) else "not_run"),
         "package_final_verification": package_manifest.get("final_verification", {}) if isinstance(package_manifest, dict) else {},
     }
 
@@ -1414,6 +1534,14 @@ def _find_review_item(queue: dict[str, Any], item_id: str) -> dict[str, Any]:
     raise WebAdapterError("Review item does not exist.")
 
 
+def _review_item_index(queue: dict[str, Any], target: dict[str, Any]) -> int | None:
+    target_id = str(target.get("id") or target.get("deliverable_item_id") or target.get("target_id") or "")
+    for index, item in enumerate(_dict_list(queue.get("items", []))):
+        if target_id in {str(item.get("id", "")), str(item.get("deliverable_item_id", "")), str(item.get("target_id", ""))}:
+            return index
+    return None
+
+
 def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
     table_id = str(item.get("table_id") or "")
     figure_id = str(item.get("figure_id") or "")
@@ -1429,8 +1557,11 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
         "target_id": str(item.get("target_id") or ""),
         "title": str(item.get("title") or ""),
         "type": str(item.get("type") or ""),
+        "type_label": _item_type_label(str(item.get("type") or "")),
         "status": _status(item),
+        "status_label": _review_status_label(_status(item)),
         "export_eligible": bool(item.get("export_eligible", False)),
+        "export_eligible_label": "Export ready" if bool(item.get("export_eligible", False)) else "Not export ready",
         "section_order": item.get("section_order"),
         "heading_level": item.get("heading_level"),
         "table_id": table_id,
@@ -1445,6 +1576,7 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
         "display_table_refs": [table_id] if table_id else related_table_ids,
         "display_figure_refs": [figure_id] if figure_id else related_figure_ids,
         "display_attachment_refs": [attachment_id] if attachment_id else related_attachment_ids,
+        "support_summary": _support_summary(table_id, figure_id, attachment_id, related_table_ids, related_figure_ids, related_attachment_ids),
         "comparison_unit_ids": _string_list(item.get("comparison_unit_ids", [])),
         "validation_issue_count": len(_dict_list(item.get("validation_issues", []))),
         "manual_material": manual_material,
@@ -1452,6 +1584,27 @@ def _queue_row(item: dict[str, Any]) -> dict[str, Any]:
         **render_policy,
         "render_policy": render_policy,
     }
+
+
+def _support_summary(
+    table_id: str,
+    figure_id: str,
+    attachment_id: str,
+    related_table_ids: list[str],
+    related_figure_ids: list[str],
+    related_attachment_ids: list[str],
+) -> str:
+    parts: list[str] = []
+    table_count = len([item for item in [table_id, *related_table_ids] if item])
+    figure_count = len([item for item in [figure_id, *related_figure_ids] if item])
+    attachment_count = len([item for item in [attachment_id, *related_attachment_ids] if item])
+    if table_count:
+        parts.append(f"{table_count} table{'s' if table_count != 1 else ''}")
+    if figure_count:
+        parts.append(f"{figure_count} figure{'s' if figure_count != 1 else ''}")
+    if attachment_count:
+        parts.append(f"{attachment_count} attachment{'s' if attachment_count != 1 else ''}")
+    return ", ".join(parts) if parts else "Content only"
 
 
 def _readiness_blocker(item: dict[str, Any]) -> dict[str, str] | None:
@@ -1475,7 +1628,9 @@ def _blocker(item: dict[str, Any], reason: str) -> dict[str, str]:
         "id": str(item.get("id") or item.get("deliverable_item_id") or item.get("target_id") or ""),
         "title": str(item.get("title") or ""),
         "status": _status(item),
+        "status_label": _review_status_label(_status(item)),
         "reason": reason,
+        "reason_label": BLOCKER_REASON_LABELS.get(reason, _title_from_enum(reason)),
     }
 
 
@@ -1588,8 +1743,10 @@ def _source_status_rows(source_status: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "category": str(item.get("category") or ""),
                 "status": str(item.get("status") or ""),
+                "status_label": _source_status_label(str(item.get("status") or "")),
                 "requirement": str(item.get("requirement") or ""),
                 "source_ids": _string_list(item.get("source_ids", []))[:5],
+                "source_count": len(_string_list(item.get("source_ids", []))),
                 "notes": str(item.get("notes") or ""),
             }
         )
@@ -1621,6 +1778,7 @@ def _workflow_step(label: str, status: str, message: str, artifact_path: Path) -
     return {
         "label": label,
         "status": status,
+        "status_label": _workflow_status_label(status),
         "message": message,
         "artifact_path": artifact_path.as_posix(),
     }
@@ -1652,11 +1810,15 @@ def _project_pipeline_status(project_dir: Path) -> str:
 
 def _manifest_summary_row(project_dir: Path, relative_path: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     path = project_dir / relative_path
+    status = str(manifest.get("package_status") or manifest.get("status") or "") if isinstance(manifest, dict) else ""
+    review_gate_status = str(manifest.get("review_gate_status") or "") if isinstance(manifest, dict) else ""
     return {
         "exists": path.exists(),
         "relative_path": relative_path.as_posix(),
-        "status": str(manifest.get("package_status") or manifest.get("status") or "") if isinstance(manifest, dict) else "",
-        "review_gate_status": str(manifest.get("review_gate_status") or "") if isinstance(manifest, dict) else "",
+        "status": status,
+        "status_label": _workflow_status_label(status or ("available" if path.exists() else "missing")),
+        "review_gate_status": review_gate_status,
+        "review_gate_status_label": _workflow_status_label(review_gate_status),
         "preview_mode": bool(manifest.get("preview_mode", False)) if isinstance(manifest, dict) else False,
         "final_verification_status": _nested_string(manifest, "final_verification", "status"),
         "modified_at": _modified_at(path) if path.exists() else "",
@@ -1667,9 +1829,15 @@ def _allowed_artifact_rows(project_dir: Path) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     export_manifest = _load_json(project_dir / EXPORT_MANIFEST_PATH)
     package_manifest = _load_json(project_dir / DEMO_DELIVERABLE_MANIFEST_PATH)
+    key_labels = {
+        "output_path": "Manifest",
+        "export_manifest_path": "Reviewed export manifest",
+        "markdown_path": "Markdown report",
+        "docx_path": "Word report",
+    }
     for label, manifest, path_keys in (
-        ("Export manifest", export_manifest, ("output_path", "markdown_path", "docx_path")),
-        ("Package manifest", package_manifest, ("output_path", "export_manifest_path", "markdown_path", "docx_path")),
+        ("Reviewed export", export_manifest, ("output_path", "markdown_path", "docx_path")),
+        ("Deliverable package", package_manifest, ("output_path", "export_manifest_path", "markdown_path", "docx_path")),
     ):
         if not isinstance(manifest, dict):
             continue
@@ -1678,9 +1846,10 @@ def _allowed_artifact_rows(project_dir: Path) -> list[dict[str, str]]:
             if rel:
                 rows.append(
                     {
-                        "label": f"{label}: {key}",
+                        "label": f"{label}: {key_labels.get(key, _title_from_enum(key))}",
                         "relative_path": rel,
                         "kind": key,
+                        "kind_label": key_labels.get(key, _title_from_enum(key)),
                     }
                 )
     try:
@@ -1698,6 +1867,7 @@ def _allowed_artifact_rows(project_dir: Path) -> list[dict[str, str]]:
                     "label": f"Figure asset: {item.get('figure_id') or item.get('id')}",
                     "relative_path": rel,
                     "kind": "figure_image",
+                    "kind_label": "Figure image",
                 }
             )
     deduped: dict[str, dict[str, str]] = {}
@@ -1855,6 +2025,9 @@ def _render_policy_fields(item: dict[str, Any]) -> dict[str, Any]:
         result["render_destination"],
         _title_from_enum(result["render_destination"]),
     )
+    result["policy_inclusion_status_label"] = _title_from_enum(result["policy_inclusion_status"])
+    result["policy_activation_condition_label"] = _title_from_enum(result["policy_activation_condition"])
+    result["policy_review_requirement_label"] = _title_from_enum(result["policy_review_requirement"])
     return result
 
 
@@ -1862,12 +2035,34 @@ def _title_from_enum(value: str) -> str:
     return str(value or "").replace("_", " ").replace("-", " ").title()
 
 
+def _review_status_label(value: str) -> str:
+    return REVIEW_STATUS_LABELS.get(str(value or ""), _title_from_enum(value))
+
+
+def _item_type_label(value: str) -> str:
+    return ITEM_TYPE_LABELS.get(str(value or ""), _title_from_enum(value))
+
+
+def _manual_status_label(value: str) -> str:
+    return MANUAL_STATUS_LABELS.get(str(value or ""), _title_from_enum(value))
+
+
+def _source_status_label(value: str) -> str:
+    return SOURCE_STATUS_LABELS.get(str(value or ""), _title_from_enum(value))
+
+
+def _workflow_status_label(value: str) -> str:
+    return WORKFLOW_STATUS_LABELS.get(str(value or ""), _title_from_enum(value))
+
+
 def _manual_material_fields(item: dict[str, Any]) -> dict[str, Any]:
     record = item.get("manual_material", {}) if isinstance(item.get("manual_material"), dict) else {}
     return {
         "material_type": str(record.get("material_type") or "none"),
         "material_status": str(record.get("material_status") or "not_used"),
+        "material_status_label": _manual_status_label(str(record.get("material_status") or "not_used")),
         "export_behavior": str(record.get("export_behavior") or "do_not_export"),
+        "export_behavior_label": _title_from_enum(str(record.get("export_behavior") or "do_not_export")),
         "reviewer_action": str(record.get("reviewer_action") or ""),
         "source_refs": _string_list(item.get("source_refs", [])) or _string_list(record.get("source_refs", [])),
         "source_categories": _string_list(record.get("source_categories", [])),
@@ -2033,7 +2228,28 @@ def _figure_editor_basemap_status(layers: list[dict[str, Any]]) -> dict[str, Any
     }
 
 
-def _style_layers_from_form(form: Any) -> list[dict[str, Any]]:
+def _style_layer_ids_for_form(project_dir: Path, figure_id: str) -> list[str]:
+    try:
+        figures_artifact = load_deliverable_figures(project_dir)
+        artifacts = load_figure_style_artifacts(project_dir)
+        recipes_artifact = artifacts.get("recipes", {}) if isinstance(artifacts.get("recipes"), dict) else {}
+        try:
+            recipe = figure_recipe_for(recipes_artifact, figure_id)
+        except FigureStyleModelError:
+            figure = _find_deliverable_figure(figures_artifact, figure_id)
+            snapshot = build_analysis_snapshot(project_dir, figures_artifact)
+            recipe = build_figure_recipe(
+                project_dir,
+                figure,
+                project_id=str(figures_artifact.get("project_id") or ""),
+                analysis_snapshot_id=str(snapshot.get("analysis_snapshot_id") or ""),
+            )
+        return [str(layer.get("layer_id") or "") for layer in _style_editor_layers(recipe, None) if str(layer.get("layer_id") or "")]
+    except (DeliverableFigureError, FigureStyleModelError, WebAdapterError):
+        return []
+
+
+def _style_layers_from_form(form: Any, available_layer_ids: list[str] | None = None) -> list[dict[str, Any]]:
     layers: list[dict[str, Any]] = []
     layer_ids = [str(value) for value in form.getlist("layer_id") if str(value).strip()]
     fields = (
@@ -2048,7 +2264,13 @@ def _style_layers_from_form(form: Any) -> list[dict[str, Any]]:
         "label_visible",
         "label_field",
     )
-    for index, layer_id in enumerate(layer_ids):
+    available_layer_ids = available_layer_ids or []
+    for index, submitted_layer_id in enumerate(layer_ids):
+        layer_id = submitted_layer_id
+        if submitted_layer_id.isdigit():
+            layer_index = int(submitted_layer_id)
+            if 0 <= layer_index < len(available_layer_ids):
+                layer_id = available_layer_ids[layer_index]
         layer: dict[str, Any] = {"layer_id": layer_id}
         for field in fields:
             key = f"layer_{index}_{field}"

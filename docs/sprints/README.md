@@ -4,7 +4,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- None. Sprint 6 is complete; the next implementation target requires planning/approval.
+- None. Sprint 7.1 is complete; the next Sprint 7 subunit requires planning/approval.
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -12,6 +12,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 - Roadmap reference: `docs/sprints/ROADMAP.md`
 - Sprint 6 is archived. Use `docs/archive/sprints/SPRINT_6_REVIEWER_FIGURE_STYLING_AND_REGENERATION.md` for historical Sprint 6 scope.
+- Sprint 7.1 is archived. Use `docs/archive/sprints/SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md` for historical UI-polish scope.
 
 ## Completed Sprint/Subunits
 
@@ -81,6 +82,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Added focused QA for the style/regenerate/approve/export workflow, verified immutable source-truth boundaries, removed stale deferred-export UI wording, and closed Sprint 6 without adding new editor features.
 - Sprint 6 Reviewer Figure Styling And Regeneration: `docs/archive/sprints/SPRINT_6_REVIEWER_FIGURE_STYLING_AND_REGENERATION.md`
   - Completed Sprint 6 across figure flow audit, style recipes/overrides, editor UI, sparse save/reset, regeneration, exact-version approval, export resolution, and final QA/scope-control.
+- Sprint 7.1 Reviewer-Facing UI Polish: `docs/archive/sprints/SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md`
+  - Added default reviewer-facing labels and moved raw IDs, paths, hashes, prompt/cache diagnostics, and low-level codes behind inline `?advanced=1` diagnostics without changing artifacts or review/export semantics.
 
 ## Deferred Work Linked To Sprints
 

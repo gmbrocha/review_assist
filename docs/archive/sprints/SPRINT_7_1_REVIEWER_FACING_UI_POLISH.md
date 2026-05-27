@@ -2,7 +2,7 @@
 
 ## Status
 
-Parked draft for review. Do not implement until the Sprint 7 entry gate is accepted and Sprint 5 report-intelligence work is stable enough to test.
+Completed and archived after implementation.
 
 ## Purpose
 

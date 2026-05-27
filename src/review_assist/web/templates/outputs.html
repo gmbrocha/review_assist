@@ -6,28 +6,29 @@
 <section class="page-heading">
   <h1>Package Outputs</h1>
   <p>Generated package artifacts exposed from export manifests only. Arbitrary project file browsing is not available.</p>
+  {% include "advanced_toggle.html" %}
 </section>
 
 <section class="summary-grid">
   <div class="metric"><span>Export Manifest</span><strong>{{ 'available' if outputs.export_manifest.exists else 'missing' }}</strong></div>
   <div class="metric"><span>Package Manifest</span><strong>{{ 'available' if outputs.package_manifest.exists else 'missing' }}</strong></div>
-  <div class="metric"><span>Final Verification</span><strong>{{ outputs.final_verification.status or 'not_run' }}</strong></div>
+  <div class="metric"><span>Final Verification</span><strong>{{ outputs.final_verification.status or 'Not run' }}</strong></div>
 </section>
 
 <section class="table-section">
   <h2>Artifacts</h2>
   <table>
-    <thead><tr><th>Artifact</th><th>Kind</th><th>Path</th><th></th></tr></thead>
+    <thead><tr><th>Artifact</th><th>Kind</th>{% if advanced_mode %}<th>Path</th>{% endif %}<th></th></tr></thead>
     <tbody>
       {% for artifact in outputs.artifacts %}
       <tr>
         <td>{{ artifact.label }}</td>
-        <td>{{ artifact.kind }}</td>
-        <td><code>{{ artifact.relative_path }}</code></td>
+        <td>{{ artifact.kind_label }}{% if advanced_mode %}<div class="muted"><code>{{ artifact.kind }}</code></div>{% endif %}</td>
+        {% if advanced_mode %}<td><code>{{ artifact.relative_path }}</code></td>{% endif %}
         <td><a class="button" href="{{ url_for('artifact', project=selected_project_key, path=artifact.relative_path) }}">Open</a></td>
       </tr>
       {% else %}
-      <tr><td colspan="4" class="empty">No exposed export/package artifacts are available yet.</td></tr>
+      <tr><td colspan="{{ 4 if advanced_mode else 3 }}" class="empty">No exposed export/package artifacts are available yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -40,7 +41,7 @@
     {% if outputs.final_verification.issues %}
     <ul class="issue-list">
       {% for issue in outputs.final_verification.issues %}
-        <li>{{ issue.severity }} {{ issue.code }}: {{ issue.message }}</li>
+        <li>{{ issue.severity }}{% if advanced_mode %} {{ issue.code }}:{% endif %} {{ issue.message if advanced_mode else issue.message|replace(issue.code, '')|replace(': .', '.')|replace(':.', '.')|trim }}</li>
       {% endfor %}
     </ul>
     {% endif %}

@@ -6,11 +6,12 @@
 <section class="page-heading">
   <h1>Export Readiness</h1>
   <p>Reviewed export is blocked until the standard bounded review queue passes the review-complete gate.</p>
+  {% include "advanced_toggle.html" %}
 </section>
 
 <section class="summary-grid">
-  <div class="metric"><span>Gate</span><strong>{{ readiness.review_gate_status }}</strong></div>
-  <div class="metric"><span>Export QA</span><strong>{{ readiness.export_qa_status }}</strong></div>
+  <div class="metric"><span>Gate</span><strong>{{ readiness.review_gate_status_label }}</strong>{% if advanced_mode %}<small>{{ readiness.review_gate_status }}</small>{% endif %}</div>
+  <div class="metric"><span>Export QA</span><strong>{{ readiness.export_qa_status_label }}</strong>{% if advanced_mode %}<small>{{ readiness.export_qa_status }}</small>{% endif %}</div>
   <div class="metric"><span>Review Items</span><strong>{{ readiness.review_item_count }}</strong></div>
   <div class="metric"><span>Unreviewed</span><strong>{{ readiness.unreviewed_item_count }}</strong></div>
   <div class="metric"><span>Declined</span><strong>{{ readiness.declined_item_count }}</strong></div>
@@ -42,7 +43,11 @@
     <thead><tr><th>Item</th><th>Status</th><th>Reason</th></tr></thead>
     <tbody>
       {% for item in readiness.blockers %}
-      <tr><td>{{ item.id }} - {{ item.title }}</td><td>{{ item.status }}</td><td>{{ item.reason }}</td></tr>
+      <tr>
+        <td>{{ item.title }}{% if advanced_mode %}<div class="muted"><code>{{ item.id }}</code></div>{% endif %}</td>
+        <td>{{ item.status_label }}{% if advanced_mode %}<div class="muted"><code>{{ item.status }}</code></div>{% endif %}</td>
+        <td>{{ item.reason_label }}{% if advanced_mode %}<div class="muted"><code>{{ item.reason }}</code></div>{% endif %}</td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
@@ -52,12 +57,12 @@
 <section class="panel">
   <h2>Export QA</h2>
   {% if readiness.export_qa %}
-    <p><strong>Status:</strong> {{ readiness.export_qa.export_qa_status }}</p>
+    <p><strong>Status:</strong> {{ readiness.export_qa_status_label }}{% if advanced_mode %} <span class="muted">({{ readiness.export_qa.export_qa_status }})</span>{% endif %}</p>
     <p><strong>Blocking errors:</strong> {{ readiness.export_qa.export_qa_blocking_error_count }}</p>
     {% if readiness.export_qa.export_qa_issues %}
     <ul class="issue-list">
       {% for issue in readiness.export_qa.export_qa_issues[:10] %}
-        <li>{{ issue.severity }} {{ issue.code }}: {{ issue.message }}</li>
+        <li>{{ issue.severity }}{% if advanced_mode %} {{ issue.code }}:{% endif %} {{ issue.message if advanced_mode else issue.message|replace(issue.code, '')|replace(': .', '.')|replace(':.', '.')|trim }}</li>
       {% endfor %}
     </ul>
     {% endif %}
@@ -66,6 +71,7 @@
   {% endif %}
 </section>
 
+{% if advanced_mode %}
 <section class="panel">
   <h2>Compactness Budget</h2>
   {% if readiness.compactness_budget %}
@@ -78,6 +84,7 @@
     <p class="empty">No compactness budget has been recorded yet. Run a preview or reviewed export after the review queue exists.</p>
   {% endif %}
 </section>
+{% endif %}
 
 <section class="panel">
   <h2>Final Verification</h2>
@@ -86,7 +93,7 @@
     {% if readiness.final_verification.issues %}
     <ul class="issue-list">
       {% for issue in readiness.final_verification.issues %}
-        <li>{{ issue.severity }} {{ issue.code }}: {{ issue.message }}</li>
+        <li>{{ issue.severity }}{% if advanced_mode %} {{ issue.code }}:{% endif %} {{ issue.message if advanced_mode else issue.message|replace(issue.code, '')|replace(': .', '.')|replace(':.', '.')|trim }}</li>
       {% endfor %}
     </ul>
     {% endif %}

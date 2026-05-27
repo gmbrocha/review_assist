@@ -403,9 +403,12 @@ def test_review_queue_default_uses_bounded_items_and_excludes_legacy_types(tmp_p
 
     response = client.get("/review")
     text = response.data.decode()
+    advanced = client.get("/review?advanced=1").data.decode()
 
     assert response.status_code == 200
-    assert "deliverable_items" in text
+    assert "deliverable_items" not in text
+    assert "deliverable_items" in advanced
+    assert "Show advanced details" in text
     assert "draft_finding" not in text
     assert "spatial_relationship" not in text
     assert "source_inventory_note" not in text
@@ -475,13 +478,17 @@ def test_review_detail_reads_canonical_queue_source_refs(tmp_path: Path) -> None
 
     response = client.get("/review/water-quality")
     text = response.data.decode()
+    advanced = client.get("/review/water-quality?advanced=1").data.decode()
 
     assert response.status_code == 200
-    assert "mdeq_303d_impaired_waters" in text
-    assert "usgs_nhd_flowlines" in text
-    assert "usgs_nhd_waterbodies" in text
-    assert "usgs_nhd_other_areas" in text
+    assert "mdeq_303d_impaired_waters" not in text
+    assert "usgs_nhd_flowlines" not in text
+    assert "mdeq_303d_impaired_waters" in advanced
+    assert "usgs_nhd_flowlines" in advanced
+    assert "usgs_nhd_waterbodies" in advanced
+    assert "usgs_nhd_other_areas" in advanced
     assert "usgs_nhd_hydrography" not in text
+    assert "usgs_nhd_hydrography" not in advanced
 
 
 def test_review_detail_shows_full_generated_content_without_preview_truncation(tmp_path: Path) -> None:
@@ -584,13 +591,18 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
 
     response = client.get("/review/figure-wetlands-waterbodies/figure-style")
     text = response.data.decode()
+    advanced = client.get("/review/figure-wetlands-waterbodies/figure-style?advanced=1").data.decode()
 
     assert response.status_code == 200
     assert "Figure Style Editor" in text
     assert "Current Figure Preview" in text
     assert "Review Context" in text
-    assert "Source Refs" in text
-    assert "Evidence Refs" in text
+    assert "Source Refs" not in text
+    assert "Evidence Refs" not in text
+    assert "Source Refs" in advanced
+    assert "Evidence Refs" in advanced
+    assert "Show advanced details" in text
+    assert "Hide advanced details" in advanced
     assert "Basemap And Render Status" in text
     assert "Validation Warnings" in text
     assert "No validation warnings recorded for this figure." in text
@@ -607,7 +619,8 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "color-swatch" in text
     assert "Color preview" in text
     assert "Use #RRGGBB or leave blank for default." in text
-    assert "comparison_units:" in text
+    assert "comparison_units:" not in text
+    assert "comparison_units:" in advanced
     assert "National Wetlands Inventory" in text
     assert 'value="basemap' not in text
     assert "name=\"layer_0_visible\"" in text
@@ -814,13 +827,17 @@ def test_review_detail_displays_gpt_assist_provenance(tmp_path: Path) -> None:
 
     response = client.get("/review/wetlands-and-waterbodies")
     text = response.data.decode()
+    advanced = client.get("/review/wetlands-and-waterbodies?advanced=1").data.decode()
 
     assert response.status_code == 200
-    assert "GPT Assist Provenance" in text
+    assert "GPT Assist" in text
     assert "GPT-assisted content remains a review candidate" in text
-    assert "gpt-test" in text
-    assert "15 total" in text
-    assert "Evidence Hash" in text
+    assert "gpt-test" not in text
+    assert "15 total" not in text
+    assert "Evidence Hash" not in text
+    assert "gpt-test" in advanced
+    assert "15 total" in advanced
+    assert "Evidence Hash" in advanced
 
 
 def test_review_detail_displays_gpt_assist_fallback_reason(tmp_path: Path) -> None:
@@ -840,13 +857,17 @@ def test_review_detail_displays_gpt_assist_fallback_reason(tmp_path: Path) -> No
 
     response = client.get("/review/wetlands-and-waterbodies")
     text = response.data.decode()
+    advanced = client.get("/review/wetlands-and-waterbodies?advanced=1").data.decode()
 
     assert response.status_code == 200
     assert "GPT Assist Fallback" in text
     assert "deterministic source-backed content was retained" in text
-    assert "gpt_output_rejected" in text
-    assert "style_context_cited_as_evidence" in text
-    assert "13 total" in text
+    assert "gpt_output_rejected" not in text
+    assert "style_context_cited_as_evidence" not in text
+    assert "13 total" not in text
+    assert "gpt_output_rejected" in advanced
+    assert "style_context_cited_as_evidence" in advanced
+    assert "13 total" in advanced
 
 
 def test_section_review_detail_displays_related_table_figure_and_evidence_refs(tmp_path: Path) -> None:
@@ -857,11 +878,13 @@ def test_section_review_detail_displays_related_table_figure_and_evidence_refs(t
 
     response = client.get("/review/wetlands-and-waterbodies")
     text = response.data.decode()
+    advanced = client.get("/review/wetlands-and-waterbodies?advanced=1").data.decode()
 
     assert response.status_code == 200
     assert "table-wetlands-waterbodies" in text
     assert "figure-wetlands-waterbodies" in text
-    assert "section_evidence:wetlands-and-waterbodies" in text
+    assert "section_evidence:wetlands-and-waterbodies" not in text
+    assert "section_evidence:wetlands-and-waterbodies" in advanced
     assert "Report Role" in text
     assert "Report body" in text
     assert "<strong>include_body</strong>" not in text
@@ -1085,17 +1108,21 @@ def test_preview_export_shows_compactness_and_final_verification(tmp_path: Path)
 
     response = client.post("/export/preview", follow_redirects=True)
     text = response.data.decode()
+    advanced = client.get("/export?advanced=1").data.decode()
 
     assert response.status_code == 200
     assert "Internal preview export created" in text
-    assert "Compactness Budget" in text
+    assert "Compactness Budget" not in text
+    assert "Compactness Budget" in advanced
     assert "Final Verification" in text
-    assert "preview_bypassed" in text
+    assert "preview_bypassed" not in text
+    assert "preview_bypassed" in advanced
     assert "Latest Run Status" in text
     assert "preview_export" in text
     assert "Started" in text
     assert "Completed" in text
-    assert "Artifact" in text
+    assert "Artifact" not in text
+    assert "Artifact" in advanced
     assert "Traceback" not in text
 
 
@@ -1165,7 +1192,8 @@ def test_fresh_project_flow_reaches_standard_bounded_review_queue(tmp_path: Path
     assert populated.status_code == 200
     assert b"Create Review Queue completed" in populated.data
     assert review.status_code == 200
-    assert "deliverable_items" in review_text
+    assert "deliverable_items" not in review_text
+    assert "Standard review" in review_text
     assert "draft_finding" not in review_text
     assert "spatial_relationship" not in review_text
     assert "source_inventory_note" not in review_text

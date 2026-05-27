@@ -25,9 +25,12 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
     def inject_layout_context() -> dict[str, Any]:
         selected_key = session.get("project_key", "")
         selected_project = _selected_project_ref(app, selected_key) if selected_key else None
+        advanced = _advanced_mode()
         return {
             "selected_project_key": selected_key,
             "selected_project": selected_project,
+            "advanced_mode": advanced,
+            "advanced_toggle_url": _advanced_toggle_url(advanced),
         }
 
     @app.get("/")
@@ -209,6 +212,15 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             queue = {**queue, "items": [item for item in queue["items"] if item["status"] == status_filter]}
         return render_template("review.html", active_page="review", queue=queue, error="")
 
+    @app.get("/review/item/<int:item_index>")
+    def review_detail_by_index(item_index: int) -> str:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            item = adapter.review_item_detail_by_index(project_dir, item_index)
+        except adapter.WebAdapterError as exc:
+            abort(404, str(exc))
+        return render_template("review_detail.html", active_page="review", item=item)
+
     @app.get("/review/<item_id>")
     def review_detail(item_id: str) -> str:
         project_dir = _selected_project_dir_or_abort(app)
@@ -217,6 +229,15 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
         except adapter.WebAdapterError as exc:
             abort(404, str(exc))
         return render_template("review_detail.html", active_page="review", item=item)
+
+    @app.post("/review/item/<int:item_index>")
+    def review_update_by_index(item_index: int) -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            item_id = adapter.review_item_id_at_index(project_dir, item_index)
+        except adapter.WebAdapterError as exc:
+            abort(404, str(exc))
+        return _save_review_update(project_dir, item_id)
 
     @app.get("/review/<item_id>/figure-style")
     def figure_style_editor(item_id: str) -> str:
@@ -227,9 +248,32 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             abort(404, str(exc))
         return render_template("figure_style_editor.html", active_page="review", editor=editor)
 
+    @app.get("/review/item/<int:item_index>/figure-style")
+    def figure_style_editor_by_index(item_index: int) -> str:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            item_id = adapter.review_item_id_at_index(project_dir, item_index)
+            editor = adapter.figure_style_editor_context(project_dir, item_id)
+            editor["queue_index"] = item_index
+        except adapter.WebAdapterError as exc:
+            abort(404, str(exc))
+        return render_template("figure_style_editor.html", active_page="review", editor=editor)
+
     @app.post("/review/<item_id>/figure-style")
     def figure_style_update(item_id: str) -> Any:
         project_dir = _selected_project_dir_or_abort(app)
+        return _save_figure_style_update(project_dir, item_id)
+
+    @app.post("/review/item/<int:item_index>/figure-style")
+    def figure_style_update_by_index(item_index: int) -> Any:
+        project_dir = _selected_project_dir_or_abort(app)
+        try:
+            item_id = adapter.review_item_id_at_index(project_dir, item_index)
+        except adapter.WebAdapterError as exc:
+            abort(404, str(exc))
+        return _save_figure_style_update(project_dir, item_id)
+
+    def _save_figure_style_update(project_dir: Path, item_id: str) -> Any:
         try:
             result = adapter.save_figure_style_form(project_dir, item_id, request.form)
             if str(request.form.get("style_action") or "") == "reset_default":
@@ -245,11 +289,14 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
                 flash("No draft style changes were saved; submitted values match defaults.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
-        return redirect(url_for("figure_style_editor", item_id=item_id))
+        return redirect(request.path + ("?advanced=1" if _advanced_mode() else ""))
 
     @app.post("/review/<item_id>")
     def review_update(item_id: str) -> Any:
         project_dir = _selected_project_dir_or_abort(app)
+        return _save_review_update(project_dir, item_id)
+
+    def _save_review_update(project_dir: Path, item_id: str) -> Any:
         form_kind = str(request.form.get("form_kind") or "")
         try:
             if form_kind == "figure_review":
@@ -274,7 +321,7 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             flash("Review item updated.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
-        return redirect(url_for("review_detail", item_id=item_id))
+        return redirect(request.path + ("?advanced=1" if _advanced_mode() else ""))
 
     @app.get("/export")
     def export_status() -> str:
@@ -288,8 +335,8 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
     def preview_export() -> Any:
         project_dir = _selected_project_dir_or_abort(app)
         try:
-            result = adapter.run_export(project_dir, preview=True)
-            flash(f"Internal preview export created: {result.get('review_gate_status', 'preview_bypassed')}.", "success")
+            adapter.run_export(project_dir, preview=True)
+            flash("Internal preview export created.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
         return redirect(url_for("export_status"))
@@ -298,8 +345,8 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
     def reviewed_export() -> Any:
         project_dir = _selected_project_dir_or_abort(app)
         try:
-            result = adapter.run_export(project_dir, preview=False)
-            flash(f"Reviewed export created: {result.get('review_gate_status', 'passed')}.", "success")
+            adapter.run_export(project_dir, preview=False)
+            flash("Reviewed export created.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
         return redirect(url_for("export_status"))
@@ -327,6 +374,27 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
         return send_file(path, as_attachment=False)
 
     return app
+
+
+def _advanced_mode() -> bool:
+    return request.args.get("advanced") == "1"
+
+
+def _advanced_toggle_url(enabled: bool) -> str:
+    try:
+        endpoint = request.endpoint
+        if not endpoint:
+            return "#"
+        values: dict[str, Any] = dict(request.view_args or {})
+        args = request.args.to_dict(flat=True)
+        if enabled:
+            args.pop("advanced", None)
+        else:
+            args["advanced"] = "1"
+        values.update(args)
+        return url_for(endpoint, **values)
+    except RuntimeError:
+        return "#"
 
 
 def _selected_project_ref(app: Flask, project_key: str) -> adapter.ProjectRef | None:

@@ -5,15 +5,16 @@
 {% block content %}
 <section class="page-heading">
   <h1>{{ item.title }}</h1>
-  <p>{{ item.type }} | {{ item.status }} | {{ item.id }}</p>
+  <p>{{ item.type_label }} | {{ item.status_label }}{% if advanced_mode %} | {{ item.id }}{% endif %}</p>
+  {% include "advanced_toggle.html" %}
 </section>
 
 <section class="summary-grid">
   <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if item.export_eligible else 'no' }}</strong></div>
   <div class="metric"><span>Report Role</span><strong>{{ item.report_role_label }}</strong></div>
-  <div class="metric"><span>Manual Status</span><strong>{{ item.manual_material.material_status }}</strong></div>
-  <div class="metric"><span>Table</span><strong>{{ item.display_table_refs|join(', ') if item.display_table_refs else 'none' }}</strong></div>
-  <div class="metric"><span>Figure</span><strong>{{ item.display_figure_refs|join(', ') if item.display_figure_refs else 'none' }}</strong></div>
+  <div class="metric"><span>Manual Status</span><strong>{{ item.manual_material.material_status_label }}</strong></div>
+  <div class="metric"><span>Support</span><strong>{{ item.support_summary }}</strong></div>
+  <div class="metric"><span>Validation</span><strong>{{ item.validation_issue_count }}</strong></div>
 </section>
 
 {% if item.render_decision != 'include_body' %}
@@ -23,9 +24,11 @@
     <dt>Destination</dt><dd>{{ item.output_destination_label }}</dd>
     <dt>Report Body Eligible</dt><dd>{{ 'yes' if item.report_body_eligible else 'no' }}</dd>
     <dt>Reason</dt><dd>{{ item.render_decision_reason }}</dd>
-    <dt>Inclusion</dt><dd>{{ item.policy_inclusion_status }}</dd>
-    <dt>Activation</dt><dd>{{ item.policy_activation_condition }}</dd>
-    <dt>Review</dt><dd>{{ item.policy_review_requirement }}</dd>
+    {% if advanced_mode %}
+      <dt>Inclusion</dt><dd>{{ item.policy_inclusion_status }}</dd>
+      <dt>Activation</dt><dd>{{ item.policy_activation_condition }}</dd>
+      <dt>Review</dt><dd>{{ item.policy_review_requirement }}</dd>
+    {% endif %}
   </dl>
 </section>
 {% endif %}
@@ -34,11 +37,14 @@
 <section class="panel">
   <h2>Manual Material</h2>
   <dl class="details">
-    <dt>Type</dt><dd>{{ item.manual_material.material_type }}</dd>
-    <dt>Status</dt><dd>{{ item.manual_material.material_status }}</dd>
-    <dt>Export Behavior</dt><dd>{{ item.manual_material.export_behavior }}</dd>
+    <dt>Status</dt><dd>{{ item.manual_material.material_status_label }}</dd>
+    <dt>Export Behavior</dt><dd>{{ item.manual_material.export_behavior_label }}</dd>
     <dt>Reviewer Action</dt><dd>{{ item.manual_material.reviewer_action }}</dd>
-    <dt>Source Refs</dt><dd>{{ item.manual_material.source_refs|join(', ') if item.manual_material.source_refs else 'None recorded' }}</dd>
+    {% if advanced_mode %}
+      <dt>Type</dt><dd>{{ item.manual_material.material_type }}</dd>
+      <dt>Raw Status</dt><dd>{{ item.manual_material.material_status }}</dd>
+      <dt>Source Refs</dt><dd>{{ item.manual_material.source_refs|join(', ') if item.manual_material.source_refs else 'None recorded' }}</dd>
+    {% endif %}
   </dl>
 </section>
 {% endif %}
@@ -84,7 +90,11 @@
     <dt>Method Note</dt><dd>{{ item.figure.method_note or 'Not recorded' }}</dd>
   </dl>
   <div class="form-actions">
-    <a class="button" href="{{ url_for('figure_style_editor', item_id=item.id) }}">Open Figure Style Editor</a>
+    {% if item.queue_index is not none and not advanced_mode %}
+      <a class="button" href="{{ url_for('figure_style_editor_by_index', item_index=item.queue_index) }}">Open Figure Style Editor</a>
+    {% else %}
+      <a class="button" href="{{ url_for('figure_style_editor', item_id=item.id, advanced=1 if advanced_mode else none) }}">Open Figure Style Editor</a>
+    {% endif %}
   </div>
 </section>
 {% endif %}
@@ -92,17 +102,21 @@
 <section class="panel">
   <h2>Evidence And Validation Summary</h2>
   <dl class="details">
-    <dt>Source Refs</dt><dd>{{ item.source_refs|join(', ') if item.source_refs else 'None recorded' }}</dd>
-    <dt>Related Tables</dt><dd>{{ item.related_table_ids|join(', ') if item.related_table_ids else 'None recorded' }}</dd>
-    <dt>Related Figures</dt><dd>{{ item.related_figure_ids|join(', ') if item.related_figure_ids else 'None recorded' }}</dd>
-    <dt>Evidence Refs</dt><dd>{{ item.evidence_refs|join(', ') if item.evidence_refs else 'None recorded' }}</dd>
-    <dt>Comparison Units</dt><dd>{{ item.comparison_unit_ids|join(', ') if item.comparison_unit_ids else 'None recorded' }}</dd>
-    <dt>Artifact</dt><dd>{{ item.provenance.artifact_path or 'Not recorded' }}</dd>
+    <dt>Support</dt><dd>{{ item.support_summary }}</dd>
+    <dt>Comparison Units</dt><dd>{{ item.comparison_unit_ids|length }} recorded</dd>
+    {% if advanced_mode %}
+      <dt>Source Refs</dt><dd>{{ item.source_refs|join(', ') if item.source_refs else 'None recorded' }}</dd>
+      <dt>Related Tables</dt><dd>{{ item.related_table_ids|join(', ') if item.related_table_ids else 'None recorded' }}</dd>
+      <dt>Related Figures</dt><dd>{{ item.related_figure_ids|join(', ') if item.related_figure_ids else 'None recorded' }}</dd>
+      <dt>Evidence Refs</dt><dd>{{ item.evidence_refs|join(', ') if item.evidence_refs else 'None recorded' }}</dd>
+      <dt>Comparison Unit IDs</dt><dd>{{ item.comparison_unit_ids|join(', ') if item.comparison_unit_ids else 'None recorded' }}</dd>
+      <dt>Artifact</dt><dd>{{ item.provenance.artifact_path or 'Not recorded' }}</dd>
+    {% endif %}
   </dl>
   {% if item.validation_issues %}
   <ul class="issue-list">
     {% for issue in item.validation_issues %}
-      <li>{{ issue.code }}: {{ issue.message }}</li>
+      <li>{% if advanced_mode %}{{ issue.code }}: {% endif %}{{ issue.message }}</li>
     {% endfor %}
   </ul>
   {% endif %}
@@ -110,23 +124,25 @@
 
 {% if item.provenance.gpt_interpretive_assist.enabled %}
 <section class="panel">
-  <h2>GPT Assist Provenance</h2>
+  <h2>GPT Assist</h2>
   <p class="muted">GPT-assisted content remains a review candidate and is not export eligible until a reviewer accepts or edits it.</p>
   <dl class="details">
-    <dt>Provider</dt><dd>{{ item.provenance.gpt_interpretive_assist.draft_provider }}</dd>
-    <dt>Model</dt><dd>{{ item.provenance.gpt_interpretive_assist.model }}</dd>
-    <dt>Prompt Version</dt><dd>{{ item.provenance.gpt_interpretive_assist.prompt_version }}</dd>
-    <dt>Cached</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist.cached else 'no' }}</dd>
-    <dt>Generated</dt><dd>{{ item.provenance.gpt_interpretive_assist.generated_at or 'Not recorded' }}</dd>
     <dt>Review Before Export</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist.review_before_export else 'no' }}</dd>
-    <dt>Source Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.source_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.source_refs_used else 'None recorded' }}</dd>
-    <dt>Table Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.table_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.table_refs_used else 'None recorded' }}</dd>
-    <dt>Figure Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.figure_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.figure_refs_used else 'None recorded' }}</dd>
-    <dt>Token Usage</dt><dd>{% if item.provenance.gpt_interpretive_assist.token_usage %}{{ item.provenance.gpt_interpretive_assist.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
-    <dt>Evidence Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.evidence_payload_hash or 'Not recorded' }}</dd>
-    <dt>Policy Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.section_policy_hash or 'Not recorded' }}</dd>
-    <dt>Prompt Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.prompt_contract_hash or 'Not recorded' }}</dd>
-    <dt>Style Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.style_context_hash or 'Not recorded' }}</dd>
+    {% if advanced_mode %}
+      <dt>Model</dt><dd>{{ item.provenance.gpt_interpretive_assist.model }}</dd>
+      <dt>Cached</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist.cached else 'no' }}</dd>
+      <dt>Generated</dt><dd>{{ item.provenance.gpt_interpretive_assist.generated_at or 'Not recorded' }}</dd>
+      <dt>Provider</dt><dd>{{ item.provenance.gpt_interpretive_assist.draft_provider }}</dd>
+      <dt>Prompt Version</dt><dd>{{ item.provenance.gpt_interpretive_assist.prompt_version }}</dd>
+      <dt>Source Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.source_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.source_refs_used else 'None recorded' }}</dd>
+      <dt>Table Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.table_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.table_refs_used else 'None recorded' }}</dd>
+      <dt>Figure Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist.figure_refs_used|join(', ') if item.provenance.gpt_interpretive_assist.figure_refs_used else 'None recorded' }}</dd>
+      <dt>Token Usage</dt><dd>{% if item.provenance.gpt_interpretive_assist.token_usage %}{{ item.provenance.gpt_interpretive_assist.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
+      <dt>Evidence Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.evidence_payload_hash or 'Not recorded' }}</dd>
+      <dt>Policy Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.section_policy_hash or 'Not recorded' }}</dd>
+      <dt>Prompt Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.prompt_contract_hash or 'Not recorded' }}</dd>
+      <dt>Style Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist.style_context_hash or 'Not recorded' }}</dd>
+    {% endif %}
   </dl>
 </section>
 {% endif %}
@@ -137,26 +153,28 @@
   <p class="muted">GPT Assist was attempted, but deterministic source-backed content was retained for review.</p>
   <dl class="details">
     <dt>Reason</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.reason or 'Not recorded' }}</dd>
-    <dt>Reason Code</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.reason_code or 'Not recorded' }}</dd>
-    <dt>Provider</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.draft_provider }}</dd>
-    <dt>Model</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.model }}</dd>
-    <dt>Prompt Version</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.prompt_version }}</dd>
-    <dt>Attempted</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.generated_at or 'Not recorded' }}</dd>
     <dt>Review Before Export</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist_fallback.review_before_export else 'no' }}</dd>
     <dt>Deterministic Content Retained</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist_fallback.deterministic_content_retained else 'no' }}</dd>
-    <dt>Source Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.source_refs_used|join(', ') if item.provenance.gpt_interpretive_assist_fallback.source_refs_used else 'None recorded' }}</dd>
-    <dt>Table Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.table_refs_used|join(', ') if item.provenance.gpt_interpretive_assist_fallback.table_refs_used else 'None recorded' }}</dd>
-    <dt>Figure Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.figure_refs_used|join(', ') if item.provenance.gpt_interpretive_assist_fallback.figure_refs_used else 'None recorded' }}</dd>
-    <dt>Token Usage</dt><dd>{% if item.provenance.gpt_interpretive_assist_fallback.token_usage %}{{ item.provenance.gpt_interpretive_assist_fallback.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
-    <dt>Evidence Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.evidence_payload_hash or 'Not recorded' }}</dd>
-    <dt>Policy Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.section_policy_hash or 'Not recorded' }}</dd>
-    <dt>Prompt Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.prompt_contract_hash or 'Not recorded' }}</dd>
-    <dt>Style Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.style_context_hash or 'Not recorded' }}</dd>
+    {% if advanced_mode %}
+      <dt>Reason Code</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.reason_code or 'Not recorded' }}</dd>
+      <dt>Model</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.model }}</dd>
+      <dt>Attempted</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.generated_at or 'Not recorded' }}</dd>
+      <dt>Provider</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.draft_provider }}</dd>
+      <dt>Prompt Version</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.prompt_version }}</dd>
+      <dt>Source Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.source_refs_used|join(', ') if item.provenance.gpt_interpretive_assist_fallback.source_refs_used else 'None recorded' }}</dd>
+      <dt>Table Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.table_refs_used|join(', ') if item.provenance.gpt_interpretive_assist_fallback.table_refs_used else 'None recorded' }}</dd>
+      <dt>Figure Refs Used</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.figure_refs_used|join(', ') if item.provenance.gpt_interpretive_assist_fallback.figure_refs_used else 'None recorded' }}</dd>
+      <dt>Token Usage</dt><dd>{% if item.provenance.gpt_interpretive_assist_fallback.token_usage %}{{ item.provenance.gpt_interpretive_assist_fallback.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
+      <dt>Evidence Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.evidence_payload_hash or 'Not recorded' }}</dd>
+      <dt>Policy Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.section_policy_hash or 'Not recorded' }}</dd>
+      <dt>Prompt Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.prompt_contract_hash or 'Not recorded' }}</dd>
+      <dt>Style Hash</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.style_context_hash or 'Not recorded' }}</dd>
+    {% endif %}
   </dl>
   {% if item.provenance.gpt_interpretive_assist_fallback.validation_issues %}
   <ul class="issue-list">
     {% for issue in item.provenance.gpt_interpretive_assist_fallback.validation_issues %}
-      <li>{{ issue.code }}: {{ issue.message }}</li>
+      <li>{% if advanced_mode %}{{ issue.code }}: {% endif %}{{ issue.message }}</li>
     {% endfor %}
   </ul>
   {% endif %}

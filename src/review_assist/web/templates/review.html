@@ -6,6 +6,7 @@
 <section class="page-heading">
   <h1>Review Queue</h1>
   <p>Standard bounded deliverable review items only. Legacy audit artifacts are not shown in the default workflow.</p>
+  {% include "advanced_toggle.html" %}
 </section>
 
 {% if error %}
@@ -14,7 +15,7 @@
   <section class="summary-grid">
     <div class="metric"><span>Total Items</span><strong>{{ queue.item_count }}</strong></div>
     <div class="metric"><span>Remaining</span><strong>{{ queue.remaining_count }}</strong></div>
-    <div class="metric"><span>Queue Mode</span><strong>{{ queue.queue_mode }}</strong></div>
+    <div class="metric"><span>Workflow</span><strong>Standard review</strong>{% if advanced_mode %}<small>{{ queue.queue_mode }}</small>{% endif %}</div>
   </section>
 
   <section class="table-section">
@@ -26,7 +27,7 @@
           <th>Type</th>
           <th>Report Role</th>
           <th>Status</th>
-          <th>Refs</th>
+          <th>Support</th>
           <th></th>
         </tr>
       </thead>
@@ -36,20 +37,31 @@
           <td>{{ item.section_order }}</td>
           <td>
             <strong>{{ item.title }}</strong>
-            <div class="muted">{{ item.id }}</div>
+            {% if advanced_mode %}<div class="muted"><code>{{ item.id }}</code></div>{% endif %}
           </td>
-          <td>{{ item.type }}</td>
+          <td>{{ item.type_label }}{% if advanced_mode %}<div class="muted"><code>{{ item.type }}</code></div>{% endif %}</td>
           <td>
             <span class="tag">{{ item.report_role_label }}</span>
             {% if not item.report_body_eligible %}<div class="muted">{{ item.output_destination_label }}</div>{% endif %}
           </td>
-          <td><span class="status">{{ item.status }}</span></td>
+          <td><span class="status">{{ item.status_label }}</span>{% if advanced_mode %}<div class="muted"><code>{{ item.status }}</code></div>{% endif %}</td>
           <td>
-            {% if item.table_id %}<span class="tag">{{ item.table_id }}</span>{% endif %}
-            {% if item.figure_id %}<span class="tag">{{ item.figure_id }}</span>{% endif %}
-            {% if item.attachment_id %}<span class="tag">{{ item.attachment_id }}</span>{% endif %}
+            {{ item.support_summary }}
+            {% if advanced_mode %}
+              <div class="muted">
+                {% if item.table_id %}<span class="tag">{{ item.table_id }}</span>{% endif %}
+                {% if item.figure_id %}<span class="tag">{{ item.figure_id }}</span>{% endif %}
+                {% if item.attachment_id %}<span class="tag">{{ item.attachment_id }}</span>{% endif %}
+              </div>
+            {% endif %}
           </td>
-          <td><a class="button" href="{{ url_for('review_detail', item_id=item.id) }}">Review</a></td>
+          <td>
+            {% if advanced_mode %}
+              <a class="button" href="{{ url_for('review_detail', item_id=item.id, advanced=1) }}">Review</a>
+            {% else %}
+              <a class="button" href="{{ url_for('review_detail_by_index', item_index=item.queue_index) }}">Review</a>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>

@@ -126,6 +126,14 @@ button:disabled {
   color: var(--muted);
 }
 
+.advanced-toggle {
+  margin-top: 10px;
+}
+
+.advanced-toggle .button {
+  min-height: 30px;
+}
+
 .panel,
 .table-section {
   background: var(--panel);

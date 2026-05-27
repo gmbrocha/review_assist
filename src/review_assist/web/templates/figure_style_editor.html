@@ -5,7 +5,8 @@
 {% block content %}
 <section class="page-heading">
   <h1>Figure Style Editor</h1>
-  <p>{{ editor.title }} | {{ editor.figure_id }} | {{ editor.status }}</p>
+  <p>{{ editor.title }} | {{ editor.status }}{% if advanced_mode %} | {{ editor.figure_id }}{% endif %}</p>
+  {% include "advanced_toggle.html" %}
 </section>
 
 <section class="summary-grid">
@@ -34,9 +35,9 @@
   <h2>Latest Regenerated Version</h2>
   <p class="muted">This regenerated PNG is review-visible. Reviewed exports can use it after the figure item is export-included, unless a replacement image or approved version takes priority.</p>
   <dl class="details">
-    <dt>Version</dt><dd>{{ editor.regenerated_preview.version.version_id }}</dd>
+    {% if advanced_mode %}<dt>Version</dt><dd>{{ editor.regenerated_preview.version.version_id }}</dd>{% endif %}
     <dt>Approval State</dt><dd>{{ editor.regenerated_preview.version.approval_state }}</dd>
-    <dt>Output Path</dt><dd>{{ editor.regenerated_preview.image_path }}</dd>
+    {% if advanced_mode %}<dt>Output Path</dt><dd>{{ editor.regenerated_preview.image_path }}</dd>{% endif %}
   </dl>
   <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=editor.regenerated_preview.artifact_link_path) }}" alt="{{ editor.figure_id }} regenerated version">
 </section>
@@ -47,10 +48,10 @@
   <h2>Approved Figure Version</h2>
   <p class="muted">This approval records the exact figure version selected by the reviewer. Reviewed exports can resolve to this version after the figure item passes the standard review gate.</p>
   <dl class="details">
-    <dt>Version</dt><dd>{{ editor.approved_preview.version.version_id }}</dd>
+    {% if advanced_mode %}<dt>Version</dt><dd>{{ editor.approved_preview.version.version_id }}</dd>{% endif %}
     <dt>Approved By</dt><dd>{{ editor.approved_preview.version.approved_by or 'Not recorded' }}</dd>
     <dt>Approved At</dt><dd>{{ editor.approved_preview.version.approved_at or 'Not recorded' }}</dd>
-    <dt>Output Path</dt><dd>{{ editor.approved_preview.image_path or 'No image path recorded' }}</dd>
+    {% if advanced_mode %}<dt>Output Path</dt><dd>{{ editor.approved_preview.image_path or 'No image path recorded' }}</dd>{% endif %}
   </dl>
   {% if editor.approved_preview.available %}
     <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=editor.approved_preview.artifact_link_path) }}" alt="{{ editor.figure_id }} approved version">
@@ -62,12 +63,14 @@
   <h2>Review Context</h2>
   <p class="muted">{{ editor.draft_export_notice }}</p>
   <dl class="details">
-    <dt>Review Item</dt><dd>{{ editor.review_context.review_item_id }}</dd>
+    {% if advanced_mode %}<dt>Review Item</dt><dd>{{ editor.review_context.review_item_id }}</dd>{% endif %}
     <dt>Report Role</dt><dd>{{ editor.review_context.report_role_label }}</dd>
-    <dt>Source Refs</dt><dd>{{ editor.review_context.source_refs|join(', ') if editor.review_context.source_refs else 'None recorded' }}</dd>
-    <dt>Evidence Refs</dt><dd>{{ editor.review_context.evidence_refs|join(', ') if editor.review_context.evidence_refs else 'None recorded' }}</dd>
-    <dt>Related Tables</dt><dd>{{ editor.review_context.related_table_ids|join(', ') if editor.review_context.related_table_ids else 'None recorded' }}</dd>
-    <dt>Related Figures</dt><dd>{{ editor.review_context.related_figure_ids|join(', ') if editor.review_context.related_figure_ids else 'None recorded' }}</dd>
+    {% if advanced_mode %}
+      <dt>Source Refs</dt><dd>{{ editor.review_context.source_refs|join(', ') if editor.review_context.source_refs else 'None recorded' }}</dd>
+      <dt>Evidence Refs</dt><dd>{{ editor.review_context.evidence_refs|join(', ') if editor.review_context.evidence_refs else 'None recorded' }}</dd>
+      <dt>Related Tables</dt><dd>{{ editor.review_context.related_table_ids|join(', ') if editor.review_context.related_table_ids else 'None recorded' }}</dd>
+      <dt>Related Figures</dt><dd>{{ editor.review_context.related_figure_ids|join(', ') if editor.review_context.related_figure_ids else 'None recorded' }}</dd>
+    {% endif %}
   </dl>
 </section>
 
@@ -87,8 +90,10 @@
   <dl class="details">
     <dt>Status</dt><dd>{{ editor.basemap_status.status }}</dd>
     <dt>Layer</dt><dd>{{ editor.basemap_status.label }}</dd>
-    <dt>Path</dt><dd>{{ editor.basemap_status.path or 'None recorded' }}</dd>
-    <dt>Expected Path</dt><dd>{{ editor.basemap_status.expected_renderable_path or 'None recorded' }}</dd>
+    {% if advanced_mode %}
+      <dt>Path</dt><dd>{{ editor.basemap_status.path or 'None recorded' }}</dd>
+      <dt>Expected Path</dt><dd>{{ editor.basemap_status.expected_renderable_path or 'None recorded' }}</dd>
+    {% endif %}
     <dt>Message</dt><dd>{{ editor.basemap_status.message or 'None recorded' }}</dd>
   </dl>
 </section>
@@ -98,7 +103,7 @@
   {% if editor.review_context.validation_issues %}
     <ul class="issue-list">
       {% for issue in editor.review_context.validation_issues %}
-        <li>{{ issue.code }}: {{ issue.message }}</li>
+        <li>{% if advanced_mode %}{{ issue.code }}: {% endif %}{{ issue.message }}</li>
       {% endfor %}
     </ul>
   {% else %}
@@ -110,13 +115,20 @@
   <h2>Style Model Status</h2>
   <p class="muted">Figure style overrides are presentation metadata only. They do not edit sources, geometries, metrics, evidence, review status, or exports.</p>
   <dl class="details">
-    <dt>Recipe</dt><dd>{{ editor.recipe.recipe_id }}</dd>
-    <dt>Analysis Snapshot</dt><dd>{{ editor.recipe.analysis_snapshot_id }}</dd>
-    <dt>Active Override</dt><dd>{{ editor.active_override.override_id if editor.active_override.override_id else 'None' }}</dd>
-    <dt>Latest Version</dt><dd>{{ editor.version_summary.latest_version.version_id if editor.version_summary.latest_version else 'None recorded' }}</dd>
-    <dt>Latest Regenerated Version</dt><dd>{{ editor.version_summary.latest_regenerated_version.version_id if editor.version_summary.latest_regenerated_version else 'None recorded' }}</dd>
-    <dt>Approved Version</dt><dd>{{ editor.version_summary.approved_version.version_id if editor.version_summary.approved_version else 'None recorded' }}</dd>
-    <dt>Latest Render Job</dt><dd>{{ editor.render_job_summary.latest_render_job.render_job_id if editor.render_job_summary.latest_render_job else 'None recorded' }}</dd>
+    <dt>Active Draft</dt><dd>{{ 'Yes' if editor.active_override.override_id else 'No' }}</dd>
+    <dt>Latest Version</dt><dd>{{ 'Recorded' if editor.version_summary.latest_version else 'None recorded' }}</dd>
+    <dt>Latest Regenerated Version</dt><dd>{{ 'Recorded' if editor.version_summary.latest_regenerated_version else 'None recorded' }}</dd>
+    <dt>Approved Version</dt><dd>{{ 'Recorded' if editor.version_summary.approved_version else 'None recorded' }}</dd>
+    <dt>Latest Render Job</dt><dd>{{ 'Recorded' if editor.render_job_summary.latest_render_job else 'None recorded' }}</dd>
+    {% if advanced_mode %}
+      <dt>Recipe</dt><dd>{{ editor.recipe.recipe_id }}</dd>
+      <dt>Analysis Snapshot</dt><dd>{{ editor.recipe.analysis_snapshot_id }}</dd>
+      <dt>Active Override ID</dt><dd>{{ editor.active_override.override_id if editor.active_override.override_id else 'None' }}</dd>
+      <dt>Latest Version ID</dt><dd>{{ editor.version_summary.latest_version.version_id if editor.version_summary.latest_version else 'None recorded' }}</dd>
+      <dt>Latest Regenerated Version ID</dt><dd>{{ editor.version_summary.latest_regenerated_version.version_id if editor.version_summary.latest_regenerated_version else 'None recorded' }}</dd>
+      <dt>Approved Version ID</dt><dd>{{ editor.version_summary.approved_version.version_id if editor.version_summary.approved_version else 'None recorded' }}</dd>
+      <dt>Latest Render Job ID</dt><dd>{{ editor.render_job_summary.latest_render_job.render_job_id if editor.render_job_summary.latest_render_job else 'None recorded' }}</dd>
+    {% endif %}
   </dl>
 </section>
 
@@ -139,16 +151,16 @@
         <tr>
           <td>
             <strong>v{{ version.version_number }}</strong><br>
-            <code>{{ version.version_id }}</code>
+            {% if advanced_mode %}<code>{{ version.version_id }}</code>{% endif %}
             {% if version.approved_version %}<span class="status-pill">approved</span>{% endif %}
           </td>
           <td>{{ version.approval_state }}</td>
           <td>{{ version.created_at }}</td>
           <td>
             {% if version.artifact_link_path and version.output_exists %}
-              <a href="{{ url_for('artifact', project=selected_project_key, path=version.artifact_link_path) }}">{{ version.output_artifact_path }}</a>
+              <a href="{{ url_for('artifact', project=selected_project_key, path=version.artifact_link_path) }}">{{ version.output_artifact_path if advanced_mode else 'Open image' }}</a>
             {% elif version.output_artifact_path %}
-              {{ version.output_artifact_path }} <span class="muted">(missing)</span>
+              {{ version.output_artifact_path if advanced_mode else 'Image output' }} <span class="muted">(missing)</span>
             {% elif version.is_stub %}
               Stub without rendered image
             {% else %}
@@ -189,7 +201,7 @@
         {% for layer in editor.layers %}
         <a href="#layer-{{ layer.index }}">
           <strong>{{ layer.current.display_name }}</strong>
-          <span>{{ layer.layer_type }}{% if layer.source_id %} | {{ layer.source_id }}{% endif %}</span>
+          <span>{{ layer.layer_type }}{% if advanced_mode and layer.source_id %} | {{ layer.source_id }}{% endif %}</span>
         </a>
         {% endfor %}
       </aside>
@@ -198,9 +210,9 @@
         {% for layer in editor.layers %}
         <fieldset id="layer-{{ layer.index }}" class="layer-editor">
           <legend>{{ layer.current.display_name }}</legend>
-          <input type="hidden" name="layer_id" value="{{ layer.layer_id }}">
+          <input type="hidden" name="layer_id" value="{{ layer.index }}">
           <dl class="details compact">
-            <dt>Layer ID</dt><dd><code>{{ layer.layer_id }}</code></dd>
+            {% if advanced_mode %}<dt>Layer ID</dt><dd><code>{{ layer.layer_id }}</code></dd>{% endif %}
             <dt>Features</dt><dd>{{ layer.feature_count }}</dd>
             <dt>Geometry</dt><dd>{{ layer.geometry_type_counts }}</dd>
           </dl>

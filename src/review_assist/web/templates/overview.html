@@ -6,13 +6,14 @@
 <section class="page-heading">
   <h1>Overview</h1>
   <p>Project, source, populate, and validation status from existing backend artifacts.</p>
+  {% include "advanced_toggle.html" %}
 </section>
 
 {% set gpt = summary.gpt_interpretive_assist %}
 <section class="summary-grid">
   <div class="metric"><span>Inputs</span><strong>{{ summary.input_package.input_count }}</strong></div>
   <div class="metric"><span>Comparison Units</span><strong>{{ summary.comparison_units.comparison_unit_count }}</strong></div>
-  <div class="metric"><span>Populate</span><strong>{{ summary.populate.status }}</strong></div>
+  <div class="metric"><span>Populate</span><strong>{{ summary.populate.status_label }}</strong>{% if advanced_mode %}<small>{{ summary.populate.status }}</small>{% endif %}</div>
   <div class="metric"><span>Review Items</span><strong>{{ summary.populate.review_queue_item_count }}</strong></div>
   <div class="metric"><span>GPT Assist</span><strong>{{ 'On' if gpt.ui_enabled else 'Off' }}</strong><small>{{ gpt.status }}</small></div>
 </section>
@@ -26,7 +27,7 @@
   <h2>Project Readiness</h2>
   <ul class="issue-list">
     {% for blocker in summary.setup.blockers %}
-      <li>{{ blocker.message }} <span class="muted">({{ blocker.code }})</span></li>
+      <li>{{ blocker.message }}{% if advanced_mode %} <span class="muted">({{ blocker.code }})</span>{% endif %}</li>
     {% endfor %}
   </ul>
   <a class="button" href="{{ url_for('setup') }}">Open Project Setup</a>
@@ -36,14 +37,14 @@
 <section class="table-section">
   <h2>Workflow Readiness</h2>
   <table>
-    <thead><tr><th>Step</th><th>Status</th><th>Message</th><th>Artifact</th></tr></thead>
+    <thead><tr><th>Step</th><th>Status</th><th>Message</th>{% if advanced_mode %}<th>Artifact</th>{% endif %}</tr></thead>
     <tbody>
       {% for step in summary.workflow_readiness %}
       <tr>
         <td>{{ step.label }}</td>
-        <td><span class="status status-{{ step.status }}">{{ step.status }}</span></td>
+        <td><span class="status status-{{ step.status }}">{{ step.status_label }}</span>{% if advanced_mode %}<div class="muted"><code>{{ step.status }}</code></div>{% endif %}</td>
         <td>{{ step.message }}</td>
-        <td><code>{{ step.artifact_path }}</code></td>
+        {% if advanced_mode %}<td><code>{{ step.artifact_path }}</code></td>{% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -95,8 +96,10 @@
     <dt>Last Run</dt><dd>{{ gpt.last_run.created_at or 'Not run' }}</dd>
     <dt>GPT Validated / Rejected</dt><dd>{{ gpt.accepted_gpt_draft_count }} / {{ gpt.rejected_gpt_draft_count }}</dd>
     <dt>Deterministic Fallbacks</dt><dd>{{ gpt.deterministic_fallback_count }}</dd>
-    <dt>Cache Hits</dt><dd>{{ gpt.cache_hit_count }}</dd>
-    <dt>Token Usage</dt><dd>{% if gpt.last_run.token_usage %}{{ gpt.last_run.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
+    {% if advanced_mode %}
+      <dt>Cache Hits</dt><dd>{{ gpt.cache_hit_count }}</dd>
+      <dt>Token Usage</dt><dd>{% if gpt.last_run.token_usage %}{{ gpt.last_run.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
+    {% endif %}
   </dl>
   <form method="post" action="{{ url_for('generate_gpt_interpretive_assist') }}" data-process-form data-process-action="generate_gpt_drafts">
     {% if not gpt.ui_enabled %}
@@ -125,7 +128,7 @@
         {% for section in gpt.eligible_sections[:12] %}
           <label>
             <input type="checkbox" name="sections" value="{{ section.target_id }}" checked>
-            {{ section.title }} <span class="muted">({{ section.target_id }})</span>
+            {{ section.title }}{% if advanced_mode %} <span class="muted">({{ section.target_id }})</span>{% endif %}
           </label>
         {% else %}
           <p class="empty">No source-backed GPT-eligible section review candidates are currently planned.</p>
@@ -161,18 +164,18 @@
 <section class="table-section">
   <h2>Source Status</h2>
   <table>
-    <thead><tr><th>Category</th><th>Status</th><th>Requirement</th><th>Sources</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Category</th><th>Status</th><th>Requirement</th>{% if advanced_mode %}<th>Sources</th>{% endif %}<th>Notes</th></tr></thead>
     <tbody>
       {% for row in summary.source_status.rows %}
       <tr>
         <td>{{ row.category }}</td>
-        <td><span class="status">{{ row.status }}</span></td>
+        <td><span class="status">{{ row.status_label }}</span>{% if advanced_mode %}<div class="muted"><code>{{ row.status }}</code></div>{% endif %}</td>
         <td>{{ row.requirement }}</td>
-        <td>{{ row.source_ids|join(', ') }}</td>
+        {% if advanced_mode %}<td>{{ row.source_ids|join(', ') }}</td>{% endif %}
         <td>{{ row.notes }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="5" class="empty">Source status has not been generated.</td></tr>
+      <tr><td colspan="{{ 5 if advanced_mode else 4 }}" class="empty">Source status has not been generated.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -184,7 +187,7 @@
   <ul class="issue-list">
     {% for issue in summary.validation_issues %}
       <li>
-        <strong>{{ issue.stage }}</strong> {{ issue.code }}: {{ issue.message }}
+        <strong>{{ issue.stage }}</strong> {% if advanced_mode %}{{ issue.code }}: {% endif %}{{ issue.message }}
         {% if issue.details_summary %}
           <div class="muted">{{ issue.details_summary }}</div>
         {% endif %}

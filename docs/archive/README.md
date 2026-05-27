@@ -42,3 +42,4 @@ Current archived planning records include:
 - `docs/archive/sprints/SPRINT_6_7_EXPORT_INTEGRATION.md`
 - `docs/archive/sprints/SPRINT_6_8_QA_AND_SCOPE_CONTROL_PASS.md`
 - `docs/archive/sprints/SPRINT_6_REVIEWER_FIGURE_STYLING_AND_REGENERATION.md`
+- `docs/archive/sprints/SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md`
