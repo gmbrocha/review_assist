@@ -19,6 +19,8 @@ FIGURE_RENDER_JOBS_PATH = Path("maps/figure_render_jobs/figure_render_jobs.json"
 FIGURE_VERSION_OUTPUT_DIR = Path("maps/figures/versions")
 FIGURE_STYLE_MODEL_VERSION = "figure-style-model-v1"
 SMALL_HASH_LIMIT_BYTES = 2_000_000
+COMPARISON_UNITS_LAYER_ID = "comparison_units"
+COMPARISON_FEATURE_LAYER_PREFIX = "comparison_units:"
 
 ANALYSIS_SNAPSHOT_ARTIFACTS = {
     "source_status": Path("source_status/source_status_set.json"),
@@ -626,17 +628,18 @@ def _recipe_layers(shown_layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _validated_sparse_layers(recipe: dict[str, Any], submitted_layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     recipe_layers = {str(layer.get("layer_id") or ""): layer for layer in _dict_list(recipe.get("layers", []))}
+    comparison_feature_layers = _comparison_feature_layers(recipe)
     cleaned: list[dict[str, Any]] = []
     for layer in submitted_layers:
         if not isinstance(layer, dict):
             raise FigureStyleModelError("Style override layer entries must be objects.")
         layer_id = str(layer.get("layer_id") or "").strip()
-        if layer_id not in recipe_layers:
+        recipe_layer = recipe_layers.get(layer_id) or comparison_feature_layers.get(layer_id)
+        if recipe_layer is None:
             raise FigureStyleModelError(f"Unknown style override layer id: {layer_id}")
         unknown = sorted(set(layer) - (V1_LAYER_OVERRIDE_FIELDS | {"layer_id"}))
         if unknown:
             raise FigureStyleModelError(f"Unsupported style override fields for layer '{layer_id}': {unknown}")
-        recipe_layer = recipe_layers[layer_id]
         cleaned_layer: dict[str, Any] = {"layer_id": layer_id}
         for key in sorted(V1_LAYER_OVERRIDE_FIELDS):
             if key not in layer:
@@ -648,6 +651,44 @@ def _validated_sparse_layers(recipe: dict[str, Any], submitted_layers: list[dict
         if len(cleaned_layer) > 1:
             cleaned.append(cleaned_layer)
     return cleaned
+
+
+def _comparison_feature_layers(recipe: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    layers: dict[str, dict[str, Any]] = {}
+    for layer in _dict_list(recipe.get("layers", [])):
+        if str(layer.get("layer_id") or "") != COMPARISON_UNITS_LAYER_ID:
+            continue
+        unit_styles = {
+            str(style.get("comparison_unit_id") or "").strip(): style
+            for style in _dict_list(layer.get("unit_styles", []))
+            if str(style.get("comparison_unit_id") or "").strip()
+        }
+        unit_ids = _string_list(layer.get("comparison_unit_ids", [])) or list(unit_styles)
+        for index, unit_id in enumerate(unit_ids):
+            style = unit_styles.get(unit_id, {})
+            color = str(style.get("color") or "").strip()
+            feature_layer = dict(layer)
+            feature_layer["layer_id"] = f"{COMPARISON_FEATURE_LAYER_PREFIX}{unit_id}"
+            feature_layer["default_z_index"] = int(layer.get("default_z_index", 0)) + index
+            feature_layer["default_display_name"] = str(
+                style.get("label")
+                or style.get("full_label")
+                or _comparison_unit_fallback_label(unit_id, index)
+            )
+            default_style = dict(layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {})
+            if color:
+                default_style["fill_color"] = color
+                default_style["stroke_color"] = color
+            feature_layer["default_style"] = default_style
+            layers[str(feature_layer["layer_id"])] = feature_layer
+    return layers
+
+
+def _comparison_unit_fallback_label(unit_id: str, index: int) -> str:
+    match = re.search(r"0*(\d+)$", unit_id)
+    if match:
+        return f"Unit {int(match.group(1))}"
+    return f"Unit {index + 1}"
 
 
 def _normalize_override_value(key: str, value: Any, recipe_layer: dict[str, Any]) -> Any:

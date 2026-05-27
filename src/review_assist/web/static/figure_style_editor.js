@@ -20,6 +20,7 @@
 
   function updateColorControl(control) {
     const input = control.querySelector("[data-color-input]");
+    const picker = control.querySelector("[data-color-picker]");
     const swatch = control.querySelector("[data-color-swatch]");
     const summary = control.querySelector("[data-color-summary]");
     const hint = control.querySelector("[data-color-hint]");
@@ -35,6 +36,9 @@
 
     if (!raw) {
       swatch.classList.add("empty");
+      if (picker) {
+        picker.value = "#FFFFFF";
+      }
       summary.textContent = control.getAttribute("data-empty-label") || "None / default";
       if (hint) {
         hint.textContent = "Leave blank to use the generated default or no fill/stroke where applicable.";
@@ -55,6 +59,9 @@
 
     const hex = raw.toUpperCase();
     swatch.style.backgroundColor = hex;
+    if (picker) {
+      picker.value = hex;
+    }
     summary.textContent = `${COLOR_NAMES[hex] || "Custom"} (${hex})`;
     if (hint) {
       hint.textContent = "Hex value retained for precision.";
@@ -63,10 +70,32 @@
 
   document.querySelectorAll("[data-color-control]").forEach((control) => {
     const input = control.querySelector("[data-color-input]");
+    const picker = control.querySelector("[data-color-picker]");
     updateColorControl(control);
     if (input) {
       input.addEventListener("input", () => updateColorControl(control));
       input.addEventListener("change", () => updateColorControl(control));
+    }
+    if (picker && input) {
+      const openPicker = () => {
+        if (typeof picker.showPicker === "function") {
+          picker.showPicker();
+        } else {
+          picker.click();
+        }
+      };
+      picker.addEventListener("input", () => {
+        input.value = picker.value.toUpperCase();
+        updateColorControl(control);
+      });
+      picker.addEventListener("change", () => {
+        input.value = picker.value.toUpperCase();
+        updateColorControl(control);
+      });
+      control.querySelectorAll("[data-color-swatch], [data-color-summary]").forEach((target) => {
+        target.addEventListener("click", openPicker);
+        target.addEventListener("dblclick", openPicker);
+      });
     }
   });
 })();

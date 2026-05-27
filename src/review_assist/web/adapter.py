@@ -30,6 +30,8 @@ from review_assist.export_report import (
     export_report,
 )
 from review_assist.figure_style_model import (
+    COMPARISON_FEATURE_LAYER_PREFIX,
+    COMPARISON_UNITS_LAYER_ID,
     FIGURE_RECIPES_PATH,
     FIGURE_RENDER_JOBS_PATH,
     FIGURE_STYLE_OVERRIDES_PATH,
@@ -1034,6 +1036,7 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
     assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
     image_path = _effective_figure_image_path(item, assumptions)
     layers = _style_editor_layers(recipe, active_override)
+    status_layers = _style_status_layers(recipe, active_override)
     validation_issues = _dict_list(item.get("validation_issues", []))
     render_policy = _render_policy_fields(item)
     return {
@@ -1069,7 +1072,7 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
         "style_model_paths": _figure_style_model_paths(project_dir),
         "recipe": recipe,
         "layers": layers,
-        "basemap_status": _figure_editor_basemap_status(layers),
+        "basemap_status": _figure_editor_basemap_status(status_layers),
         "active_override": active_override or {},
         "draft_export_notice": (
             "Saved style drafts and regenerated versions are project-local presentation metadata. They remain "
@@ -1872,52 +1875,120 @@ def _style_editor_layers(recipe: dict[str, Any], active_override: dict[str, Any]
         for layer in _dict_list((active_override or {}).get("overrides", []))
     }
     rows: list[dict[str, Any]] = []
-    for index, layer in enumerate(_dict_list(recipe.get("layers", []))):
+    for layer in _dict_list(recipe.get("layers", [])):
         layer_id = str(layer.get("layer_id") or "")
-        override = override_by_layer.get(layer_id, {})
-        default_style = layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {}
-        label_fields = _string_list(layer.get("allowed_label_fields", [])) or _string_list(layer.get("label_fields", []))
-        rows.append(
-            {
-                "index": index,
-                "layer_id": layer_id,
-                "layer_type": str(layer.get("layer_type") or ""),
-                "source_id": str(layer.get("source_id") or ""),
-                "feature_count": _int_value(layer.get("feature_count")),
-                "geometry_type_counts": layer.get("geometry_type_counts") if isinstance(layer.get("geometry_type_counts"), dict) else {},
-                "renderability_status": str(layer.get("renderability_status") or ""),
-                "message": str(layer.get("message") or ""),
-                "path": str(layer.get("path") or ""),
-                "expected_renderable_path": str(layer.get("expected_renderable_path") or ""),
-                "label_fields": label_fields,
-                "defaults": {
-                    "visible": bool(layer.get("default_visible", True)),
-                    "z_index": _int_value(layer.get("default_z_index"), index),
-                    "display_name": str(layer.get("default_display_name") or layer_id),
-                    "fill_color": str(default_style.get("fill_color") or ""),
-                    "fill_opacity": default_style.get("fill_opacity") if default_style.get("fill_opacity") is not None else "",
-                    "stroke_color": str(default_style.get("stroke_color") or ""),
-                    "stroke_width": default_style.get("stroke_width") if default_style.get("stroke_width") is not None else "",
-                    "point_size": default_style.get("point_size") if default_style.get("point_size") is not None else "",
-                    "label_visible": False,
-                    "label_field": "",
-                },
-                "current": {
-                    "visible": override.get("visible", bool(layer.get("default_visible", True))),
-                    "z_index": override.get("z_index", _int_value(layer.get("default_z_index"), index)),
-                    "display_name": override.get("display_name", str(layer.get("default_display_name") or layer_id)),
-                    "fill_color": override.get("fill_color", str(default_style.get("fill_color") or "")),
-                    "fill_opacity": override.get("fill_opacity", default_style.get("fill_opacity") if default_style.get("fill_opacity") is not None else ""),
-                    "stroke_color": override.get("stroke_color", str(default_style.get("stroke_color") or "")),
-                    "stroke_width": override.get("stroke_width", default_style.get("stroke_width") if default_style.get("stroke_width") is not None else ""),
-                    "point_size": override.get("point_size", default_style.get("point_size") if default_style.get("point_size") is not None else ""),
-                    "label_visible": override.get("label_visible", False),
-                    "label_field": override.get("label_field", ""),
-                },
-                "override": override,
-            }
-        )
+        layer_type = str(layer.get("layer_type") or "")
+        if layer_type.startswith("basemap"):
+            continue
+        if layer_id == COMPARISON_UNITS_LAYER_ID:
+            rows.extend(_comparison_feature_editor_rows(layer, override_by_layer, start_index=len(rows)))
+            if rows and any(str(row.get("parent_layer_id") or "") == COMPARISON_UNITS_LAYER_ID for row in rows):
+                continue
+        rows.append(_style_editor_row(layer, override_by_layer.get(layer_id, {}), len(rows)))
     return rows
+
+
+def _style_status_layers(recipe: dict[str, Any], active_override: dict[str, Any] | None) -> list[dict[str, Any]]:
+    override_by_layer = {
+        str(layer.get("layer_id") or ""): layer
+        for layer in _dict_list((active_override or {}).get("overrides", []))
+    }
+    return [
+        _style_editor_row(layer, override_by_layer.get(str(layer.get("layer_id") or ""), {}), index)
+        for index, layer in enumerate(_dict_list(recipe.get("layers", [])))
+    ]
+
+
+def _comparison_feature_editor_rows(
+    layer: dict[str, Any],
+    override_by_layer: dict[str, dict[str, Any]],
+    *,
+    start_index: int,
+) -> list[dict[str, Any]]:
+    unit_styles = {
+        str(style.get("comparison_unit_id") or "").strip(): style
+        for style in _dict_list(layer.get("unit_styles", []))
+        if str(style.get("comparison_unit_id") or "").strip()
+    }
+    unit_ids = _string_list(layer.get("comparison_unit_ids", [])) or list(unit_styles)
+    rows: list[dict[str, Any]] = []
+    shared_override = override_by_layer.get(COMPARISON_UNITS_LAYER_ID, {})
+    for offset, unit_id in enumerate(unit_ids):
+        style = unit_styles.get(unit_id, {})
+        color = str(style.get("color") or "").strip()
+        feature_layer = dict(layer)
+        feature_layer["layer_id"] = f"{COMPARISON_FEATURE_LAYER_PREFIX}{unit_id}"
+        feature_layer["parent_layer_id"] = COMPARISON_UNITS_LAYER_ID
+        feature_layer["comparison_unit_id"] = unit_id
+        feature_layer["feature_count"] = 1
+        feature_layer["default_z_index"] = _int_value(layer.get("default_z_index"), 0) + offset
+        feature_layer["default_display_name"] = str(
+            style.get("label")
+            or style.get("full_label")
+            or _comparison_unit_fallback_label(unit_id, offset)
+        )
+        default_style = dict(layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {})
+        if color:
+            default_style["fill_color"] = color
+            default_style["stroke_color"] = color
+        feature_layer["default_style"] = default_style
+        override = override_by_layer.get(str(feature_layer["layer_id"]), shared_override)
+        row = _style_editor_row(feature_layer, override, start_index + offset)
+        row["parent_layer_id"] = COMPARISON_UNITS_LAYER_ID
+        row["comparison_unit_id"] = unit_id
+        rows.append(row)
+    return rows
+
+
+def _style_editor_row(layer: dict[str, Any], override: dict[str, Any], index: int) -> dict[str, Any]:
+    layer_id = str(layer.get("layer_id") or "")
+    default_style = layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {}
+    label_fields = _string_list(layer.get("allowed_label_fields", [])) or _string_list(layer.get("label_fields", []))
+    return {
+        "index": index,
+        "layer_id": layer_id,
+        "layer_type": str(layer.get("layer_type") or ""),
+        "source_id": str(layer.get("source_id") or ""),
+        "feature_count": _int_value(layer.get("feature_count")),
+        "geometry_type_counts": layer.get("geometry_type_counts") if isinstance(layer.get("geometry_type_counts"), dict) else {},
+        "renderability_status": str(layer.get("renderability_status") or ""),
+        "message": str(layer.get("message") or ""),
+        "path": str(layer.get("path") or ""),
+        "expected_renderable_path": str(layer.get("expected_renderable_path") or ""),
+        "label_fields": label_fields,
+        "defaults": {
+            "visible": bool(layer.get("default_visible", True)),
+            "z_index": _int_value(layer.get("default_z_index"), index),
+            "display_name": str(layer.get("default_display_name") or layer_id),
+            "fill_color": str(default_style.get("fill_color") or ""),
+            "fill_opacity": default_style.get("fill_opacity") if default_style.get("fill_opacity") is not None else "",
+            "stroke_color": str(default_style.get("stroke_color") or ""),
+            "stroke_width": default_style.get("stroke_width") if default_style.get("stroke_width") is not None else "",
+            "point_size": default_style.get("point_size") if default_style.get("point_size") is not None else "",
+            "label_visible": False,
+            "label_field": "",
+        },
+        "current": {
+            "visible": override.get("visible", bool(layer.get("default_visible", True))),
+            "z_index": override.get("z_index", _int_value(layer.get("default_z_index"), index)),
+            "display_name": override.get("display_name", str(layer.get("default_display_name") or layer_id)),
+            "fill_color": override.get("fill_color", str(default_style.get("fill_color") or "")),
+            "fill_opacity": override.get("fill_opacity", default_style.get("fill_opacity") if default_style.get("fill_opacity") is not None else ""),
+            "stroke_color": override.get("stroke_color", str(default_style.get("stroke_color") or "")),
+            "stroke_width": override.get("stroke_width", default_style.get("stroke_width") if default_style.get("stroke_width") is not None else ""),
+            "point_size": override.get("point_size", default_style.get("point_size") if default_style.get("point_size") is not None else ""),
+            "label_visible": override.get("label_visible", False),
+            "label_field": override.get("label_field", ""),
+        },
+        "override": override,
+    }
+
+
+def _comparison_unit_fallback_label(unit_id: str, index: int) -> str:
+    match = re.search(r"0*(\d+)$", unit_id)
+    if match:
+        return f"Unit {int(match.group(1))}"
+    return f"Unit {index + 1}"
 
 
 def _figure_editor_basemap_status(layers: list[dict[str, Any]]) -> dict[str, Any]:

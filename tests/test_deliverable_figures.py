@@ -216,7 +216,7 @@ def write_project_local_naip_tif(
                 "output_shape": [8, 8],
                 "pixel_count": 64,
                 "selection_method": "latest_year_then_datetime_then_overlap_then_item_id",
-                "limits": {"max_pixels": 25_000_000, "max_tiles": 12, "timeout_seconds": 60},
+                "limits": {"max_pixels": 25_000_000, "max_tiles": 100, "timeout_seconds": 60},
                 "created_at": "2026-05-19T00:00:00+00:00",
                 "acquisition_method": "planetary_computer_stac_cog_window",
                 "known_limitations": ["Imagery is visual context only."],

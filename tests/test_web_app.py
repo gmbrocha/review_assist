@@ -599,11 +599,14 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "Layer Styling" in text
     assert "figure_style_editor.js" in text
     assert "data-color-control" in text
+    assert "data-color-picker" in text
+    assert 'type="color"' in text
     assert "color-swatch" in text
     assert "Color preview" in text
     assert "Use #RRGGBB or leave blank for default." in text
-    assert "Comparison units" in text
+    assert "comparison_units:" in text
     assert "National Wetlands Inventory" in text
+    assert 'value="basemap' not in text
     assert "name=\"layer_0_visible\"" in text
     assert "name=\"layer_0_z_index\"" in text
     assert "name=\"layer_0_display_name\"" in text
@@ -614,6 +617,9 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "name=\"layer_0_point_size\"" in text
     assert "name=\"layer_0_label_visible\"" in text
     assert "name=\"layer_0_label_field\"" in text
+    assert 'step="0.01" name="layer_0_fill_opacity"' in text
+    assert 'step="0.01" name="layer_0_stroke_width"' in text
+    assert 'step="0.01" name="layer_0_point_size"' in text
     assert "Save and Regenerate Figure" in text
     assert 'name="style_action" value="save_and_regenerate"' in text
     assert "Approve Figure" in text
@@ -644,10 +650,11 @@ def test_figure_style_editor_save_draft_creates_sparse_override(tmp_path: Path) 
         "/review/figure-wetlands-waterbodies/figure-style",
         data={
             "style_action": "save_draft",
-                "layer_id": ["comparison_units", "source:usfws_nwi_wetlands"],
+                "layer_id": ["comparison_units:comparison-unit-00001", "source:usfws_nwi_wetlands"],
                 "layer_0_visible": "true",
                 "layer_0_z_index": "0",
-                "layer_0_display_name": "Comparison units",
+                "layer_0_display_name": "Comparison 1",
+                "layer_0_stroke_color": "#22C55E",
                 "layer_1_visible": "true",
                 "layer_1_z_index": "1",
                 "layer_1_display_name": "National Wetlands Inventory",
@@ -661,7 +668,10 @@ def test_figure_style_editor_save_draft_creates_sparse_override(tmp_path: Path) 
     assert response.status_code == 200
     assert "Draft figure style saved" in response.data.decode()
     assert active is not None
-    assert active["overrides"] == [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"}]
+    assert active["overrides"] == [
+        {"layer_id": "comparison_units:comparison-unit-00001", "display_name": "Comparison 1", "stroke_color": "#22C55E"},
+        {"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"},
+    ]
     assert (project_dir / "review_queue" / "review_queue.json").read_bytes() == queue_before
     assert (project_dir / "deliverable" / "figures.json").read_bytes() == figures_before
 
@@ -709,10 +719,10 @@ def test_figure_style_editor_save_and_regenerate_creates_review_only_version(tmp
         "/review/figure-wetlands-waterbodies/figure-style",
         data={
             "style_action": "save_and_regenerate",
-            "layer_id": ["comparison_units", "source:usfws_nwi_wetlands"],
+            "layer_id": ["comparison_units:comparison-unit-00001", "source:usfws_nwi_wetlands"],
             "layer_0_visible": "true",
             "layer_0_z_index": "0",
-            "layer_0_display_name": "Comparison units",
+            "layer_0_display_name": "Comparison 1",
             "layer_1_visible": "true",
             "layer_1_z_index": "8",
             "layer_1_display_name": "Wetland Overlay",
@@ -1159,6 +1169,8 @@ def test_process_log_panel_and_api_capture_create_queue(monkeypatch: pytest.Monk
     assert response.status_code == 200
     assert logs.status_code == 200
     assert payload["tail"] == 50
+    assert b'id="process-log-resizer"' in overview.data
+    assert b"Resize process log" in overview.data
     assert "create_queue started" in lines
     assert "create_queue review_queue complete" in lines
     assert "create_queue complete" in lines

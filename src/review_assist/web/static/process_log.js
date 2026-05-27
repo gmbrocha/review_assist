@@ -2,11 +2,40 @@
   const linesEl = document.getElementById("process-log-lines");
   const stateEl = document.getElementById("process-log-state");
   const refreshButton = document.getElementById("process-log-refresh");
+  const resizeHandle = document.getElementById("process-log-resizer");
   if (!linesEl || !stateEl) {
     return;
   }
 
   let pollTimer = null;
+  const storageKey = "reviewAssist.processLogHeight";
+  const defaultHeight = 150;
+
+  function clampHeight(value) {
+    const maxHeight = Math.max(120, Math.min(window.innerHeight * 0.7, window.innerHeight - 120));
+    return Math.min(Math.max(value, 90), maxHeight);
+  }
+
+  function setLogHeight(value) {
+    const height = Math.round(clampHeight(value));
+    document.documentElement.style.setProperty("--process-log-lines-height", `${height}px`);
+    if (resizeHandle) {
+      resizeHandle.setAttribute("aria-valuenow", String(height));
+    }
+    try {
+      window.localStorage.setItem(storageKey, String(height));
+    } catch (_error) {
+      // Local storage is optional; resizing still works for the current page.
+    }
+  }
+
+  function savedLogHeight() {
+    try {
+      return Number.parseInt(window.localStorage.getItem(storageKey) || "", 10);
+    } catch (_error) {
+      return Number.NaN;
+    }
+  }
 
   async function refreshLog() {
     try {
@@ -76,6 +105,55 @@
 
   if (refreshButton) {
     refreshButton.addEventListener("click", refreshLog);
+  }
+  if (resizeHandle) {
+    resizeHandle.setAttribute("aria-valuemin", "90");
+    resizeHandle.setAttribute("aria-valuemax", String(Math.round(clampHeight(window.innerHeight))));
+    setLogHeight(Number.isFinite(savedLogHeight()) ? savedLogHeight() : defaultHeight);
+    resizeHandle.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      resizeHandle.setPointerCapture(event.pointerId);
+      const startY = event.clientY;
+      const startHeight = linesEl.getBoundingClientRect().height;
+
+      function drag(moveEvent) {
+        setLogHeight(startHeight + startY - moveEvent.clientY);
+      }
+
+      function stop(upEvent) {
+        resizeHandle.releasePointerCapture(upEvent.pointerId);
+        resizeHandle.removeEventListener("pointermove", drag);
+        resizeHandle.removeEventListener("pointerup", stop);
+        resizeHandle.removeEventListener("pointercancel", stop);
+      }
+
+      resizeHandle.addEventListener("pointermove", drag);
+      resizeHandle.addEventListener("pointerup", stop);
+      resizeHandle.addEventListener("pointercancel", stop);
+    });
+    resizeHandle.addEventListener("dblclick", () => setLogHeight(defaultHeight));
+    resizeHandle.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setLogHeight(linesEl.getBoundingClientRect().height + 20);
+      }
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setLogHeight(linesEl.getBoundingClientRect().height - 20);
+      }
+      if (event.key === "Home") {
+        event.preventDefault();
+        setLogHeight(90);
+      }
+      if (event.key === "End") {
+        event.preventDefault();
+        setLogHeight(window.innerHeight);
+      }
+    });
+    window.addEventListener("resize", () => {
+      resizeHandle.setAttribute("aria-valuemax", String(Math.round(clampHeight(window.innerHeight))));
+      setLogHeight(linesEl.getBoundingClientRect().height);
+    });
   }
   document.querySelectorAll("form[data-process-form]").forEach((form) => {
     form.addEventListener("submit", submitProcessForm);

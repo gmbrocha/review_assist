@@ -19,6 +19,7 @@ from review_assist.basemaps import USDA_NAIP_SOURCE_ID, discover_project_local_n
 from review_assist.cli import main
 from review_assist.deliverable_figure_basemaps import load_basemap
 from review_assist.naip_basemap_materialization import (
+    DEFAULT_MAX_TILES,
     NaipBasemapDependencyError,
     materialize_naip_basemap,
     select_naip_items,
@@ -149,7 +150,7 @@ def write_existing_sidecar(project_dir: Path, *, year: int = 2023) -> tuple[Path
                 "output_shape": [2, 2],
                 "pixel_count": 4,
                 "selection_method": "latest_year_then_datetime_then_overlap_then_item_id",
-                "limits": {"max_pixels": 25_000_000, "max_tiles": 12, "timeout_seconds": 60},
+                "limits": {"max_pixels": 25_000_000, "max_tiles": DEFAULT_MAX_TILES, "timeout_seconds": 60},
                 "created_at": "2026-05-19T00:00:00+00:00",
                 "acquisition_method": "planetary_computer_stac_cog_window",
                 "known_limitations": ["Imagery is visual context only."],
@@ -329,9 +330,10 @@ def test_selection_prefers_latest_year_then_datetime_overlap_and_id() -> None:
         fake_item("newer_small_a", 2023, (-90.02, 31.98, -89.98, 32.02)),
     ]
 
-    selected = select_naip_items(items, aoi, max_tiles=12)
+    selected = select_naip_items(items, aoi)
 
     assert [item["id"] for item in selected] == ["newer_small_a", "newer_small_b"]
+    assert DEFAULT_MAX_TILES == 100
 
 
 def test_materialization_fails_before_raster_when_tile_limit_exceeded(

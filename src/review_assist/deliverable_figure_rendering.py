@@ -161,6 +161,7 @@ def render_map(
     render_layout: dict[str, Any] | None = None,
     embed_title: bool = False,
     comparison_layer_style: dict[str, Any] | None = None,
+    comparison_feature_styles: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     layout = render_layout or plan_render_layout_for_map(unit_gdf=unit_gdf, source_layers=source_layers, focus_bounds=focus_bounds)
     layout = dict(layout)
@@ -187,7 +188,12 @@ def render_map(
             if not gdf.empty:
                 plotted.append(gdf)
 
-        unit_handles = _plot_comparison_units(ax, unit_gdf, style_override=comparison_layer_style)
+        unit_handles = _plot_comparison_units(
+            ax,
+            unit_gdf,
+            style_override=comparison_layer_style,
+            feature_overrides=comparison_feature_styles,
+        )
         handles.extend(unit_handles)
         handles.extend(source_handles)
         plotted.append(unit_gdf)
@@ -413,17 +419,28 @@ def comparison_unit_style_records(gdf: gpd.GeoDataFrame) -> list[dict[str, Any]]
     return records
 
 
-def _plot_comparison_units(ax: Any, gdf: gpd.GeoDataFrame, *, style_override: dict[str, Any] | None = None) -> list[Any]:
+def _plot_comparison_units(
+    ax: Any,
+    gdf: gpd.GeoDataFrame,
+    *,
+    style_override: dict[str, Any] | None = None,
+    feature_overrides: dict[str, dict[str, Any]] | None = None,
+) -> list[Any]:
     if gdf.empty:
         return []
     handles: list[Any] = []
     styles = comparison_unit_style_records(gdf)
-    override = style_override or {}
+    shared_override = style_override or {}
+    feature_overrides = feature_overrides or {}
     for index, (_, row) in enumerate(gdf.iterrows()):
         geometry = row.geometry
         if geometry is None or geometry.is_empty:
             continue
         style = styles[index]
+        unit_id = str(style.get("comparison_unit_id") or _row_text(row, "comparison_unit_id") or f"comparison-unit-{index + 1:05d}")
+        override = {**shared_override, **feature_overrides.get(unit_id, {})}
+        if override.get("visible") is False:
+            continue
         geometry_column = getattr(gdf.geometry, "name", "geometry")
         properties = row.drop(labels=[geometry_column]).to_dict() if geometry_column in row.index else row.to_dict()
         properties.pop("geometry", None)

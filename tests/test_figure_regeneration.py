@@ -80,8 +80,38 @@ def test_regeneration_hides_layers_and_orders_visible_layers(tmp_path: Path) -> 
 
     result = regenerate_figure_version(project_dir, "figure-wetlands-waterbodies")
 
-    assert [layer["layer_id"] for layer in result["version"]["rendered_layers"]] == ["basemap:1", "comparison_units"]
+    assert [layer["layer_id"] for layer in result["version"]["rendered_layers"]] == ["basemap:1", "comparison_units:unit-1", "comparison_units:unit-2"]
     assert result["version"]["hidden_layers"][0]["layer_id"] == "source:usfws_nwi_wetlands"
+
+
+def test_regeneration_applies_comparison_feature_overrides(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [
+            {"layer_id": "comparison_units:unit-1", "stroke_color": "#00AAFF", "display_name": "Comparison 1", "z_index": "7"},
+            {"layer_id": "comparison_units:unit-2", "visible": "false", "z_index": "3"},
+        ],
+    )
+    captured: dict[str, object] = {}
+
+    def spy_renderer(**kwargs):
+        output_path = Path(kwargs["output_path"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"png")
+        captured.update(kwargs)
+        return {"layout": "spy"}
+
+    result = regenerate_figure_version(project_dir, "figure-wetlands-waterbodies", renderer=spy_renderer)
+
+    assert captured["comparison_feature_styles"]["unit-1"]["stroke_color"] == "#00AAFF"  # type: ignore[index]
+    assert captured["comparison_feature_styles"]["unit-1"]["label"] == "Comparison 1"  # type: ignore[index]
+    assert captured["comparison_feature_styles"]["unit-2"]["visible"] is False  # type: ignore[index]
+    assert [layer["layer_id"] for layer in result["version"]["rendered_layers"] if layer["layer_id"].startswith("comparison_units:")] == [
+        "comparison_units:unit-1"
+    ]
+    assert any(layer["layer_id"] == "comparison_units:unit-2" for layer in result["version"]["hidden_layers"])
 
 
 def test_regeneration_rejects_unsupported_output_format(tmp_path: Path) -> None:

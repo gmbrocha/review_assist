@@ -150,6 +150,7 @@
               <div class="color-control" data-color-control data-empty-label="Transparent / default">
                 <span class="color-swatch" data-color-swatch aria-hidden="true"></span>
                 <span class="color-summary" data-color-summary>Color preview</span>
+                <input type="color" value="#FFFFFF" data-color-picker aria-label="Choose fill color">
                 <input
                   type="text"
                   name="layer_{{ layer.index }}_fill_color"
@@ -163,13 +164,14 @@
               </div>
             </div>
             <label>Fill Opacity
-              <input type="number" min="0" max="1" step="0.05" name="layer_{{ layer.index }}_fill_opacity" value="{{ layer.current.fill_opacity }}">
+              <input type="number" min="0" max="1" step="0.01" name="layer_{{ layer.index }}_fill_opacity" value="{{ layer.current.fill_opacity }}">
             </label>
             <div class="style-field color-field">
               <span class="style-label">Stroke Color</span>
               <div class="color-control" data-color-control data-empty-label="No stroke / default">
                 <span class="color-swatch" data-color-swatch aria-hidden="true"></span>
                 <span class="color-summary" data-color-summary>Color preview</span>
+                <input type="color" value="#FFFFFF" data-color-picker aria-label="Choose stroke color">
                 <input
                   type="text"
                   name="layer_{{ layer.index }}_stroke_color"
@@ -183,10 +185,10 @@
               </div>
             </div>
             <label>Stroke Width
-              <input type="number" min="0" max="10" step="0.1" name="layer_{{ layer.index }}_stroke_width" value="{{ layer.current.stroke_width }}">
+              <input type="number" min="0" max="10" step="0.01" name="layer_{{ layer.index }}_stroke_width" value="{{ layer.current.stroke_width }}">
             </label>
             <label>Point Size
-              <input type="number" min="1" max="80" step="1" name="layer_{{ layer.index }}_point_size" value="{{ layer.current.point_size }}">
+              <input type="number" min="1" max="80" step="0.01" name="layer_{{ layer.index }}_point_size" value="{{ layer.current.point_size }}">
             </label>
             <label>Labels
               <select name="layer_{{ layer.index }}_label_visible">

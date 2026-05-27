@@ -12,6 +12,8 @@ import geopandas as gpd
 from .deliverable_figure_basemaps import load_basemap
 from .deliverable_figure_rendering import render_map
 from .figure_style_model import (
+    COMPARISON_FEATURE_LAYER_PREFIX,
+    COMPARISON_UNITS_LAYER_ID,
     FIGURE_RENDER_JOBS_PATH,
     FIGURE_VERSION_OUTPUT_DIR,
     FIGURE_VERSIONS_PATH,
@@ -95,6 +97,7 @@ def regenerate_figure_version(
             focus_bounds=_focus_bounds(recipe, unit_gdf),
             render_layout=render_layout,
             comparison_layer_style=style_plan["comparison_layer_style"],
+            comparison_feature_styles=style_plan["comparison_feature_styles"],
         )
     except Exception as exc:
         if output_path.exists():
@@ -157,6 +160,7 @@ def _style_plan(recipe: dict[str, Any], active_override: dict[str, Any] | None) 
     hidden_layers: list[dict[str, Any]] = []
     source_layers: list[dict[str, Any]] = []
     comparison_layer_style: dict[str, Any] | None = None
+    comparison_feature_styles: dict[str, dict[str, Any]] = {}
     basemap_requested = False
     for layer in _dict_list(recipe.get("layers", [])):
         layer_id = str(layer.get("layer_id") or "")
@@ -171,10 +175,36 @@ def _style_plan(recipe: dict[str, Any], active_override: dict[str, Any] | None) 
         }
         if not current["visible"]:
             hidden_layers.append(record)
+            if record["layer_type"] == "comparison_units":
+                for unit_id in _comparison_unit_ids(layer):
+                    comparison_feature_styles[unit_id] = {"visible": False}
             continue
-        rendered_layers.append(record)
+        feature_style_rows = _comparison_feature_styles(layer, overrides, {"label": current["display_name"], "z_index": current["z_index"], **current["style"]}) if record["layer_type"] == "comparison_units" else []
+        if not feature_style_rows:
+            rendered_layers.append(record)
         if record["layer_type"] == "comparison_units":
             comparison_layer_style = {"label": current["display_name"], "z_index": current["z_index"], **current["style"]}
+            for feature_style in feature_style_rows:
+                feature_record = {
+                    "layer_id": feature_style["layer_id"],
+                    "layer_type": "comparison_unit_feature",
+                    "source_id": "",
+                    "comparison_unit_id": feature_style["comparison_unit_id"],
+                    "display_name": feature_style["display_name"],
+                    "z_index": feature_style["z_index"],
+                    "style": feature_style["style"],
+                }
+                if not feature_style["visible"]:
+                    hidden_layers.append(feature_record)
+                    comparison_feature_styles[feature_style["comparison_unit_id"]] = {"visible": False}
+                    continue
+                rendered_layers.append(feature_record)
+                comparison_feature_styles[feature_style["comparison_unit_id"]] = {
+                    "label": feature_style["display_name"],
+                    "visible": True,
+                    "z_index": feature_style["z_index"],
+                    **feature_style["style"],
+                }
         elif record["layer_type"] == "source_layer":
             source_layers.append({"recipe_layer": layer, "style": {"label": current["display_name"], "z_index": current["z_index"], **current["style"]}})
         elif record["layer_type"] == "basemap":
@@ -186,8 +216,56 @@ def _style_plan(recipe: dict[str, Any], active_override: dict[str, Any] | None) 
         "hidden_layers": hidden_layers,
         "source_layers": source_layers,
         "comparison_layer_style": comparison_layer_style,
+        "comparison_feature_styles": comparison_feature_styles,
         "basemap_requested": basemap_requested,
     }
+
+
+def _comparison_feature_styles(
+    layer: dict[str, Any],
+    overrides: dict[str, dict[str, Any]],
+    comparison_layer_style: dict[str, Any],
+) -> list[dict[str, Any]]:
+    unit_styles = {
+        str(style.get("comparison_unit_id") or "").strip(): style
+        for style in _dict_list(layer.get("unit_styles", []))
+        if str(style.get("comparison_unit_id") or "").strip()
+    }
+    unit_ids = _comparison_unit_ids(layer) or list(unit_styles)
+    records: list[dict[str, Any]] = []
+    for index, unit_id in enumerate(unit_ids):
+        style = unit_styles.get(unit_id, {})
+        color = str(style.get("color") or "").strip()
+        default_layer = dict(layer)
+        default_layer["layer_id"] = f"{COMPARISON_FEATURE_LAYER_PREFIX}{unit_id}"
+        default_layer["default_z_index"] = int(layer.get("default_z_index", 0)) + index
+        default_layer["default_display_name"] = str(style.get("label") or style.get("full_label") or f"Unit {index + 1}")
+        default_style = dict(layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {})
+        if color:
+            default_style["fill_color"] = color
+            default_style["stroke_color"] = color
+        default_layer["default_style"] = default_style
+        feature_override = {
+            **overrides.get(COMPARISON_UNITS_LAYER_ID, {}),
+            **overrides.get(str(default_layer["layer_id"]), {}),
+        }
+        current = _current_layer_style(default_layer, feature_override)
+        merged_style = {**{key: value for key, value in comparison_layer_style.items() if key != "label"}, **current["style"]}
+        records.append(
+            {
+                "layer_id": str(default_layer["layer_id"]),
+                "comparison_unit_id": unit_id,
+                "visible": current["visible"],
+                "display_name": current["display_name"],
+                "z_index": current["z_index"],
+                "style": merged_style,
+            }
+        )
+    return records
+
+
+def _comparison_unit_ids(layer: dict[str, Any]) -> list[str]:
+    return [str(unit_id).strip() for unit_id in layer.get("comparison_unit_ids", []) if str(unit_id).strip()] if isinstance(layer.get("comparison_unit_ids"), list) else []
 
 
 def _current_layer_style(layer: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:

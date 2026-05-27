@@ -167,6 +167,40 @@ def test_save_project_style_override_is_sparse_and_auditable(tmp_path: Path) -> 
     assert override["overrides"] == [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"}]
 
 
+def test_save_project_style_override_accepts_comparison_feature_layers(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [
+            {
+                "layer_id": "comparison_units:unit-2",
+                "display_name": "Comparison 2",
+                "stroke_color": "#00AAFF",
+                "fill_opacity": "0.42",
+                "stroke_width": "1.25",
+                "point_size": "12.50",
+            }
+        ],
+    )
+
+    artifact = read_json(project_dir / FIGURE_STYLE_OVERRIDES_PATH)
+    override = active_style_override(artifact, "figure-wetlands-waterbodies")
+
+    assert override is not None
+    assert override["overrides"] == [
+        {
+            "layer_id": "comparison_units:unit-2",
+            "display_name": "Comparison 2",
+            "fill_opacity": 0.42,
+            "point_size": 12.5,
+            "stroke_color": "#00AAFF",
+            "stroke_width": 1.25,
+        }
+    ]
+
+
 def test_saving_defaults_supersedes_active_override_without_new_active_record(tmp_path: Path) -> None:
     project_dir = write_project_with_figures(tmp_path)
     save_project_style_override(
@@ -215,6 +249,7 @@ def test_reset_project_style_override_preserves_audit_history(tmp_path: Path) ->
         ({"layer_id": "source:usfws_nwi_wetlands", "z_index": "1000"}, "z_index must be between"),
         ({"layer_id": "source:usfws_nwi_wetlands", "label_field": "NOT_A_FIELD"}, "label_field"),
         ({"layer_id": "unknown", "stroke_color": "#00AAFF"}, "Unknown style override layer id"),
+        ({"layer_id": "comparison_units:missing", "stroke_color": "#00AAFF"}, "Unknown style override layer id"),
         ({"layer_id": "source:usfws_nwi_wetlands", "buffer_distance": 50}, "Unsupported style override fields"),
     ],
 )
@@ -289,6 +324,11 @@ def write_project_with_figures(tmp_path: Path) -> Path:
                         "type": "Feature",
                         "properties": {"comparison_unit_id": "unit-1", "comparison_unit_name": "Alternative 1"},
                         "geometry": {"type": "LineString", "coordinates": [[-90.002, 32.0], [-89.998, 32.0]]},
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {"comparison_unit_id": "unit-2", "comparison_unit_name": "Alternative 2"},
+                        "geometry": {"type": "LineString", "coordinates": [[-90.002, 32.001], [-89.998, 32.001]]},
                     }
                 ],
             }
@@ -348,7 +388,7 @@ def _figure_record(project_dir: Path, figure_id: str, *, stub: bool) -> dict[str
         "source_refs": ["usfws_nwi_wetlands"],
         "layer_refs": [] if stub else [str(layer_path)],
         "related_constraint_ids": [],
-        "comparison_unit_ids": ["unit-1"],
+        "comparison_unit_ids": ["unit-1", "unit-2"],
         "figure_policy": {"extent_policy": "direct"},
         "provenance": {"render_layout": {"extent_class": "small_direct"}},
         "uncertainty_flags": [],
@@ -364,10 +404,13 @@ def _shown_layers(layer_path: Path) -> list[dict[str, object]]:
         {
             "layer_type": "comparison_units",
             "label": "Comparison units",
-            "feature_count": 1,
-            "comparison_unit_ids": ["unit-1"],
-            "geometry_type_counts": {"LineString": 1},
-            "unit_styles": [{"comparison_unit_id": "unit-1", "color": "#FF0000"}],
+            "feature_count": 2,
+            "comparison_unit_ids": ["unit-1", "unit-2"],
+            "geometry_type_counts": {"LineString": 2},
+            "unit_styles": [
+                {"comparison_unit_id": "unit-1", "label": "Alternative 1", "color": "#FF0000"},
+                {"comparison_unit_id": "unit-2", "label": "Alternative 2", "color": "#0000FF"},
+            ],
         },
         {
             "layer_type": "source_layer",
