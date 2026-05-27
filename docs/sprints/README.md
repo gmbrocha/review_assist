@@ -4,7 +4,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- None. Sprint 7.1 through 7.3 are complete; the next Sprint 7 subunit requires planning/approval.
+- None. Sprint 7.1 through 7.5 are complete; the next Sprint 7 subunit is Sprint 7.6 Output Review And Report Shape Check and requires planning/approval.
 
 `docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
 
@@ -15,6 +15,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 - Sprint 7.1 is archived. Use `docs/archive/sprints/SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md` for historical UI-polish scope.
 - Sprint 7.2 is archived. Use `docs/archive/sprints/SPRINT_7_2_REVIEW_STATUS_AND_BADGE_CLEANUP.md` for historical status/badge scope.
 - Sprint 7.3 is archived. Use `docs/archive/sprints/SPRINT_7_3_ADVANCED_AND_DEBUG_VIEW_SEPARATION.md` for historical advanced/debug scope.
+- Sprint 7.4 is archived. Use `docs/archive/sprints/SPRINT_7_4_FRESH_PROJECT_INTAKE_TRIAL.md` for historical fresh-project intake trial notes.
+- Sprint 7.5 is archived. Use `docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md` for historical end-to-end smoke notes.
 
 ## Completed Sprint/Subunits
 
@@ -90,6 +92,10 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Added separate display-only review workflow and generated-content readiness badges for review queue and review detail views without changing review queue schemas or review/export semantics.
 - Sprint 7.3 Advanced And Debug View Separation: `docs/archive/sprints/SPRINT_7_3_ADVANCED_AND_DEBUG_VIEW_SEPARATION.md`
   - Made advanced/debug diagnostics persistent and read-only through session-backed `?advanced=1` display mode while keeping default reviewer pages free of raw internals.
+- Sprint 7.4 Fresh Project Intake Trial: `docs/archive/sprints/SPRINT_7_4_FRESH_PROJECT_INTAKE_TRIAL.md`
+  - Verified the real-ish `projects/test_project_2` intake path through project selection, setup, classification, populate, comparison units, tables, figures, evidence, and standard review queue generation without product code changes.
+- Sprint 7.5 Real Project End-To-End Smoke Test: `docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md`
+  - Smoked the `projects/test_project_2` reviewer flow through review detail, figure editor, subset acceptance, and preview export; recorded expected review/QA blockers and Sprint 7.7 friction candidates.
 
 ## Deferred Work Linked To Sprints
 

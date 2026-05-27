@@ -17,8 +17,8 @@ This sprint is not about deep backend capability. The goal is to make the app ca
 - Sprint 7.1: [Reviewer-Facing UI Polish](SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md)
 - Sprint 7.2: [Review Status And Badge Cleanup](docs/archive/sprints/SPRINT_7_2_REVIEW_STATUS_AND_BADGE_CLEANUP.md) - complete
 - Sprint 7.3: [Advanced And Debug View Separation](docs/archive/sprints/SPRINT_7_3_ADVANCED_AND_DEBUG_VIEW_SEPARATION.md) - complete
-- Sprint 7.4: [Fresh Project Intake Trial](SPRINT_7_4_FRESH_PROJECT_INTAKE_TRIAL.md)
-- Sprint 7.5: [Real Project End-To-End Smoke Test](SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md)
+- Sprint 7.4: [Fresh Project Intake Trial](docs/archive/sprints/SPRINT_7_4_FRESH_PROJECT_INTAKE_TRIAL.md) - complete
+- Sprint 7.5: [Real Project End-To-End Smoke Test](docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md) - complete
 - Sprint 7.6: [Output Review And Report Shape Check](SPRINT_7_6_OUTPUT_REVIEW_AND_REPORT_SHAPE_CHECK.md)
 - Sprint 7.7: [Reviewer Friction Backlog](SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md)
 
