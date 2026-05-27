@@ -42,6 +42,7 @@ from review_assist.figure_style_model import (
     approved_figure_version,
     build_analysis_snapshot,
     build_figure_recipe,
+    effective_default_style_for_layer,
     figure_recipe_for,
     load_figure_style_artifacts,
     reset_project_style_override,
@@ -2165,8 +2166,9 @@ def _comparison_feature_editor_rows(
 
 def _style_editor_row(layer: dict[str, Any], override: dict[str, Any], index: int) -> dict[str, Any]:
     layer_id = str(layer.get("layer_id") or "")
-    default_style = layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {}
+    default_style = effective_default_style_for_layer(layer)
     label_fields = _string_list(layer.get("allowed_label_fields", [])) or _string_list(layer.get("label_fields", []))
+    style_labels = _style_field_labels(layer)
     return {
         "index": index,
         "layer_id": layer_id,
@@ -2179,6 +2181,7 @@ def _style_editor_row(layer: dict[str, Any], override: dict[str, Any], index: in
         "path": str(layer.get("path") or ""),
         "expected_renderable_path": str(layer.get("expected_renderable_path") or ""),
         "label_fields": label_fields,
+        "style_labels": style_labels,
         "defaults": {
             "visible": bool(layer.get("default_visible", True)),
             "z_index": _int_value(layer.get("default_z_index"), index),
@@ -2204,6 +2207,44 @@ def _style_editor_row(layer: dict[str, Any], override: dict[str, Any], index: in
             "label_field": override.get("label_field", ""),
         },
         "override": override,
+    }
+
+
+def _style_field_labels(layer: dict[str, Any]) -> dict[str, str]:
+    counts = layer.get("geometry_type_counts") if isinstance(layer.get("geometry_type_counts"), dict) else {}
+    has_points = any("Point" in str(key) and int(value or 0) > 0 for key, value in counts.items())
+    has_lines = any("LineString" in str(key) and int(value or 0) > 0 for key, value in counts.items())
+    has_polygons = any("Polygon" in str(key) and int(value or 0) > 0 for key, value in counts.items())
+    if has_points and not has_lines and not has_polygons:
+        return {
+            "fill_color": "Point Color",
+            "fill_opacity": "Point Opacity",
+            "stroke_color": "Point Outline Color",
+            "stroke_width": "Point Outline Width",
+            "point_size": "Point Size",
+        }
+    if has_lines and not has_points and not has_polygons:
+        return {
+            "fill_color": "Line Color",
+            "fill_opacity": "Line Opacity",
+            "stroke_color": "Line Color",
+            "stroke_width": "Line Width",
+            "point_size": "Point Size",
+        }
+    if has_polygons and not has_points and not has_lines:
+        return {
+            "fill_color": "Polygon Fill Color",
+            "fill_opacity": "Polygon Fill Opacity",
+            "stroke_color": "Polygon Outline Color",
+            "stroke_width": "Polygon Outline Width",
+            "point_size": "Point Size",
+        }
+    return {
+        "fill_color": "Feature Color",
+        "fill_opacity": "Feature Opacity",
+        "stroke_color": "Feature Outline Color",
+        "stroke_width": "Outline Width",
+        "point_size": "Point Size",
     }
 
 

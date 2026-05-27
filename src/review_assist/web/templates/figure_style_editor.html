@@ -230,7 +230,7 @@
               <input type="text" maxlength="120" name="layer_{{ layer.index }}_display_name" value="{{ layer.current.display_name }}">
             </label>
             <div class="style-field color-field">
-              <span class="style-label">Fill Color</span>
+              <span class="style-label">{{ layer.style_labels.fill_color }}</span>
               <div class="color-control" data-color-control data-empty-label="Transparent / default">
                 <span class="color-swatch" data-color-swatch aria-hidden="true"></span>
                 <span class="color-summary" data-color-summary>Color preview</span>
@@ -247,11 +247,11 @@
                 <small id="layer-{{ layer.index }}-fill-color-hint" class="color-hint" data-color-hint>Use #RRGGBB or leave blank for default.</small>
               </div>
             </div>
-            <label>Fill Opacity
+            <label>{{ layer.style_labels.fill_opacity }}
               <input type="number" min="0" max="1" step="0.01" name="layer_{{ layer.index }}_fill_opacity" value="{{ layer.current.fill_opacity }}">
             </label>
             <div class="style-field color-field">
-              <span class="style-label">Stroke Color</span>
+              <span class="style-label">{{ layer.style_labels.stroke_color }}</span>
               <div class="color-control" data-color-control data-empty-label="No stroke / default">
                 <span class="color-swatch" data-color-swatch aria-hidden="true"></span>
                 <span class="color-summary" data-color-summary>Color preview</span>
@@ -268,10 +268,10 @@
                 <small id="layer-{{ layer.index }}-stroke-color-hint" class="color-hint" data-color-hint>Use #RRGGBB or leave blank for default.</small>
               </div>
             </div>
-            <label>Stroke Width
+            <label>{{ layer.style_labels.stroke_width }}
               <input type="number" min="0" max="10" step="0.01" name="layer_{{ layer.index }}_stroke_width" value="{{ layer.current.stroke_width }}">
             </label>
-            <label>Point Size
+            <label>{{ layer.style_labels.point_size }}
               <input type="number" min="1" max="80" step="0.01" name="layer_{{ layer.index }}_point_size" value="{{ layer.current.point_size }}">
             </label>
             <label>Labels

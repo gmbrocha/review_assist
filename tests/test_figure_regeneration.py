@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import geopandas as gpd
 import pytest
+from shapely.geometry import Point
 
+from review_assist.deliverable_figure_rendering import source_layer_style_record
 from review_assist.figure_regeneration import FigureRegenerationError, regenerate_figure_version
 from review_assist.figure_style_model import (
     FIGURE_RENDER_JOBS_PATH,
@@ -114,6 +117,89 @@ def test_regeneration_applies_comparison_feature_overrides(tmp_path: Path) -> No
         "comparison_units:unit-1"
     ]
     assert any(layer["layer_id"] == "comparison_units:unit-2" for layer in result["version"]["hidden_layers"])
+
+
+def test_regeneration_reapplies_figure_source_filter_tokens(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    source_dir = project_dir / "layers" / "maris_community_facilities"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    source_path = source_dir / "maris_community_facilities.geojson"
+    source_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {"type": "Feature", "properties": {"NAME": "New Albany Fire Department"}, "geometry": {"type": "Point", "coordinates": [-90.0, 32.0]}},
+                    {"type": "Feature", "properties": {"NAME": "Bluff"}, "geometry": {"type": "Point", "coordinates": [-90.001, 32.001]}},
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    figures_path = project_dir / "deliverable" / "figures.json"
+    artifact = read_json(figures_path)
+    figure = next(item for item in artifact["figures"] if item["figure_id"] == "figure-stub-02")
+    figure.update(
+        {
+            "figure_id": "figure-fire-ems-stations",
+            "title": "Fire Stations in or near the Project Area",
+            "image_path": str(project_dir / "maps" / "figures" / "figure-wetlands-waterbodies.png"),
+            "is_stub": False,
+            "shown_layers": [
+                {
+                    "layer_type": "comparison_units",
+                    "label": "Comparison units",
+                    "feature_count": 2,
+                    "comparison_unit_ids": ["unit-1", "unit-2"],
+                    "geometry_type_counts": {"LineString": 2},
+                },
+                {
+                    "layer_type": "source_layer",
+                    "source_id": "maris_community_facilities",
+                    "label": "MARIS Community Facilities and Places",
+                    "legend_label": "MARIS Community Facilities and Places",
+                    "render_style": {"color": "#FF7A00", "marker": "o", "polygon_alpha": 0.18, "point_alpha": 0.68, "marker_size": 12.0},
+                    "path": str(source_path),
+                    "feature_count": 1,
+                    "geometry_type_counts": {"Point": 1},
+                },
+            ],
+            "layer_refs": [str(source_path)],
+            "source_refs": ["maris_community_facilities"],
+        }
+    )
+    figures_path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def spy_renderer(**kwargs):
+        output_path = Path(kwargs["output_path"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"png")
+        captured.update(kwargs)
+        return {"layout": "spy"}
+
+    regenerate_figure_version(project_dir, "figure-fire-ems-stations", renderer=spy_renderer)
+    source_layers = captured["source_layers"]  # type: ignore[index]
+    gdf = source_layers[0]["gdf"]  # type: ignore[index]
+
+    assert len(gdf) == 1
+    assert gdf.iloc[0]["NAME"] == "New Albany Fire Department"
+
+
+def test_point_layer_opacity_override_controls_point_alpha() -> None:
+    gdf = gpd.GeoDataFrame({"name": ["facility"]}, geometry=[Point(-90.0, 32.0)], crs="EPSG:4326")
+    style = source_layer_style_record(
+        {
+            "source_id": "maris_community_facilities",
+            "source_name": "MARIS Community Facilities and Places",
+            "gdf": gdf,
+            "style_override": {"fill_opacity": 1.0},
+        },
+        0,
+    )
+
+    assert style["point_alpha"] == 1.0
 
 
 def test_regeneration_rejects_unsupported_output_format(tmp_path: Path) -> None:

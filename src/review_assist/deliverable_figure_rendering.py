@@ -527,8 +527,14 @@ def source_layer_style_record(layer: dict[str, Any], index: int) -> dict[str, An
             style["stroke_color"] = str(reviewer_override["stroke_color"])
             style["color"] = str(reviewer_override["stroke_color"])
         if reviewer_override.get("fill_opacity") is not None:
-            style["polygon_alpha"] = float(reviewer_override["fill_opacity"])
-            style["point_alpha"] = float(reviewer_override["fill_opacity"])
+            opacity = float(reviewer_override["fill_opacity"])
+            geometry_counts = _geometry_type_counts(layer.get("gdf"))
+            if geometry_counts.get("polygon"):
+                style["polygon_alpha"] = opacity
+            if geometry_counts.get("point"):
+                style["point_alpha"] = opacity
+            if geometry_counts.get("line") and not geometry_counts.get("polygon"):
+                style["line_alpha"] = opacity
         if reviewer_override.get("stroke_width") is not None:
             style["line_width"] = float(reviewer_override["stroke_width"])
             style["polygon_line_width"] = float(reviewer_override["stroke_width"])
@@ -538,6 +544,17 @@ def source_layer_style_record(layer: dict[str, Any], index: int) -> dict[str, An
             style["z_index"] = float(reviewer_override["z_index"])
         style["style_source"] = "reviewer_style_override"
     return style
+
+
+def _geometry_type_counts(gdf: Any) -> dict[str, int]:
+    if not isinstance(gdf, gpd.GeoDataFrame) or gdf.empty:
+        return {"point": 0, "line": 0, "polygon": 0}
+    types = gdf.geometry.geom_type.astype(str)
+    return {
+        "point": int(types.str.contains("Point", na=False).sum()),
+        "line": int(types.str.contains("LineString", na=False).sum()),
+        "polygon": int(types.str.contains("Polygon", na=False).sum()),
+    }
 
 
 def legend_label_for_layer(layer: dict[str, Any]) -> str:

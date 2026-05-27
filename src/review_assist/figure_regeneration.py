@@ -10,6 +10,7 @@ from typing import Any, Callable
 import geopandas as gpd
 
 from .deliverable_figure_basemaps import load_basemap
+from .deliverable_figure_specs import TARGET_SPECS
 from .deliverable_figure_rendering import render_map
 from .figure_style_model import (
     COMPARISON_FEATURE_LAYER_PREFIX,
@@ -18,6 +19,7 @@ from .figure_style_model import (
     FIGURE_VERSION_OUTPUT_DIR,
     FIGURE_VERSIONS_PATH,
     active_style_override,
+    effective_default_style_for_layer,
     ensure_figure_style_model,
     figure_recipe_for,
     load_figure_style_artifacts,
@@ -269,7 +271,7 @@ def _comparison_unit_ids(layer: dict[str, Any]) -> list[str]:
 
 
 def _current_layer_style(layer: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    default_style = layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {}
+    default_style = effective_default_style_for_layer(layer)
     style = {
         "fill_color": override.get("fill_color", default_style.get("fill_color")),
         "fill_opacity": override.get("fill_opacity", default_style.get("fill_opacity")),
@@ -292,6 +294,8 @@ def _source_layers_from_recipe(
     analysis_crs: str,
 ) -> list[dict[str, Any]]:
     layers: list[dict[str, Any]] = []
+    figure_id = str(recipe.get("figure_id") or "")
+    filter_tokens = tuple(str(token).lower() for token in getattr(TARGET_SPECS.get(figure_id), "filter_tokens", ()) if str(token).strip())
     for index, plan in enumerate(source_layer_plans):
         layer = plan["recipe_layer"]
         path = _resolve_project_path(project_dir, layer.get("path"))
@@ -302,6 +306,9 @@ def _source_layers_from_recipe(
             gdf = gdf.set_crs("EPSG:4326", allow_override=True)
         gdf = gdf[~gdf.geometry.isna()]
         gdf = gdf[~gdf.geometry.is_empty]
+        if filter_tokens and not gdf.empty:
+            mask = gdf.apply(lambda row: any(token in _row_text(row) for token in filter_tokens), axis=1)
+            gdf = gdf[mask].copy()
         if not gdf.empty:
             gdf = gdf.to_crs(analysis_crs)
         layers.append(
@@ -315,6 +322,20 @@ def _source_layers_from_recipe(
             }
         )
     return layers
+
+
+def _row_text(row: Any) -> str:
+    values: list[str] = []
+    for column in row.index:
+        if column == "geometry":
+            continue
+        value = row[column]
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text and text.lower() != "nan":
+            values.append(text.lower())
+    return " ".join(values)
 
 
 def _load_regeneration_basemap(project_dir: Path, analysis_crs: str, render_layout: dict[str, Any] | None, requested: bool) -> dict[str, Any] | None:

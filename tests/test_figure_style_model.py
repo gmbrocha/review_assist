@@ -16,6 +16,7 @@ from review_assist.figure_style_model import (
     active_style_override,
     approve_figure_version,
     approved_figure_version,
+    effective_default_style_for_layer,
     initialize_figure_style_model,
     make_render_job,
     make_sparse_style_override,
@@ -90,6 +91,33 @@ def test_sparse_override_serialization_and_reset() -> None:
     assert reset["override_count"] == 1
     assert reset["overrides"][0]["status"] == "reset"
     assert active_style_override(reset, "figure-wetlands-waterbodies") is None
+
+
+def test_point_layer_default_opacity_uses_point_alpha(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    figures_path = project_dir / "deliverable" / "figures.json"
+    artifact = read_json(figures_path)
+    figure = next(item for item in artifact["figures"] if item["figure_id"] == "figure-wetlands-waterbodies")
+    layer = next(item for item in figure["shown_layers"] if item.get("source_id") == "usfws_nwi_wetlands")
+    layer["geometry_type_counts"] = {"Point": 3}
+    layer["render_style"]["polygon_alpha"] = 0.18
+    layer["render_style"]["point_alpha"] = 0.88
+    figures_path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+
+    initialize_figure_style_model(project_dir)
+    recipe = next(item for item in read_json(project_dir / FIGURE_RECIPES_PATH)["recipes"] if item["figure_id"] == "figure-wetlands-waterbodies")
+    recipe_layer = next(item for item in recipe["layers"] if item["layer_id"] == "source:usfws_nwi_wetlands")
+
+    assert recipe_layer["default_style"]["fill_opacity"] == 0.88
+    assert effective_default_style_for_layer(recipe_layer)["fill_opacity"] == 0.88
+
+    result = save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [{"layer_id": "source:usfws_nwi_wetlands", "fill_opacity": "0.88"}],
+    )
+
+    assert result["override_saved"] is False
 
 
 def test_sparse_override_rejects_unsupported_fields() -> None:

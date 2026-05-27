@@ -695,7 +695,8 @@ def _recipe_layers(shown_layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
         source_id = str(layer.get("source_id") or "").strip()
         layer_id = _stable_layer_id(layer_type, source_id, counters)
         render_style = layer.get("render_style") if isinstance(layer.get("render_style"), dict) else {}
-        default_style = _default_style_from_render_style(render_style)
+        geometry_type_counts = layer.get("geometry_type_counts") if isinstance(layer.get("geometry_type_counts"), dict) else {}
+        default_style = _default_style_from_render_style(render_style, geometry_type_counts)
         layers.append(
             {
                 "layer_id": layer_id,
@@ -707,7 +708,7 @@ def _recipe_layers(shown_layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "default_legend_label": str(layer.get("legend_label") or layer.get("label") or layer_id),
                 "default_style": default_style,
                 "feature_count": int(layer.get("feature_count") or 0),
-                "geometry_type_counts": layer.get("geometry_type_counts") if isinstance(layer.get("geometry_type_counts"), dict) else {},
+                "geometry_type_counts": geometry_type_counts,
                 "path": str(layer.get("path") or ""),
                 "comparison_unit_ids": _string_list(layer.get("comparison_unit_ids", [])),
                 "unit_styles": _dict_list(layer.get("unit_styles", [])),
@@ -829,7 +830,7 @@ def _normalize_override_value(key: str, value: Any, recipe_layer: dict[str, Any]
 
 
 def _equals_default(key: str, value: Any, recipe_layer: dict[str, Any]) -> bool:
-    default_style = recipe_layer.get("default_style") if isinstance(recipe_layer.get("default_style"), dict) else {}
+    default_style = effective_default_style_for_layer(recipe_layer)
     defaults = {
         "visible": bool(recipe_layer.get("default_visible", True)),
         "z_index": int(recipe_layer.get("default_z_index", 0)),
@@ -946,17 +947,56 @@ def _stable_layer_id(layer_type: str, source_id: str, counters: dict[str, int]) 
     return base
 
 
-def _default_style_from_render_style(render_style: dict[str, Any]) -> dict[str, Any]:
+def effective_default_style_for_layer(layer: dict[str, Any]) -> dict[str, Any]:
+    """Return geometry-aware default style values for a recipe layer.
+
+    Early Sprint 6 recipes stored polygon alpha in fill_opacity for point-only
+    layers. Keep those artifacts readable by preferring the recorded generic
+    opacity value for point-only layers when available.
+    """
+
+    default_style = dict(layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {})
+    geometry_type_counts = layer.get("geometry_type_counts") if isinstance(layer.get("geometry_type_counts"), dict) else {}
+    if _has_point_geometry(geometry_type_counts) and not _has_polygon_geometry(geometry_type_counts):
+        if default_style.get("opacity") is not None:
+            default_style["fill_opacity"] = default_style.get("opacity")
+    return default_style
+
+
+def _default_style_from_render_style(render_style: dict[str, Any], geometry_type_counts: dict[str, Any]) -> dict[str, Any]:
+    opacity = _opacity_from_render_style(render_style, geometry_type_counts)
     return {
         "fill_color": render_style.get("color"),
-        "fill_opacity": render_style.get("polygon_alpha"),
+        "fill_opacity": opacity,
         "stroke_color": render_style.get("color"),
         "stroke_width": render_style.get("line_width"),
         "point_marker": render_style.get("marker"),
         "point_size": render_style.get("marker_size"),
-        "opacity": render_style.get("point_alpha") or render_style.get("line_alpha") or render_style.get("polygon_alpha"),
+        "opacity": opacity,
         "style_source": render_style.get("style_source"),
     }
+
+
+def _opacity_from_render_style(render_style: dict[str, Any], geometry_type_counts: dict[str, Any]) -> Any:
+    if _has_polygon_geometry(geometry_type_counts):
+        return render_style.get("polygon_alpha")
+    if _has_point_geometry(geometry_type_counts):
+        return render_style.get("point_alpha")
+    if _has_line_geometry(geometry_type_counts):
+        return render_style.get("line_alpha")
+    return render_style.get("point_alpha") or render_style.get("line_alpha") or render_style.get("polygon_alpha")
+
+
+def _has_point_geometry(geometry_type_counts: dict[str, Any]) -> bool:
+    return any("Point" in str(key) and int(value or 0) > 0 for key, value in geometry_type_counts.items())
+
+
+def _has_line_geometry(geometry_type_counts: dict[str, Any]) -> bool:
+    return any("LineString" in str(key) and int(value or 0) > 0 for key, value in geometry_type_counts.items())
+
+
+def _has_polygon_geometry(geometry_type_counts: dict[str, Any]) -> bool:
+    return any("Polygon" in str(key) and int(value or 0) > 0 for key, value in geometry_type_counts.items())
 
 
 def _figure_extent_record(figure: dict[str, Any]) -> dict[str, Any]:
