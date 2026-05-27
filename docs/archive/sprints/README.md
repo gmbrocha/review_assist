@@ -46,4 +46,5 @@ Current archived sprint records include:
 - `docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md`
 - `docs/archive/sprints/SPRINT_7_6_OUTPUT_REVIEW_AND_REPORT_SHAPE_CHECK.md`
 - `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md`
+- `docs/archive/sprints/SPRINT_7_REVIEWER_TRIAL_AND_UI_DE_DEV_PASS.md`
 - `docs/archive/sprints/SPRINT_8_1_REPORT_EXPORT_POLISH_BEFORE_REAL_RUNS.md`

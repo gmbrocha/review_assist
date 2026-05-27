@@ -12,6 +12,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 - Roadmap reference: `docs/sprints/ROADMAP.md`
 - Sprint 6 is archived. Use `docs/archive/sprints/SPRINT_6_REVIEWER_FIGURE_STYLING_AND_REGENERATION.md` for historical Sprint 6 scope.
+- Sprint 7 is archived. Use `docs/archive/sprints/SPRINT_7_REVIEWER_TRIAL_AND_UI_DE_DEV_PASS.md` for historical Sprint 7 umbrella scope.
 - Sprint 7.1 is archived. Use `docs/archive/sprints/SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md` for historical UI-polish scope.
 - Sprint 7.2 is archived. Use `docs/archive/sprints/SPRINT_7_2_REVIEW_STATUS_AND_BADGE_CLEANUP.md` for historical status/badge scope.
 - Sprint 7.3 is archived. Use `docs/archive/sprints/SPRINT_7_3_ADVANCED_AND_DEBUG_VIEW_SEPARATION.md` for historical advanced/debug scope.
@@ -103,6 +104,8 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
   - Reviewed the `projects/test_project_2` internal preview Markdown/DOCX/package shape and recorded compactness, figure, table, manual-gap, source-limitation, and export-shape findings without changing product code.
 - Sprint 7.7 Reviewer Friction Backlog: `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md`
   - Converted Sprint 7.4 through 7.6 findings into a prioritized backlog; no P0 blocker was found, and P1/P2 items now drive the next sprint planning cycle.
+- Sprint 7 Reviewer Trial And UI De-Dev Pass: `docs/archive/sprints/SPRINT_7_REVIEWER_TRIAL_AND_UI_DE_DEV_PASS.md`
+  - Historical umbrella plan for Sprint 7 reviewer-facing UI polish, fresh-project trial, output review, and friction backlog work.
 - Sprint 8.1 Report Export Polish Before Real Runs: `docs/archive/sprints/SPRINT_8_1_REPORT_EXPORT_POLISH_BEFORE_REAL_RUNS.md`
   - Cleaned default Markdown/DOCX report bodies, suppressed duplicate inline support table/figure rendering, kept wetlands/waterbodies child sections visible, and reworded deterministic prose away from evidence-manifest language.
 
