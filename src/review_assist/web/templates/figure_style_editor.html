@@ -32,13 +32,29 @@
 {% if editor.regenerated_preview.available %}
 <section class="panel">
   <h2>Latest Regenerated Version</h2>
-  <p class="muted">This regenerated PNG is review-only. Export continues to use the reviewed/generated figure path until version approval and export integration are implemented.</p>
+  <p class="muted">This regenerated PNG is review-visible. Export continues to use the reviewed/generated figure path until Sprint 6.7 export integration.</p>
   <dl class="details">
     <dt>Version</dt><dd>{{ editor.regenerated_preview.version.version_id }}</dd>
     <dt>Approval State</dt><dd>{{ editor.regenerated_preview.version.approval_state }}</dd>
     <dt>Output Path</dt><dd>{{ editor.regenerated_preview.image_path }}</dd>
   </dl>
   <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=editor.regenerated_preview.artifact_link_path) }}" alt="{{ editor.figure_id }} regenerated version">
+</section>
+{% endif %}
+
+{% if editor.approved_preview.version %}
+<section class="panel">
+  <h2>Approved Figure Version</h2>
+  <p class="muted">This approval records the exact figure version selected by the reviewer. Export image selection remains unchanged until Sprint 6.7.</p>
+  <dl class="details">
+    <dt>Version</dt><dd>{{ editor.approved_preview.version.version_id }}</dd>
+    <dt>Approved By</dt><dd>{{ editor.approved_preview.version.approved_by or 'Not recorded' }}</dd>
+    <dt>Approved At</dt><dd>{{ editor.approved_preview.version.approved_at or 'Not recorded' }}</dd>
+    <dt>Output Path</dt><dd>{{ editor.approved_preview.image_path or 'No image path recorded' }}</dd>
+  </dl>
+  {% if editor.approved_preview.available %}
+    <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=editor.approved_preview.artifact_link_path) }}" alt="{{ editor.figure_id }} approved version">
+  {% endif %}
 </section>
 {% endif %}
 
@@ -99,9 +115,65 @@
     <dt>Active Override</dt><dd>{{ editor.active_override.override_id if editor.active_override.override_id else 'None' }}</dd>
     <dt>Latest Version</dt><dd>{{ editor.version_summary.latest_version.version_id if editor.version_summary.latest_version else 'None recorded' }}</dd>
     <dt>Latest Regenerated Version</dt><dd>{{ editor.version_summary.latest_regenerated_version.version_id if editor.version_summary.latest_regenerated_version else 'None recorded' }}</dd>
-    <dt>Approved Version</dt><dd>{{ editor.version_summary.approved_version.version_id if editor.version_summary.approved_version else 'Deferred' }}</dd>
+    <dt>Approved Version</dt><dd>{{ editor.version_summary.approved_version.version_id if editor.version_summary.approved_version else 'None recorded' }}</dd>
     <dt>Latest Render Job</dt><dd>{{ editor.render_job_summary.latest_render_job.render_job_id if editor.render_job_summary.latest_render_job else 'None recorded' }}</dd>
   </dl>
+</section>
+
+<section class="panel">
+  <h2>Version History</h2>
+  {% if editor.version_history %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>State</th>
+          <th>Created</th>
+          <th>Output</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for version in editor.version_history %}
+        <tr>
+          <td>
+            <strong>v{{ version.version_number }}</strong><br>
+            <code>{{ version.version_id }}</code>
+            {% if version.approved_version %}<span class="status-pill">approved</span>{% endif %}
+          </td>
+          <td>{{ version.approval_state }}</td>
+          <td>{{ version.created_at }}</td>
+          <td>
+            {% if version.artifact_link_path and version.output_exists %}
+              <a href="{{ url_for('artifact', project=selected_project_key, path=version.artifact_link_path) }}">{{ version.output_artifact_path }}</a>
+            {% elif version.output_artifact_path %}
+              {{ version.output_artifact_path }} <span class="muted">(missing)</span>
+            {% elif version.is_stub %}
+              Stub without rendered image
+            {% else %}
+              None recorded
+            {% endif %}
+          </td>
+          <td>
+            {% if version.approved_version %}
+              <span class="muted">Current approval</span>
+            {% else %}
+              <form method="post" class="inline-form">
+                <input type="hidden" name="style_action" value="approve_version">
+                <input type="hidden" name="version_id" value="{{ version.version_id }}">
+                <button type="submit">Approve This Version</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="empty">No figure versions are recorded.</p>
+  {% endif %}
 </section>
 
 <form method="post" class="figure-style-form">
@@ -217,9 +289,14 @@
       <button type="submit" name="style_action" value="reset_default">Reset to Default</button>
       <button class="primary" type="submit" name="style_action" value="save_draft">Save Draft Style</button>
       <button class="primary" type="submit" name="style_action" value="save_and_regenerate">Save and Regenerate Figure</button>
-      <button type="button" disabled title="{{ editor.deferred_actions.approve_figure }}">Approve Figure</button>
+      {% if editor.version_summary.approval_target_version %}
+        <input type="hidden" name="version_id" value="{{ editor.version_summary.approval_target_version.version_id }}">
+        <button type="submit" name="style_action" value="approve_version">Approve Figure</button>
+      {% else %}
+        <button type="button" disabled>Approve Figure</button>
+      {% endif %}
     </div>
-    <p class="muted">Regeneration creates a review-only figure version. Approval and export integration remain deferred to later Sprint 6 subunits.</p>
+    <p class="muted">Approval records an exact figure version for the figure workflow. Export integration remains deferred to Sprint 6.7.</p>
   </section>
 </form>
 <script src="{{ url_for('static', filename='figure_style_editor.js') }}"></script>

@@ -596,6 +596,7 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "No validation warnings recorded for this figure." in text
     assert "Saved style drafts and regenerated versions are project-local presentation metadata" in text
     assert "Export Eligible" in text
+    assert "Version History" in text
     assert "Layer Styling" in text
     assert "figure_style_editor.js" in text
     assert "data-color-control" in text
@@ -623,7 +624,6 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
     assert "Save and Regenerate Figure" in text
     assert 'name="style_action" value="save_and_regenerate"' in text
     assert "Approve Figure" in text
-    assert "disabled" in text
     assert "geometry editing" not in text.lower()
 
 
@@ -742,6 +742,49 @@ def test_figure_style_editor_save_and_regenerate_creates_review_only_version(tmp
     assert (project_dir / latest["output_artifact_path"]).exists()
     assert (project_dir / "review_queue" / "review_queue.json").read_bytes() == queue_before
     assert (project_dir / "deliverable" / "figures.json").read_bytes() == figures_before
+
+
+def test_figure_style_editor_approves_exact_version_without_review_or_export_mutation(tmp_path: Path) -> None:
+    project_dir = _project_with_figure_layers(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+    client.post(
+        "/review/figure-wetlands-waterbodies/figure-style",
+        data={
+            "style_action": "save_and_regenerate",
+            "layer_id": ["source:usfws_nwi_wetlands"],
+            "layer_0_visible": "true",
+            "layer_0_z_index": "8",
+            "layer_0_display_name": "Wetland Overlay",
+            "layer_0_stroke_color": "#00AAFF",
+        },
+        follow_redirects=True,
+    )
+    versions = json.loads((project_dir / FIGURE_VERSIONS_PATH).read_text(encoding="utf-8"))
+    target_version_id = versions["versions"][-1]["version_id"]
+    queue_before = (project_dir / "review_queue" / "review_queue.json").read_bytes()
+    figures_before = (project_dir / "deliverable" / "figures.json").read_bytes()
+    readiness_before = adapter.export_readiness(project_dir)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies/figure-style",
+        data={"style_action": "approve_version", "version_id": target_version_id},
+        follow_redirects=True,
+    )
+    versions_after = json.loads((project_dir / FIGURE_VERSIONS_PATH).read_text(encoding="utf-8"))
+    approved = next(item for item in versions_after["versions"] if item["version_id"] == target_version_id)
+    text = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Figure version approved" in text
+    assert "Approved Figure Version" in text
+    assert approved["approval_state"] == "approved"
+    assert approved["approved_version"] is True
+    assert approved["approved_by"] == "local_reviewer"
+    assert (project_dir / "review_queue" / "review_queue.json").read_bytes() == queue_before
+    assert (project_dir / "deliverable" / "figures.json").read_bytes() == figures_before
+    assert adapter.export_readiness(project_dir)["review_gate_status"] == readiness_before["review_gate_status"]
 
 
 def test_review_detail_displays_gpt_assist_provenance(tmp_path: Path) -> None:

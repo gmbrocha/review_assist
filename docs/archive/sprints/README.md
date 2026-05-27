@@ -34,3 +34,5 @@ Current archived sprint records include:
 - `docs/archive/sprints/SPRINT_6_2_FIGURE_RECIPE_AND_OVERRIDE_MODEL.md`
 - `docs/archive/sprints/SPRINT_6_3_REVIEWER_FIGURE_EDITOR_UI.md`
 - `docs/archive/sprints/SPRINT_6_4_STYLE_OVERRIDE_SAVE_LOGIC.md`
+- `docs/archive/sprints/SPRINT_6_5_REGENERATION_JOB.md`
+- `docs/archive/sprints/SPRINT_6_6_FIGURE_VERSIONING_AND_APPROVAL.md`

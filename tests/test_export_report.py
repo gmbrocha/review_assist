@@ -667,6 +667,59 @@ def test_export_figure_uses_edited_caption_with_generated_image(tmp_path: Path) 
     assert "draft figure review" not in markdown.lower()
 
 
+def test_reviewed_export_ignores_approved_style_version_until_export_integration(tmp_path: Path) -> None:
+    project_dir = write_project(tmp_path)
+    populate_for_review(project_dir)
+    generated_path = project_dir / "maps" / "figures" / "generated-figure.png"
+    approved_path = project_dir / "maps" / "figures" / "versions" / "figure-wetlands-waterbodies" / "v2.png"
+    write_tiny_png(generated_path)
+    write_tiny_png(approved_path)
+    set_review_states(
+        project_dir,
+        default_status="declined",
+        overrides={
+            "figure-wetlands-waterbodies": {
+                "status": "edited",
+                "edited_content": "Reviewed wetlands and waterbodies caption.",
+                "export_eligible": True,
+            }
+        },
+    )
+    set_queue_item(project_dir, "figure-wetlands-waterbodies", image_path="maps/figures/generated-figure.png")
+    versions_path = project_dir / "maps" / "figure_versions" / "figure_versions.json"
+    versions_path.parent.mkdir(parents=True, exist_ok=True)
+    versions_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "figure-style-model-v1",
+                "project_id": "test_project",
+                "version_count": 1,
+                "versions": [
+                    {
+                        "version_id": "figure-wetlands-waterbodies:v2",
+                        "figure_id": "figure-wetlands-waterbodies",
+                        "version_number": 2,
+                        "created_at": "2026-05-26T00:00:00+00:00",
+                        "output_artifact_path": "maps/figures/versions/figure-wetlands-waterbodies/v2.png",
+                        "approval_state": "approved",
+                        "approved_version": True,
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    manifest = export_report(project_dir)
+    exported = next(item for item in manifest["included_items"] if item["id"] == "figure-wetlands-waterbodies")
+
+    assert exported["image_path"] == "maps/figures/generated-figure.png"
+    assert exported["image_path"] != "maps/figures/versions/figure-wetlands-waterbodies/v2.png"
+    assert exported["image_source"] == "generated_figure"
+
+
 def test_export_figure_uses_replacement_image_and_edited_caption(tmp_path: Path) -> None:
     project_dir = write_project(tmp_path)
     populate_for_review(project_dir)

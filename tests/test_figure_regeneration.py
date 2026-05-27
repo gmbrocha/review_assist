@@ -11,6 +11,8 @@ from review_assist.figure_style_model import (
     FIGURE_STYLE_OVERRIDES_PATH,
     FIGURE_VERSIONS_PATH,
     active_style_override,
+    approve_figure_version,
+    approved_figure_version,
     initialize_figure_style_model,
     save_project_style_override,
 )
@@ -136,6 +138,22 @@ def test_failed_regeneration_preserves_versions_and_records_failed_job(tmp_path:
     assert (project_dir / FIGURE_VERSIONS_PATH).read_bytes() == versions_before
     assert jobs["render_jobs"][-1]["status"] == "failed"
     assert jobs["render_jobs"][-1]["errors"][0]["code"] == "figure_regeneration_failed"
+
+
+def test_later_regeneration_does_not_modify_approved_version(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    first = regenerate_figure_version(project_dir, "figure-wetlands-waterbodies")
+    approve_figure_version(project_dir, "figure-wetlands-waterbodies", first["version"]["version_id"])
+    approved_before = approved_figure_version(read_json(project_dir / FIGURE_VERSIONS_PATH), "figure-wetlands-waterbodies")
+
+    second = regenerate_figure_version(project_dir, "figure-wetlands-waterbodies")
+    versions = read_json(project_dir / FIGURE_VERSIONS_PATH)
+    approved_after = approved_figure_version(versions, "figure-wetlands-waterbodies")
+
+    assert second["version"]["version_number"] == 3
+    assert approved_after["version_id"] == approved_before["version_id"]
+    assert approved_after["approval_state"] == "approved"
+    assert approved_after["approved_at"] == approved_before["approved_at"]
 
 
 def test_regeneration_does_not_mutate_analysis_review_or_export_artifacts(tmp_path: Path) -> None:

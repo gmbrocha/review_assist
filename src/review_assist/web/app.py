@@ -234,6 +234,8 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             result = adapter.save_figure_style_form(project_dir, item_id, request.form)
             if str(request.form.get("style_action") or "") == "reset_default":
                 flash(f"Figure style reset to default. {result.get('reset_count', 0)} active draft override(s) reset.", "success")
+            elif result.get("approved"):
+                flash(f"Figure version approved: {result.get('version_id', 'selected version')}. Export integration remains deferred.", "success")
             elif result.get("regenerated"):
                 version = result.get("regeneration", {}).get("version", {}) if isinstance(result.get("regeneration"), dict) else {}
                 flash(f"Review-only regenerated figure version created: {version.get('version_id', 'new version')}.", "success")

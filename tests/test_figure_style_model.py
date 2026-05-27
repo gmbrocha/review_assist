@@ -14,6 +14,8 @@ from review_assist.figure_style_model import (
     FIGURE_VERSIONS_PATH,
     FigureStyleModelError,
     active_style_override,
+    approve_figure_version,
+    approved_figure_version,
     initialize_figure_style_model,
     make_render_job,
     make_sparse_style_override,
@@ -239,6 +241,68 @@ def test_reset_project_style_override_preserves_audit_history(tmp_path: Path) ->
     assert active_style_override(artifact, "figure-wetlands-waterbodies") is None
 
 
+def test_approve_figure_version_records_exact_version_and_supersedes_prior(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    initialize_figure_style_model(project_dir)
+    _append_test_version(project_dir, "figure-wetlands-waterbodies", 2)
+    _append_test_version(project_dir, "figure-wetlands-waterbodies", 3)
+
+    first = approve_figure_version(project_dir, "figure-wetlands-waterbodies", "figure-wetlands-waterbodies:v2", actor="reviewer_a")
+    second = approve_figure_version(project_dir, "figure-wetlands-waterbodies", "figure-wetlands-waterbodies:v3", actor="reviewer_b")
+    versions = read_json(project_dir / FIGURE_VERSIONS_PATH)
+    v2 = next(item for item in versions["versions"] if item["version_id"] == "figure-wetlands-waterbodies:v2")
+    v3 = next(item for item in versions["versions"] if item["version_id"] == "figure-wetlands-waterbodies:v3")
+
+    assert first["version_id"] == "figure-wetlands-waterbodies:v2"
+    assert second["previous_approved_version_id"] == "figure-wetlands-waterbodies:v2"
+    assert v2["approval_state"] == "modified"
+    assert v2["approved_version"] is False
+    assert v2["approval_superseded_by_version_id"] == "figure-wetlands-waterbodies:v3"
+    assert v3["approval_state"] == "approved"
+    assert v3["approved_version"] is True
+    assert v3["approved_by"] == "reviewer_b"
+    assert v3["approved_at"]
+    assert approved_figure_version(versions, "figure-wetlands-waterbodies")["version_id"] == "figure-wetlands-waterbodies:v3"
+
+
+def test_reset_project_style_override_does_not_remove_approved_version(tmp_path: Path) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    save_project_style_override(
+        project_dir,
+        "figure-wetlands-waterbodies",
+        [{"layer_id": "source:usfws_nwi_wetlands", "stroke_color": "#00AAFF"}],
+    )
+    _append_test_version(project_dir, "figure-wetlands-waterbodies", 2)
+    approve_figure_version(project_dir, "figure-wetlands-waterbodies", "figure-wetlands-waterbodies:v2")
+
+    reset_project_style_override(project_dir, "figure-wetlands-waterbodies")
+    versions = read_json(project_dir / FIGURE_VERSIONS_PATH)
+
+    assert approved_figure_version(versions, "figure-wetlands-waterbodies")["version_id"] == "figure-wetlands-waterbodies:v2"
+
+
+@pytest.mark.parametrize(
+    ("figure_id", "version_id", "message"),
+    [
+        ("figure-wetlands-waterbodies", "missing:v99", "is not available"),
+        ("figure-stub-02", "figure-wetlands-waterbodies:v2", "is not available"),
+        ("figure-wetlands-waterbodies", "figure-wetlands-waterbodies:v2", "output artifact is missing"),
+    ],
+)
+def test_approve_figure_version_rejects_invalid_targets(
+    tmp_path: Path,
+    figure_id: str,
+    version_id: str,
+    message: str,
+) -> None:
+    project_dir = write_project_with_figures(tmp_path)
+    initialize_figure_style_model(project_dir)
+    _append_test_version(project_dir, "figure-wetlands-waterbodies", 2, write_output=False)
+
+    with pytest.raises(FigureStyleModelError, match=message):
+        approve_figure_version(project_dir, figure_id, version_id)
+
+
 @pytest.mark.parametrize(
     ("layer", "message"),
     [
@@ -446,6 +510,36 @@ def write_tiny_png(path: Path) -> None:
             "xQAAAABJRU5ErkJggg=="
         )
     )
+
+
+def _append_test_version(project_dir: Path, figure_id: str, version_number: int, *, write_output: bool = True) -> None:
+    output_rel = f"maps/figures/versions/{figure_id}/v{version_number}.png"
+    if write_output:
+        write_tiny_png(project_dir / output_rel)
+    artifact = read_json(project_dir / FIGURE_VERSIONS_PATH)
+    artifact["versions"].append(
+        {
+            "version_id": f"{figure_id}:v{version_number}",
+            "figure_id": figure_id,
+            "version_number": version_number,
+            "created_at": f"2026-05-22T00:00:0{version_number}+00:00",
+            "created_by": "local_reviewer",
+            "generated_by": "local_reviewer",
+            "analysis_snapshot_id": "analysis-snapshot-test",
+            "figure_recipe_id": f"{figure_id}:recipe:v1",
+            "style_override_id": "",
+            "render_job_id": f"{figure_id}:render-job:test-{version_number}",
+            "output_artifact_path": output_rel,
+            "file_format": "png",
+            "approval_state": "regenerated",
+            "is_stub": False,
+            "source_image_status": "regenerated_review_only",
+            "review_only": True,
+            "export_active": False,
+        }
+    )
+    artifact["version_count"] = len(artifact["versions"])
+    (project_dir / FIGURE_VERSIONS_PATH).write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
 
 
 def read_json(path: Path) -> dict[str, object]:

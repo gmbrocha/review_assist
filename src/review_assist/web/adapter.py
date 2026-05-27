@@ -38,6 +38,8 @@ from review_assist.figure_style_model import (
     FIGURE_VERSIONS_PATH,
     FigureStyleModelError,
     active_style_override,
+    approve_figure_version,
+    approved_figure_version,
     build_analysis_snapshot,
     build_figure_recipe,
     figure_recipe_for,
@@ -1030,9 +1032,9 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
         for job in _dict_list((artifacts.get("render_jobs") or {}).get("render_jobs", []) if isinstance(artifacts.get("render_jobs"), dict) else [])
         if str(job.get("figure_id") or "") == figure_id
     ]
-    latest_regenerated_version = _latest_by_timestamp(
-        [version for version in versions if str(version.get("approval_state") or "") == "regenerated"]
-    )
+    latest_regenerated_version = _latest_by_timestamp(_regenerated_versions(versions))
+    approved_version = approved_figure_version(artifacts.get("versions", {}), figure_id) if isinstance(artifacts.get("versions"), dict) else None
+    approval_target_version = latest_regenerated_version or _latest_by_timestamp(versions)
     assumptions = item.get("assumptions", {}) if isinstance(item.get("assumptions"), dict) else {}
     image_path = _effective_figure_image_path(item, assumptions)
     layers = _style_editor_layers(recipe, active_override)
@@ -1082,16 +1084,17 @@ def figure_style_editor_context(project_dir: Path, item_id: str) -> dict[str, An
             "version_count": len(versions),
             "latest_version": _latest_by_timestamp(versions),
             "latest_regenerated_version": latest_regenerated_version,
-            "approved_version": next((version for version in versions if str(version.get("approval_state") or "") == "approved"), None),
+            "approved_version": approved_version,
+            "approval_target_version": approval_target_version,
         },
+        "version_history": _version_history(project_dir, versions),
         "regenerated_preview": _version_preview(project_dir, latest_regenerated_version),
+        "approved_preview": _version_preview(project_dir, approved_version),
         "render_job_summary": {
             "render_job_count": len(render_jobs),
             "latest_render_job": _latest_by_timestamp(render_jobs),
         },
-        "deferred_actions": {
-            "approve_figure": "Deferred to Sprint 6.6.",
-        },
+        "deferred_actions": {},
     }
 
 
@@ -1127,6 +1130,16 @@ def save_figure_style_form(project_dir: Path, item_id: str, form: Any) -> dict[s
                 "regeneration": regeneration,
                 "regenerated": True,
                 "override_saved": bool(save_result.get("override_saved", False)),
+            }
+        if action == "approve_version":
+            return {
+                **approve_figure_version(
+                    project_dir,
+                    figure_id,
+                    str(form.get("version_id") or ""),
+                    actor="local_reviewer",
+                ),
+                "approved": True,
             }
     except (FigureStyleModelError, FigureRegenerationError) as exc:
         raise WebAdapterError(str(exc)) from exc
@@ -2050,6 +2063,42 @@ def _latest_by_timestamp(records: list[dict[str, Any]]) -> dict[str, Any] | None
     if not records:
         return None
     return sorted(records, key=lambda item: str(item.get("updated_at") or item.get("completed_at") or item.get("created_at") or ""))[-1]
+
+
+def _regenerated_versions(versions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        version
+        for version in versions
+        if str(version.get("source_image_status") or "") == "regenerated_review_only"
+        or str(version.get("approval_state") or "") == "regenerated"
+    ]
+
+
+def _version_history(project_dir: Path, versions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for version in sorted(versions, key=lambda item: int(item.get("version_number") or 0), reverse=True):
+        path = str(version.get("output_artifact_path") or "")
+        output_path = Path(path)
+        if path and not output_path.is_absolute():
+            output_path = project_dir / output_path
+        rows.append(
+            {
+                "version_id": str(version.get("version_id") or ""),
+                "version_number": version.get("version_number"),
+                "approval_state": str(version.get("approval_state") or ""),
+                "created_at": str(version.get("created_at") or ""),
+                "created_by": str(version.get("created_by") or version.get("generated_by") or ""),
+                "approved_at": str(version.get("approved_at") or ""),
+                "approved_by": str(version.get("approved_by") or ""),
+                "output_artifact_path": _project_relative_path(project_dir, path),
+                "artifact_link_path": _artifact_link_path(project_dir, path),
+                "output_exists": bool(path and output_path.exists()),
+                "is_stub": bool(version.get("is_stub", False)),
+                "approved_version": bool(version.get("approved_version", False))
+                or str(version.get("approval_state") or "") == "approved",
+            }
+        )
+    return rows
 
 
 def _version_preview(project_dir: Path, version: dict[str, Any] | None) -> dict[str, Any]:
