@@ -10,10 +10,6 @@ from review_assist.cli import main
 from review_assist.input_package import classify_input_package, load_input_package
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-PROJECTS_DIR = REPO_ROOT / "projects"
-
-
 def kml_document(body: str) -> bytes:
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
@@ -88,9 +84,20 @@ def issue_codes(artifact: dict[str, object]) -> set[str]:
     return {str(issue["code"]) for issue in artifact["validation_issues"]}  # type: ignore[index]
 
 
-def test_sample_workspaces_mark_required_kmz_present() -> None:
-    for project_name in ("trails", "conexon_projects"):
-        result = classify_input_package(PROJECTS_DIR / project_name)
+def test_project_workspaces_mark_required_kmz_present(tmp_path: Path) -> None:
+    for role in ("alternatives", "project_area"):
+        project_dir = write_project(
+            tmp_path / role,
+            [
+                {
+                    "path": "inputs/project.kmz",
+                    "role": role,
+                    "description": "Project KMZ",
+                    "content": route_kmz(),
+                }
+            ],
+        )
+        result = classify_input_package(project_dir)
 
         assert result["required_kmz_present"] is True
         assert result["project_geometry_input_count"] == 1

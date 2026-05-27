@@ -24,7 +24,7 @@ The review queue remains central, but it is downstream of the constraint engine.
 
 The tool presents objective constraints for each project feature, service location, service area, route, corridor, site, or alternative. It does not choose, recommend, rank, or reject a trail, broadband service location, project area, or other alternative.
 
-The current `trails` and `conexon_projects` workspaces are examples, not product boundaries. The constraint engine should be a blank project machine that accepts a project KMZ/KML, infers or asks for the intended geometry role, applies appropriate bounds/buffer logic, and runs the same source-backed constraint workflow.
+The current local project workspaces are examples, not product boundaries. The constraint engine should be a blank project machine that accepts a project KMZ/KML, infers or asks for the intended geometry role, applies appropriate bounds/buffer logic, and runs the same source-backed constraint workflow.
 
 ## Phase 0: Scaffold and Clarify Requirements
 

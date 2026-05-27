@@ -6,5 +6,4 @@ Each project should keep project-specific inputs, generated context, source stat
 
 ## Current Projects
 
-- `conexon_projects`: broadband installation spot review context.
-- `trails`: trail alternative review context for five proposed trail alternatives.
+- Create or select project workspaces under `projects/<project_id>/`. Generated project outputs are local workspace state and are not committed by default.

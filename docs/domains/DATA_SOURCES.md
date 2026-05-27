@@ -134,16 +134,16 @@ The source acquisition workflow compares the project input package, project sour
 Live downloads are explicit only:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe resolve-source-gaps projects/trails
-.\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
-.\.venv\Scripts\review-assist.exe download-source projects/trails usgs_nhd_hydrography
-.\.venv\Scripts\review-assist.exe download-source projects/trails usfws_critical_habitat
-.\.venv\Scripts\review-assist.exe download-source projects/trails epa_envirofacts_echo
-.\.venv\Scripts\review-assist.exe download-source projects/trails fema_nfhl_flood_hazard
-.\.venv\Scripts\review-assist.exe prepare-sources projects/trails
-.\.venv\Scripts\review-assist.exe prepare-sources projects/trails --include-optional-sources
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources --include-optional-sources
+.\.venv\Scripts\review-assist.exe resolve-source-gaps projects/your_project
+.\.venv\Scripts\review-assist.exe download-source projects/your_project usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe download-source projects/your_project usgs_nhd_hydrography
+.\.venv\Scripts\review-assist.exe download-source projects/your_project usfws_critical_habitat
+.\.venv\Scripts\review-assist.exe download-source projects/your_project epa_envirofacts_echo
+.\.venv\Scripts\review-assist.exe download-source projects/your_project fema_nfhl_flood_hazard
+.\.venv\Scripts\review-assist.exe prepare-sources projects/your_project
+.\.venv\Scripts\review-assist.exe prepare-sources projects/your_project --include-optional-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --prepare-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --prepare-sources --include-optional-sources
 ```
 
 Running `populate-for-review` without `--prepare-sources` preserves the local/no-live-download behavior. Running `prepare-sources` or `populate-for-review --prepare-sources` without `--include-optional-sources` downloads supported required sources only. FEMA flood hazard remains optional under `environmental_constraints_basic`, but it is required by the default `environmental_constraints_example` alternatives-review profile. The `populate-for-review --include-optional-sources` flag is valid only when paired with `--prepare-sources`.
@@ -183,30 +183,30 @@ Configured materializers:
 Commands:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_nwi_wetlands
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_critical_habitat
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usda_nrcs_ssurgo_soils
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails fema_nfhl_flood_hazard
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_flowlines
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_waterbodies
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_other_areas
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails epa_frs_facilities_ms
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_brownfields
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_npdes_facilities
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_underground_storage_tanks
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdeq_public_water_supply_wells
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdeq_303d_impaired_waters
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdot_transportation_context
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_boundary_context
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_public_cultural_context
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_community_facilities
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_conservation_recreation_lands
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails local_utility_infrastructure
-.\.venv\Scripts\review-assist.exe materialize-local-sources projects/trails
-.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/trails
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-local-sources
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-naip-basemap
-.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --materialize-local-sources
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usfws_critical_habitat
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usda_nrcs_ssurgo_soils
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project fema_nfhl_flood_hazard
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usgs_nhd_flowlines
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usgs_nhd_waterbodies
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usgs_nhd_other_areas
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project epa_frs_facilities_ms
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_brownfields
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_npdes_facilities
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_underground_storage_tanks
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project mdeq_public_water_supply_wells
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project mdeq_303d_impaired_waters
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project mdot_transportation_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_boundary_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_public_cultural_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_community_facilities
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_conservation_recreation_lands
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project local_utility_infrastructure
+.\.venv\Scripts\review-assist.exe materialize-local-sources projects/your_project
+.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/your_project
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --materialize-local-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --materialize-naip-basemap
+.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/your_project --materialize-local-sources
 ```
 
 All-source materialization treats missing warehouse files as nonfatal manifest warnings. Single-source materialization fails clearly when the requested warehouse source cannot be read. Existing reviewer-supplied local sources are preserved unless `--replace` is explicitly used. Source status can report local warehouse data as present but not yet materialized, so seeded public sources do not silently appear missing. Materialization runs before public source downloads when both `--materialize-local-sources` and `--prepare-sources` are used, so local warehouse data can satisfy source gaps before the app attempts live downloads.

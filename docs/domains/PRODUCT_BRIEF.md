@@ -68,9 +68,6 @@ Implemented and future draft findings may include:
 
 The current backend baseline implements a subset through template-driven draft findings, comparison tables, vector-only maps, evidence packages, deterministic or optional GPT draft report sections, accepted-content Markdown/DOCX export, inline table/figure rendering for preview reports, `mvp_quality` metadata, and internal preview/real-data MVP packages. Imagery observations, richer map/table interpretation, reviewer-facing GPT controls, PDF export, template-grade DOCX layout, and final professional report package assembly remain future work.
 
-## Current Example Projects
+## Project Workspaces
 
-Current example project contexts:
-
-- `trails`: five proposed trail alternatives requiring environmental/contextual profiles.
-- `conexon_projects`: broadband installation spot review context.
+Project workspaces live under `projects/<project_id>/`. Historical sample workspaces were removed from the active repo; current local trial workspaces are machine-local unless explicitly committed.

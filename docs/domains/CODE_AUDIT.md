@@ -68,7 +68,7 @@ This document records the latest implementation audit for the current prototype 
 - Tightened limitations and reviewer follow-up section statuses so unresolved missing/gated/stubbed source categories require review or verification instead of remaining draft.
 - Hardened review queue regeneration so accepted/edited/rejected/noted reviewer state is preserved, while untouched stale generated `draft` statuses can be upgraded by stricter regenerated defaults.
 - Removed an unused report-section slug helper/import during the interim audit.
-- Added active sample workspace smoke tests for `projects/trails` and `projects/conexon_projects`.
+- Added active sample workspace smoke tests for `projects/your_project` and `projects/your_project`.
 - Added `scripts/verify.ps1` as a repeatable local readiness check that installs dependencies, runs pytest, and smoke-checks current CLI workflows.
 - Added normalized project geometry artifacts for point/site, line/corridor, polygon/area, and mixed project contexts.
 - Added constraint result artifacts based on registered local source layers cropped to project analysis bounds.
@@ -130,21 +130,21 @@ This document records the latest implementation audit for the current prototype 
 - Unit/integration tests pass for KMZ/KML ingestion, geometry summaries, source registry validation, local source registration, CLI error handling, synthetic spatial checks, project geometry normalization, constraint analysis, active sample workspace smoke checks, project context/source status artifacts, source acquisition failure propagation, source inventory/provenance generation, deterministic draft finding generation, comparison table generation, vector-only map generation, deterministic draft report section generation, map render-error handling, review queue behavior, Markdown/DOCX export compilation, demo deliverable package generation, malformed artifact handling, and populate-for-review orchestration.
 - Current full test run: `211 passed`.
 - CLI smoke checks pass for:
-  - `review-assist inspect-project projects/trails`
-  - `review-assist inspect-project projects/conexon_projects`
-  - `review-assist build-project-geometry projects/trails`
-  - `review-assist build-project-geometry projects/conexon_projects`
-  - `review-assist list-sources projects/trails`
-  - `review-assist resolve-source-gaps projects/trails`
-  - `review-assist analyze-constraints projects/trails`
-  - `review-assist analyze-constraints projects/conexon_projects`
-  - `review-assist build-evidence-package projects/trails`
-  - `review-assist populate-for-review projects/trails --no-gpt-drafting`
-  - `review-assist populate-for-review projects/conexon_projects --no-gpt-drafting`
-  - `review-assist export-report projects/trails --include-draft --format both`
-  - `review-assist build-demo-deliverable projects/trails --format both --no-gpt-drafting`
-  - `review-assist list-review-queue projects/trails`
-  - `review-assist list-review-queue projects/conexon_projects`
+  - `review-assist inspect-project projects/your_project`
+  - `review-assist inspect-project projects/your_project`
+  - `review-assist build-project-geometry projects/your_project`
+  - `review-assist build-project-geometry projects/your_project`
+  - `review-assist list-sources projects/your_project`
+  - `review-assist resolve-source-gaps projects/your_project`
+  - `review-assist analyze-constraints projects/your_project`
+  - `review-assist analyze-constraints projects/your_project`
+  - `review-assist build-evidence-package projects/your_project`
+  - `review-assist populate-for-review projects/your_project --no-gpt-drafting`
+  - `review-assist populate-for-review projects/your_project --no-gpt-drafting`
+  - `review-assist export-report projects/your_project --include-draft --format both`
+  - `review-assist build-demo-deliverable projects/your_project --format both --no-gpt-drafting`
+  - `review-assist list-review-queue projects/your_project`
+  - `review-assist list-review-queue projects/your_project`
 
 ## Known Limits
 

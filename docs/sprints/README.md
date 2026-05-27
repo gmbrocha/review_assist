@@ -6,11 +6,12 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 - None. Sprint 8.1 is complete; the next sprint should be planned from the remaining reviewer-friction backlog.
 
-`docs/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` remains in this directory pending normal sprint-resolution/archive cleanup.
-
 ## Planned Sprint/Subunits
 
 - Roadmap reference: `docs/sprints/ROADMAP.md`
+- Sprint 4 is archived. Use `docs/archive/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` for historical web app scope.
+- Sprint 5 midpoint stabilization is archived. Use `docs/archive/sprints/SPRINT_5_MIDPOINT_STABILIZATION.md` for historical stabilization notes.
+- Sprint 5 post-implementation stabilization audit is archived. Use `docs/archive/sprints/SPRINT_5_POST_IMPLEMENTATION_STABILIZATION_AUDIT.md` for historical audit notes.
 - Sprint 6 is archived. Use `docs/archive/sprints/SPRINT_6_REVIEWER_FIGURE_STYLING_AND_REGENERATION.md` for historical Sprint 6 scope.
 - Sprint 7 is archived. Use `docs/archive/sprints/SPRINT_7_REVIEWER_TRIAL_AND_UI_DE_DEV_PASS.md` for historical Sprint 7 umbrella scope.
 - Sprint 7.1 is archived. Use `docs/archive/sprints/SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md` for historical UI-polish scope.

@@ -23,9 +23,9 @@ Maps are draft/pre-review artifacts until reviewed. Generated map and figure pre
 Current commands:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe generate-maps projects/trails
-.\.venv\Scripts\review-assist.exe plan-figure-extents projects/trails
-.\.venv\Scripts\review-assist.exe generate-deliverable-figures projects/trails
+.\.venv\Scripts\review-assist.exe generate-maps projects/your_project
+.\.venv\Scripts\review-assist.exe plan-figure-extents projects/your_project
+.\.venv\Scripts\review-assist.exe generate-deliverable-figures projects/your_project
 ```
 
 Current artifacts:

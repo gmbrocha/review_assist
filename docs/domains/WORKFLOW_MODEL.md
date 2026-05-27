@@ -56,13 +56,11 @@ The app should attempt to:
 - Identify provided local resources.
 - Surface validation issues and missing context.
 
-Current examples:
+Project workspaces are created under `projects/<project_id>/`. Historical sample workspaces were removed from the active repo; current local trial workspaces should be treated as machine-local state unless explicitly committed.
 
-- `projects/trails` is a sample fixture containing line-based trail-alternative KMZ geometry.
-- `projects/conexon_projects` contains broad point-based broadband location KMZ geometry.
-- `docs/reference/env_constraints_report_20260511_EXAMPLE_ONLY.docx` is a structural reference for report deliverables, not authoritative project data.
+The example report at `docs/reference/env_constraints_report_20260511_EXAMPLE_ONLY.docx` is a structural reference for report deliverables, not authoritative project data.
 
-These examples are not product boundaries. The workflow should act as a blank project machine that can accept a new project KMZ/KML, infer or request the geometry role, apply appropriate bounds/buffer logic, and run source-backed constraint checks.
+The workflow should act as a blank project machine that can accept a new project KMZ/KML, infer or request the geometry role, apply appropriate bounds/buffer logic, and run source-backed constraint checks.
 
 ### 3. Project Context Generation
 

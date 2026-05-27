@@ -76,11 +76,10 @@ Optional NAIP basemap materialization requires imagery dependencies:
 .\.venv\Scripts\python.exe -m pip install -e ".[dev,imagery]"
 ```
 
-Inspect a project workspace. The commands below use `projects/trails` as a sample/diagnostic fixture only; replace it with any project workspace path. Review Assist is not a trails app.
+Inspect a project workspace. The commands below use `projects/your_project` as a placeholder; replace it with any project workspace path under `projects/`.
 
 ```powershell
-.\.venv\Scripts\review-assist.exe inspect-project projects/trails
-.\.venv\Scripts\review-assist.exe inspect-project projects/conexon_projects
+.\.venv\Scripts\review-assist.exe inspect-project projects/your_project
 ```
 
 Launch the local web UI shell:
@@ -101,10 +100,10 @@ Validate the static Sprint 1.1 deliverable and prompt contracts:
 List the source catalog, register a local source layer, and run local spatial checks:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe list-sources projects/trails
-.\.venv\Scripts\review-assist.exe import-source projects/trails usfws_nwi_wetlands C:\path\to\nwi_export.geojson
-.\.venv\Scripts\review-assist.exe import-source projects/trails usda_nrcs_ssurgo_soils .\sources\wss_gsmsoil_MS_10_13_2016\spatial\gsmsoilmu_a_ms.shp --copy
-.\.venv\Scripts\review-assist.exe analyze-project projects/trails
+.\.venv\Scripts\review-assist.exe list-sources projects/your_project
+.\.venv\Scripts\review-assist.exe import-source projects/your_project usfws_nwi_wetlands C:\path\to\nwi_export.geojson
+.\.venv\Scripts\review-assist.exe import-source projects/your_project usda_nrcs_ssurgo_soils .\sources\wss_gsmsoil_MS_10_13_2016\spatial\gsmsoilmu_a_ms.shp --copy
+.\.venv\Scripts\review-assist.exe analyze-project projects/your_project
 ```
 
 Use `--copy` for file-based local source layers that should be copied into the ignored project workspace under `projects/<id>/layers/<source_id>/` before registration. For shapefiles, the CLI copies required sidecars such as `.shp`, `.shx`, `.dbf`, and `.prj`; the original source package under `sources/` is not mutated. Use `--replace` with `--copy` only when intentionally refreshing an existing project-local copy.
@@ -112,24 +111,24 @@ Use `--copy` for file-based local source layers that should be copied into the i
 Materialize project-ready GeoJSON from the ignored local Mississippi source warehouse:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_nwi_wetlands
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usfws_critical_habitat
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usda_nrcs_ssurgo_soils
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails fema_nfhl_flood_hazard
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_flowlines
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_waterbodies
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails usgs_nhd_other_areas
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails epa_frs_facilities_ms
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_brownfields
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_npdes_facilities
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_underground_storage_tanks
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails mdot_transportation_context
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_boundary_context
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_public_cultural_context
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_community_facilities
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails maris_conservation_recreation_lands
-.\.venv\Scripts\review-assist.exe materialize-local-source projects/trails local_utility_infrastructure
-.\.venv\Scripts\review-assist.exe materialize-local-sources projects/trails
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usfws_critical_habitat
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usda_nrcs_ssurgo_soils
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project fema_nfhl_flood_hazard
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usgs_nhd_flowlines
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usgs_nhd_waterbodies
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project usgs_nhd_other_areas
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project epa_frs_facilities_ms
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_brownfields
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_npdes_facilities
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_underground_storage_tanks
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project mdot_transportation_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_boundary_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_public_cultural_context
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_community_facilities
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project maris_conservation_recreation_lands
+.\.venv\Scripts\review-assist.exe materialize-local-source projects/your_project local_utility_infrastructure
+.\.venv\Scripts\review-assist.exe materialize-local-sources projects/your_project
 ```
 
 Materialization reads configured statewide/local datasets from the stable source warehouse, clips them to `project_analysis_bounds.geojson`, writes small project-ready GeoJSON files under `projects/<id>/layers/<source_id>/`, and registers those files as real `local_file` sources with `status: local_materialized`. Current materializers include NWI wetlands, USFWS Critical Habitat, SSURGO soils, FEMA flood hazard, specific NHD flowlines/waterbodies/other areas, EPA FRS and MARIS regulated facility layers, oil/gas wells, MDOT/rail transportation context, utility infrastructure, county/state/coastline boundary context, public cemetery/National Register/tribal land context, community facilities, and conservation/recreation/public land layers. The county-boundary materializer also feeds project context so study-area sections can cite intersecting Mississippi county names when available. Existing reviewer-supplied local sources are preserved unless `--replace` is explicitly used.
@@ -137,11 +136,11 @@ Materialization reads configured statewide/local datasets from the stable source
 Optionally materialize an AOI-bounded renderable NAIP basemap sidecar from Microsoft Planetary Computer NAIP COGs:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe plan-figure-extents projects/trails --json
-.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/trails --json
-.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/trails --for-figure-extents --json
-.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/trails --year 2023 --max-pixels 25000000 --max-tiles 12
-.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/trails --refresh
+.\.venv\Scripts\review-assist.exe plan-figure-extents projects/your_project --json
+.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/your_project --json
+.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/your_project --for-figure-extents --json
+.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/your_project --year 2023 --max-pixels 25000000 --max-tiles 12
+.\.venv\Scripts\review-assist.exe materialize-naip-basemap projects/your_project --refresh
 ```
 
 `plan-figure-extents` writes a non-network `maps/figure_extent_plan.json` artifact with core bounds, full render bounds, collar metadata, and grouped NAIP materialization needs. `materialize-naip-basemap` without extra flags keeps the legacy project-analysis-bounds behavior and writes `projects/<id>/basemaps/naip/<year>/naip_project_basemap.tif`. With `--for-figure-extents`, it materializes grouped full-render sidecars such as `projects/<id>/basemaps/naip/small_direct/<year>/naip_project_basemap.tif`. Existing sidecars are reused unless `--refresh` or `--force` is supplied. If optional imagery dependencies or network access are unavailable, the command records a controlled failure and figures can still use vector-only fallback.
@@ -151,29 +150,29 @@ Generated report-ready figure PNGs are map panels only. Captions, report-facing 
 Build normalized project geometry and run the current constraint engine:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe build-project-geometry projects/trails
-.\.venv\Scripts\review-assist.exe analyze-constraints projects/trails
+.\.venv\Scripts\review-assist.exe build-project-geometry projects/your_project
+.\.venv\Scripts\review-assist.exe analyze-constraints projects/your_project
 ```
 
 Generate workflow-native project context and source status artifacts:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe generate-context projects/trails
-.\.venv\Scripts\review-assist.exe resolve-sources projects/trails
-.\.venv\Scripts\review-assist.exe generate-source-inventory projects/trails
+.\.venv\Scripts\review-assist.exe generate-context projects/your_project
+.\.venv\Scripts\review-assist.exe resolve-sources projects/your_project
+.\.venv\Scripts\review-assist.exe generate-source-inventory projects/your_project
 ```
 
 Resolve source gaps and explicitly acquire supported public sources:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe resolve-source-gaps projects/trails
-.\.venv\Scripts\review-assist.exe download-source projects/trails usfws_nwi_wetlands
-.\.venv\Scripts\review-assist.exe download-source projects/trails usgs_nhd_hydrography
-.\.venv\Scripts\review-assist.exe download-source projects/trails usfws_critical_habitat
-.\.venv\Scripts\review-assist.exe download-source projects/trails epa_envirofacts_echo
-.\.venv\Scripts\review-assist.exe download-source projects/trails fema_nfhl_flood_hazard
-.\.venv\Scripts\review-assist.exe prepare-sources projects/trails
-.\.venv\Scripts\review-assist.exe prepare-sources projects/trails --include-optional-sources
+.\.venv\Scripts\review-assist.exe resolve-source-gaps projects/your_project
+.\.venv\Scripts\review-assist.exe download-source projects/your_project usfws_nwi_wetlands
+.\.venv\Scripts\review-assist.exe download-source projects/your_project usgs_nhd_hydrography
+.\.venv\Scripts\review-assist.exe download-source projects/your_project usfws_critical_habitat
+.\.venv\Scripts\review-assist.exe download-source projects/your_project epa_envirofacts_echo
+.\.venv\Scripts\review-assist.exe download-source projects/your_project fema_nfhl_flood_hazard
+.\.venv\Scripts\review-assist.exe prepare-sources projects/your_project
+.\.venv\Scripts\review-assist.exe prepare-sources projects/your_project --include-optional-sources
 ```
 
 `usgs_nhd_hydrography` and `epa_envirofacts_echo` are live public download rollups. They are not required physical warehouse folders when specific seeded or reviewer-supplied local layers already satisfy the relevant source category. `mdeq_environmental_context` remains a manual residual context bucket, not an automated physical source layer.
@@ -181,13 +180,13 @@ Resolve source gaps and explicitly acquire supported public sources:
 Generate deterministic draft findings, comparison tables, matrix deliverable tables/figures, draft maps, an evidence package, and draft report sections:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe generate-findings projects/trails
-.\.venv\Scripts\review-assist.exe generate-tables projects/trails
-.\.venv\Scripts\review-assist.exe generate-deliverable-tables projects/trails
-.\.venv\Scripts\review-assist.exe generate-deliverable-figures projects/trails
-.\.venv\Scripts\review-assist.exe generate-maps projects/trails
-.\.venv\Scripts\review-assist.exe build-evidence-package projects/trails
-.\.venv\Scripts\review-assist.exe generate-report-sections projects/trails
+.\.venv\Scripts\review-assist.exe generate-findings projects/your_project
+.\.venv\Scripts\review-assist.exe generate-tables projects/your_project
+.\.venv\Scripts\review-assist.exe generate-deliverable-tables projects/your_project
+.\.venv\Scripts\review-assist.exe generate-deliverable-figures projects/your_project
+.\.venv\Scripts\review-assist.exe generate-maps projects/your_project
+.\.venv\Scripts\review-assist.exe build-evidence-package projects/your_project
+.\.venv\Scripts\review-assist.exe generate-report-sections projects/your_project
 ```
 
 Optional GPT report-section drafting is controlled by root `.env` values. Copy `.env.example` to `.env` and set placeholders locally; `.env` is ignored by Git and must not be committed:
@@ -205,8 +204,8 @@ GPT_DRAFT_MAX_PAYLOAD_BYTES=60000
 GPT Interpretive Assist for the standard review queue is explicit and cached:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe draft-section-candidates projects/trails --provider gpt --dry-run --max-calls 3
-.\.venv\Scripts\review-assist.exe draft-section-candidates projects/trails --provider gpt --sections wetlands-and-waterbodies,hazardous-materials-sites --max-calls 2
+.\.venv\Scripts\review-assist.exe draft-section-candidates projects/your_project --provider gpt --dry-run --max-calls 3
+.\.venv\Scripts\review-assist.exe draft-section-candidates projects/your_project --provider gpt --sections wetlands-and-waterbodies,hazardous-materials-sites --max-calls 2
 ```
 
 The command drafts only eligible source-backed `section_text` review candidates by default. It uses `config/report_section_policy.json`, bounded evidence, extent metadata, validation guardrails, and the curated non-evidence style file at `config/report_style_context/environmental_constraints_report_style.md`. Drafts are cached by evidence/policy/prompt-contract/style/model fingerprint, skipped when current by default, and written back as unaccepted review candidates that still block export until reviewed. GPT run metadata records token usage when the provider reports it, and rejected outputs are kept in rejected-cache metadata without replacing the last accepted cache entry.
@@ -214,24 +213,24 @@ The command drafts only eligible source-backed `section_text` review candidates 
 Legacy report-section/package commands are deterministic by default. Use `--gpt-drafting` only when intentionally testing the older artifact-level GPT path:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe generate-report-sections projects/trails --no-gpt-drafting
-.\.venv\Scripts\review-assist.exe generate-report-sections projects/trails --gpt-drafting
-.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --include-optional-sources --gpt-drafting
+.\.venv\Scripts\review-assist.exe generate-report-sections projects/your_project --no-gpt-drafting
+.\.venv\Scripts\review-assist.exe generate-report-sections projects/your_project --gpt-drafting
+.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/your_project --include-optional-sources --gpt-drafting
 ```
 
 Generate and update review queue items:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe generate-review-queue projects/trails
-.\.venv\Scripts\review-assist.exe list-review-queue projects/trails
-.\.venv\Scripts\review-assist.exe update-review-item projects/trails report-section-wetlands-and-waterbodies --status accepted --note "Reviewed."
+.\.venv\Scripts\review-assist.exe generate-review-queue projects/your_project
+.\.venv\Scripts\review-assist.exe list-review-queue projects/your_project
+.\.venv\Scripts\review-assist.exe update-review-item projects/your_project report-section-wetlands-and-waterbodies --status accepted --note "Reviewed."
 ```
 
 For local POC testing only, refresh deterministic review artifacts and rebuild the standard queue from current local inputs and registered source layers:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe reset-review-queue projects/trails --dry-run
-.\.venv\Scripts\review-assist.exe reset-review-queue projects/trails --yes
+.\.venv\Scripts\review-assist.exe reset-review-queue projects/your_project --dry-run
+.\.venv\Scripts\review-assist.exe reset-review-queue projects/your_project --yes
 ```
 
 The reset refreshes source status, constraints, tables, figures, maps, evidence, deterministic draft sections, deliverable items, and review queue. It does not acquire sources, materialize local warehouse sources, materialize NAIP basemaps, run GPT drafting, delete source data, or change project setup. Use `--include-exports` when stale Markdown/DOCX/package outputs should also be removed.
@@ -239,36 +238,36 @@ The reset refreshes source status, constraints, tables, figures, maps, evidence,
 Export accepted/edited review queue content into editable Markdown and DOCX packages:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe export-report projects/trails
-.\.venv\Scripts\review-assist.exe export-report projects/trails --include-draft
-.\.venv\Scripts\review-assist.exe export-report projects/trails --include-draft --format both
+.\.venv\Scripts\review-assist.exe export-report projects/your_project
+.\.venv\Scripts\review-assist.exe export-report projects/your_project --include-draft
+.\.venv\Scripts\review-assist.exe export-report projects/your_project --include-draft --format both
 ```
 
 Create an internal preview demo deliverable package without changing review item statuses:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe build-demo-deliverable projects/trails
-.\.venv\Scripts\review-assist.exe build-demo-deliverable projects/trails --format both
-.\.venv\Scripts\review-assist.exe build-demo-deliverable projects/trails --materialize-local-sources --format both
+.\.venv\Scripts\review-assist.exe build-demo-deliverable projects/your_project
+.\.venv\Scripts\review-assist.exe build-demo-deliverable projects/your_project --format both
+.\.venv\Scripts\review-assist.exe build-demo-deliverable projects/your_project --materialize-local-sources --format both
 ```
 
 Create a real-data guarded MVP deliverable package. This runs source preparation first and fails by default if no downloaded, provided, or registered source layer is available, or if test fixture/mock source records are detected. Export and deliverable manifests include `data_lineage` and `mvp_quality` so real source evidence, source-backed constraints, copied figure assets, inline tables/figures, placeholders, and warnings are visible:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails
-.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --include-optional-sources
-.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/trails --materialize-local-sources --include-optional-sources
+.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/your_project
+.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/your_project --include-optional-sources
+.\.venv\Scripts\review-assist.exe build-mvp-deliverable projects/your_project --materialize-local-sources --include-optional-sources
 ```
 
 Run the current orchestration behind the future web app `Create Review Queue` action:
 
 ```powershell
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-local-sources
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-naip-basemap
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --materialize-local-sources --prepare-sources
-.\.venv\Scripts\review-assist.exe populate-for-review projects/trails --prepare-sources --include-optional-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --materialize-local-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --materialize-naip-basemap
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --prepare-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --materialize-local-sources --prepare-sources
+.\.venv\Scripts\review-assist.exe populate-for-review projects/your_project --prepare-sources --include-optional-sources
 ```
 
 For `populate-for-review`, `--include-optional-sources` is valid only with `--prepare-sources`; optional source acquisition must be explicit. `--materialize-naip-basemap` is also explicit and failure-tolerant: it plans figure extents, materializes grouped full-render NAIP sidecars before deliverable figure generation, records warnings for failures, and continues with vector-only fallback when imagery cannot be used. Plain populate does not acquire imagery. When `--materialize-local-sources` and `--prepare-sources` are both present, local warehouse materialization runs first so project-ready local layers satisfy source gaps before public downloads are attempted.
@@ -307,7 +306,7 @@ Implementation phases should add or update tests with the behavior they introduc
 ## Core Principles
 
 - The system drafts; humans decide.
-- The workflow remains feature-neutral; `projects/trails` is only a sample fixture.
+- The workflow remains feature-neutral; project workspaces are inputs, not product boundaries.
 - No hard scoring or automatic preferred alternative.
 - Uncertainty and missing data must be preserved.
 - Generated findings should be traceable to a source, method, and review status.
