@@ -18,8 +18,8 @@ Do not recursively load the entire docs tree unless explicitly requested. Only l
 Context temperature:
 
 - Hot context: `AGENTS.md`, `docs/core/CURRENT_STATE.md`, active sprint/subunit, directly relevant domain docs.
-- Warm context: `CANONICAL_PLAN.md` when direction is ambiguous, `docs/core/DECISIONS.md`, `docs/core/ARCHITECTURE.md`, governance docs, `docs/governance/DEFERRED_WORK.md`, related sprint docs.
-- Cold context: `docs/archive/`, completed sprint plans, historical notes, old implementation records, superseded decisions.
+- Warm context: `docs/core/DECISIONS.md`, `docs/core/ARCHITECTURE.md`, governance docs, `docs/governance/DEFERRED_WORK.md`, related sprint docs when direction is ambiguous.
+- Cold context: `docs/archive/`, completed sprint plans, historical notes, old implementation records, superseded decisions, including the archived former root `CANONICAL_PLAN.md`.
 
 Cold context should not be loaded unless explicitly needed.
 

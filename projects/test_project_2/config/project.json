@@ -1,0 +1,19 @@
+{
+  "project_id": "test_project_2",
+  "name": "Test Project 2",
+  "description": "",
+  "project_type": "alternatives_review",
+  "inputs": [
+    {
+      "path": "inputs/Routes_20260202.kmz",
+      "role": "alternatives",
+      "description": "Uploaded via local web UI: Routes_20260202.kmz"
+    }
+  ],
+  "assumptions": {
+    "default_buffer_feet": 100,
+    "input_crs": "EPSG:4326"
+  },
+  "special_reviewer_instructions": "",
+  "report_profile": null
+}

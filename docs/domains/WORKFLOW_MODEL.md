@@ -1,6 +1,6 @@
 # Workflow Model
 
-This document is the aligned workflow model for the Alternatives Review Assistant. The canonical planning source is `../../CANONICAL_PLAN.md`.
+This document is the aligned workflow model for the Alternatives Review Assistant. Current direction is owned by `docs/core/CURRENT_STATE.md`, durable decisions, domain docs, and the active machine-readable deliverable/report policy contracts. The former root canonical plan is archived at `docs/archive/CANONICAL_PLAN.md` for historical context only.
 
 The application is a local, workspace-oriented, human-supervised workflow accelerator. It is a source-aware report compiler and contextual review assistant. It is not a recommendation engine, black-box AI reviewer, autonomous environmental analyst, or final decision-maker.
 

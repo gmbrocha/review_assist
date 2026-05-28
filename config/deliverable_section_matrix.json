@@ -2,9 +2,9 @@
   "matrix_version": "2026-05-17",
   "profile_id": "environmental_constraints_example",
   "title": "Environmental Constraints Report Deliverable Matrix",
-  "description": "Canonical report section, table, figure, attachment, and review target contract derived from CANONICAL_PLAN.md.",
+  "description": "Canonical report section, table, figure, attachment, and review target contract. Originally derived from the archived root canonical plan and now maintained as the active machine-readable deliverable contract.",
   "source_documents": [
-    "CANONICAL_PLAN.md",
+    "docs/archive/CANONICAL_PLAN.md",
     "docs/reference/env_constraints_report_20260511_EXAMPLE_ONLY.docx"
   ],
   "stub_text": "Empty stub for future implements whenever source data is accessible.",

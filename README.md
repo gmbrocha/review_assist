@@ -28,7 +28,7 @@ Use the documentation hierarchy to avoid loading the whole repo context:
 - `docs/domains/README.md`: routing index for subsystem/domain docs.
 - `docs/sprints/README.md`: active, planned, and completed sprint index.
 - `docs/archive/README.md`: cold historical context and superseded planning docs.
-- `CANONICAL_PLAN.md`: active high-level canonical plan; read when a planning decision, deliverable-shape decision, or workflow direction is ambiguous.
+- `config/deliverable_section_matrix.json` and `config/report_section_policy.json`: active machine-readable deliverable and report policy contracts.
 
 ## Implementation Closeout
 

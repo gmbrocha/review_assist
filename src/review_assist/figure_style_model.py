@@ -21,6 +21,9 @@ FIGURE_STYLE_MODEL_VERSION = "figure-style-model-v1"
 SMALL_HASH_LIMIT_BYTES = 2_000_000
 COMPARISON_UNITS_LAYER_ID = "comparison_units"
 COMPARISON_FEATURE_LAYER_PREFIX = "comparison_units:"
+BASEMAP_Z_INDEX = 0
+SOURCE_LAYER_Z_INDEX_BASE = 20
+COMPARISON_LAYER_Z_INDEX_BASE = 60
 
 ANALYSIS_SNAPSHOT_ARTIFACTS = {
     "source_status": Path("source_status/source_status_set.json"),
@@ -702,7 +705,7 @@ def _recipe_layers(shown_layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "layer_id": layer_id,
                 "layer_type": layer_type,
                 "source_id": source_id,
-                "default_z_index": index,
+                "default_z_index": default_z_index_for_layer(layer_type, index),
                 "default_visible": True,
                 "default_display_name": str(layer.get("label") or layer.get("legend_label") or layer_id),
                 "default_legend_label": str(layer.get("legend_label") or layer.get("label") or layer_id),
@@ -761,7 +764,11 @@ def _comparison_feature_layers(recipe: dict[str, Any]) -> dict[str, dict[str, An
             color = str(style.get("color") or "").strip()
             feature_layer = dict(layer)
             feature_layer["layer_id"] = f"{COMPARISON_FEATURE_LAYER_PREFIX}{unit_id}"
-            feature_layer["default_z_index"] = int(layer.get("default_z_index", 0)) + index
+            feature_layer["default_z_index"] = default_z_index_for_layer(
+                str(layer.get("layer_type") or ""),
+                index,
+                recorded_z_index=layer.get("default_z_index"),
+            )
             feature_layer["default_display_name"] = str(
                 style.get("label")
                 or style.get("full_label")
@@ -833,7 +840,7 @@ def _equals_default(key: str, value: Any, recipe_layer: dict[str, Any]) -> bool:
     default_style = effective_default_style_for_layer(recipe_layer)
     defaults = {
         "visible": bool(recipe_layer.get("default_visible", True)),
-        "z_index": int(recipe_layer.get("default_z_index", 0)),
+        "z_index": effective_default_z_index_for_layer(recipe_layer),
         "display_name": str(recipe_layer.get("default_display_name") or ""),
         "fill_color": str(default_style.get("fill_color") or "").upper(),
         "fill_opacity": default_style.get("fill_opacity"),
@@ -894,6 +901,39 @@ def _coerce_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def default_z_index_for_layer(layer_type: str, index: int, *, recorded_z_index: Any | None = None) -> int:
+    """Return editor z-index defaults using overlay semantics, not artifact list order."""
+
+    try:
+        recorded = int(recorded_z_index) if recorded_z_index is not None else None
+    except (TypeError, ValueError):
+        recorded = None
+    layer_type = str(layer_type or "")
+    if layer_type == "comparison_units":
+        if recorded is not None and recorded >= COMPARISON_LAYER_Z_INDEX_BASE:
+            return recorded + index
+        return COMPARISON_LAYER_Z_INDEX_BASE + index
+    if layer_type == "source_layer":
+        if recorded is not None and SOURCE_LAYER_Z_INDEX_BASE <= recorded < COMPARISON_LAYER_Z_INDEX_BASE:
+            return recorded
+        if recorded is not None and recorded >= 0:
+            return SOURCE_LAYER_Z_INDEX_BASE + recorded
+        return SOURCE_LAYER_Z_INDEX_BASE + index
+    if layer_type.startswith("basemap"):
+        return BASEMAP_Z_INDEX
+    if recorded is not None:
+        return recorded
+    return SOURCE_LAYER_Z_INDEX_BASE + index
+
+
+def effective_default_z_index_for_layer(layer: dict[str, Any]) -> int:
+    return default_z_index_for_layer(
+        str(layer.get("layer_type") or ""),
+        0,
+        recorded_z_index=layer.get("default_z_index"),
+    )
 
 
 def _override_status(override: dict[str, Any]) -> str:

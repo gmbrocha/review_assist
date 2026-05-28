@@ -19,6 +19,7 @@ from .figure_style_model import (
     FIGURE_VERSION_OUTPUT_DIR,
     FIGURE_VERSIONS_PATH,
     active_style_override,
+    default_z_index_for_layer,
     effective_default_style_for_layer,
     ensure_figure_style_model,
     figure_recipe_for,
@@ -243,7 +244,11 @@ def _comparison_feature_styles(
         color = str(style.get("color") or "").strip()
         default_layer = dict(layer)
         default_layer["layer_id"] = f"{COMPARISON_FEATURE_LAYER_PREFIX}{unit_id}"
-        default_layer["default_z_index"] = int(layer.get("default_z_index", 0)) + index
+        default_layer["default_z_index"] = default_z_index_for_layer(
+            str(layer.get("layer_type") or ""),
+            index,
+            recorded_z_index=layer.get("default_z_index"),
+        )
         default_layer["default_display_name"] = str(style.get("label") or style.get("full_label") or f"Unit {index + 1}")
         default_style = dict(layer.get("default_style") if isinstance(layer.get("default_style"), dict) else {})
         if color:
@@ -284,7 +289,16 @@ def _current_layer_style(layer: dict[str, Any], override: dict[str, Any]) -> dic
     }
     return {
         "visible": _coerce_bool(override.get("visible", bool(layer.get("default_visible", True)))),
-        "z_index": int(override.get("z_index", int(layer.get("default_z_index", 0)))),
+        "z_index": int(
+            override.get(
+                "z_index",
+                default_z_index_for_layer(
+                    str(layer.get("layer_type") or ""),
+                    0,
+                    recorded_z_index=layer.get("default_z_index"),
+                ),
+            )
+        ),
         "display_name": str(override.get("display_name", str(layer.get("default_display_name") or layer.get("layer_id") or ""))),
         "style": {key: value for key, value in style.items() if value not in (None, "")},
     }

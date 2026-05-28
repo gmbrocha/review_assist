@@ -42,6 +42,7 @@ from review_assist.figure_style_model import (
     approved_figure_version,
     build_analysis_snapshot,
     build_figure_recipe,
+    default_z_index_for_layer,
     effective_default_style_for_layer,
     figure_recipe_for,
     load_figure_style_artifacts,
@@ -2247,7 +2248,11 @@ def _comparison_feature_editor_rows(
         feature_layer["parent_layer_id"] = COMPARISON_UNITS_LAYER_ID
         feature_layer["comparison_unit_id"] = unit_id
         feature_layer["feature_count"] = 1
-        feature_layer["default_z_index"] = _int_value(layer.get("default_z_index"), 0) + offset
+        feature_layer["default_z_index"] = default_z_index_for_layer(
+            str(layer.get("layer_type") or ""),
+            offset,
+            recorded_z_index=layer.get("default_z_index"),
+        )
         feature_layer["default_display_name"] = str(
             style.get("label")
             or style.get("full_label")
@@ -2286,7 +2291,11 @@ def _style_editor_row(layer: dict[str, Any], override: dict[str, Any], index: in
         "style_labels": style_labels,
         "defaults": {
             "visible": bool(layer.get("default_visible", True)),
-            "z_index": _int_value(layer.get("default_z_index"), index),
+            "z_index": default_z_index_for_layer(
+                str(layer.get("layer_type") or ""),
+                index,
+                recorded_z_index=layer.get("default_z_index"),
+            ),
             "display_name": str(layer.get("default_display_name") or layer_id),
             "fill_color": str(default_style.get("fill_color") or ""),
             "fill_opacity": default_style.get("fill_opacity") if default_style.get("fill_opacity") is not None else "",
@@ -2298,7 +2307,14 @@ def _style_editor_row(layer: dict[str, Any], override: dict[str, Any], index: in
         },
         "current": {
             "visible": override.get("visible", bool(layer.get("default_visible", True))),
-            "z_index": override.get("z_index", _int_value(layer.get("default_z_index"), index)),
+            "z_index": override.get(
+                "z_index",
+                default_z_index_for_layer(
+                    str(layer.get("layer_type") or ""),
+                    index,
+                    recorded_z_index=layer.get("default_z_index"),
+                ),
+            ),
             "display_name": override.get("display_name", str(layer.get("default_display_name") or layer_id)),
             "fill_color": override.get("fill_color", str(default_style.get("fill_color") or "")),
             "fill_opacity": override.get("fill_opacity", default_style.get("fill_opacity") if default_style.get("fill_opacity") is not None else ""),

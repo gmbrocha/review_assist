@@ -1,0 +1,13 @@
+{
+  "project_id": "test_project_2",
+  "name": "Test Project 2",
+  "description": "",
+  "project_type": "alternatives_review",
+  "assumptions": {
+    "default_buffer_feet": 100,
+    "input_crs": "EPSG:4326"
+  },
+  "status": "manifest_created",
+  "created_at": "2026-05-27T07:24:17.961392+00:00",
+  "updated_at": "2026-05-27T07:24:31.929874+00:00"
+}

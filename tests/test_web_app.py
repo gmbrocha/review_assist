@@ -776,11 +776,11 @@ def test_figure_style_editor_save_draft_creates_sparse_override(tmp_path: Path) 
             "style_action": "save_draft",
                 "layer_id": ["comparison_units:comparison-unit-00001", "source:usfws_nwi_wetlands"],
                 "layer_0_visible": "true",
-                "layer_0_z_index": "0",
+                "layer_0_z_index": "60",
                 "layer_0_display_name": "Comparison 1",
                 "layer_0_stroke_color": "#22C55E",
                 "layer_1_visible": "true",
-                "layer_1_z_index": "1",
+                "layer_1_z_index": "21",
                 "layer_1_display_name": "National Wetlands Inventory",
                 "layer_1_stroke_color": "#00AAFF",
             },
@@ -845,10 +845,10 @@ def test_figure_style_editor_save_and_regenerate_creates_review_only_version(tmp
             "style_action": "save_and_regenerate",
             "layer_id": ["comparison_units:comparison-unit-00001", "source:usfws_nwi_wetlands"],
             "layer_0_visible": "true",
-            "layer_0_z_index": "0",
+            "layer_0_z_index": "60",
             "layer_0_display_name": "Comparison 1",
             "layer_1_visible": "true",
-            "layer_1_z_index": "8",
+            "layer_1_z_index": "10",
             "layer_1_display_name": "Wetland Overlay",
             "layer_1_stroke_color": "#00AAFF",
         },
@@ -868,6 +868,35 @@ def test_figure_style_editor_save_and_regenerate_creates_review_only_version(tmp
     assert artifact_response.status_code == 200
     assert (project_dir / "review_queue" / "review_queue.json").read_bytes() == queue_before
     assert (project_dir / "deliverable" / "figures.json").read_bytes() == figures_before
+
+
+def test_figure_style_editor_can_lower_source_layer_below_comparison_features(tmp_path: Path) -> None:
+    project_dir = _project_with_figure_layers(tmp_path)
+    app = create_app(project_root=tmp_path, testing=True)
+    client = app.test_client()
+    _select_project(client)
+
+    response = client.post(
+        "/review/figure-wetlands-waterbodies/figure-style",
+        data={
+            "style_action": "save_and_regenerate",
+            "layer_id": ["source:usfws_nwi_wetlands"],
+            "layer_0_visible": "true",
+            "layer_0_z_index": "10",
+            "layer_0_display_name": "NWI below trails",
+        },
+        follow_redirects=True,
+    )
+    versions = json.loads((project_dir / FIGURE_VERSIONS_PATH).read_text(encoding="utf-8"))
+    latest = versions["versions"][-1]
+    rendered_by_id = {layer["layer_id"]: layer for layer in latest["rendered_layers"]}
+    source = rendered_by_id["source:usfws_nwi_wetlands"]
+    comparison = rendered_by_id["comparison_units:comparison-unit-00001"]
+
+    assert response.status_code == 200
+    assert source["z_index"] == 10
+    assert comparison["z_index"] == 60
+    assert source["z_index"] < comparison["z_index"]
 
 
 def test_figure_style_editor_approves_exact_version_without_review_or_export_mutation(tmp_path: Path) -> None:

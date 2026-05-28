@@ -10,6 +10,7 @@ Do not load archive docs during routine implementation. Load them only when:
 
 Current archived planning records include:
 
+- `docs/archive/CANONICAL_PLAN.md`
 - `docs/archive/PLAN_REDIRECT.md`
 - `docs/archive/DELIVERABLE_OUTLINE.md`
 - `docs/archive/REPORT_GEN_SYSTEM_PROMPT.md`
