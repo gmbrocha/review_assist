@@ -5,7 +5,7 @@
 {% block content %}
 <section class="page-heading">
   <h1>Projects</h1>
-  <p>Select a local project workspace or create a draft workspace for staged uploads.</p>
+  <p>Select a project or create a new workspace for review inputs.</p>
 </section>
 
 <section class="panel">
@@ -22,7 +22,7 @@
     </label>
     <button class="primary" type="submit">Create Draft Project</button>
   </form>
-  <p class="muted">Draft projects do not write <code>config/project.json</code> until at least one staged input is committed.</p>
+  <p class="muted">New projects stay in setup until at least one input file is added and committed.</p>
 </section>
 
 <section class="table-section">
@@ -30,9 +30,7 @@
     <thead>
       <tr>
         <th>Project</th>
-        <th>Workspace</th>
-        <th>Pipeline</th>
-        <th>Export Gate</th>
+        <th>Status</th>
         <th>Modified</th>
         <th></th>
       </tr>
@@ -42,13 +40,17 @@
       <tr>
         <td>
           <strong>{{ project.name }}</strong>
-          <div class="muted">{{ project.project_id }}</div>
+          {% if dev_ui_enabled %}<div class="muted"><code>{{ project.project_id }}</code></div>{% endif %}
           {% if project.is_draft %}<div class="tag">draft setup</div>{% endif %}
           {% if project.error %}<div class="issue">{{ project.error }}</div>{% endif %}
         </td>
-        <td><code>{{ project.path }}</code></td>
-        <td><span class="status">{{ project.status }}</span></td>
-        <td><span class="status">{{ project.review_gate_status }}</span></td>
+        <td>
+          <span class="status">{{ 'Needs setup' if project.is_draft else project.status }}</span>
+          {% if dev_ui_enabled %}
+            <div class="muted"><code>{{ project.path }}</code></div>
+            <div class="muted">Export: <code>{{ project.review_gate_status }}</code></div>
+          {% endif %}
+        </td>
         <td>{{ project.modified_at }}</td>
         <td>
           <form method="post" action="{{ url_for('select_project') }}" class="inline-form">
@@ -62,7 +64,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="empty">No project workspaces were found under the configured projects directory.</td></tr>
+      <tr><td colspan="4" class="empty">No projects were found.</td></tr>
       {% endfor %}
     </tbody>
   </table>

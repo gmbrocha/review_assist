@@ -114,7 +114,11 @@ button:disabled {
 
 .content {
   min-width: 0;
-  padding: 28px 28px calc(var(--process-log-lines-height) + 70px);
+  padding: 28px;
+}
+
+.has-process-log .content {
+  padding-bottom: calc(var(--process-log-lines-height) + 70px);
 }
 
 .page-heading {
@@ -310,13 +314,17 @@ code {
 .status-pill {
   background: #e8f3ff;
   border: 1px solid #b6d9ff;
-  border-radius: 999px;
+  border-radius: 4px;
   color: #15589a;
   display: inline-block;
   font-size: 11px;
+  line-height: 1.25;
   margin-left: 6px;
-  padding: 2px 7px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 3px 7px;
   text-transform: uppercase;
+  vertical-align: middle;
 }
 
 .details {
@@ -378,10 +386,14 @@ code {
 .tag {
   background: #eef5f8;
   border: 1px solid #cfe1ea;
-  border-radius: 999px;
+  border-radius: 4px;
   display: inline-block;
   font-size: 12px;
-  padding: 2px 8px;
+  line-height: 1.25;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 3px 7px;
+  vertical-align: middle;
 }
 
 .status-ready,
@@ -680,6 +692,10 @@ input:not([type]) {
 
   .content {
     padding: 18px 18px calc(var(--process-log-lines-height) + 70px);
+  }
+
+  body:not(.has-process-log) .content {
+    padding: 18px;
   }
 
   .process-log-panel {

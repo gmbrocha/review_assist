@@ -1,27 +1,29 @@
 {% extends "base.html" %}
 
-{% block title %}Figure Style Editor - {{ editor.title }}{% endblock %}
+{% block title %}Figure Editor - {{ editor.title }}{% endblock %}
 
 {% block content %}
 <section class="page-heading">
-  <h1>Figure Style Editor</h1>
+  <h1>Figure Editor</h1>
   <p>{{ editor.title }} | {{ editor.status }}{% if advanced_mode %} | {{ editor.figure_id }}{% endif %}</p>
   {% include "advanced_toggle.html" %}
 </section>
 
 <section class="summary-grid">
-  <div class="metric"><span>Style Model</span><strong>{{ 'ready' if editor.model_initialized else 'preview' }}</strong></div>
   <div class="metric"><span>Review Status</span><strong>{{ editor.review_context.review_status }}</strong></div>
   <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if editor.review_context.export_eligible else 'no' }}</strong></div>
   <div class="metric"><span>Layers</span><strong>{{ editor.layers|length }}</strong></div>
+  {% if advanced_mode %}
+  <div class="metric"><span>Style Model</span><strong>{{ 'ready' if editor.model_initialized else 'preview' }}</strong></div>
   <div class="metric"><span>Versions</span><strong>{{ editor.version_summary.version_count }}</strong></div>
   <div class="metric"><span>Render Jobs</span><strong>{{ editor.render_job_summary.render_job_count }}</strong></div>
+  {% endif %}
 </section>
 
 <section class="panel">
   <div class="section-title-row">
     <h2>Current Figure Preview</h2>
-    <a class="button" href="{{ url_for('review_detail', item_id=editor.item_id) }}">Back to Review Item</a>
+      <a class="button" href="{{ url_for('review_detail', item_id=editor.item_id) }}">Back to Review</a>
   </div>
   {% if editor.preview.artifact_link_path %}
     <img class="figure-preview" src="{{ url_for('artifact', project=selected_project_key, path=editor.preview.artifact_link_path) }}" alt="{{ editor.figure_id }}">
@@ -59,6 +61,7 @@
 </section>
 {% endif %}
 
+{% if dev_ui_enabled %}
 <section class="panel">
   <h2>Review Context</h2>
   <p class="muted">{{ editor.draft_export_notice }}</p>
@@ -73,6 +76,7 @@
     {% endif %}
   </dl>
 </section>
+{% endif %}
 
 <section class="panel">
   <h2>Figure Metadata</h2>
@@ -85,6 +89,7 @@
   </dl>
 </section>
 
+{% if dev_ui_enabled %}
 <section class="panel">
   <h2>Basemap And Render Status</h2>
   <dl class="details">
@@ -97,9 +102,10 @@
     <dt>Message</dt><dd>{{ editor.basemap_status.message or 'None recorded' }}</dd>
   </dl>
 </section>
+{% endif %}
 
 <section class="panel">
-  <h2>Validation Warnings</h2>
+  <h2>Items Needing Attention</h2>
   {% if editor.review_context.validation_issues %}
     <ul class="issue-list">
       {% for issue in editor.review_context.validation_issues %}
@@ -111,6 +117,7 @@
   {% endif %}
 </section>
 
+{% if dev_ui_enabled %}
 <section class="panel">
   <h2>Style Model Status</h2>
   <p class="muted">Figure style overrides are presentation metadata only. They do not edit sources, geometries, metrics, evidence, review status, or exports.</p>
@@ -131,7 +138,9 @@
     {% endif %}
   </dl>
 </section>
+{% endif %}
 
+{% if dev_ui_enabled %}
 <section class="panel">
   <h2>Version History</h2>
   {% if editor.version_history %}
@@ -187,6 +196,7 @@
     <p class="empty">No figure versions are recorded.</p>
   {% endif %}
 </section>
+{% endif %}
 
 <form method="post" class="figure-style-form">
   <section class="panel">
@@ -194,7 +204,7 @@
       <h2>Layer Styling</h2>
       <button class="primary" type="submit" name="style_action" value="save_draft">Save Draft Style</button>
     </div>
-    <p class="muted">Only changed values are saved. Blank style fields fall back to generated defaults.</p>
+    <p class="muted">Only changed values are saved. Blank style fields keep the generated defaults.</p>
 
     <div class="figure-editor-grid">
       <aside class="layer-list" aria-label="Figure layers">

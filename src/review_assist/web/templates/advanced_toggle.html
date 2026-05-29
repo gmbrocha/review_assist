@@ -1,7 +1,9 @@
+{% if dev_ui_enabled %}
 <div class="advanced-toggle">
   {% if advanced_mode %}
-    <a class="button" href="{{ advanced_toggle_url }}">Hide advanced/debug details</a>
+    <a class="button" href="{{ advanced_toggle_url }}">Hide developer details</a>
   {% else %}
-    <a class="button" href="{{ advanced_toggle_url }}">Show advanced/debug details</a>
+    <a class="button" href="{{ advanced_toggle_url }}">Show developer details</a>
   {% endif %}
 </div>
+{% endif %}

@@ -18,6 +18,7 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
     app.config.update(
         SECRET_KEY=os.environ.get("REVIEW_ASSIST_WEB_SECRET", "review-assist-local-dev"),
         PROJECT_ROOT=str(adapter.project_root_path(project_root)),
+        DEV_UI=os.environ.get("REVIEW_ASSIST_DEV_UI", "").strip().lower() in {"1", "true", "yes", "on"},
         TESTING=testing,
     )
 
@@ -25,10 +26,12 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
     def inject_layout_context() -> dict[str, Any]:
         selected_key = session.get("project_key", "")
         selected_project = _selected_project_ref(app, selected_key) if selected_key else None
-        advanced = _advanced_mode()
+        dev_ui = _dev_ui_enabled(app)
+        advanced = _advanced_mode(dev_ui)
         return {
             "selected_project_key": selected_key,
             "selected_project": selected_project,
+            "dev_ui_enabled": dev_ui,
             "advanced_mode": advanced,
             "advanced_toggle_url": _advanced_toggle_url(advanced),
         }
@@ -55,7 +58,7 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             return redirect(url_for("projects"))
         session["project_key"] = project_key
         flash("Project selected.", "success")
-        return redirect(url_for("overview"))
+        return redirect(url_for("generate"))
 
     @app.post("/projects/create")
     def create_project() -> Any:
@@ -90,7 +93,7 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
     def setup() -> str:
         project_dir = _selected_project_dir_or_none(app)
         if project_dir is None:
-            return render_template("empty_project.html", active_page="setup", title="Project Setup")
+            return render_template("empty_project.html", active_page="setup", title="Setup")
         return render_template("setup.html", active_page="setup", setup=adapter.setup_status(project_dir))
 
     @app.post("/setup/upload")
@@ -133,45 +136,52 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             flash(str(exc), "error")
         return redirect(url_for("setup"))
 
-    @app.get("/overview")
-    def overview() -> str:
+    @app.get("/generate")
+    def generate() -> str:
         project_dir = _selected_project_dir_or_none(app)
         if project_dir is None:
-            return render_template("empty_project.html", active_page="overview", title="Overview")
+            return render_template("empty_project.html", active_page="generate", title="Generate")
         summary = adapter.project_summary(project_dir)
         summary["gpt_interpretive_assist"]["ui_enabled"] = bool(session.get("gpt_interpretive_assist_enabled", False))
-        return render_template("overview.html", active_page="overview", summary=summary)
+        return render_template("overview.html", active_page="generate", summary=summary)
 
+    @app.get("/overview")
+    def overview() -> Any:
+        return redirect(url_for("generate", **request.args.to_dict(flat=True)))
+
+    @app.post("/generate/populate")
     @app.post("/overview/populate")
     def populate() -> Any:
         project_dir = _selected_project_dir_or_abort(app)
         try:
             result = adapter.run_populate(project_dir)
-            flash(f"Create Review Queue completed with {result.get('review_queue_item_count', 0)} review items.", "success")
+            flash(f"Generated {result.get('review_queue_item_count', 0)} review item(s).", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
-        return redirect(url_for("overview"))
+        return redirect(url_for("generate"))
 
+    @app.post("/generate/gpt-interpretive-assist/toggle")
     @app.post("/overview/gpt-interpretive-assist/toggle")
     def toggle_gpt_interpretive_assist() -> Any:
         _selected_project_dir_or_abort(app)
         enabled = request.form.get("gpt_interpretive_assist_enabled") == "yes"
         session["gpt_interpretive_assist_enabled"] = enabled
-        flash("GPT Interpretive Assist controls enabled." if enabled else "GPT Interpretive Assist controls disabled.", "success")
-        return redirect(url_for("overview"))
+        flash("Draft Report Text controls enabled." if enabled else "Draft Report Text controls disabled.", "success")
+        return redirect(url_for("generate"))
 
+    @app.post("/generate/gpt-interpretive-assist/generate")
     @app.post("/overview/gpt-interpretive-assist/generate")
     def generate_gpt_interpretive_assist() -> Any:
         project_dir = _selected_project_dir_or_abort(app)
         if not session.get("gpt_interpretive_assist_enabled", False):
-            flash("Turn on GPT Interpretive Assist before generating GPT drafts.", "error")
-            return redirect(url_for("overview"))
+            flash("Turn on Draft Report Text before generating draft text.", "error")
+            return redirect(url_for("generate"))
         dry_run = "dry_run" in request.form
         if not dry_run:
             status = adapter.project_summary(project_dir).get("gpt_interpretive_assist", {})
             if isinstance(status, dict) and status.get("status") != "ready":
-                flash("GPT Interpretive Assist is not ready. Check GPT_DRAFTING and OPENAI_API_KEY before generating drafts.", "error")
-                return redirect(url_for("overview"))
+                flash("Draft Report Text is not ready. Check GPT settings before generating drafts.", "error")
+                return redirect(url_for("generate"))
         try:
             result = adapter.run_gpt_interpretive_assist(
                 project_dir,
@@ -183,23 +193,24 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
                 force_refresh="force_refresh" in request.form,
             )
             if result.get("dry_run"):
-                flash(f"GPT dry run planned {result.get('planned_call_count', 0)} section draft call(s).", "success")
+                flash(f"Draft check planned {result.get('planned_call_count', 0)} section draft call(s).", "success")
             else:
                 flash(
-                    f"GPT Interpretive Assist generated/reused {result.get('accepted_gpt_draft_count', 0)} draft candidate(s); "
+                    f"Draft Report Text generated/reused {result.get('accepted_gpt_draft_count', 0)} draft candidate(s); "
                     f"{result.get('rejected_gpt_draft_count', 0)} output(s) were rejected.",
                     "success",
                 )
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
-        return redirect(url_for("overview"))
+        return redirect(url_for("generate"))
 
+    @app.post("/generate/reset-review-queue")
     @app.post("/overview/reset-review-queue")
     def reset_review_queue() -> Any:
         project_dir = _selected_project_dir_or_abort(app)
         if request.form.get("confirm_reset") != "yes":
-            flash("Confirm the developer reset before clearing and rebuilding generated review candidates.", "error")
-            return redirect(url_for("overview"))
+            flash("Confirm the refresh before replacing generated review candidates.", "error")
+            return redirect(url_for("generate"))
         try:
             result = adapter.reset_generated_review_queue(
                 project_dir,
@@ -209,13 +220,13 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             flash(f"Review artifacts refreshed and queue rebuilt with {after.get('review_queue_item_count', 0)} review items.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
-        return redirect(url_for("overview"))
+        return redirect(url_for("generate"))
 
     @app.get("/review")
     def review_queue() -> str:
         project_dir = _selected_project_dir_or_none(app)
         if project_dir is None:
-            return render_template("empty_project.html", active_page="review", title="Review Queue")
+            return render_template("empty_project.html", active_page="review", title="Review")
         try:
             queue = adapter.review_queue_summary(project_dir)
         except adapter.WebAdapterError as exc:
@@ -302,7 +313,7 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
                 flash("No draft style changes were saved; submitted values match defaults.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
-        return redirect(request.path + ("?advanced=1" if _advanced_mode() else ""))
+        return redirect(request.path + ("?advanced=1" if _advanced_mode(_dev_ui_enabled(app)) else ""))
 
     @app.post("/review/<item_id>")
     def review_update(item_id: str) -> Any:
@@ -334,22 +345,23 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
             flash("Review item updated.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
-        return redirect(request.path + ("?advanced=1" if _advanced_mode() else ""))
+        return redirect(request.path + ("?advanced=1" if _advanced_mode(_dev_ui_enabled(app)) else ""))
 
     @app.get("/export")
     def export_status() -> str:
         project_dir = _selected_project_dir_or_none(app)
         if project_dir is None:
-            return render_template("empty_project.html", active_page="export", title="Export Readiness")
+            return render_template("empty_project.html", active_page="export", title="Export")
         readiness = adapter.export_readiness(project_dir)
-        return render_template("export.html", active_page="export", readiness=readiness)
+        outputs = adapter.package_outputs(project_dir)
+        return render_template("export.html", active_page="export", readiness=readiness, outputs=outputs)
 
     @app.post("/export/preview")
     def preview_export() -> Any:
         project_dir = _selected_project_dir_or_abort(app)
         try:
             adapter.run_export(project_dir, preview=True)
-            flash("Internal preview export created.", "success")
+            flash("Draft package preview created.", "success")
         except adapter.WebAdapterError as exc:
             flash(str(exc), "error")
         return redirect(url_for("export_status"))
@@ -365,11 +377,8 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
         return redirect(url_for("export_status"))
 
     @app.get("/outputs")
-    def outputs() -> str:
-        project_dir = _selected_project_dir_or_none(app)
-        if project_dir is None:
-            return render_template("empty_project.html", active_page="outputs", title="Package Outputs")
-        return render_template("outputs.html", active_page="outputs", outputs=adapter.package_outputs(project_dir))
+    def outputs() -> Any:
+        return redirect(url_for("export_status", **request.args.to_dict(flat=True)))
 
     @app.get("/api/logs")
     def process_logs() -> Any:
@@ -389,7 +398,19 @@ def create_app(*, project_root: str | Path | None = None, testing: bool = False)
     return app
 
 
-def _advanced_mode() -> bool:
+def _dev_ui_enabled(app: Flask) -> bool:
+    value = request.args.get("dev")
+    if value == "1":
+        session["dev_ui_enabled"] = True
+    elif value in {"0", "false", "no"}:
+        session["dev_ui_enabled"] = False
+        session["advanced_mode"] = False
+    return bool(app.config.get("DEV_UI")) or bool(session.get("dev_ui_enabled", False))
+
+
+def _advanced_mode(dev_ui_enabled: bool) -> bool:
+    if not dev_ui_enabled:
+        return False
     value = request.args.get("advanced")
     if value == "1":
         session["advanced_mode"] = True

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Overview - Review Assist{% endblock %}
+{% block title %}Generate - Review Assist{% endblock %}
 
 {% block content %}
 <section class="page-heading">
-  <h1>Overview</h1>
-  <p>Project, source, populate, and validation status from existing backend artifacts.</p>
+  <h1>Generate</h1>
+  <p>Create review items, optionally draft report text, and refresh the review package when project inputs change.</p>
   {% include "advanced_toggle.html" %}
 </section>
 
@@ -13,9 +13,9 @@
 <section class="summary-grid">
   <div class="metric"><span>Inputs</span><strong>{{ summary.input_package.input_count }}</strong></div>
   <div class="metric"><span>Comparison Units</span><strong>{{ summary.comparison_units.comparison_unit_count }}</strong></div>
-  <div class="metric"><span>Populate</span><strong>{{ summary.populate.status_label }}</strong>{% if advanced_mode %}<small>{{ summary.populate.status }}</small>{% endif %}</div>
+  <div class="metric"><span>Package Status</span><strong>{{ summary.populate.status_label }}</strong>{% if advanced_mode %}<small>{{ summary.populate.status }}</small>{% endif %}</div>
   <div class="metric"><span>Review Items</span><strong>{{ summary.populate.review_queue_item_count }}</strong></div>
-  <div class="metric"><span>GPT Assist</span><strong>{{ 'On' if gpt.ui_enabled else 'Off' }}</strong><small>{{ gpt.status }}</small></div>
+  <div class="metric"><span>Draft Text</span><strong>{{ 'On' if gpt.ui_enabled else 'Off' }}</strong><small>{{ gpt.status }}</small></div>
 </section>
 
 {% with run_status=summary.latest_run %}
@@ -27,13 +27,20 @@
   <h2>Project Readiness</h2>
   <ul class="issue-list">
     {% for blocker in summary.setup.blockers %}
-      <li>{{ blocker.message }}{% if advanced_mode %} <span class="muted">({{ blocker.code }})</span>{% endif %}</li>
+      <li>
+        {% if advanced_mode %}
+          {{ blocker.message }} <span class="muted">({{ blocker.code }})</span>
+        {% else %}
+          {{ blocker.message|replace('config/project.json', 'the project file') }}
+        {% endif %}
+      </li>
     {% endfor %}
   </ul>
-  <a class="button" href="{{ url_for('setup') }}">Open Project Setup</a>
+  <a class="button" href="{{ url_for('setup') }}">Open Setup</a>
 </section>
 {% endif %}
 
+{% if dev_ui_enabled %}
 <section class="table-section">
   <h2>Workflow Readiness</h2>
   <table>
@@ -50,26 +57,27 @@
     </tbody>
   </table>
 </section>
+{% endif %}
 
 <section class="panel">
-  <h2>Project Metadata</h2>
+  <h2>Project Summary</h2>
   <dl class="details">
     <dt>Name</dt><dd>{{ summary.manifest.name }}</dd>
-    <dt>Project ID</dt><dd>{{ summary.manifest.project_id }}</dd>
+    {% if advanced_mode %}<dt>Project ID</dt><dd>{{ summary.manifest.project_id }}</dd>{% endif %}
     <dt>Type</dt><dd>{{ summary.manifest.project_type }}</dd>
     <dt>Description</dt><dd>{{ summary.manifest.description or 'Not provided' }}</dd>
-    <dt>Report Profile</dt><dd>{{ summary.context.report_profile or summary.manifest.report_profile or 'Default' }}</dd>
+    {% if advanced_mode %}<dt>Report Profile</dt><dd>{{ summary.context.report_profile or summary.manifest.report_profile or 'Default' }}</dd>{% endif %}
   </dl>
 </section>
 
 <section class="panel">
   <div class="section-title-row">
-    <h2>Create Review Queue</h2>
-    <form method="post" action="{{ url_for('populate') }}" data-process-form data-process-action="create_queue">
-      <button class="primary" type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Create Review Queue</button>
+    <h2>Generate Review Items</h2>
+    <form method="post" action="/generate/populate" data-process-form data-process-action="create_queue">
+      <button class="primary" type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Generate Review Items</button>
     </form>
   </div>
-  <p class="muted">Runs the existing populate-for-review backend service with deterministic drafting. This does not export a report.</p>
+  <p class="muted">Builds the draft review package from the current project inputs. This does not export a report.</p>
   {% if summary.populate.critical_error %}
     <p class="issue">{{ summary.populate.critical_error }}</p>
   {% endif %}
@@ -77,33 +85,33 @@
 
 <section class="panel">
   <div class="section-title-row">
-    <h2>GPT Interpretive Assist</h2>
-    <form method="post" action="{{ url_for('toggle_gpt_interpretive_assist') }}">
+    <h2>Draft Report Text</h2>
+    <form method="post" action="/generate/gpt-interpretive-assist/toggle">
       {% if gpt.ui_enabled %}
         <input type="hidden" name="gpt_interpretive_assist_enabled" value="no">
         <button type="submit">Turn Off</button>
       {% else %}
         <input type="hidden" name="gpt_interpretive_assist_enabled" value="yes">
-        <button class="primary" type="submit">Turn On GPT Controls</button>
+        <button class="primary" type="submit">Turn On Draft Text</button>
       {% endif %}
     </form>
   </div>
-  <p class="muted">Optional, cached GPT drafting for source-backed section review candidates. Turning this on does not call GPT; generation only happens from the button below.</p>
+  <p class="muted">Optional GPT-assisted draft text for source-backed section review candidates. Turning this on does not call GPT; generation only happens from the button below.</p>
   <dl class="details">
-    <dt>Status</dt><dd>{{ gpt.status }}{% if gpt.message %} - {{ gpt.message }}{% endif %}</dd>
-    <dt>Model</dt><dd>{{ gpt.model }}</dd>
-    <dt>Planned Calls</dt><dd>{{ gpt.planned_call_count }}</dd>
+    <dt>Status</dt><dd>{{ gpt.status }}{% if advanced_mode and gpt.message %} - {{ gpt.message }}{% endif %}</dd>
     <dt>Last Run</dt><dd>{{ gpt.last_run.created_at or 'Not run' }}</dd>
-    <dt>GPT Validated / Rejected</dt><dd>{{ gpt.accepted_gpt_draft_count }} / {{ gpt.rejected_gpt_draft_count }}</dd>
-    <dt>Deterministic Fallbacks</dt><dd>{{ gpt.deterministic_fallback_count }}</dd>
     {% if advanced_mode %}
+      <dt>Model</dt><dd>{{ gpt.model }}</dd>
+      <dt>Planned Calls</dt><dd>{{ gpt.planned_call_count }}</dd>
+      <dt>GPT Validated / Rejected</dt><dd>{{ gpt.accepted_gpt_draft_count }} / {{ gpt.rejected_gpt_draft_count }}</dd>
+      <dt>Deterministic Fallbacks</dt><dd>{{ gpt.deterministic_fallback_count }}</dd>
       <dt>Cache Hits</dt><dd>{{ gpt.cache_hit_count }}</dd>
       <dt>Token Usage</dt><dd>{% if gpt.last_run.token_usage %}{{ gpt.last_run.token_usage.total_tokens or 0 }} total{% else %}Not reported{% endif %}</dd>
     {% endif %}
   </dl>
-  <form method="post" action="{{ url_for('generate_gpt_interpretive_assist') }}" data-process-form data-process-action="generate_gpt_drafts">
+  <form method="post" action="/generate/gpt-interpretive-assist/generate" data-process-form data-process-action="generate_gpt_drafts">
     {% if not gpt.ui_enabled %}
-      <p class="empty">GPT controls are off.</p>
+      <p class="empty">Draft text controls are off.</p>
     {% endif %}
     <fieldset class="control-group" {% if not gpt.ui_enabled %}disabled{% endif %}>
       <div class="form-row">
@@ -113,7 +121,7 @@
         </label>
         <label class="checkbox-inline">
           <input type="checkbox" name="skip_existing" value="yes" checked>
-          Skip existing GPT draft if evidence is unchanged
+          Skip existing draft if evidence is unchanged
         </label>
         <label class="checkbox-inline">
           <input type="checkbox" name="source_backed_only" value="yes" checked>
@@ -131,38 +139,41 @@
             {{ section.title }}{% if advanced_mode %} <span class="muted">({{ section.target_id }})</span>{% endif %}
           </label>
         {% else %}
-          <p class="empty">No source-backed GPT-eligible section review candidates are currently planned.</p>
+          <p class="empty">No source-backed section review candidates are currently planned.</p>
         {% endfor %}
       </div>
       <div class="form-actions">
-        <button type="submit" name="dry_run" value="yes" {% if not gpt.ui_enabled %}disabled{% endif %}>Preview Planned Calls</button>
-        <button class="primary" type="submit" {% if not gpt.ui_enabled or gpt.status != 'ready' %}disabled{% endif %}>Generate GPT Drafts</button>
+        <button type="submit" name="dry_run" value="yes" {% if not gpt.ui_enabled %}disabled{% endif %}>Check Planned Drafts</button>
+        <button class="primary" type="submit" {% if not gpt.ui_enabled or gpt.status != 'ready' %}disabled{% endif %}>Draft Report Text</button>
       </div>
     </fieldset>
   </form>
 </section>
 
 <section class="panel">
-  <h2>Developer Testing Reset</h2>
-  <p class="muted">Local/dev action: refreshes deterministic review artifacts, then rebuilds the standard queue. It reruns local artifact generation from current inputs and registered source layers, without source acquisition, NAIP acquisition, source materialization, or GPT drafting.</p>
-  <form method="post" action="{{ url_for('reset_review_queue') }}" data-process-form data-process-action="refresh_artifacts">
+  <h2>Refresh Review Package</h2>
+  <p class="muted">Refreshes generated review material and rebuilds the review items from the current committed inputs and available local source layers.</p>
+  <form method="post" action="/generate/reset-review-queue" data-process-form data-process-action="refresh_artifacts">
     <label>
       <input type="checkbox" name="confirm_reset" value="yes" required>
-      I understand this overwrites generated review artifacts and rebuilds the queue from current local inputs and registered source layers.
+      I understand this replaces generated review candidates and rebuilds the review items.
     </label>
+    {% if dev_ui_enabled %}
     <div class="form-row">
       <label>
         <input type="checkbox" name="include_exports" value="yes">
         Delete existing export outputs
       </label>
     </div>
-    <p class="muted">Refreshed artifacts include constraints, tables, figures, maps, evidence, deterministic draft sections, deliverable items, and review queue. Source data, project setup, project-local layers, basemaps, and source-acquisition records are preserved.</p>
-    <button type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Refresh artifacts and rebuild queue</button>
+    <p class="muted">Source data, project setup, project-local layers, basemaps, and source-acquisition records are preserved.</p>
+    {% endif %}
+    <button type="submit" {% if summary.setup.blockers %}disabled{% endif %}>Refresh Review Package</button>
   </form>
 </section>
 
+{% if dev_ui_enabled %}
 <section class="table-section">
-  <h2>Source Status</h2>
+  <h2>Data Sources</h2>
   <table>
     <thead><tr><th>Category</th><th>Status</th><th>Requirement</th>{% if advanced_mode %}<th>Sources</th>{% endif %}<th>Notes</th></tr></thead>
     <tbody>
@@ -180,9 +191,10 @@
     </tbody>
   </table>
 </section>
+{% endif %}
 
 <section class="panel">
-  <h2>Validation And Warnings</h2>
+  <h2>Items Needing Attention</h2>
   {% if summary.validation_issues %}
   <ul class="issue-list">
     {% for issue in summary.validation_issues %}

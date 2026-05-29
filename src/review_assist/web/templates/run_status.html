@@ -1,10 +1,10 @@
 {% if run_status %}
 <section class="panel run-status">
-  <h2>Latest Run Status</h2>
+  <h2>Latest Activity</h2>
   <dl class="details">
-    <dt>Action</dt><dd>{{ run_status.action }}</dd>
+    {% if advanced_mode %}<dt>Action</dt><dd>{{ run_status.action }}</dd>{% endif %}
     <dt>Status</dt><dd><span class="status status-{{ run_status.status }}">{{ run_status.status }}</span></dd>
-    {% if run_status.started_at %}<dt>Started</dt><dd>{{ run_status.started_at }}</dd>{% endif %}
+    {% if advanced_mode and run_status.started_at %}<dt>Started</dt><dd>{{ run_status.started_at }}</dd>{% endif %}
     {% if run_status.completed_at %}<dt>Completed</dt><dd>{{ run_status.completed_at }}</dd>{% endif %}
     <dt>Message</dt><dd>{{ run_status.message }}</dd>
     {% if run_status.error %}<dt>Error</dt><dd class="issue">{{ run_status.error }}</dd>{% endif %}

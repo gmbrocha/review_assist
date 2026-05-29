@@ -1,36 +1,45 @@
 {% extends "base.html" %}
 
-{% block title %}Project Setup - Review Assist{% endblock %}
+{% block title %}Setup - Review Assist{% endblock %}
 
 {% block content %}
 <section class="page-heading">
-  <h1>Project Setup</h1>
-  <p>Stage local inputs, commit them into the existing project convention, and classify configured inputs through the backend service.</p>
+  <h1>Setup</h1>
+  <p>Add project files, commit them to the project, and check that the main project geometry is ready.</p>
 </section>
 
 <section class="summary-grid">
-  <div class="metric"><span>Manifest</span><strong>{{ 'valid' if setup.manifest_exists else 'draft' }}</strong></div>
+  <div class="metric"><span>Project File</span><strong>{{ 'ready' if setup.manifest_exists else 'draft' }}</strong></div>
   <div class="metric"><span>Staged Files</span><strong>{{ setup.staged_input_count }}</strong></div>
   <div class="metric"><span>Committed Inputs</span><strong>{{ setup.committed_input_count }}</strong></div>
-  <div class="metric"><span>Classification</span><strong>{{ setup.classification.status }}</strong></div>
-  <div class="metric"><span>KMZ Ready</span><strong>{{ 'yes' if setup.required_kmz_present else 'no' }}</strong></div>
+  <div class="metric"><span>Input Check</span><strong>{{ setup.classification.status }}</strong></div>
+  <div class="metric"><span>Project Geometry</span><strong>{{ 'ready' if setup.required_kmz_present else 'needed' }}</strong></div>
 </section>
 
+{% if dev_ui_enabled %}
 {% with run_status=setup.latest_run %}
   {% include "run_status.html" %}
 {% endwith %}
+{% endif %}
 
 {% if setup.blockers %}
 <section class="panel">
   <h2>Setup Blockers</h2>
   <ul class="issue-list">
     {% for blocker in setup.blockers %}
-      <li>{{ blocker.message }} <span class="muted">({{ blocker.code }})</span></li>
+      <li>
+        {% if advanced_mode %}
+          {{ blocker.message }} <span class="muted">({{ blocker.code }})</span>
+        {% else %}
+          {{ blocker.message|replace('config/project.json', 'the project file') }}
+        {% endif %}
+      </li>
     {% endfor %}
   </ul>
 </section>
 {% endif %}
 
+{% if dev_ui_enabled %}
 <section class="panel">
   <h2>Current Input State</h2>
   <dl class="details">
@@ -40,66 +49,66 @@
     <dt>Required project KMZ</dt><dd>{{ 'present' if setup.required_kmz_present else 'missing' }}</dd>
   </dl>
 </section>
+{% endif %}
 
 <section class="panel">
-  <h2>Upload To Staging</h2>
+  <h2>Add Input Files</h2>
   <form method="post" action="{{ url_for('upload_inputs') }}" enctype="multipart/form-data" class="review-form">
     <label>Input files
       <input type="file" name="files" multiple>
     </label>
-    <button class="primary" type="submit">Stage Uploads</button>
+    <button class="primary" type="submit">Add Files</button>
   </form>
-  <p class="muted">Supported initial uploads follow existing input conventions: KMZ/KML project geometry, GIS/source files, documents, and imagery/basemap files. Filenames must be simple local filenames.</p>
+  <p class="muted">Supported uploads include KMZ/KML project geometry, GIS/source files, documents, and imagery/basemap files.</p>
 </section>
 
 <section class="table-section">
   <h2>Staged Files</h2>
   <table>
-    <thead><tr><th>File</th><th>Role</th><th>Size</th><th>Path</th></tr></thead>
+    <thead><tr><th>File</th><th>Detected Role</th><th>Size</th>{% if advanced_mode %}<th>Path</th>{% endif %}</tr></thead>
     <tbody>
       {% for item in setup.staged_inputs %}
       <tr>
         <td>{{ item.filename }}</td>
         <td>{{ item.proposed_role }}</td>
         <td>{{ item.size_bytes }}</td>
-        <td><code>{{ item.relative_path }}</code></td>
+        {% if advanced_mode %}<td><code>{{ item.relative_path }}</code></td>{% endif %}
       </tr>
       {% else %}
-      <tr><td colspan="4" class="empty">No files are staged.</td></tr>
+      <tr><td colspan="{{ 4 if advanced_mode else 3 }}" class="empty">No files are staged.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   <form method="post" action="{{ url_for('commit_inputs') }}" class="inline-form">
-    <button type="submit" {% if not setup.staged_inputs %}disabled{% endif %}>Commit Staged Inputs</button>
+    <button type="submit" {% if not setup.staged_inputs %}disabled{% endif %}>Commit Input Files</button>
   </form>
   <form method="post" action="{{ url_for('classify_inputs') }}" class="inline-form">
-    <button type="submit" {% if not setup.manifest_exists %}disabled{% endif %}>Classify Committed Inputs</button>
+    <button type="submit" {% if not setup.manifest_exists %}disabled{% endif %}>Check Inputs</button>
   </form>
 </section>
 
 <section class="table-section">
   <h2>Committed Inputs</h2>
   <table>
-    <thead><tr><th>Path</th><th>Role</th><th>Classification</th><th>Confidence</th><th>Exists</th><th>Issues</th></tr></thead>
+    <thead><tr>{% if advanced_mode %}<th>Path</th>{% endif %}<th>File</th><th>Role</th><th>Input Check</th><th>Issues</th></tr></thead>
     <tbody>
       {% for item in setup.committed_inputs %}
       <tr>
-        <td><code>{{ item.path }}</code></td>
+        {% if advanced_mode %}<td><code>{{ item.path }}</code></td>{% endif %}
+        <td>{{ item.path.rsplit('/', 1)[-1] if item.path else 'Input file' }}</td>
         <td>{{ item.role }}</td>
         <td><span class="status">{{ item.classification }}</span>{% if item.requires_reviewer_confirmation %} <span class="tag">confirm</span>{% endif %}</td>
-        <td>{{ item.confidence or 'n/a' }}</td>
-        <td>{{ 'yes' if item.exists else 'no' }}</td>
         <td>{{ item.issue_count }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="empty">No inputs have been committed into config/project.json.</td></tr>
+      <tr><td colspan="{{ 5 if advanced_mode else 4 }}" class="empty">No inputs have been committed yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 
 <section class="panel">
-  <h2>Classification Summary</h2>
+  <h2>Input Check Summary</h2>
   {% if setup.classification.status == 'available' %}
   <dl class="details">
     <dt>Total inputs</dt><dd>{{ setup.classification.input_count }}</dd>
@@ -110,7 +119,7 @@
     <dt>Validation issues</dt><dd>{{ setup.classification.validation_issue_count }}</dd>
   </dl>
   {% else %}
-    <p class="empty">Input classification has not been generated. Commit staged inputs, then classify committed inputs.</p>
+    <p class="empty">Input checks have not been generated. Commit input files, then check inputs.</p>
   {% endif %}
 </section>
 {% endblock %}

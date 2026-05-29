@@ -1,17 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Export Readiness - Review Assist{% endblock %}
+{% block title %}Export - Review Assist{% endblock %}
 
 {% block content %}
 <section class="page-heading">
-  <h1>Export Readiness</h1>
-  <p>Reviewed export is blocked until the standard bounded review queue passes the review-complete gate.</p>
+  <h1>Export</h1>
+  <p>Create a draft preview package or a reviewed export after the review items are ready.</p>
   {% include "advanced_toggle.html" %}
 </section>
 
 <section class="summary-grid">
-  <div class="metric"><span>Gate</span><strong>{{ readiness.review_gate_status_label }}</strong>{% if advanced_mode %}<small>{{ readiness.review_gate_status }}</small>{% endif %}</div>
+  <div class="metric"><span>Export Status</span><strong>{{ readiness.review_gate_status_label }}</strong>{% if advanced_mode %}<small>{{ readiness.review_gate_status }}</small>{% endif %}</div>
+  {% if advanced_mode %}
   <div class="metric"><span>Export QA</span><strong>{{ readiness.export_qa_status_label }}</strong>{% if advanced_mode %}<small>{{ readiness.export_qa_status }}</small>{% endif %}</div>
+  {% endif %}
   <div class="metric"><span>Review Items</span><strong>{{ readiness.review_item_count }}</strong></div>
   <div class="metric"><span>Unreviewed</span><strong>{{ readiness.unreviewed_item_count }}</strong></div>
   <div class="metric"><span>Declined</span><strong>{{ readiness.declined_item_count }}</strong></div>
@@ -28,12 +30,12 @@
 <section class="panel">
   <h2>Actions</h2>
   <form method="post" action="{{ url_for('preview_export') }}" class="inline-form">
-    <button type="submit">Create Internal Preview</button>
+    <button type="submit">Preview Draft Package</button>
   </form>
   <form method="post" action="{{ url_for('reviewed_export') }}" class="inline-form">
     <button class="primary" type="submit" {% if not readiness.can_export %}disabled{% endif %}>Create Reviewed Export</button>
   </form>
-  <p class="muted">Internal preview is pre-review and separate from reviewed export.</p>
+  <p class="muted">Draft previews are pre-review and separate from reviewed exports.</p>
 </section>
 
 {% if readiness.blockers %}
@@ -54,6 +56,7 @@
 </section>
 {% endif %}
 
+{% if dev_ui_enabled %}
 <section class="panel">
   <h2>Export QA</h2>
   {% if readiness.export_qa %}
@@ -70,6 +73,7 @@
     <p class="empty">No export QA summary has been recorded yet. Run an internal preview after the review queue exists.</p>
   {% endif %}
 </section>
+{% endif %}
 
 {% if advanced_mode %}
 <section class="panel">
@@ -86,6 +90,7 @@
 </section>
 {% endif %}
 
+{% if dev_ui_enabled %}
 <section class="panel">
   <h2>Final Verification</h2>
   {% if readiness.final_verification %}
@@ -100,5 +105,25 @@
   {% else %}
     <p class="empty">No final verification summary has been recorded yet.</p>
   {% endif %}
+</section>
+{% endif %}
+
+<section class="table-section">
+  <h2>Downloads</h2>
+  <table>
+    <thead><tr><th>File</th><th>Kind</th>{% if advanced_mode %}<th>Path</th>{% endif %}<th></th></tr></thead>
+    <tbody>
+      {% for artifact in outputs.artifacts %}
+      <tr>
+        <td>{{ artifact.label }}</td>
+        <td>{{ artifact.kind_label }}{% if advanced_mode %}<div class="muted"><code>{{ artifact.kind }}</code></div>{% endif %}</td>
+        {% if advanced_mode %}<td><code>{{ artifact.relative_path }}</code></td>{% endif %}
+        <td><a class="button" href="{{ url_for('artifact', project=selected_project_key, path=artifact.relative_path) }}">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="{{ 4 if advanced_mode else 3 }}" class="empty">No export files are available yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </section>
 {% endblock %}

@@ -13,13 +13,15 @@
   <div class="metric"><span>Review Status</span><strong><span class="status status-{{ item.workflow_status_tone }}">{{ item.workflow_status_label }}</span></strong>{% if advanced_mode %}<small>{{ item.status }}</small>{% endif %}</div>
   <div class="metric"><span>Content Status</span><strong><span class="status status-{{ item.readiness_status_tone }}">{{ item.readiness_status_label }}</span></strong>{% if advanced_mode %}<small>{{ item.readiness_status }}</small>{% endif %}</div>
   <div class="metric"><span>Export Eligible</span><strong>{{ 'yes' if item.export_eligible else 'no' }}</strong></div>
+  {% if advanced_mode %}
   <div class="metric"><span>Report Role</span><strong>{{ item.report_role_label }}</strong></div>
   <div class="metric"><span>Manual Status</span><strong>{{ item.manual_material.material_status_label }}</strong></div>
   <div class="metric"><span>Support</span><strong>{{ item.support_summary }}</strong></div>
   <div class="metric"><span>Validation</span><strong>{{ item.validation_issue_count }}</strong></div>
+  {% endif %}
 </section>
 
-{% if item.render_decision != 'include_body' %}
+{% if advanced_mode and item.render_decision != 'include_body' %}
 <section class="panel">
   <h2>Report Role Policy</h2>
   <dl class="details">
@@ -37,12 +39,12 @@
 
 {% if item.manual_material.material_status != 'not_used' %}
 <section class="panel">
-  <h2>Manual Material</h2>
+  <h2>Reviewer-Supplied Material</h2>
   <dl class="details">
     <dt>Status</dt><dd>{{ item.manual_material.material_status_label }}</dd>
-    <dt>Export Behavior</dt><dd>{{ item.manual_material.export_behavior_label }}</dd>
     <dt>Reviewer Action</dt><dd>{{ item.manual_material.reviewer_action }}</dd>
     {% if advanced_mode %}
+      <dt>Export Behavior</dt><dd>{{ item.manual_material.export_behavior_label }}</dd>
       <dt>Type</dt><dd>{{ item.manual_material.material_type }}</dd>
       <dt>Raw Status</dt><dd>{{ item.manual_material.material_status }}</dd>
       <dt>Source Refs</dt><dd>{{ item.manual_material.source_refs|join(', ') if item.manual_material.source_refs else 'None recorded' }}</dd>
@@ -53,7 +55,7 @@
 
 {% if not item.is_figure %}
 <section class="panel">
-  <h2>Reviewed Content Candidate</h2>
+  <h2>Review Content</h2>
   <pre class="content-preview">{{ item.generated_content or 'No generated content recorded.' }}</pre>
 </section>
 {% endif %}
@@ -61,7 +63,7 @@
 {% if item.table_preview.table_id %}
 <section class="table-section">
   <h2>Table Preview</h2>
-  <p class="muted">Preview rows only; full table detail remains in the deliverable table artifact.</p>
+  {% if dev_ui_enabled %}<p class="muted">Preview rows only; full table detail remains in the deliverable table artifact.</p>{% endif %}
   <table>
     <thead>
       <tr>{% for column in item.table_preview.columns %}<th>{{ column }}</th>{% endfor %}</tr>
@@ -93,19 +95,19 @@
   </dl>
   <div class="form-actions">
     {% if item.queue_index is not none and not advanced_mode %}
-      <a class="button" href="{{ url_for('figure_style_editor_by_index', item_index=item.queue_index) }}">Open Figure Style Editor</a>
+      <a class="button" href="{{ url_for('figure_style_editor_by_index', item_index=item.queue_index) }}">Open Figure Editor</a>
     {% else %}
-      <a class="button" href="{{ url_for('figure_style_editor', item_id=item.id, advanced=1 if advanced_mode else none) }}">Open Figure Style Editor</a>
+      <a class="button" href="{{ url_for('figure_style_editor', item_id=item.id, advanced=1 if advanced_mode else none) }}">Open Figure Editor</a>
     {% endif %}
   </div>
 </section>
 {% endif %}
 
 <section class="panel">
-  <h2>Evidence And Validation Summary</h2>
+  <h2>Source And Review Notes</h2>
   <dl class="details">
     <dt>Support</dt><dd>{{ item.support_summary }}</dd>
-    <dt>Comparison Units</dt><dd>{{ item.comparison_unit_ids|length }} recorded</dd>
+    {% if advanced_mode %}<dt>Comparison Units</dt><dd>{{ item.comparison_unit_ids|length }} recorded</dd>{% endif %}
     {% if advanced_mode %}
       <dt>Source Refs</dt><dd>{{ item.source_refs|join(', ') if item.source_refs else 'None recorded' }}</dd>
       <dt>Related Tables</dt><dd>{{ item.related_table_ids|join(', ') if item.related_table_ids else 'None recorded' }}</dd>
@@ -126,10 +128,10 @@
 
 {% if item.provenance.gpt_interpretive_assist.enabled %}
 <section class="panel">
-  <h2>GPT Assist</h2>
+  <h2>Draft Text</h2>
   <p class="muted">GPT-assisted content remains a review candidate and is not export eligible until a reviewer accepts or edits it.</p>
   <dl class="details">
-    <dt>Review Before Export</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist.review_before_export else 'no' }}</dd>
+    <dt>Reviewer Check Required</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist.review_before_export else 'no' }}</dd>
     {% if advanced_mode %}
       <dt>Model</dt><dd>{{ item.provenance.gpt_interpretive_assist.model }}</dd>
       <dt>Cached</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist.cached else 'no' }}</dd>
@@ -151,12 +153,12 @@
 
 {% if item.provenance.gpt_interpretive_assist_fallback.enabled %}
 <section class="panel">
-  <h2>GPT Assist Fallback</h2>
-  <p class="muted">GPT Assist was attempted, but deterministic source-backed content was retained for review.</p>
+  <h2>Draft Text Attempt</h2>
+  <p class="muted">Draft text was attempted; source-backed content was kept for review.</p>
   <dl class="details">
-    <dt>Reason</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.reason or 'Not recorded' }}</dd>
-    <dt>Review Before Export</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist_fallback.review_before_export else 'no' }}</dd>
-    <dt>Deterministic Content Retained</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist_fallback.deterministic_content_retained else 'no' }}</dd>
+    {% if advanced_mode %}<dt>Reason</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.reason or 'Not recorded' }}</dd>{% endif %}
+    <dt>Reviewer Check Required</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist_fallback.review_before_export else 'no' }}</dd>
+    <dt>Source-Backed Content Retained</dt><dd>{{ 'yes' if item.provenance.gpt_interpretive_assist_fallback.deterministic_content_retained else 'no' }}</dd>
     {% if advanced_mode %}
       <dt>Reason Code</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.reason_code or 'Not recorded' }}</dd>
       <dt>Model</dt><dd>{{ item.provenance.gpt_interpretive_assist_fallback.model }}</dd>
@@ -185,7 +187,7 @@
 
 {% if advanced_mode %}
 <section class="panel">
-  <h2>Advanced Debug Details</h2>
+  <h2>Developer Details</h2>
   <p class="muted">Read-only internal diagnostics for audit and development.</p>
   <dl class="details">
     <dt>Review Item ID</dt><dd><code>{{ item.id }}</code></dd>

@@ -83,7 +83,7 @@ def _tiny_png_upload(tmp_path: Path) -> io.BytesIO:
 
 
 def test_app_loads_with_no_selected_project_empty_state(app_client) -> None:
-    response = app_client.get("/overview")
+    response = app_client.get("/overview", follow_redirects=True)
 
     assert response.status_code == 200
     assert b"Select an existing project workspace" in response.data
@@ -107,7 +107,7 @@ def test_project_list_and_select(tmp_path: Path) -> None:
 
     response = client.post("/projects/select", data={"project_key": "project"}, follow_redirects=True)
     assert response.status_code == 200
-    assert b"Overview" in response.data
+    assert b"Generate" in response.data
     assert b"Test Project" in response.data
 
 
@@ -123,7 +123,7 @@ def test_safe_draft_project_creation_succeeds_without_manifest(tmp_path: Path) -
     project_dir = tmp_path / "fresh_project"
 
     assert response.status_code == 200
-    assert b"Project Setup" in response.data
+    assert b"Setup" in response.data
     assert (project_dir / "config" / "project_draft.json").exists()
     assert (project_dir / "staging" / "uploads").is_dir()
     assert (project_dir / "inputs").is_dir()
@@ -289,13 +289,16 @@ def test_commit_staged_inputs_creates_valid_manifest_and_classification(tmp_path
 
     assert response.status_code == 200
     text = response.data.decode()
+    dev_text = client.get("/setup?dev=1&advanced=1").data.decode()
     assert b"Committed 1 input" in response.data
-    assert "Latest Run Status" in text
-    assert "classify_inputs" in text
+    assert "Latest Activity" not in text
+    assert "Latest Activity" in dev_text
+    assert "classify_inputs" in dev_text
     assert "Committed Inputs" in text
-    assert "inputs/routes.kmz" in text
+    assert "inputs/routes.kmz" not in text
+    assert "inputs/routes.kmz" in dev_text
     assert "project_geometry" in text
-    assert "Classification Summary" in text
+    assert "Input Check Summary" in text
     assert manifest.project_id == "fresh_project"
     assert manifest.inputs[0].path == "inputs/routes.kmz"
     assert (project_dir / "inputs" / "routes.kmz").exists()
@@ -329,16 +332,19 @@ def test_missing_required_input_and_populate_failure_are_user_visible_without_tr
     client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
 
     setup = client.get("/setup")
+    dev_setup = client.get("/setup?dev=1&advanced=1")
     assert setup.status_code == 200
-    assert b"staged_input_missing" in setup.data
-    assert b"config/project.json" in setup.data
+    assert b"staged_input_missing" not in setup.data
+    assert b"staged_input_missing" in dev_setup.data
+    assert b"config/project.json" not in setup.data
+    assert b"config/project.json" in dev_setup.data
 
     response = client.post("/overview/populate", follow_redirects=True)
     status_path = tmp_path / "fresh_project" / "web_runs" / "latest_run.json"
     latest_run = json.loads(status_path.read_text(encoding="utf-8"))
 
     assert response.status_code == 200
-    assert b"Latest Run Status" in response.data
+    assert b"Latest Activity" in response.data
     assert b"failed" in response.data
     assert b"Traceback" not in response.data
     assert latest_run["action"] == "populate_for_review"
@@ -350,17 +356,20 @@ def test_overview_displays_workflow_readiness_ladder_and_setup_blockers(tmp_path
     client = app.test_client()
     client.post("/projects/create", data={"project_id": "fresh_project", "name": "Fresh Project"}, follow_redirects=True)
 
-    draft = client.get("/overview")
+    draft = client.get("/overview", follow_redirects=True)
     draft_text = draft.data.decode()
+    dev_text = client.get("/generate?dev=1&advanced=1").data.decode()
 
     assert draft.status_code == 200
-    assert "Workflow Readiness" in draft_text
-    assert "Project Manifest" in draft_text
-    assert "Input Classification" in draft_text
-    assert "Project Area" in draft_text
-    assert "Standard Review Queue" in draft_text
-    assert "Draft workspace only" in draft_text
-    assert 'disabled>Create Review Queue' in draft_text
+    assert "Generate" in draft_text
+    assert "Workflow Readiness" not in draft_text
+    assert "Workflow Readiness" in dev_text
+    assert "Project Manifest" in dev_text
+    assert "Input Classification" in dev_text
+    assert "Project Area" in dev_text
+    assert "Standard Review Queue" in dev_text
+    assert "Draft workspace only" in dev_text
+    assert 'disabled>Generate Review Items' in draft_text
 
     client.post(
         "/setup/upload",
@@ -369,13 +378,13 @@ def test_overview_displays_workflow_readiness_ladder_and_setup_blockers(tmp_path
         follow_redirects=True,
     )
     client.post("/setup/commit", follow_redirects=True)
-    committed = client.get("/overview")
+    committed = client.get("/generate?advanced=1")
     committed_text = committed.data.decode()
 
     assert committed.status_code == 200
     assert "1 input(s), 1 project geometry input(s)" in committed_text
     assert "Run Create Review Queue after setup blockers are cleared" in committed_text
-    assert 'disabled>Create Review Queue' not in committed_text
+    assert 'disabled>Generate Review Items' not in committed_text
 
 
 def test_overview_displays_project_populate_and_source_status(tmp_path: Path) -> None:
@@ -384,13 +393,14 @@ def test_overview_displays_project_populate_and_source_status(tmp_path: Path) ->
     client = app.test_client()
     _select_project(client)
 
-    response = client.get("/overview")
+    response = client.get("/generate")
 
     assert response.status_code == 200
     text = response.data.decode()
     assert "Test Project" in text
-    assert "Create Review Queue" in text
-    assert "Source Status" in text
+    assert "Generate Review Items" in text
+    assert "Data Sources" not in text
+    assert "Data Sources" in client.get("/generate?dev=1&advanced=1").data.decode()
     assert "Review Items" in text
 
 
@@ -413,7 +423,7 @@ def test_overview_displays_structured_validation_issue_details(tmp_path: Path) -
     client = app.test_client()
     _select_project(client)
 
-    response = client.get("/overview")
+    response = client.get("/overview", follow_redirects=True)
     text = response.data.decode()
 
     assert response.status_code == 200
@@ -430,18 +440,18 @@ def test_review_queue_default_uses_bounded_items_and_excludes_legacy_types(tmp_p
 
     response = client.get("/review")
     text = response.data.decode()
-    advanced = client.get("/review?advanced=1").data.decode()
+    advanced = client.get("/review?dev=1&advanced=1").data.decode()
 
     assert response.status_code == 200
     assert "deliverable_items" not in text
     assert "deliverable_items" in advanced
-    assert "Show advanced/debug details" in text
+    assert "Show developer details" not in text
     assert "draft_finding" not in text
     assert "spatial_relationship" not in text
     assert "source_inventory_note" not in text
     assert "comparison_table" not in text
-    assert "Report Role" in text
-    assert "Report body" in text
+    assert "Report Role" not in text
+    assert "Report body" not in text
     assert ">Render<" not in text
     assert "include_body" not in text
 
@@ -463,7 +473,7 @@ def test_review_queue_shows_separate_review_and_content_statuses(tmp_path: Path)
     _select_project(client)
 
     text = client.get("/review").data.decode()
-    advanced = client.get("/review?advanced=1").data.decode()
+    advanced = client.get("/review?dev=1&advanced=1").data.decode()
 
     assert "Review Status" in text
     assert "Content Status" in text
@@ -508,15 +518,17 @@ def test_advanced_debug_mode_persists_and_does_not_mutate_review_queue(tmp_path:
     client = app.test_client()
     _select_project(client)
 
-    advanced_review = client.get("/review?advanced=1").data.decode()
+    hidden_review = client.get("/review?advanced=1").data.decode()
+    advanced_review = client.get("/review?dev=1&advanced=1").data.decode()
     advanced_detail = client.get("/review/item/0").data.decode()
     default_again = client.get("/review?advanced=0").data.decode()
 
-    assert "Hide advanced/debug details" in advanced_review
-    assert "Advanced Debug Details" in advanced_detail
+    assert "Developer Details" not in hidden_review
+    assert "Hide developer details" in advanced_review
+    assert "Developer Details" in advanced_detail
     assert "Review Item ID" in advanced_detail
-    assert "Show advanced/debug details" in default_again
-    assert "Advanced Debug Details" not in default_again
+    assert "Show developer details" in default_again
+    assert "Developer Details" not in default_again
     assert queue_path.read_bytes() == before
 
 
@@ -555,7 +567,10 @@ def test_review_detail_displays_previews_not_full_table_rows(tmp_path: Path) -> 
     assert "Table Preview" in text
     assert "Alternative 004" in text
     assert "Alternative 059" not in text
-    assert "full table detail remains in the deliverable table artifact" in text
+    assert "full table detail remains in the deliverable table artifact" not in text
+    assert "full table detail remains in the deliverable table artifact" in client.get(
+        "/review/table-wetlands-waterbodies?dev=1&advanced=1"
+    ).data.decode()
 
 
 def test_review_detail_reads_canonical_queue_source_refs(tmp_path: Path) -> None:
@@ -579,7 +594,7 @@ def test_review_detail_reads_canonical_queue_source_refs(tmp_path: Path) -> None
 
     response = client.get("/review/water-quality")
     text = response.data.decode()
-    advanced = client.get("/review/water-quality?advanced=1").data.decode()
+    advanced = client.get("/review/water-quality?dev=1&advanced=1").data.decode()
 
     assert response.status_code == 200
     assert "mdeq_303d_impaired_waters" not in text
@@ -651,7 +666,7 @@ def test_figure_review_detail_uses_figure_specific_form(tmp_path: Path) -> None:
     assert "Edited Caption" in text
     assert "Upload New Figure" in text
     assert "Accept Final" in text
-    assert "Open Figure Style Editor" in text
+    assert "Open Figure Editor" in text
     assert "Edited content" not in text
     assert "Replacement content" not in text
     assert "Export eligible when unable to verify" not in text
@@ -677,11 +692,11 @@ def test_non_figure_review_detail_keeps_generic_review_form(tmp_path: Path) -> N
     text = response.data.decode()
 
     assert response.status_code == 200
-    assert "Reviewed Content Candidate" in text
+    assert "Review Content" in text
     assert "Edited content" in text
     assert "Replacement content" in text
     assert "Upload New Figure" not in text
-    assert "Open Figure Style Editor" not in text
+    assert "Open Figure Editor" not in text
 
 
 def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
@@ -692,26 +707,29 @@ def test_figure_style_editor_renders_for_figure_items(tmp_path: Path) -> None:
 
     response = client.get("/review/figure-wetlands-waterbodies/figure-style")
     text = response.data.decode()
-    advanced = client.get("/review/figure-wetlands-waterbodies/figure-style?advanced=1").data.decode()
+    advanced = client.get("/review/figure-wetlands-waterbodies/figure-style?dev=1&advanced=1").data.decode()
 
     assert response.status_code == 200
-    assert "Figure Style Editor" in text
+    assert "Figure Editor" in text
     assert "Current Figure Preview" in text
-    assert "Review Context" in text
+    assert "Review Context" not in text
+    assert "Review Context" in advanced
     assert "Source Refs" not in text
     assert "Evidence Refs" not in text
     assert "Source Refs" in advanced
     assert "Evidence Refs" in advanced
-    assert "Show advanced/debug details" in text
-    assert "Hide advanced/debug details" in advanced
-    assert "Basemap And Render Status" in text
-    assert "Validation Warnings" in text
+    assert "Show developer details" not in text
+    assert "Hide developer details" in advanced
+    assert "Basemap And Render Status" not in text
+    assert "Basemap And Render Status" in advanced
+    assert "Items Needing Attention" in text
     assert "No validation warnings recorded for this figure." in text
-    assert "Saved style drafts, regenerated versions, and figure-version approvals are project-local presentation metadata" in text
-    assert "Reviewed exports use approved or latest regenerated versions only after the standard figure review item is export-included" in text
+    assert "Figure style overrides are presentation metadata only" not in text
+    assert "Figure style overrides are presentation metadata only" in advanced
     assert "until Sprint 6.7" not in text
     assert "Export Eligible" in text
-    assert "Version History" in text
+    assert "Version History" not in text
+    assert "Version History" in advanced
     assert "Layer Styling" in text
     assert "figure_style_editor.js" in text
     assert "data-color-control" in text
@@ -959,10 +977,10 @@ def test_review_detail_displays_gpt_assist_provenance(tmp_path: Path) -> None:
 
     response = client.get("/review/wetlands-and-waterbodies")
     text = response.data.decode()
-    advanced = client.get("/review/wetlands-and-waterbodies?advanced=1").data.decode()
+    advanced = client.get("/review/wetlands-and-waterbodies?dev=1&advanced=1").data.decode()
 
     assert response.status_code == 200
-    assert "GPT Assist" in text
+    assert "Draft Text" in text
     assert "GPT-assisted content remains a review candidate" in text
     assert "gpt-test" not in text
     assert "15 total" not in text
@@ -989,11 +1007,12 @@ def test_review_detail_displays_gpt_assist_fallback_reason(tmp_path: Path) -> No
 
     response = client.get("/review/wetlands-and-waterbodies")
     text = response.data.decode()
-    advanced = client.get("/review/wetlands-and-waterbodies?advanced=1").data.decode()
+    advanced = client.get("/review/wetlands-and-waterbodies?dev=1&advanced=1").data.decode()
 
     assert response.status_code == 200
-    assert "GPT Assist Fallback" in text
-    assert "deterministic source-backed content was retained" in text
+    assert "Draft Text Attempt" in text
+    assert "deterministic source-backed content was retained" not in text
+    assert "Source-Backed Content Retained" in text
     assert "gpt_output_rejected" not in text
     assert "style_context_cited_as_evidence" not in text
     assert "13 total" not in text
@@ -1010,15 +1029,16 @@ def test_section_review_detail_displays_related_table_figure_and_evidence_refs(t
 
     response = client.get("/review/wetlands-and-waterbodies")
     text = response.data.decode()
-    advanced = client.get("/review/wetlands-and-waterbodies?advanced=1").data.decode()
+    advanced = client.get("/review/wetlands-and-waterbodies?dev=1&advanced=1").data.decode()
 
     assert response.status_code == 200
     assert "table-wetlands-waterbodies" in text
     assert "figure-wetlands-waterbodies" in text
     assert "section_evidence:wetlands-and-waterbodies" not in text
     assert "section_evidence:wetlands-and-waterbodies" in advanced
-    assert "Report Role" in text
-    assert "Report body" in text
+    assert "Report Role" not in text
+    assert "Report Role" in advanced
+    assert "Report body" not in text
     assert "<strong>include_body</strong>" not in text
     assert "<span>Table</span><strong>none</strong>" not in text
     assert "<span>Figure</span><strong>none</strong>" not in text
@@ -1240,18 +1260,20 @@ def test_preview_export_shows_compactness_and_final_verification(tmp_path: Path)
 
     response = client.post("/export/preview", follow_redirects=True)
     text = response.data.decode()
-    advanced = client.get("/export?advanced=1").data.decode()
+    advanced = client.get("/export?dev=1&advanced=1").data.decode()
 
     assert response.status_code == 200
-    assert "Internal preview export created" in text
+    assert "Draft package preview created" in text
     assert "Compactness Budget" not in text
     assert "Compactness Budget" in advanced
-    assert "Final Verification" in text
+    assert "Final Verification" not in text
+    assert "Final Verification" in advanced
     assert "preview_bypassed" not in text
     assert "preview_bypassed" in advanced
-    assert "Latest Run Status" in text
-    assert "preview_export" in text
-    assert "Started" in text
+    assert "Latest Activity" in text
+    assert "preview_export" not in text
+    assert "preview_export" in advanced
+    assert "Started" not in text
     assert "Completed" in text
     assert "Artifact" not in text
     assert "Artifact" in advanced
@@ -1282,7 +1304,7 @@ def test_reviewed_export_failure_and_success_status_without_traceback(tmp_path: 
     assert success_status["status"] == "completed"
 
 
-def test_outputs_expose_manifest_artifacts_without_path_traversal(tmp_path: Path) -> None:
+def test_export_downloads_expose_manifest_artifacts_without_path_traversal(tmp_path: Path) -> None:
     project_dir = _populated_project(tmp_path)
     set_review_states(project_dir)
     manifest = export_report(project_dir, output_format="both")
@@ -1290,10 +1312,13 @@ def test_outputs_expose_manifest_artifacts_without_path_traversal(tmp_path: Path
     client = app.test_client()
     _select_project(client)
 
-    outputs = client.get("/outputs")
+    outputs = client.get("/export")
+    legacy_outputs = client.get("/outputs", follow_redirects=True)
     assert outputs.status_code == 200
     assert b"environmental_constraints_report.md" in outputs.data
     assert b"environmental_constraints_report.docx" in outputs.data
+    assert b"Downloads" in outputs.data
+    assert b"environmental_constraints_report.md" in legacy_outputs.data
 
     relative_markdown = Path(manifest["markdown_path"]).resolve().relative_to(project_dir.resolve()).as_posix()
     ok = client.get(f"/artifact?project=project&path={relative_markdown}")
@@ -1322,10 +1347,10 @@ def test_fresh_project_flow_reaches_standard_bounded_review_queue(tmp_path: Path
     review_text = review.data.decode()
 
     assert populated.status_code == 200
-    assert b"Create Review Queue completed" in populated.data
+    assert b"Generated" in populated.data
     assert review.status_code == 200
     assert "deliverable_items" not in review_text
-    assert "Standard review" in review_text
+    assert "Standard" in review_text
     assert "draft_finding" not in review_text
     assert "spatial_relationship" not in review_text
     assert "source_inventory_note" not in review_text
@@ -1370,12 +1395,15 @@ def test_process_log_panel_and_api_capture_create_queue(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(adapter, "populate_for_review", fake_populate)
 
-    overview = client.get("/overview")
+    default_generate = client.get("/generate")
+    overview = client.get("/generate?dev=1")
     response = client.post("/overview/populate", follow_redirects=True)
     logs = client.get("/api/logs?tail=50")
     payload = logs.get_json()
     lines = "\n".join(payload["lines"])
 
+    assert default_generate.status_code == 200
+    assert b"Process Log" not in default_generate.data
     assert overview.status_code == 200
     assert b"Process Log" in overview.data
     assert b"process_log.js" in overview.data
@@ -1395,15 +1423,15 @@ def test_overview_exposes_dev_review_queue_reset_with_confirmation(tmp_path: Pat
     client = app.test_client()
     _select_project(client)
 
-    overview = client.get("/overview")
+    overview = client.get("/generate")
     blocked = client.post("/overview/reset-review-queue", follow_redirects=True)
 
     assert overview.status_code == 200
-    assert b"Refresh artifacts and rebuild queue" in overview.data
-    assert b"refreshes deterministic review artifacts" in overview.data
-    assert b"without source acquisition, NAIP acquisition, source materialization, or GPT drafting" in overview.data
+    assert b"Refresh Review Package" in overview.data
+    assert b"replaces generated review candidates" in overview.data
+    assert b"developer reset" not in overview.data
     assert blocked.status_code == 200
-    assert b"Confirm the developer reset" in blocked.data
+    assert b"Confirm the refresh" in blocked.data
 
 
 def test_overview_dev_review_queue_reset_calls_adapter(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -1488,16 +1516,17 @@ def test_gpt_interpretive_assist_controls_default_off(tmp_path: Path) -> None:
     client = app.test_client()
     _select_project(client)
 
-    response = client.get("/overview")
+    response = client.get("/generate")
     text = response.data.decode()
 
     assert response.status_code == 200
-    assert "GPT Interpretive Assist" in text
-    assert "GPT Assist" in text
-    assert "GPT controls are off." in text
-    assert "Turn On GPT Controls" in text
-    assert "Preview Planned Calls" in text
-    assert "Generate GPT Drafts" in text
+    assert "Draft Report Text" in text
+    assert "GPT Interpretive Assist" not in text
+    assert "GPT Assist" not in text
+    assert "Draft text controls are off." in text
+    assert "Turn On Draft Text" in text
+    assert "Check Planned Drafts" in text
+    assert "Draft Report Text" in text
     assert '<fieldset class="control-group" disabled>' in text
 
 
@@ -1518,7 +1547,7 @@ def test_gpt_interpretive_assist_generate_requires_toggle(monkeypatch: pytest.Mo
 
     assert response.status_code == 200
     assert called is False
-    assert b"Turn on GPT Interpretive Assist" in response.data
+    assert b"Turn on Draft Report Text" in response.data
 
 
 def test_gpt_interpretive_assist_generate_button_disabled_until_ready(
@@ -1537,14 +1566,17 @@ def test_gpt_interpretive_assist_generate_button_disabled_until_ready(
         follow_redirects=True,
     )
 
-    response = client.get("/overview")
+    response = client.get("/generate")
     text = response.data.decode()
 
     assert response.status_code == 200
-    assert "GPT Validated / Rejected" in text
-    assert "Deterministic Fallbacks" in text
-    assert "Preview Planned Calls" in text
-    assert '<button class="primary" type="submit" disabled>Generate GPT Drafts</button>' in text
+    assert "GPT Validated / Rejected" not in text
+    assert "Deterministic Fallbacks" not in text
+    assert "Check Planned Drafts" in text
+    assert '<button class="primary" type="submit" disabled>Draft Report Text</button>' in text
+    advanced = client.get("/generate?dev=1&advanced=1").data.decode()
+    assert "GPT Validated / Rejected" in advanced
+    assert "Deterministic Fallbacks" in advanced
 
 
 def test_gpt_interpretive_assist_non_dry_run_requires_ready_status(
@@ -1574,7 +1606,7 @@ def test_gpt_interpretive_assist_non_dry_run_requires_ready_status(
 
     assert response.status_code == 200
     assert called is False
-    assert b"GPT Interpretive Assist is not ready" in response.data
+    assert b"Draft Report Text is not ready" in response.data
 
 
 def test_gpt_interpretive_assist_explicit_submit_calls_adapter(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -1620,7 +1652,7 @@ def test_gpt_interpretive_assist_explicit_submit_calls_adapter(monkeypatch: pyte
     assert called["dry_run"] is True
     assert called["skip_existing"] is True
     assert called["source_backed_only"] is True
-    assert b"GPT dry run planned 1 section draft call" in response.data
+    assert b"Draft check planned 1 section draft call" in response.data
 
 
 def test_process_log_captures_gpt_draft_items(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
