@@ -19,6 +19,7 @@ Current archived sprint records include:
 - `docs/archive/sprints/SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`
 - `docs/archive/sprints/SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
 - `docs/archive/sprints/SPRINT_4_WEB_APP_AND_WIRING.md`
+- `docs/archive/sprints/STABILIZATION_PASS_BEFORE_NEXT_SPRINT.md`
 - `docs/archive/sprints/SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md`
 - `docs/archive/sprints/SPRINT_5_MIDPOINT_STABILIZATION.md`
 - `docs/archive/sprints/SPRINT_5_POST_IMPLEMENTATION_STABILIZATION_AUDIT.md`

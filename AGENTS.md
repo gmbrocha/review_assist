@@ -43,7 +43,9 @@ Before implementation, classify the change as `SAFE LAYER CHANGE`, `DOMAIN EXTEN
 
 ## Sprint Protocol
 
-For each sprint subunit unless the user changes the protocol:
+Current project mode: V1.0 implementation is complete and there is no active sprint. Default work should be testing, verification, bug fixing, documentation correction, and explicitly approved new-feature work only.
+
+Use the sprint protocol only when the user explicitly starts a new sprint/subunit or asks to resume a named sprint plan. For each sprint subunit unless the user changes the protocol:
 
 1. Inspect `git status`, commit the accepted checkpoint, and push.
 2. Implement exactly one sprint subunit.

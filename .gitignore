@@ -29,6 +29,7 @@ sources/**/*
 !sources/**/source_manifest.json
 temp_unzips/
 temp_zips/
+.tmp/
 
 # Generated outputs
 outputs/*

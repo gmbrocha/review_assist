@@ -352,20 +352,21 @@ Current baseline:
 - DOCX report at `projects/<project_id>/exports/environmental_constraints_report.docx`
 - Demo package manifest at `projects/<project_id>/exports/deliverable_package_manifest.json`
 
-Next export milestone:
+Post-V1.0 testing focus:
 
-- Continue improving DOCX layout fidelity, figure/table polish, and map panel/attachment organization against the example report template before adding PDF or final cartographic output.
+- Verify report package behavior on real projects and fix defects found during testing.
+- Treat DOCX layout fidelity, figure/table polish, map panel/attachment organization, PDF output, and final cartographic output as future-feature candidates that need explicit approval before implementation.
 
 ## Phase 8: Optional AI-Assisted Narrative Synthesis
 
-Status: initial section-drafting baseline implemented; broader AI workflows remain future work.
+Status: initial section-drafting baseline implemented. Broader AI workflows are future-feature candidates, not active implementation work.
 
 - [x] Add GPT section drafting from structured evidence after deterministic checks and review workflow are defined.
 - [x] Keep narrative synthesis traceable to source findings, table IDs, figure IDs, source refs, and evidence package path.
 - [x] Preserve uncertainty and human review requirements.
 - [x] Use LLMs for draft language without replacing source-backed analysis.
-- [ ] Add UI controls and reviewer-visible GPT provenance.
-- [ ] Add reviewer-requested rewrites after the review queue UI exists.
+- [ ] Add UI controls and reviewer-visible GPT provenance if explicitly approved.
+- [ ] Add reviewer-requested rewrites if explicitly approved.
 - [x] Add stronger unsupported-fact checks after MVP smoke review for final/no-impact/clearance/approval and field-verification claims.
 
 ## Still Out of Scope

@@ -4,11 +4,13 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 ## Active Sprint/Subunit
 
-- None. Sprint 8.1 is complete; the next sprint should be planned from the remaining reviewer-friction backlog.
+- None. V1.0 implementation is complete as of Sprint 8.1.
 
 ## Planned Sprint/Subunits
 
+- None. Current work is testing, verification, bug fixing, documentation correction, and explicitly approved new-feature work when needed.
 - Roadmap reference: `docs/sprints/ROADMAP.md`
+- Historical pre-Sprint 5 stabilization note is archived at `docs/archive/sprints/STABILIZATION_PASS_BEFORE_NEXT_SPRINT.md`.
 - Sprint 4 is archived. Use `docs/archive/sprints/SPRINT_4_WEB_APP_AND_WIRING.md` for historical web app scope.
 - Sprint 5 midpoint stabilization is archived. Use `docs/archive/sprints/SPRINT_5_MIDPOINT_STABILIZATION.md` for historical stabilization notes.
 - Sprint 5 post-implementation stabilization audit is archived. Use `docs/archive/sprints/SPRINT_5_POST_IMPLEMENTATION_STABILIZATION_AUDIT.md` for historical audit notes.
@@ -104,7 +106,7 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 - Sprint 7.6 Output Review And Report Shape Check: `docs/archive/sprints/SPRINT_7_6_OUTPUT_REVIEW_AND_REPORT_SHAPE_CHECK.md`
   - Reviewed the `projects/test_project_2` internal preview Markdown/DOCX/package shape and recorded compactness, figure, table, manual-gap, source-limitation, and export-shape findings without changing product code.
 - Sprint 7.7 Reviewer Friction Backlog: `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md`
-  - Converted Sprint 7.4 through 7.6 findings into a prioritized backlog; no P0 blocker was found, and P1/P2 items now drive the next sprint planning cycle.
+  - Converted Sprint 7.4 through 7.6 findings into a prioritized backlog; no P0 blocker was found. Remaining items are maintenance or future-feature candidates, not an active sprint plan.
 - Sprint 7 Reviewer Trial And UI De-Dev Pass: `docs/archive/sprints/SPRINT_7_REVIEWER_TRIAL_AND_UI_DE_DEV_PASS.md`
   - Historical umbrella plan for Sprint 7 reviewer-facing UI polish, fresh-project trial, output review, and friction backlog work.
 - Sprint 8.1 Report Export Polish Before Real Runs: `docs/archive/sprints/SPRINT_8_1_REPORT_EXPORT_POLISH_BEFORE_REAL_RUNS.md`
@@ -114,5 +116,5 @@ Active sprint docs live in this directory. Completed sprint docs move to `docs/a
 
 See `docs/governance/DEFERRED_WORK.md` for full detail.
 
-- Sprint 4: no backend deferred item should be newly routed here by default; Sprint 4 should consume the resolved Sprint 2/3 service contracts through a thin UI.
-- Sprint 5: route source acquisition expansion, production review-state migration, GPT rewrite UX, and future figure work to deferred/future sprint items unless explicitly approved in the active subunit.
+- No active sprint routing is in effect.
+- Source acquisition expansion, production review-state migration, GPT rewrite UX, future figure work, and operations hardening remain deferred maintenance or future-feature candidates unless explicitly approved.

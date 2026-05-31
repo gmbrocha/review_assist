@@ -6,6 +6,12 @@ Review Assist is a service-first workflow for generating first-pass environmenta
 
 The system is not a recommendation engine, final environmental review, regulatory approval tool, or autonomous analyst.
 
+## Current Delivery Status
+
+Review Assist V1.0 is implementation-complete as of Sprint 8.1. There are no active or planned implementation sprints.
+
+Current work should be testing, verification, bug fixing, documentation correction, source/data validation, and explicitly approved new features when they are needed. Deferred-work records remain the durable backlog for known limitations and possible future enhancements, but they are not an active sprint plan.
+
 ## Current Sprint/Subunit
 
 - Completed: Sprint 1.1 Contract Foundation.
@@ -44,7 +50,7 @@ The system is not a recommendation engine, final environmental review, regulator
 - Completed: Sprint 7.6 Output Review And Report Shape Check.
 - Completed: Sprint 7.7 Reviewer Friction Backlog.
 - Completed: Sprint 8.1 Report Export Polish Before Real Runs.
-- Active next implementation target: next sprint planning from the remaining Sprint 7.7 / Sprint 8 friction backlog.
+- Active sprint/subunit: none.
 
 ## Active Architectural State
 
@@ -134,6 +140,7 @@ Important current artifacts:
 ## Known Immediate Constraints
 
 - Do not implement product code during documentation architecture tasks.
+- V1.0 is implementation-complete. Do not start new feature implementation from archived sprint notes or friction backlog items unless the user explicitly approves that work.
 - The web UI is still local-first Sprint 4 work: no authentication, deployment, multi-user workflow, archive flow, PDF export, advanced audit browser, background job system, or raw/audit review workflow is implemented.
 - The canonical deliverable matrix validates and now drives exact deliverable table, figure, deliverable item, bounded review queue generation, review-complete export gating, and package manifest review-gate summaries.
 - The canonical prompt config validates and is wired into standard deliverable item section drafting payloads. Legacy `drafts/report_sections.json` remains available for compatibility/audit context. Explicit GPT drafting updates the standard review queue only through a separate cached action/command and does not run from page load, queue regeneration, reset, or default populate.
@@ -147,6 +154,7 @@ Important current artifacts:
 - Missing/gated/manual/stale/failed sources must remain visible and reviewable.
 - Sprint 5 is complete. Sprint 5.1 created the package reconciliation ledger, kept `config/report_section_policy.json` canonical, added explicit section activation/review fields, made `relationship-with-pel-study` conditional/manual reviewer-supplied policy, and strengthened policy validation against source/table/figure contracts. Sprint 5.2 tightened extent wording semantics and presentation-only map/collar guardrails. Sprint 5.3 added source-needs/effective-truth mapping without source acquisition expansion. Sprint 5.4 added render gating/export selection metadata while preserving wetlands/waterbodies narrative children and stable deliverable/review item counts. Sprint 5.5 tightened GPT caveat/prohibited-claim guardrails without expanding GPT coverage. Sprint 5.6 added explicit table policies and table/figure policy metadata while preserving the current 4 table, 15 figure, and 3 attachment counts. Sprint 5.7 added manual/reviewer-supplied material metadata and review/export propagation without adding generalized uploads or source acquisition. Sprint 5.8 added policy-aware export QA and hard-blocked reviewed export on blocking QA errors while leaving reviewer override deferred. Sprint 5.9 verified the end-to-end preview and reviewed-export paths, closed the package ledger, and archived Sprint 5 planning docs. Future work must not implement source acquisition expansion, GPT coverage expansion, or deliverable count changes without explicit approval.
 - Sprint 6 is complete as a constrained reviewer figure-styling workflow. Sprint 6.1 audited the existing figure generation/review/export flow and confirmed the immutable analytical boundaries for style-only edits. Sprint 6.2 added project-local recipe, style override, render job, and figure version metadata. Sprint 6.3 and Sprint 6.4 added the reviewer-facing style editor and sparse draft override save/reset logic. Sprint 6.5 added review-only regenerated PNG versions from saved style overrides. Sprint 6.6 added exact-version approval metadata and editor actions. Sprint 6.7 resolved reviewed export figure assets through approved/regenerated figure versions while preserving review-gate semantics. Sprint 6.8 verified the figure style/version/export workflow and source-truth boundaries, then closed the sprint without adding new editor features.
+- Sprint 7 and Sprint 8.1 are complete. The remaining Sprint 7.7/Sprint 8 friction items are historical testing findings and should be treated as maintenance or future-feature candidates, not as the next automatic sprint.
 
 ## Context Routing
 

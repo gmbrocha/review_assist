@@ -1,5 +1,7 @@
 # Stabilization Pass Before Next Sprint
 
+Archived historical note. This pre-Sprint 5 stabilization record is not current project state; Review Assist V1.0 is now implementation-complete as of Sprint 8.1, and current direction lives in `docs/core/CURRENT_STATE.md`.
+
 ## Summary
 
 This pass stabilized the current Review Assist baseline before Sprint 5 report-policy integration work. The pass was audit-first and treated all implementation changes as `SAFE LAYER CHANGE`: no Sprint 5 report-policy, source-needs, GPT eligibility, table/figure policy, manual-material, or export-QA implementation was started.

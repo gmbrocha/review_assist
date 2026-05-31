@@ -22,6 +22,13 @@ Current archived planning records include:
 - `docs/archive/sprints/SPRINT_1_3_COMPARISON_UNITS_AND_ORCHESTRATION.md`
 - `docs/archive/sprints/SPRINT_2_1_SOURCE_PROFILE_AND_BASEMAPS.md`
 - `docs/archive/sprints/SPRINT_2_2_COMPARISON_CONSTRAINTS_AND_TABLES.md`
+- `docs/archive/sprints/SPRINT_2_3_FIGURES_EVIDENCE_AND_VALIDATION.md`
+- `docs/archive/sprints/SPRINT_3_REVIEW_EXPORT_AND_DOCX.md`
+- `docs/archive/sprints/SPRINT_3_1_DELIVERABLE_ITEMS_AND_REVIEW_QUEUE.md`
+- `docs/archive/sprints/SPRINT_3_2_EXPORT_GATE_AND_PACKAGE_COMMANDS.md`
+- `docs/archive/sprints/SPRINT_3_3_DOCX_FIDELITY_DOCS_AND_FINAL_VERIFICATION.md`
+- `docs/archive/sprints/SPRINT_4_WEB_APP_AND_WIRING.md`
+- `docs/archive/sprints/STABILIZATION_PASS_BEFORE_NEXT_SPRINT.md`
 - `docs/archive/sprints/SPRINT_5_0_PLANNING_DIFF_LOCK_AND_NUMBERING_DECISION.md`
 - `docs/archive/sprints/SPRINT_5_1_CANONICAL_POLICY_SCHEMA_RECONCILIATION.md`
 - `docs/archive/sprints/SPRINT_5_2_EXTENT_SEMANTICS_AND_WORDING_ENFORCEMENT.md`
@@ -46,3 +53,9 @@ Current archived planning records include:
 - `docs/archive/sprints/SPRINT_7_1_REVIEWER_FACING_UI_POLISH.md`
 - `docs/archive/sprints/SPRINT_7_2_REVIEW_STATUS_AND_BADGE_CLEANUP.md`
 - `docs/archive/sprints/SPRINT_7_3_ADVANCED_AND_DEBUG_VIEW_SEPARATION.md`
+- `docs/archive/sprints/SPRINT_7_4_FRESH_PROJECT_INTAKE_TRIAL.md`
+- `docs/archive/sprints/SPRINT_7_5_REAL_PROJECT_END_TO_END_SMOKE_TEST.md`
+- `docs/archive/sprints/SPRINT_7_6_OUTPUT_REVIEW_AND_REPORT_SHAPE_CHECK.md`
+- `docs/archive/sprints/SPRINT_7_7_REVIEWER_FRICTION_BACKLOG.md`
+- `docs/archive/sprints/SPRINT_7_REVIEWER_TRIAL_AND_UI_DE_DEV_PASS.md`
+- `docs/archive/sprints/SPRINT_8_1_REPORT_EXPORT_POLISH_BEFORE_REAL_RUNS.md`
