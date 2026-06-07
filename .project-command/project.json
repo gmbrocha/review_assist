@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "provisional-v1",
+  "id": "review-assist",
+  "displayName": "Review Assist",
+  "category": "shipped",
+  "status": "implementation-complete",
+  "summary": "Local, service-first workflow for generating source-backed first-pass environmental constraints review packages for mandatory human review.",
+  "priorityRank": null,
+  "repository": {
+    "type": "git",
+    "defaultBranch": "main"
+  },
+  "docs": {
+    "currentState": "docs/CURRENT_STATE.md",
+    "additional": [
+      "docs/core/CURRENT_STATE.md",
+      "README.md",
+      "AGENTS.md",
+      "docs/governance/DEFERRED_WORK.md"
+    ]
+  },
+  "urls": [
+    {
+      "label": "Local web UI",
+      "url": "http://127.0.0.1:8766",
+      "source": "README.md"
+    }
+  ],
+  "commands": [
+    {
+      "name": "install-dev",
+      "description": "Install the package and development dependencies into the repo-local virtual environment.",
+      "command": ".\\.venv\\Scripts\\python.exe -m pip install -e \".[dev]\""
+    },
+    {
+      "name": "test",
+      "description": "Run the pytest suite through the repo-local virtual environment.",
+      "command": ".\\.venv\\Scripts\\python.exe -m pytest"
+    },
+    {
+      "name": "verify",
+      "description": "Run the local readiness script.",
+      "command": ".\\scripts\\verify.ps1"
+    },
+    {
+      "name": "web",
+      "description": "Launch the local Flask/Jinja web UI shell.",
+      "command": ".\\.venv\\Scripts\\review-assist-web.exe"
+    },
+    {
+      "name": "validate-deliverable-matrix",
+      "description": "Validate the static deliverable matrix contract.",
+      "command": ".\\.venv\\Scripts\\review-assist.exe validate-deliverable-matrix"
+    },
+    {
+      "name": "validate-report-prompts",
+      "description": "Validate the report prompt contract and emit JSON.",
+      "command": ".\\.venv\\Scripts\\review-assist.exe validate-report-prompts --json"
+    }
+  ],
+  "tasks": {
+    "enabled": true,
+    "source": "docs/governance/DEFERRED_WORK.md"
+  },
+  "services": [
+    {
+      "name": "review-assist-web",
+      "role": "local Flask/Jinja web UI shell",
+      "startCommand": ".\\.venv\\Scripts\\review-assist-web.exe",
+      "stopCommand": null,
+      "healthUrl": null,
+      "logs": "process stdout/stderr",
+      "ports": [
+        8766
+      ],
+      "suite": "local-web"
+    }
+  ],
+  "infrastructureDependencies": [],
+  "notes": [
+    "Command Center registration is manual from Settings by repository path; this manifest does not create registry membership.",
+    "V1.0 is implementation-complete. Current work should be testing, verification, bug fixing, documentation correction, source/data validation, or explicitly approved new features.",
+    "The local web UI is local-first and unauthenticated; no hosted deployment or multi-user workflow is implemented.",
+    "The manifest follows a provisional Command Center V1 shape and should be reviewed when the final schema is implemented."
+  ],
+  "workspacePath": null,
+  "openPathOverride": null
+}

@@ -58,6 +58,14 @@ Use the sprint protocol only when the user explicitly starts a new sprint/subuni
 
 Any behavior-changing code needs a documentation review. Update only the docs that own the affected subsystem; use `docs/domains/README.md` to route domain docs.
 
+## Command Center Current-State Sync
+
+Command Center reads `docs/CURRENT_STATE.md` as the project pulse for registration and re-entry. Command Center is read-only; the user or project agent updates project files, current-state docs, and manifests.
+
+After any commit or git state change made during an agent session, update `docs/CURRENT_STATE.md` before the final response. Git state changes include commits, amended commits, merges, rebases, pulls, meaningful branch switches, commit-preparation staging changes, `.project-command/project.json` changes, and service/runtime metadata changes that Command Center reads.
+
+Minimum sync behavior: update `Last updated: YYYY-MM-DD`, add one concise `Recent Activity` entry, and update `Current Status`, `Known Gaps`, `Next Actions`, or `Service Notes` only when materially changed. If the change is metadata-only, describe it as metadata-only. Do not imply product behavior changed. Do not invent project state; use `Unverified`, `Not reviewed`, or an explicit uncertainty note when needed.
+
 ## Python Environment Rule
 
 Review Assist uses the repo-local `.venv` as the only valid app environment. Global or system Python is not valid for checks, imports, tests, scripts, migrations, or app startup.

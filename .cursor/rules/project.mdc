@@ -1,0 +1,20 @@
+---
+description: Command Center project pulse and metadata sync rules
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Command Center Sync
+
+Command Center reads `docs/CURRENT_STATE.md` as the project pulse for registration and re-entry. Command Center is read-only; the user or project agent updates project files, current-state docs, and manifests.
+
+After any commit or git state change made during an agent session, update `docs/CURRENT_STATE.md` before the final response. Git state changes include commits, amended commits, merges, rebases, pulls, meaningful branch switches, commit-preparation staging changes, `.project-command/project.json` changes, and service/runtime metadata changes that Command Center reads.
+
+Minimum sync behavior:
+
+- Update `Last updated: YYYY-MM-DD`.
+- Add one concise `Recent Activity` entry.
+- Update `Current Status`, `Known Gaps`, `Next Actions`, or `Service Notes` only when materially changed.
+
+If the change is metadata-only, describe it as metadata-only. Do not imply product behavior changed. Do not invent project state; use `Unverified`, `Not reviewed`, or an explicit uncertainty note when needed.
